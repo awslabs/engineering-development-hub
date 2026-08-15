@@ -4,6 +4,7 @@
 import config
 import subprocess
 from flask import request
+from flask_babel import gettext as _
 from flask_restful import Resource, reqparse
 import logging
 import base64
@@ -34,7 +35,7 @@ class Job(Resource):
     @private_api
     @feature_flag(flag_name="HPC", mode="api")
     def get(self):
-        """
+        r"""
         Get information for a specific job
         ---
         openapi: 3.1.0
@@ -62,19 +63,19 @@ class Job(Resource):
             in: query
             schema:
               type: string
-              pattern: '^[0-9]+\.[a-zA-Z0-9_.-]+$'
+              pattern: '^[a-zA-Z0-9_.-]+$'
               minLength: 1
-            required: true
+            required: false
             description: ID of scheduler. Optional if only one scheduler is configured
             example: "openpbs-soca-default"
           - name: serialize
             in: query
             schema:
               type: string
-              pattern: 'true/false'
+              enum: ["true", "false"]
               minLength: 1
-            required: no
-            description: Choose whether you wnt to serialize output. recommended to true
+            required: false
+            description: Choose whether to serialize output. Recommended to set to true
             example: "true"
           - name: job_id
             in: query
@@ -216,6 +217,7 @@ class Job(Resource):
                 type: object
                 required:
                   - payload
+                  - interpreter
                 properties:
                   payload:
                     type: string
@@ -311,7 +313,7 @@ class Job(Resource):
     @private_api
     @feature_flag(flag_name="HPC", mode="api")
     def delete(self):
-        """
+        r"""
         Delete a job
         ---
         openapi: 3.1.0
@@ -350,9 +352,9 @@ class Job(Resource):
                     minLength: 1
                     description: ID of the job to delete
                     example: "123"
-                scheduler_id:
+                  scheduler_id:
                     type: string
-                    pattern: '^[0-9]+\.[a-zA-Z0-9_.-]+$'
+                    pattern: '^[a-zA-Z0-9_.-]+$'
                     minLength: 1
                     description: ID of the scheduler. Optional if only one scheduler is configured
                     example: "openpbs-soca-default"
@@ -448,7 +450,7 @@ class Job(Resource):
                 _delete_job_request = SocaHpcJobController(job=_job_info).delete_job()
                 if _delete_job_request.get("success") is True:
                     return SocaResponse(
-                        success=True, message=f"Job {_job_id}  deleted successfully"
+                        success=True, message=_(f"Job {_job_id}  deleted successfully")
                     ).as_flask()
                 else:
                     return SocaError.GENERIC_ERROR(

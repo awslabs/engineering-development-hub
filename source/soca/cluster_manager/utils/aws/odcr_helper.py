@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import time
 from typing import Optional, Literal
 from datetime import datetime, timedelta, timezone
 from utils.config import SocaConfig
+from utils.cast import SocaCastEngine
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.aws.ec2_helper import (
     describe_images,
@@ -22,6 +24,36 @@ from utils.datamodels.hpc.shared.job_resources import (
 
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
 logger = logging.getLogger("soca_logger")
+
+
+def get_cluster_custom_tags() -> list:
+    """Cluster custom tags from /configuration/CustomTags/ as [{Key,Value}] (Enabled only; [] on failure)."""
+    _out = []
+    try:
+        _resp = SocaConfig(key="/configuration/CustomTags/").get_value(
+            allow_unknown_key=True
+        )
+        if _resp.get("success") is True and _resp.get("message"):
+            _cast = SocaCastEngine(data=_resp.get("message")).autocast(
+                preserve_key_name=True
+            )
+            if _cast.get("success") is True and Validators.is_dict(_cast.get("message")):
+                for _tag in _cast.get("message").values():
+                    # Mirror instance tagging (ec2_helper): only Enabled tags land.
+                    if (
+                        Validators.is_dict(_tag)
+                        and _tag.get("Key")
+                        and _tag.get("Enabled")
+                    ):
+                        _out.append(
+                            {"Key": _tag["Key"], "Value": _tag.get("Value", "")}
+                        )
+    except Exception as _err:
+        logger.warning(
+            f"Unable to read /configuration/CustomTags/ for ODCR tagging, "
+            f"proceeding without custom tags: {_err}"
+        )
+    return _out
 
 
 def get_reservation_info_soca_capacity_reservation(
@@ -263,6 +295,15 @@ def create_capacity_reservation(
         {"Key": "edh:AssociatedStackId", "Value": capacity_reservation_name},
     ]
 
+    # Carry the cluster's custom tags on the ODCR so it matches the tag set of
+    # the instance it backs (/configuration/CustomTags/). edh:ClusterId is
+    # already present above. Skip custom keys colliding with a reserved tag
+    # (AWS rejects duplicate keys in TagSpecifications).
+    _reserved_keys = {_t["Key"] for _t in _odcr_tags}
+    _odcr_tags.extend(
+        _t for _t in get_cluster_custom_tags() if _t.get("Key") not in _reserved_keys
+    )
+
     # Provide an expiration date for the ODCR
     # This can be controlled via the kwargs
     if not end_date:
@@ -356,8 +397,132 @@ def create_capacity_reservation(
             )
 
         else:
+            # ----------------------------------------------------------------
+            # Wait for the ODCR to become *usably* active before returning.
+            #
+            # create_capacity_reservation returns as soon as the reservation is
+            # registered, but two independent lags can make a hardcoded "active"
+            # return premature:
+            #   (a) the pending->active control-plane transition is not
+            #       instantaneous in every region, and
+            #   (b) even after the EC2 control-plane reports 'active', the view
+            #       seen by a downstream consumer -- an EC2Fleet targeting this
+            #       CR via CapacityReservationTarget, provisioned through
+            #       CloudFormation -- can trail behind due to eventual
+            #       consistency between service layers.
+            # Either lag races the Fleet into a "Capacity Reservation <id> is
+            # not active" (HTTP 424) that rolls back the whole job/desktop stack.
+            #
+            # Two-part guard, both tunable via SocaConfig.
+            #   1. Stability loop -- require N *consecutive* 'active' reads
+            #      before trusting the state.
+            #   2. Settle buffer -- after the state is confirmed stable, dwell a
+            #      fixed window before returning, to absorb the cross-layer
+            #      eventual-consistency lag we cannot directly observe.
+            # ----------------------------------------------------------------
+            def _cr_activation_setting(
+                _suffix: str, _fallback: int, _minimum: int, _maximum: int
+            ) -> int:
+                # Success-gated int read, bounded by a floor AND a ceiling. On any
+                # failure (missing key, cast error / "auto" sentinel, non-int, below
+                # floor, or above ceiling) fall back to the safe default. The ceiling
+                # guards an operator fat-finger (e.g. a huge value) from turning the
+                # settle/poll into a dispatcher-blocking sleep.
+                _cfg = SocaConfig(
+                    key=f"/configuration/FeatureFlags/CapacityReservation/{_suffix}"
+                ).get_value(default=_fallback, allow_unknown_key=True, return_as=int)
+                _val = _cfg.get("message") if _cfg.get("success") is True else _fallback
+                if (
+                    Validators.is_int(_val) is False
+                    or Validators.is_int_greater_or_equal(_val, _minimum) is False
+                    or Validators.is_int_lower_or_equal(_val, _maximum) is False
+                ):
+                    _val = _fallback
+                return _val
+
+            _timeout_seconds = _cr_activation_setting("ActivationTimeoutSeconds", 120, 1, 900)
+            _poll_interval_seconds = _cr_activation_setting(
+                "ActivationPollIntervalSeconds", 2, 1, 60
+            )
+            _required_stable_checks = _cr_activation_setting(
+                "ActivationStableChecks", 1, 1, 20
+            )
+            # Settle default is partition-aware ("auto"): the primary partition converges
+            # fast so a small cushion suffices; non-primary partitions (GovCloud/China/etc.)
+            # show real cross-layer lag between the control-plane and the Fleet view, so
+            # default higher. An explicit integer config value overrides; "auto"/unset/
+            # non-int falls back to this partition default.
+            _settle_partition = (
+                getattr(getattr(client_ec2, "meta", None), "partition", "aws") or "aws"
+            )
+            _settle_default = 20 if _settle_partition != "aws" else 10
+            _settle_seconds = _cr_activation_setting(
+                "ActivationSettleSeconds", _settle_default, 0, 300
+            )
+
             logger.info(
-                f"Capacity available. {probe_capacity_only=} so {_reservation_id=} is not cancelled, returning reservation ID"
+                f"Waiting for ODCR {_reservation_id} to become active and stable "
+                f"(require {_required_stable_checks} consecutive active reads, poll every "
+                f"{_poll_interval_seconds}s, {_timeout_seconds}s timeout, then a "
+                f"{_settle_seconds}s settle buffer)"
+            )
+
+            _active_deadline = datetime.now(timezone.utc) + timedelta(
+                seconds=_timeout_seconds
+            )
+            _current_state = "pending"
+            _consecutive_active = 0
+            _confirmed_active = False
+            while datetime.now(timezone.utc) < _active_deadline:
+                try:
+                    _crs = client_ec2.describe_capacity_reservations(
+                        CapacityReservationIds=[_reservation_id]
+                    ).get("CapacityReservations", [])
+                    _current_state = _crs[0].get("State", "pending") if _crs else "pending"
+                except ClientError as _derr:
+                    logger.warning(
+                        f"describe_capacity_reservations during readiness wait failed for "
+                        f"{_reservation_id}: {_derr}"
+                    )
+                    _current_state = "pending"
+
+                if _current_state == "active":
+                    _consecutive_active += 1
+                    if _consecutive_active >= _required_stable_checks:
+                        _confirmed_active = True
+                        break
+                else:
+                    # Any non-active read breaks the consecutive-active streak.
+                    _consecutive_active = 0
+                    if _current_state in ("cancelled", "failed", "expired"):
+                        return SocaError.GENERIC_ERROR(
+                            helper=f"Capacity reservation {_reservation_id} reached terminal "
+                            f"state {_current_state} before becoming active"
+                        )
+                time.sleep(_poll_interval_seconds)
+
+            if _confirmed_active is False:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Capacity reservation {_reservation_id} did not reach a stable "
+                    f"'active' state within {_timeout_seconds}s (last observed state: "
+                    f"{_current_state}, {_consecutive_active}/{_required_stable_checks} "
+                    f"consecutive active reads); not returning it to avoid a downstream "
+                    f"'not active' launch failure"
+                )
+
+            # Settle buffer: control-plane is confirmed active and stable; give the
+            # downstream Fleet/CFN view a bounded window to converge before we hand
+            # off the reservation id. No-op when ActivationSettleSeconds is 0.
+            if _settle_seconds > 0:
+                logger.info(
+                    f"ODCR {_reservation_id} confirmed active and stable; applying "
+                    f"{_settle_seconds}s settle buffer before returning"
+                )
+                time.sleep(_settle_seconds)
+
+            logger.info(
+                f"Capacity available and ODCR active. {probe_capacity_only=} so {_reservation_id=} "
+                f"is not cancelled, returning reservation ID"
             )
             return SocaResponse(
                 success=True,
@@ -377,3 +542,47 @@ def create_capacity_reservation(
         return SocaError.GENERIC_ERROR(
             helper=f"Unable to create capacity reservation due to {e}"
         )
+
+
+def retarget_instance_to_capacity_reservation(
+    instance_id: str,
+    capacity_reservation_id: str,
+) -> SocaResponse:
+    """Verify the CR is active then retarget the instance to it.
+
+    Returns SocaResponse(success=True) on success, or SocaError if the CR
+    is not active or the modify call fails.
+    """
+    try:
+        _cr_desc = client_ec2.describe_capacity_reservations(
+            CapacityReservationIds=[capacity_reservation_id]
+        ).get("CapacityReservations", [])
+        _cr_state = _cr_desc[0].get("State", "unknown") if _cr_desc else "unknown"
+    except ClientError as e:
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to describe CR {capacity_reservation_id}: {e}"
+        )
+
+    if _cr_state.lower() != "active":
+        return SocaError.GENERIC_ERROR(
+            helper=f"CR {capacity_reservation_id} is {_cr_state}, expected active"
+        )
+
+    try:
+        client_ec2.modify_instance_capacity_reservation_attributes(
+            InstanceId=instance_id,
+            CapacityReservationSpecification={
+                "CapacityReservationTarget": {
+                    "CapacityReservationId": capacity_reservation_id
+                }
+            },
+        )
+    except ClientError as e:
+        return SocaError.GENERIC_ERROR(
+            helper=f"Failed to retarget {instance_id} to {capacity_reservation_id}: {e}"
+        )
+
+    logger.info(
+        f"Instance {instance_id} retargeted to CR {capacity_reservation_id}"
+    )
+    return SocaResponse(success=True, message=capacity_reservation_id)

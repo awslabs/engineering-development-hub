@@ -34,6 +34,22 @@ from utils.hpc.scheduler_command_builder import (
 logger = logging.getLogger("soca_logger")
 
 
+def _parse_pbs_time(value) -> Optional[int]:
+    # PBS times are formatted strings ("Wed Mar 18 20:23:04 2026"); some fields (obittime) may be epoch ints
+    if value is None:
+        return None
+    _cast_int = SocaCastEngine(data=value).cast_as(int)
+    if _cast_int.get("success") is True:
+        return _cast_int.get("message")
+    _cast_str = SocaCastEngine(data=value).cast_as(str)
+    if _cast_str.get("success") is True:
+        try:
+            return int(datetime.strptime(_cast_str.get("message"), "%a %b %d %H:%M:%S %Y").timestamp())
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def get_job_orchestration_mapping(value: str) -> SocaHpcJobOrchestrationMethod:
     # translate user-specified value into SocaHpcJobOrchestrationMethod
 
@@ -221,10 +237,11 @@ class SocaHpcJobFetcher:
         queue: Optional[str] = None,
         user: Optional[str] = None,
         job_id: Optional[str] = None,
+        include_finished: bool = False,
     ) -> SocaResponse:
 
         logger.debug(
-            f"Received get_all_jobs request with {queue=} / {user=} / {job_id=}"
+            f"Received get_all_jobs request with {queue=} / {user=} / {job_id=} / {include_finished=}"
         )
 
         # Scheduler generic filters
@@ -236,10 +253,12 @@ class SocaHpcJobFetcher:
         ]:
 
             # PBS does not natively have a flag to list only jobs in a specific queue / users then output as json. Post-processing will be done automatically
+            # -x includes finished/historical jobs (bounded by the scheduler's job_history_duration)
             _job_id_option = f"{job_id}" if job_id else ""
+            _history_option = "-x" if include_finished else ""
             _run_command = SocaHpcPBSJobCommandBuilder(
                 scheduler_info=self.scheduler_info
-            ).qstat(args=f"-f -F json {_job_id_option}")
+            ).qstat(args=f"{_history_option} -f -F json {_job_id_option}")
 
         elif self.scheduler_info.provider == SocaHpcSchedulerProvider.LSF:
             _queue_option = f"-q {queue}" if queue else ""
@@ -1044,8 +1063,20 @@ class SocaHpcJobFetcher:
                 _job_pbs.stack_id = _v.get("Resource_List", {}).get("stack_id", None)
 
                 if _v.get("qtime", None) is not None:
-                    _dt = datetime.strptime(_v.get("qtime"), "%a %b %d %H:%M:%S %Y")
-                    _job_pbs.job_queue_time = int(_dt.timestamp())
+                    _job_pbs.job_queue_time = _parse_pbs_time(_v.get("qtime"))
+
+                # Normalized start/end (D3 timeline). stime appears once running; obittime on completion (-x)
+                _job_pbs.job_start_time = _parse_pbs_time(_v.get("stime"))
+                _end_time = _v.get("obittime")
+                _state_cast = SocaCastEngine(data=_v.get("job_state", "")).cast_as(str)
+                _state_str = (
+                    _state_cast.get("message").lower()
+                    if _state_cast.get("success") is True
+                    else ""
+                )
+                if _end_time is None and _state_str in ("f", "e"):
+                    _end_time = _v.get("mtime")
+                _job_pbs.job_end_time = _parse_pbs_time(_end_time)
 
                 _job_pbs.job_project = _v.get("Project", None)
                 if _v.get("job_state", None) is not None:

@@ -10,6 +10,7 @@ import re
 import math
 from views.file_explorer import decrypt
 from flask import render_template, request, redirect, session, flash, Blueprint
+from flask_babel import gettext as _
 from decorators import login_required, feature_flag
 
 from utils.aws.ec2_helper import describe_instance_types
@@ -17,6 +18,7 @@ from utils.datamodels.hpc.scheduler import get_schedulers
 from utils.jinjanizer import SocaJinja2Renderer
 from utils.http_client import SocaHttpClient
 from utils.datamodels.hpc.scheduler import SocaHpcSchedulerProvider
+from utils.hpc.scheduler_command_builder import SocaHpcPBSJobCommandBuilder
 
 logger = logging.getLogger("soca_logger")
 submit_job = Blueprint("submit_job", __name__, template_folder="templates")
@@ -35,7 +37,9 @@ def index():
     logger.info(f"Received submit_job GET request with {_input_file=}")
     if not _input_file:
         flash(
-            "What input file do you want to use? <hr> Navigate to the folder where your input file is located then click 'Use as Simulation Input' icon: <i class='fas fa-microchip fa-lg'  style='color: grey'></i>",
+            _(
+                "What input file do you want to use? Navigate to the folder where your input file is located then click 'Use as Simulation Input'"
+            ),
             "info",
         )
         return redirect("/file_explorer")
@@ -53,7 +57,7 @@ def index():
             f"Unable to list application_profiles for {_user} because of {_get_authorized_application_profiles.get('message')}"
         )
         flash(
-            "Unable to list applications. See logs for additional details",
+            _("Unable to list applications. See logs for additional details"),
             "error",
         )
         _application_profiles = {}
@@ -82,7 +86,7 @@ def job_submission():
     logger.info(f"Received submit_job POST request with {_app=} / {_input_file=}")
 
     if not _app or not _input_file:
-        flash("Missing required parameters (app and input_file).", "error")
+        flash(_("Missing required parameters (app and input_file)."), "error")
         return redirect("/submit_job")
 
     _get_authorized_application_profiles = SocaHttpClient(
@@ -98,7 +102,9 @@ def job_submission():
             f"Unable to list application profile {_app} for {_user} because of {_get_authorized_application_profiles.get('message')}"
         )
         flash(
-            f"Unable to list application profile {_app}. See logs for additional details.",
+            _(
+                f"Unable to list application profile {_app}. See logs for additional details."
+            ),
             "error",
         )
         return redirect("/submit_job")
@@ -111,7 +117,9 @@ def job_submission():
     if _file_info.get("success") is False:
         logger.error(f"Unable to decrypt file {_input_file} due to {_file_info}")
         flash(
-            "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+            _(
+                "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+            ),
             "error",
         )
         return redirect("/submit_job")
@@ -133,7 +141,9 @@ def job_submission():
         except Exception as err:
             logger.error(f"Unable to read input  {_file_info} file path due to {err}")
             flash(
-                "Unable to extract input file information. See logs for additional details",
+                _(
+                    "Unable to extract input file information. See logs for additional details"
+                ),
                 "error",
             )
             return redirect("/submit_job")
@@ -148,7 +158,9 @@ def job_submission():
                 f"Unable to read application profile profile_form due to {err}"
             )
             flash(
-                "Unable to extract profile information. See logs for additional details",
+                _(
+                    "Unable to extract profile information. See logs for additional details"
+                ),
                 "error",
             )
             return redirect("/submit_job")
@@ -161,7 +173,9 @@ def job_submission():
                 f"Unable to read application profile profile_interpreter due to {err}"
             )
             flash(
-                "Unable to extract profile information. See logs for additional details",
+                _(
+                    "Unable to extract profile information. See logs for additional details"
+                ),
                 "error",
             )
             return redirect("/submit_job")
@@ -170,7 +184,9 @@ def job_submission():
         if not _profile_job:
             logger.error(f"Unable to read application profile profile_job due to {err}")
             flash(
-                "Unable to extract profile information. See logs for additional details",
+                _(
+                    "Unable to extract profile information. See logs for additional details"
+                ),
                 "error",
             )
 
@@ -180,7 +196,9 @@ def job_submission():
                 f"Unable to read application profile profile_name due to {err}"
             )
             flash(
-                "Unable to extract profile information. See logs for additional details",
+                _(
+                    "Unable to extract profile information. See logs for additional details"
+                ),
                 "error",
             )
 
@@ -207,7 +225,7 @@ def job_submission():
         logger.error(
             f"Unable to get application info: {_get_authorized_application_profiles}"
         )
-        flash("Application not found or user is not authorized.", "error")
+        flash(_("Application not found or user is not authorized."), "error")
         return redirect("/submit_job")
 
 
@@ -221,7 +239,7 @@ def send_job():
         _requested_cpus = int(_cpus)
     except ValueError:
         logger.error(f"Received cpus {_cpus=} is not a valid integer")
-        flash("cpus must be a valid integer", "error")
+        flash(_("cpus must be a valid integer"), "error")
         return redirect("/file_explorer")
 
     _instance_type = request.form.get("instance_type", "")
@@ -237,7 +255,8 @@ def send_job():
             f"Received job script {_job_script=} does not seems to be a valid base64. Error {err}"
         )
         flash(
-            "Unable to read the job script. See logs for additional details.", "error"
+            _("Unable to read the job script. See logs for additional details."),
+            "error",
         )
         return redirect("/file_explorer")
 
@@ -256,7 +275,7 @@ def send_job():
             logger.error(
                 f"Interpreter is HPC scheduler {_profile_interpreter} but instance_type is not set"
             )
-            flash("You must specify cpus and instance_type parameters", "error")
+            flash(_("You must specify cpus and instance_type parameters"), "error")
             return redirect("/file_explorer")
 
         # Calculate the number of nodes to be provisioned for the simulation
@@ -265,7 +284,9 @@ def send_job():
         )
         _match_ht_support = _pattern_ht_support.search(_job_to_submit)
         if _match_ht_support:
-            _ht_support_value = False if _match_ht_support.group(1).lower() == "false" else True
+            _ht_support_value = (
+                False if _match_ht_support.group(1).lower() == "false" else True
+            )
             logger.info(f"Found ht_support value to {_ht_support_value}")
         else:
             logger.info("ht_support not specified, default to False")
@@ -280,7 +301,7 @@ def send_job():
                 f"Unable to describe instance type {_instance_type} due to {_describe_instance_type}"
             )
             flash(
-                "Unable to describe instance type. See logs for additional details.",
+                _("Unable to describe instance type. See logs for additional details."),
                 "error",
             )
             return redirect("/file_explorer")
@@ -294,14 +315,16 @@ def send_job():
                     _cpu_per_system = instance_info["VCpuInfo"]["DefaultCores"]
 
         logger.info(
-                f"Instance type {_instance_type} has {_cpu_per_system} vCPUs per system due to {_ht_support_value=}"
-            )
+            f"Instance type {_instance_type} has {_cpu_per_system} vCPUs per system due to {_ht_support_value=}"
+        )
         if _cpu_per_system == 0:
             logger.error(
                 f"Unable to determine vCPU count for instance type {_instance_type}. VcpuInfo.DefaultVCpus not found for {_instance_type} in {_describe_instance_types}"
             )
             flash(
-                "Unable to determine vCPU count for instance type. See logs for additional details.",
+                _(
+                    "Unable to determine vCPU count for instance type. See logs for additional details."
+                ),
                 "error",
             )
             return redirect("/file_explorer")
@@ -322,7 +345,7 @@ def send_job():
             logger.info(
                 "Detected PBS job scheduler, Checking if job count is already specified"
             )
-            
+
             _check_job_node_count = re.search(r"#PBS -l select=(\d+)", _job_to_submit)
             if _check_job_node_count:
                 if str(_check_job_node_count.group(1)) != str(_requested_node_count):
@@ -357,13 +380,13 @@ def send_job():
                     )
                 logger.debug("Added node count, ncpus, and mpiprocs to job script")
 
-    elif _scheduler_info.provider == SocaHpcSchedulerProvider.LSF.value:
-        # tba
-        pass
+        elif _scheduler_info.provider == SocaHpcSchedulerProvider.LSF.value:
+            # tba
+            pass
 
-    elif _scheduler.provider == SocaHpcSchedulerProvider.SLURM.value:
-        # tba
-        pass
+        elif _scheduler_info.provider == SocaHpcSchedulerProvider.SLURM.value:
+            # tba
+            pass
 
     _job_script_parameters = {}
     for _param_name in request.form:
@@ -394,6 +417,27 @@ def send_job():
 
     logger.info(f"Found all Job Parameters; {_job_script_parameters}")
 
+    # PBS rejects `qsub -N` names with chars outside its allowed set (e.g. '@' from
+    # StarCCM+ filenames). Normalize the job_name form field before rendering the
+    # #PBS -N directive so the submit doesn't fail with 'illegal -N value'.
+    if (
+        is_hpc_scheduler
+        and _scheduler_info.provider
+        in (
+            SocaHpcSchedulerProvider.OPENPBS.value,
+            SocaHpcSchedulerProvider.PBSPRO.value,
+        )
+        and _job_script_parameters.get("job_name")
+    ):
+        _orig_job_name = _job_script_parameters["job_name"]
+        _job_script_parameters["job_name"] = SocaHpcPBSJobCommandBuilder(
+            scheduler_info=_scheduler_info
+        ).normalize_job_name(_orig_job_name)
+        if _job_script_parameters["job_name"] != _orig_job_name:
+            logger.info(
+                f"Normalized PBS job name {_orig_job_name!r} -> {_job_script_parameters['job_name']!r}"
+            )
+
     _render_job_payload = SocaJinja2Renderer().from_string(
         data=_job_to_submit, variables=_job_script_parameters
     )
@@ -403,10 +447,14 @@ def send_job():
     else:
         logger.error(f"Unable to render job payload due to {_render_job_payload}")
         flash(
-            "Unable to generate job script. See logs for additional details",
+            f"Unable to generate job script {_render_job_payload.get('message')}",
             "error",
         )
         return redirect("/my_jobs")
+
+    # Browser textareas (pre_exec/post_exec, etc.) submit CRLF line endings, which
+    # some schedulers reject. Normalize to LF-only so any multiline field is submit-safe.
+    _rendered_payload = _rendered_payload.replace("\r\n", "\n").replace("\r", "\n")
 
     _encoded_payload = base64.b64encode(_rendered_payload.encode()).decode()
 
@@ -421,14 +469,14 @@ def send_job():
     if _send_hpc_job.get("success") is True:
         logger.info(_send_hpc_job)
         flash(
-            f"Job submitted successfully: {_send_hpc_job.get('message')}",
+            _(f"Job submitted successfully: {_send_hpc_job.get('message')}"),
             "success",
         )
 
     else:
         logger.error(f"Unable to send HPC job due to {_send_hpc_job}")
         flash(
-            f"{_send_hpc_job.get('message')}",
+            _(f"{_send_hpc_job.get('message')}"),
             "error",
         )
 

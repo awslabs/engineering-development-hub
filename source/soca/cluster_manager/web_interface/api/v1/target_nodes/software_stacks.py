@@ -25,6 +25,7 @@ from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 from flask import request
+from flask_babel import gettext as _
 import base64
 from sqlalchemy.orm import joinedload
 import re
@@ -320,8 +321,22 @@ class TargetNodeSoftwareStacksManager(Resource):
         _launch_tenancy = args["launch_tenancy"]
         _launch_host = str(args["launch_host"]) if "launch_host" in args else None
         _thumbnail = request.files.get("thumbnail")
-        _target_node_profile_id = args["target_node_profile_id"]
-        _target_node_user_data_id = args["target_node_user_data_id"]
+        _target_node_profile_id_cast = SocaCastEngine(
+            data=args["target_node_profile_id"]
+        ).cast_as(int)
+        if _target_node_profile_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"target_node_profile_id must be a valid integer {args['target_node_profile_id']}"
+            ).as_flask()
+        _target_node_profile_id = _target_node_profile_id_cast.get("message")
+        _target_node_user_data_id_cast = SocaCastEngine(
+            data=args["target_node_user_data_id"]
+        ).cast_as(int)
+        if _target_node_user_data_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"target_node_user_data_id must be a valid integer {args['target_node_user_data_id']}"
+            ).as_flask()
+        _target_node_user_data_id = _target_node_user_data_id_cast.get("message")
         _user_data_variables = args.get("user_data_variables", "")
         _connection_string = args.get("connection_string", "")
         if _connection_string:
@@ -604,6 +619,8 @@ class TargetNodeSoftwareStacksManager(Resource):
             description: Missing authentication header
           '404':
             description: Software stack not found
+          '500':
+            description: Database error during deletion
         components:
           securitySchemes:
             socaAuth:
@@ -653,7 +670,7 @@ class TargetNodeSoftwareStacksManager(Resource):
 
             logger.info(f"AMI Label {_software_stack_id} deleted from SOCA")
             return SocaResponse(
-                success=True, message="Software Stack removed from SOCA"
+                success=True, message=_("Software Stack removed from SOCA")
             ).as_flask()
 
         else:
@@ -818,8 +835,22 @@ class TargetNodeSoftwareStacksManager(Resource):
         _launch_tenancy = args["launch_tenancy"]
         _launch_host = str(args["launch_host"]) if "launch_host" in args else None
         _thumbnail = request.files.get("thumbnail")
-        _target_node_profile_id = args["target_node_profile_id"]
-        _target_node_user_data_id = args["target_node_user_data_id"]
+        _target_node_profile_id_cast = SocaCastEngine(
+            data=args["target_node_profile_id"]
+        ).cast_as(int)
+        if _target_node_profile_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"target_node_profile_id must be a valid integer {args['target_node_profile_id']}"
+            ).as_flask()
+        _target_node_profile_id = _target_node_profile_id_cast.get("message")
+        _target_node_user_data_id_cast = SocaCastEngine(
+            data=args["target_node_user_data_id"]
+        ).cast_as(int)
+        if _target_node_user_data_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"target_node_user_data_id must be a valid integer {args['target_node_user_data_id']}"
+            ).as_flask()
+        _target_node_user_data_id = _target_node_user_data_id_cast.get("message")
         _user_data_variables = args.get("user_data_variables", "")
         _connection_string = args.get("connection_string", "")
         if not _connection_string:
@@ -902,7 +933,9 @@ class TargetNodeSoftwareStacksManager(Resource):
                 helper="root_size must be a valid integer",
             ).as_flask()
 
-        if SocaCastEngine(data=_software_stack_id).cast_as(int).get("success") is True:
+        _software_stack_id_cast = SocaCastEngine(data=_software_stack_id).cast_as(int)
+        if _software_stack_id_cast.get("success") is True:
+            _software_stack_id = _software_stack_id_cast.get("message")
             _software_stack_to_update = TargetNodeSoftwareStacks.query.filter_by(
                 id=_software_stack_id, is_active=True
             ).first()

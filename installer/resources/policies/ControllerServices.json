@@ -1,0 +1,214 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "batch:SubmitJob",
+                "batch:SubmitServiceJob",
+                "batch:CancelJob",
+                "batch:TerminateJob",
+                "batch:CreateJobQueue",
+                "batch:DeleteJobQueue",
+                "batch:RegisterJobDefinition",
+                "batch:DeregisterJobDefinition",
+                "batch:TagResource"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:batch:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:job-definition/edh-*",
+                "arn:%%AWS_PARTITION%%:batch:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:job-queue/edh-*",
+                "arn:%%AWS_PARTITION%%:batch:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:job/edh-*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": "batch:TerminateJob",
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:batch:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:job/*"
+            ],
+            "Effect": "Allow",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            }
+        },
+        {
+            "Action": [
+                "ssm:SendCommand"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%::document/AWS-RunPowerShellScript",
+                "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%::document/AWS-RunShellScript"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ssm:SendCommand"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:instance/*"
+            ],
+            "Effect": "Allow",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            }
+        },
+        {
+            "Action": [
+                "ssm:StartAutomationExecution"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ssm:*:%%AWS_ACCOUNT_ID%%:automation-definition/"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ssm:StopAutomationExecution",
+                "ssm:GetAutomationExecution"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ssm:*:%%AWS_ACCOUNT_ID%%:automation-execution/"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:lambda:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:function:%%CLUSTER_ID%%-*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "fsx:CreateFileSystem",
+                "fsx:TagResource"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:file-system/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Condition": {
+                "StringLike": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%*"
+                }
+            },
+            "Action": [
+                "fsx:DeleteFileSystem"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:file-system/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ses:SendEmail"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ses:*:%%AWS_ACCOUNT_ID%%:identity/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Condition": {
+                "ForAllValues:ArnEqualsIfExists": {
+                    "ec2:Vpc": "arn:%%AWS_PARTITION%%:ec2:%%AWS_REGION%%:*:vpc/%%VPC_ID%%"
+                }
+            },
+            "Action": [
+                "ds:DescribeDirectories",
+                "ec2:CreatePlacementGroup",
+                "ec2:DeletePlacementGroup",
+                "ec2:RequestSpotFleet",
+                "ec2:ModifySpotFleetRequest",
+                "ec2:CancelSpotFleetRequests"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/*",
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/%%CLUSTER_ID%%/bootstrap/cache/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ContainersPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:DescribeImages",
+                "ecr:DescribeRepositories",
+                "ecr:ListTagsForResource",
+                "ecr:ListImages",
+                "eks:DescribeCluster",
+                "eks:ListClusters",
+                "eks:ListTagsForResource",
+                "tag:GetResources"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchClusterStatusReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:GetMetricData",
+                "cloudwatch:ListMetrics"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchEdhMetricsWrite",
+            "Effect": "Allow",
+            "Action": "cloudwatch:PutMetricData",
+            "Resource": "*",
+            "Condition": {
+                "StringLike": {
+                    "cloudwatch:namespace": "EDH/*"
+                }
+            }
+        },
+        {
+            "Sid": "LambdaClusterStatusReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:ListFunctions",
+                "lambda:GetFunctionConfiguration"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

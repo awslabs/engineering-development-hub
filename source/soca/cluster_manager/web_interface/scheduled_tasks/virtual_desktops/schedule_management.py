@@ -9,8 +9,11 @@ from models import VirtualDesktopSessions
 from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
+from utils.validators import Validators
 import utils.aws.boto3_wrapper as utils_boto3
+import utils.aws.odcr_helper as odcr_helper
 from utils.aws.cloudformation_client import SocaCfnClient
+from utils.config import SocaConfig
 import time
 from datetime import datetime, timedelta, timezone
 import pytz
@@ -21,7 +24,6 @@ from typing import Literal, Union
 import math
 import os
 from flask import Flask
-
 
 logger = logging.getLogger("scheduled_tasks_virtual_desktops_schedule_management")
 
@@ -56,15 +58,22 @@ def ssm_get_command_info(
                 $GPU_Usage_Level = 0
             }
             """,
-            f"$DCV_Describe_Session = Invoke-Expression \"& 'C:\\Program Files\\NICE\\DCV\\Server\\bin\\dcv' describe-session $env:EDH_DCV_SESSION_ID -j\" | ConvertFrom-Json",
+            "$DCV_Sessions = Invoke-Expression \"& 'C:\\Program Files\\NICE\\DCV\\Server\\bin\\dcv' list-sessions -j\" | ConvertFrom-Json",
             '$CPUAveragePerformanceLast10Secs = (GET-COUNTER -Counter "\\Processor(_Total)\\% Processor Time" -SampleInterval 2 -MaxSamples 5 |select -ExpandProperty countersamples | select -ExpandProperty cookedvalue | Measure-Object -Average).average',
+            # RDP sessions in state "Active" mean a user is actively connected over RDP,
+            # independent of any DCV session. Match SESSIONNAME "rdp-tcp#N" only -- the
+            # local "console" session (session 1, the physical/virtual display) is also
+            # reported "Active" by `query user` whenever a user is logged in, even with
+            # no RDP client attached (e.g. DCV-only usage), which would otherwise false-
+            # positive and permanently block idle-stop. "Disc" RDP sessions are excluded,
+            # matching DCV's num-of-connections semantics (0 when nobody is watching).
+            '$RDPActiveConnections = (query user 2>$null | Select-String "^\\s*\\S+\\s+rdp-tcp#\\d+\\s+\\d+\\s+Active" | Measure-Object).Count',
             "$output = @{}",
             '$output["CPUAveragePerformanceLast10Secs"] = $CPUAveragePerformanceLast10Secs',
-            '$output["DCVCurrentConnections"] = $DCV_Describe_Session."num-of-connections"',
-            '$output["DCVCreationTime"] = $DCV_Describe_Session."creation-time"',
-            '$output["DCVLastDisconnectTime"] = $DCV_Describe_Session."last-disconnection-time"',
             '$output["GPUUsageLevel"] = $GPU_Usage_Level',
-            "$output | ConvertTo-Json",
+            '$output["DCVSessions"] = $DCV_Sessions',
+            '$output["RDPActiveConnections"] = $RDPActiveConnections',
+            "$output | ConvertTo-Json -Depth 10",
         ]
         _ssm_document_name = "AWS-RunPowerShellScript"
 
@@ -81,9 +90,8 @@ def ssm_get_command_info(
                 GPU_USAGE_LEVEL=0
             fi
             """,
-            "export EDH_DCV_SESSION_ID=$(cat /etc/environment | grep EDH_DCV_SESSION_ID= | awk -F'=' '{print $2}')",  # ssm.send_command() cannot use source",
-            "DCV_Describe_Session=$(dcv describe-session $EDH_DCV_SESSION_ID -j)",
-            'echo "${DCV_Describe_Session}" | jq --arg GPUUsageLevel "${GPU_USAGE_LEVEL}" --arg CPUAveragePerformanceLast10Secs "$(top -d 5 -b -n2 | grep \'Cpu(s)\' | tail -n 1 | awk \'{print $2 + $4}\')" \'{"DCVCurrentConnections": .["num-of-connections"], "DCVCreationTime": .["creation-time"], "DCVLastDisconnectTime": .["last-disconnection-time"], "CPUAveragePerformanceLast10Secs": $CPUAveragePerformanceLast10Secs, "GPUUsageLevel": $GPUUsageLevel}\'',
+            "DCV_Sessions=$(dcv list-sessions -j)",
+            'echo "${DCV_Sessions:-[]}" | jq --arg GPUUsageLevel "${GPU_USAGE_LEVEL}" --arg CPUAveragePerformanceLast10Secs "$(top -d 5 -b -n2 | grep \'Cpu(s)\' | tail -n 1 | awk \'{print $2 + $4}\')" \'{"DCVSessions": ., "CPUAveragePerformanceLast10Secs": $CPUAveragePerformanceLast10Secs, "GPUUsageLevel": $GPUUsageLevel}\'',
         ]
         _ssm_document_name = "AWS-RunShellScript"
 
@@ -129,6 +137,126 @@ def ssm_get_list_command_status(command_id: str) -> Union[SocaResponse, SocaErro
                 )
 
 
+def _handle_odcr_remediation(session, instance_id: str) -> bool:
+    """Attempt to fix ODCR for a stopped instance that failed to start due to capacity.
+
+    Returns True if remediation succeeded (caller should retry start), False otherwise.
+    """
+    try:
+        _describe = client_ec2.describe_instances(InstanceIds=[instance_id])
+        _instance_info = _describe["Reservations"][0]["Instances"][0]
+    except Exception as err:
+        logger.warning(f"Unable to describe {instance_id} for ODCR remediation: {err}")
+        return False
+
+    _cr_spec = _instance_info.get("CapacityReservationSpecification") or {}
+    _targeted_cr = (_cr_spec.get("CapacityReservationTarget") or {}).get(
+        "CapacityReservationId"
+    )
+
+    if not _targeted_cr:
+        logger.info(f"{instance_id} has no targeted CR; nothing to remediate")
+        return False
+
+    _tags = {t.get("Key"): t.get("Value") for t in _instance_info.get("Tags", [])}
+    _cr_source = _tags.get("edh:CapacityReservationSource")
+    if _cr_source is None:
+        try:
+            _cr_info = odcr_helper.get_reservation_info_soca_capacity_reservation(
+                capacity_reservation_id=_targeted_cr
+            )
+            _cr_source = (
+                "admin"
+                if (_cr_info.reservation_exist and _cr_info.state == "active")
+                else "auto"
+            )
+        except Exception:
+            _cr_source = "auto"
+
+    if _cr_source == "admin":
+        logger.info(
+            f"ODCR remediation: {instance_id} uses admin-supplied CR "
+            f"({_targeted_cr}); cannot remediate"
+        )
+        return False
+
+    logger.info(
+        f"ODCR remediation: {instance_id} has expired auto CR ({_targeted_cr}), "
+        f"attempting fresh ODCR"
+    )
+    _max_odcr_attempts = 2
+    for _attempt in range(1, _max_odcr_attempts + 1):
+        if _attempt > 1:
+            logger.info(
+                f"ODCR retry {_attempt}/{_max_odcr_attempts} for {instance_id}"
+            )
+        _cr_result = odcr_helper.create_capacity_reservation(
+            probe_capacity_only=False,
+            instance_type=_instance_info.get("InstanceType"),
+            capacity_reservation_name=session.stack_name,
+            desired_capacity=1,
+            subnet_id=_instance_info.get("SubnetId"),
+            instance_ami=_instance_info.get("ImageId"),
+            tenancy=_instance_info.get("Placement", {}).get("Tenancy"),
+        )
+
+        if not (
+            _cr_result.get("success") is True
+            and getattr(_cr_result.message, "reservation_exist", False)
+        ):
+            break
+
+        _new_cr_id = _cr_result.message.reservation_id
+        logger.info(f"Fresh ODCR {_new_cr_id} reserved; retargeting {instance_id}")
+
+        _retarget = odcr_helper.retarget_instance_to_capacity_reservation(
+            instance_id=instance_id,
+            capacity_reservation_id=_new_cr_id,
+        )
+        if _retarget.get("success") is True:
+            return True
+
+        _retarget_err = _retarget.get("message", "")
+        logger.warning(
+            f"Retarget failed for {instance_id} to {_new_cr_id} "
+            f"(attempt {_attempt}/{_max_odcr_attempts}): {_retarget_err}"
+        )
+
+    # Fresh ODCR failed or retarget failed after retries — check ResumeODCRFallback flag
+    _od_fallback_val = (
+        SocaConfig(key="/configuration/FeatureFlags/VirtualDesktops/ResumeODCRFallback")
+        .get_value(default="true", allow_unknown_key=True)
+        .get("message", "true")
+    )
+    _od_fallback = SocaCastEngine(_od_fallback_val).cast_as(bool)
+    _od_fallback_enabled = _od_fallback.message if _od_fallback.success else True
+
+    if _od_fallback_enabled:
+        logger.warning(
+            f"No reserved capacity for {_instance_info.get('InstanceType')} "
+            f"in {_instance_info.get('SubnetId')}; detaching CR and resuming "
+            f"{instance_id} On-Demand"
+        )
+        try:
+            client_ec2.modify_instance_capacity_reservation_attributes(
+                InstanceId=instance_id,
+                CapacityReservationSpecification={
+                    "CapacityReservationPreference": "open"
+                },
+            )
+            return True
+        except Exception as err:
+            logger.error(f"On-Demand fallback modify failed for {instance_id}: {err}")
+            return False
+
+    logger.error(
+        f"No capacity for {_instance_info.get('InstanceType')} in "
+        f"{_instance_info.get('SubnetId')} and On-Demand fallback is "
+        f"disabled; skipping {instance_id}"
+    )
+    return False
+
+
 def start_instances(
     sessions_info: list[VirtualDesktopSessions],
 ) -> None:
@@ -143,27 +271,70 @@ def start_instances(
         return
 
     logger.info(f"Starting instances: {sessions_info}")
-    _successful_sessions = sessions_info
+    _successful_sessions = list(sessions_info)
+
+    # Try to start all instances first. If the ODCR is still valid, this
+    # succeeds immediately. Only on failure do we attempt ODCR remediation.
     try:
         client_ec2.start_instances(
-            InstanceIds=[session.instance_id for session in sessions_info]
+            InstanceIds=[session.instance_id for session in _successful_sessions]
         )
-
     except Exception as err:
         logger.warning(
-            f"Unable to start instance from this chunk {sessions_info} due to {err}, trying to proceed one by one"
+            f"Batch start failed: {err}. Trying instances one-by-one with ODCR handling."
         )
-        for _session in sessions_info:
+        # Start each instance individually; on capacity errors, attempt ODCR fix and retry.
+        _failed_sessions = []
+        for _session in list(_successful_sessions):
+            _instance_id = _session.instance_id
             try:
-                client_ec2.start_instances(InstanceIds=[_session.instance_id])
-            except Exception as err:
-                logger.error(
-                    f"Unable to start instance {_session.instance_id} due to {err}"
+                client_ec2.start_instances(InstanceIds=[_instance_id])
+            except Exception as start_err:
+                _err_msg = str(start_err).lower()
+                _is_capacity_error = (
+                    "does not have sufficient compatible and available capacity"
+                    in _err_msg
                 )
-                _successful_sessions.remove(_session)
+                if not _is_capacity_error:
+                    logger.error(f"Unable to start {_instance_id}: {start_err}")
+                    _failed_sessions.append(_session)
+                    continue
+
+                # Capacity error — attempt ODCR remediation
+                logger.info(
+                    f"Capacity error for {_instance_id}, attempting ODCR fix"
+                )
+                if not _handle_odcr_remediation(_session, _instance_id):
+                    _failed_sessions.append(_session)
+                    continue
+
+                # Retry start after ODCR fix
+                try:
+                    client_ec2.start_instances(InstanceIds=[_instance_id])
+                except Exception as retry_err:
+                    logger.error(
+                        f"Start failed for {_instance_id} even after ODCR fix: {retry_err}"
+                    )
+                    _failed_sessions.append(_session)
+
+        for _s in _failed_sessions:
+            _successful_sessions.remove(_s)
+
+    # High-scale broker: clear stale session handles so session_state_watcher
+    # re-registers resumed instances with the broker (same as start_virtual_desktop API).
+    _is_high_scale_cast = SocaCastEngine(
+        SocaConfig(key="/dcv/high_scale_enabled")
+        .get_value(default="false", allow_unknown_key=True)
+        .get("message", "false")
+    ).cast_as(bool)
+    _is_high_scale = (
+        _is_high_scale_cast.message if _is_high_scale_cast.success else False
+    )
 
     for _session in _successful_sessions:
         try:
+            if _is_high_scale:
+                _session.authentication_token = None
             _session.session_state = "pending"
             _session.session_state_latest_change_time = datetime.now(timezone.utc)
             db.session.commit()
@@ -234,27 +405,34 @@ def find_inactive_sessions(sessions_info: list[VirtualDesktopSessions]) -> None:
                 f"Unable to retrieve SSM command info for linux due to {_linux_ssm_info.get('message')}"
             )
         else:
-            _check_dcv_session_linux = client_ssm.send_command(
-                InstanceIds=_linux_sessions_instance_ids,
-                DocumentName=_linux_ssm_info.get("message").get("ssm_document_name"),
-                Parameters={
-                    "commands": _linux_ssm_info.get("message").get("ssm_commands")
-                },
-                TimeoutSeconds=30,
-            )
-            _ssm_command_id_linux = _check_dcv_session_linux["Command"]["CommandId"]
-            if (
-                ssm_get_list_command_status(command_id=_ssm_command_id_linux).get(
-                    "success"
+            try:
+                _check_dcv_session_linux = client_ssm.send_command(
+                    InstanceIds=_linux_sessions_instance_ids,
+                    DocumentName=_linux_ssm_info.get("message").get(
+                        "ssm_document_name"
+                    ),
+                    Parameters={
+                        "commands": _linux_ssm_info.get("message").get("ssm_commands")
+                    },
+                    TimeoutSeconds=30,
                 )
-                is False
-            ):
+                _ssm_command_id_linux = _check_dcv_session_linux["Command"]["CommandId"]
+                if (
+                    ssm_get_list_command_status(command_id=_ssm_command_id_linux).get(
+                        "success"
+                    )
+                    is False
+                ):
+                    logger.error(
+                        f"Unable to determine status SSM responses for linux instances {_ssm_command_id_linux=}"
+                    )
+                else:
+                    logger.info("Running SSM Command on Linux hosts succeeded")
+                    _skip_linux = False
+            except Exception as err:
                 logger.error(
-                    f"Unable to determine status SSM responses for linux instances {_ssm_command_id_linux=}"
+                    f"SSM send_command failed for Linux instances {_linux_sessions_instance_ids}: {err}"
                 )
-            else:
-                logger.info("Running SSM Command on Linux hosts succeeded")
-                _skip_linux = False
     else:
         logger.info("No Linux instances to check for schedule")
     # Validate Windows SSM
@@ -268,27 +446,36 @@ def find_inactive_sessions(sessions_info: list[VirtualDesktopSessions]) -> None:
                 f"Unable to retrieve SSM command info for Windows due to {_windows_ssm_info.get('message')}"
             )
         else:
-            _check_dcv_session_windows = client_ssm.send_command(
-                InstanceIds=_windows_sessions_instance_ids,
-                DocumentName=_windows_ssm_info.get("message").get("ssm_document_name"),
-                Parameters={
-                    "commands": _windows_ssm_info.get("message").get("ssm_commands")
-                },
-                TimeoutSeconds=30,
-            )
-            _ssm_command_id_windows = _check_dcv_session_windows["Command"]["CommandId"]
-            if (
-                ssm_get_list_command_status(command_id=_ssm_command_id_windows).get(
-                    "success"
+            try:
+                _check_dcv_session_windows = client_ssm.send_command(
+                    InstanceIds=_windows_sessions_instance_ids,
+                    DocumentName=_windows_ssm_info.get("message").get(
+                        "ssm_document_name"
+                    ),
+                    Parameters={
+                        "commands": _windows_ssm_info.get("message").get("ssm_commands")
+                    },
+                    TimeoutSeconds=30,
                 )
-                is False
-            ):
+                _ssm_command_id_windows = _check_dcv_session_windows["Command"][
+                    "CommandId"
+                ]
+                if (
+                    ssm_get_list_command_status(command_id=_ssm_command_id_windows).get(
+                        "success"
+                    )
+                    is False
+                ):
+                    logger.error(
+                        f"Unable to determine status SSM responses for windows instances {_ssm_command_id_windows=}"
+                    )
+                else:
+                    logger.info("Running SSM Command on Windows hosts succeeded")
+                    _skip_windows = False
+            except Exception as err:
                 logger.error(
-                    f"Unable to determine status SSM responses for windows instances {_ssm_command_id_windows=}"
+                    f"SSM send_command failed for Windows instances {_windows_sessions_instance_ids}: {err}"
                 )
-            else:
-                logger.info("Running SSM Command on Windows hosts succeeded")
-                _skip_windows = False
     else:
         logger.info("No Windows instances to check for schedule")
     # Wait until the Commands have completed.
@@ -299,22 +486,32 @@ def find_inactive_sessions(sessions_info: list[VirtualDesktopSessions]) -> None:
         for _session in [
             session for session in sessions_info if session.os_family == "linux"
         ]:
-            stop_instance_if_inactive(
-                ssm_command_id=_ssm_command_id_linux,
-                stop_instance_after_idle_time=_stop_instance_after_idle_time_linux,
-                session=_session,
-            )
+            try:
+                stop_instance_if_inactive(
+                    ssm_command_id=_ssm_command_id_linux,
+                    stop_instance_after_idle_time=_stop_instance_after_idle_time_linux,
+                    session=_session,
+                )
+            except Exception as err:
+                logger.error(
+                    f"Error processing idle check for Linux session {_session.instance_id}: {err}"
+                )
 
     # Check all Windows hosts individually
     if not _skip_windows:
         for _session in [
             session for session in sessions_info if session.os_family == "windows"
         ]:
-            stop_instance_if_inactive(
-                ssm_command_id=_ssm_command_id_windows,
-                stop_instance_after_idle_time=_stop_instance_after_idle_time_windows,
-                session=_session,
-            )
+            try:
+                stop_instance_if_inactive(
+                    ssm_command_id=_ssm_command_id_windows,
+                    stop_instance_after_idle_time=_stop_instance_after_idle_time_windows,
+                    session=_session,
+                )
+            except Exception as err:
+                logger.error(
+                    f"Error processing idle check for Windows session {_session.instance_id}: {err}"
+                )
 
 
 def stop_instance_if_inactive(
@@ -335,8 +532,7 @@ def stop_instance_if_inactive(
     # TODO - try/except for boto3 call
     #
     _ssm_output = client_ssm.get_command_invocation(
-        CommandId=ssm_command_id,
-        InstanceId=_instance_id
+        CommandId=ssm_command_id, InstanceId=_instance_id
     )
     _status = _ssm_output.get("Status", "")
 
@@ -353,6 +549,16 @@ def stop_instance_if_inactive(
         "dcv_connections": {
             "enabled": True,
             "element": "DCVCurrentConnections",
+            "min": 1,
+            "fallback_value": 1,
+            "cast_as": int,
+        },
+        "rdp_connections": {
+            # Windows-only: an active RDP console session (independent of DCV)
+            # is evidence of user activity and must block the idle-stop, same
+            # as an active DCV connection. Not applicable to Linux hosts.
+            "enabled": session.os_family == "windows",
+            "element": "RDPActiveConnections",
             "min": 1,
             "fallback_value": 1,
             "cast_as": int,
@@ -387,7 +593,6 @@ def stop_instance_if_inactive(
     # This is used to determine if the instance can be paused.
     _resource_idle_results: dict = {}
 
-
     if _status not in {"Success"}:
         logger.error(
             f"SSM command {ssm_command_id} on {_instance_id=} failed with error: {_ssm_output.get('StandardErrorContent', '')}"
@@ -397,19 +602,96 @@ def stop_instance_if_inactive(
     logger.info(
         f"SSM output for {_instance_id} succeeded, checking current resource usage"
     )
-    #
-    # TODO - try/except for JSON errs
-    #
-    _dcv_info = json.loads(_ssm_output.get("StandardOutputContent", ""))
+    _raw_resp = SocaCastEngine(
+        _ssm_output.get("StandardOutputContent", "") or "{}"
+    ).as_json()
+    if _raw_resp.success is not True:
+        logger.error(
+            f"Unable to parse DCV info JSON for {_instance_id=}: {_ssm_output}"
+        )
+        return
+    _raw = _raw_resp.message
 
-    if not _dcv_info:
+    if not _raw:
         logger.error(f"Unable to read DCV info for {_instance_id=}: {_ssm_output}")
+        return
 
-    if _dcv_info.get("DCVLastDisconnectTime", "") == "":
-        # handle case where user launched DCV but never accessed it
-        last_dcv_disconnect = parse(_dcv_info.get("DCVCreationTime", ""))
+    # Match THIS VDI row to its DCV session on the host. `dcv list-sessions`
+    # returns every session on the node; the session's `name` is the EDH
+    # session_uuid in BOTH legacy and high-scale modes (high-scale `id` is the
+    # broker-assigned id). Matching by name is mode-agnostic and
+    # multi-session-safe; we also accept an id match (session_uuid for legacy,
+    # authentication_token for the high-scale broker id) as a fallback.
+    _raw_sessions = _raw.get("DCVSessions")
+    if Validators.is_dict(_raw_sessions):
+        # Normalize to a list across shapes: Windows PowerShell ConvertTo-Json
+        # serializes a collection as {"value": [...], "Count": N}; some DCV
+        # builds use {"sessions": [...]}; a lone session may arrive as a single
+        # object. Linux jq already yields a bare array (handled below).
+        if Validators.is_list(_raw_sessions.get("value")):
+            _host_sessions = _raw_sessions["value"]
+        elif Validators.is_list(_raw_sessions.get("sessions")):
+            _host_sessions = _raw_sessions["sessions"]
+        else:
+            _host_sessions = [_raw_sessions]
+    elif Validators.is_list(_raw_sessions):
+        _host_sessions = _raw_sessions
     else:
-        last_dcv_disconnect = parse(_dcv_info.get("DCVLastDisconnectTime", ""))
+        _host_sessions = []
+
+    def _as_str(_v):
+        # Safe string coercion via the cast engine (handles None/unexpected
+        # types without the str(None) -> "None" false-match footgun).
+        _c = SocaCastEngine(_v).cast_as(str)
+        return _c.message if _c.success else None
+
+    _uuid_str = _as_str(_session_uuid)
+    _candidate_ids = {
+        _as_str(_x)
+        for _x in (_session_uuid, session.authentication_token)
+        if _x and _as_str(_x) is not None
+    }
+    _dcv_session = next(
+        (
+            s
+            for s in _host_sessions
+            if (_uuid_str is not None and _as_str(s.get("name")) == _uuid_str)
+            or _as_str(s.get("id")) in _candidate_ids
+        ),
+        None,
+    )
+    if _dcv_session is None:
+        logger.info(
+            f"No DCV session on {_instance_id=} matching desktop {_session_uuid=} "
+            f"(host sessions: {[s.get('name') for s in _host_sessions]}); skipping idle check this cycle"
+        )
+        return
+
+    # Normalize to the keys the threshold logic below expects. Host-level
+    # CPU/GPU come from the wrapper (shared across sessions on the host).
+    _dcv_info = {
+        "DCVCurrentConnections": _dcv_session.get("num-of-connections"),
+        "DCVCreationTime": _dcv_session.get("creation-time"),
+        "DCVLastDisconnectTime": _dcv_session.get("last-disconnection-time"),
+        "CPUAveragePerformanceLast10Secs": _raw.get("CPUAveragePerformanceLast10Secs"),
+        "GPUUsageLevel": _raw.get("GPUUsageLevel"),
+        # Host-level (not per-DCV-session) count of Active RDP consoles. Only
+        # present in the Windows SSM payload; absent on Linux, where the
+        # rdp_connections threshold is disabled above.
+        "RDPActiveConnections": _raw.get("RDPActiveConnections"),
+    }
+
+    # last-disconnection-time is "" if never disconnected -> fall back to
+    # creation-time. Guard against missing/None so we never parse(None).
+    _last_disconnect_raw = _dcv_info.get("DCVLastDisconnectTime") or _dcv_info.get(
+        "DCVCreationTime"
+    )
+    if not _last_disconnect_raw:
+        logger.info(
+            f"No DCV creation/disconnect time for {_instance_id=} {_session_uuid=}; skipping idle check this cycle"
+        )
+        return
+    last_dcv_disconnect = parse(_last_disconnect_raw)
 
     #
     # Scan our resources
@@ -421,40 +703,57 @@ def stop_instance_if_inactive(
         _resource_cast_as = _resource_config.get("cast_as")
 
         if not _resource_config.get("enabled", False) or not _resource_key_name:
-            logger.info(f"Skipping {_resource_name=} for thresholds - disabled or no element name available")
+            logger.info(
+                f"Skipping {_resource_name=} for thresholds - disabled or no element name available"
+            )
             continue
 
         # If there is no fallback - fallback to 100 for safety
 
-        _raw_resource_value = _dcv_info.get(_resource_key_name, _resource_config.get("fallback_value", 100))
+        _raw_resource_value = _dcv_info.get(
+            _resource_key_name, _resource_config.get("fallback_value", 100)
+        )
 
         # Run it via the Casting Engine to make sure it is what we expect
         if (
-            _resource_value_caster := SocaCastEngine(data=_raw_resource_value).cast_as(_resource_cast_as)
+            _resource_value_caster := SocaCastEngine(data=_raw_resource_value).cast_as(
+                _resource_cast_as
+            )
         ).get("success"):
-            _resource_value = _resource_value_caster.get("message", _resource_config.get("fallback_value"))
+            _resource_value = _resource_value_caster.get(
+                "message", _resource_config.get("fallback_value")
+            )
         else:
-            logger.error(f"Unable to determine {_resource_name=} for thresholds - Casting failure")
+            logger.error(
+                f"Unable to determine {_resource_name=} for thresholds - Casting failure"
+            )
             return
 
-        logger.info(f"Found resource {_resource_name=} at {_resource_key_name=} with a value of {_resource_value=}")
+        logger.info(
+            f"Found resource {_resource_name=} at {_resource_key_name=} with a value of {_resource_value=}"
+        )
 
         _resource_values[_resource_name] = _resource_value
         #
         # TODO - Should the min be sent via Caster as well?
         #
-        _resource_min_value = _resource_config.get("min", _resource_config.get("fallback_value", 100))
+        _resource_min_value = _resource_config.get(
+            "min", _resource_config.get("fallback_value", 100)
+        )
 
         #
         # If the resource_value is below our min_value - the resource is Idle. Else it is Not-Idle.
         #
         if _resource_value < _resource_min_value:
-            logger.info(f"Resource {_resource_name=} is {_resource_value=} - threshold is {_resource_min_value=} - Setting resource to Idle")
+            logger.info(
+                f"Resource {_resource_name=} is {_resource_value=} - threshold is {_resource_min_value=} - Setting resource to Idle"
+            )
             _resource_idle_results[_resource_name] = True
         else:
-            logger.info(f"Resource {_resource_name=} is {_resource_value=} - threshold is {_resource_min_value=} - Setting resource to Non-Idle")
+            logger.info(
+                f"Resource {_resource_name=} is {_resource_value=} - threshold is {_resource_min_value=} - Setting resource to Non-Idle"
+            )
             _resource_idle_results[_resource_name] = False
-
 
     # We should now have _resource_values populated with the information
     logger.debug(f"Resources for session: {_resource_values=}")
@@ -483,13 +782,15 @@ def stop_instance_if_inactive(
 
     if _idle_resources != _resource_count:
         logger.info(f"Resources for session: {_resource_values=}")
-        logger.info(f"At least one resource is non-idle - skipping: {_resource_idle_results=}")
+        logger.info(
+            f"At least one resource is non-idle - skipping: {_resource_idle_results=}"
+        )
         return
 
     # If we are here - then our idle resources matches our resource count
     logger.info(f"Session has all idle resources - {_idle_resources=}")
 
-    current_time = parse(datetime.now().replace(microsecond=0).replace(tzinfo=timezone.utc).isoformat())
+    current_time = parse(datetime.now(timezone.utc).replace(microsecond=0).isoformat())
 
     if (
         last_dcv_disconnect + timedelta(hours=stop_instance_after_idle_time)
@@ -517,12 +818,10 @@ def stop_instance_if_inactive(
         )
 
     try:
-        session.session_state = "stopped"
-        session.session_state_latest_change_time = datetime.now(
-            timezone.utc
-        )
+        session.session_state = "stopping"
+        session.session_state_latest_change_time = datetime.now(timezone.utc)
         db.session.commit()
-        logger.info(f"{session} stopped successfully")
+        logger.info(f"{session} stopping")
 
     except Exception as err:
         logger.error(
@@ -537,6 +836,17 @@ def stop_instance_if_inactive(
         #     logger.error(
         #         f"Unable to start {session} instance {session.instance_id} due to {err}"
         #     )
+
+
+def _safe_get_day_schedule(session, day):
+    """Parse session schedule JSON and return the day's dict, or None on error."""
+    try:
+        return json.loads(session.schedule).get(day, {})
+    except Exception:
+        logger.warning(
+            f"Unable to parse schedule for session {session.instance_id}: {session.schedule!r}"
+        )
+        return None
 
 
 def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
@@ -560,13 +870,23 @@ def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
     _now_in_minutes = _now.hour * 60 + _now.minute
 
     # Filter the sessions where _now is greater than or equal to session_state_latest_change_time + grace period
-    _sessions_outside_of_grace_period = [
-        session
-        for session in vdi_sessions
-        if _now
-        >= _tz.localize(session.session_state_latest_change_time)
-        + timedelta(hours=_grace_period)
-    ]
+    _sessions_outside_of_grace_period = []
+    for session in vdi_sessions:
+        try:
+            if _now >= _tz.localize(
+                session.session_state_latest_change_time
+            ) + timedelta(hours=_grace_period):
+                _sessions_outside_of_grace_period.append(session)
+            else:
+                logger.info(
+                    f"Session {session.instance_id} (state={session.session_state}) is within grace period "
+                    f"(last change: {session.session_state_latest_change_time}, grace expires: "
+                    f"{_tz.localize(session.session_state_latest_change_time) + timedelta(hours=_grace_period)})"
+                )
+        except Exception as err:
+            logger.error(
+                f"Error evaluating grace period for session {session.instance_id}: {err}"
+            )
 
     logger.info(
         f"List of VDI outside of Grace Period: {_sessions_outside_of_grace_period}"
@@ -578,13 +898,22 @@ def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
         logger.info(
             f"Checking sessions supposed to be started all-day but not running, starting them (if any)."
         )
-        _sessions_running_all_day = [
-            session
-            for session in _sessions_outside_of_grace_period
-            if json.loads(session.schedule).get(_day).get("stop") == 1440
-            and json.loads(session.schedule).get(_day).get("start") == 1440
-            and session.session_state != "running"
-        ]
+        _sessions_running_all_day = []
+        for session in _sessions_outside_of_grace_period:
+            _sched_day = _safe_get_day_schedule(session, _day)
+            if _sched_day is None:
+                continue
+            try:
+                if (
+                    _sched_day.get("stop") == 1440
+                    and _sched_day.get("start") == 1440
+                    and session.session_state != "running"
+                ):
+                    _sessions_running_all_day.append(session)
+            except Exception as err:
+                logger.error(
+                    f"Error evaluating all-day start for session {session.instance_id}: {err}"
+                )
         if _sessions_running_all_day:
             logger.info(f"List of Sessions: {_sessions_running_all_day=}")
             start_instances(sessions_info=_sessions_running_all_day)
@@ -594,14 +923,28 @@ def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
         logger.info(
             f"Checking sessions supposed to be running at this time but state is not running, starting them (if any)."
         )
-        _sessions_schedule_start = [
-            session
-            for session in _sessions_outside_of_grace_period
-            if json.loads(session.schedule).get(_day).get("start")
-            < _now_in_minutes
-            < json.loads(session.schedule).get(_day).get("stop")
-            and session.session_state != "running"
-        ]
+        # Only restart a stopped session if it was stopped BEFORE the current
+        # schedule window opened (i.e., it was off overnight and the schedule
+        # says "on" now). If it was stopped DURING the current window, it was
+        # idle-stopped and should stay stopped until the user manually starts
+        # it or the next schedule boundary.
+        _sessions_schedule_start = []
+        for session in _sessions_outside_of_grace_period:
+            try:
+                _sched = _safe_get_day_schedule(session, _day)
+                if _sched is None:
+                    continue
+                _sched_start = _sched.get("start", 0)
+                _sched_stop = _sched.get("stop", 0)
+                if not (_sched_start < _now_in_minutes < _sched_stop):
+                    continue
+                if session.session_state == "running":
+                    continue
+                _sessions_schedule_start.append(session)
+            except Exception as err:
+                logger.error(
+                    f"Error evaluating schedule start for session {session.instance_id}: {err}"
+                )
 
         if _sessions_schedule_start:
             logger.info(f"List of Sessions: {_sessions_schedule_start=}")
@@ -613,13 +956,17 @@ def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
         logger.info(
             f"Checking sessions supposed to be stopped all-day but currently running, stopping them if inactive (if any)"
         )
-        _sessions_stopped_all_day = [
-            session
-            for session in _sessions_outside_of_grace_period
-            if json.loads(session.schedule).get(_day).get("stop") == 0
-            and json.loads(session.schedule).get(_day).get("start") == 0
-            and session.session_state == "running"
-        ]
+        _sessions_stopped_all_day = []
+        for session in _sessions_outside_of_grace_period:
+            _sched_day = _safe_get_day_schedule(session, _day)
+            if _sched_day is None:
+                continue
+            if (
+                _sched_day.get("stop") == 0
+                and _sched_day.get("start") == 0
+                and session.session_state == "running"
+            ):
+                _sessions_stopped_all_day.append(session)
         if _sessions_stopped_all_day:
             logger.info(f"List of Sessions: {_sessions_stopped_all_day=}")
             find_inactive_sessions(sessions_info=_sessions_stopped_all_day)
@@ -629,20 +976,61 @@ def process_chunk(vdi_sessions: list[VirtualDesktopSessions]):
         logger.info(
             f"Checking sessions supposed to be stopped at this time but state is running, stopping them if inactive (if any)"
         )
-        _sessions_schedule_stop = [
-            session
-            for session in _sessions_outside_of_grace_period
-            if (
-                _now_in_minutes < json.loads(session.schedule).get(_day).get("start")
-                or _now_in_minutes > json.loads(session.schedule).get(_day).get("stop")
-            )
-            and session.session_state == "running"
-        ]
+        _sessions_schedule_stop = []
+        for session in _sessions_outside_of_grace_period:
+            _sched_day = _safe_get_day_schedule(session, _day)
+            if _sched_day is None:
+                continue
+            if session.session_state == "running" and (
+                _now_in_minutes < _sched_day.get("start", 0)
+                or _now_in_minutes > _sched_day.get("stop", 0)
+            ):
+                _sessions_schedule_stop.append(session)
         if _sessions_schedule_stop:
             logger.info(f"List of Sessions: {_sessions_schedule_stop=}")
             find_inactive_sessions(sessions_info=_sessions_schedule_stop)
         else:
             logger.info("No Sessions found")
+
+        # Idle-stop for sessions that are currently within their scheduled
+        # running window. The schedule says "on", but if the user has been
+        # disconnected longer than DCV_*_STOP_IDLE_SESSION hours, stop them
+        # to save cost. A value of 0 in config disables this behaviour.
+        logger.info("Checking in-schedule running sessions for idle activity")
+        try:
+            _idle_linux_val = int(config.Config.DCV_LINUX_STOP_IDLE_SESSION)
+        except (ValueError, TypeError):
+            _idle_linux_val = 0
+        try:
+            _idle_windows_val = int(config.Config.DCV_WINDOWS_STOP_IDLE_SESSION)
+        except (ValueError, TypeError):
+            _idle_windows_val = 0
+
+        _sessions_in_schedule_running = []
+        for session in _sessions_outside_of_grace_period:
+            if session.session_state != "running":
+                continue
+            if not (
+                (session.os_family == "linux" and _idle_linux_val > 0)
+                or (session.os_family == "windows" and _idle_windows_val > 0)
+            ):
+                continue
+            _sched_day = _safe_get_day_schedule(session, _day)
+            if _sched_day is None:
+                continue
+            if (_sched_day.get("start") == 1440 and _sched_day.get("stop") == 1440) or (
+                _sched_day.get("start", 0) < _now_in_minutes < _sched_day.get("stop", 0)
+            ):
+                _sessions_in_schedule_running.append(session)
+        if _sessions_in_schedule_running:
+            logger.info(
+                f"Found {len(_sessions_in_schedule_running)} in-schedule running sessions to check for idle: {_sessions_in_schedule_running}"
+            )
+            find_inactive_sessions(sessions_info=_sessions_in_schedule_running)
+        else:
+            logger.info(
+                "No in-schedule running sessions to idle-stop (feature disabled or none matched)"
+            )
     else:
         logger.info(
             "No VDI info subject to Schedule Update as they are all within grace time"
@@ -665,7 +1053,8 @@ def virtual_desktops_schedule_management(app: Flask):
 
         # Get all current active VDI
         _all_dcv_sessions = VirtualDesktopSessions.query.filter(
-            VirtualDesktopSessions.is_active.is_(True)
+            VirtualDesktopSessions.is_active.is_(True),
+            VirtualDesktopSessions.is_spot.isnot(True),
         ).all()
         if _all_dcv_sessions:
             # Start by creating chunk of 50 VDI sessions maximum (this is the max number of InstanceIds we can pass to some boto3 API call)
@@ -675,7 +1064,12 @@ def virtual_desktops_schedule_management(app: Flask):
             _chunks_of_sessions = chunked_iterable(_all_dcv_sessions, _chunk_size)
 
             for _chunk in _chunks_of_sessions:
-                process_chunk(_chunk)
+                try:
+                    process_chunk(_chunk)
+                except Exception as err:
+                    logger.error(
+                        f"Error processing chunk {[s.instance_id for s in _chunk]}: {err}"
+                    )
 
         else:
             logger.info("No active virtual desktops found")
@@ -726,48 +1120,47 @@ def auto_terminate_stopped_instance(app: Flask):
 
         if _all_stopped_dcv_sessions:
             for session_info in _all_stopped_dcv_sessions:
-                logger.info(
-                    f"Checking stopped session {session_info.session_name} owned by {session_info.session_owner}"
-                )
-
-                _stack_name = session_info.stack_name
-                _os_family = session_info.os_family
-                _session_state_latest_change_time = (
-                    session_info.session_state_latest_change_time
-                )
-
-                if _os_family == "windows":
-                    _terminate_stopped_instance_after = (
-                        _terminate_stopped_windows_instance_after
-                    )
-                else:
-                    _terminate_stopped_instance_after = (
-                        _terminate_stopped_linux_instance_after
-                    )
-
-                if _terminate_stopped_instance_after == 0:
+                try:
                     logger.info(
-                        "_terminate_stopped_instance_after is disabled, skipping"
-                    )
-                    continue
-
-                if (
-                    _session_state_latest_change_time
-                    + timedelta(hours=_terminate_stopped_instance_after)
-                ) < datetime.now(timezone.utc):
-                    logger.info(
-                        f"Desktop {session_info.session_uuid} is ready to be terminated, last access time {_session_state_latest_change_time}, stop after idle time (hours): {_terminate_stopped_instance_after}"
+                        f"Checking stopped session {session_info.session_name} owned by {session_info.session_owner}"
                     )
 
-                    # TODO - try/except
+                    _stack_name = session_info.stack_name
+                    _os_family = session_info.os_family
+                    _session_state_latest_change_time = (
+                        session_info.session_state_latest_change_time
+                    )
 
-                    _delete_stack = SocaCfnClient(stack_name=_stack_name).delete_stack()
-                    if _delete_stack.get("success") is False:
-                        return SocaError.GENERIC_ERROR(
-                            helper=f"Unable to terminate instance {_stack_name}"
+                    if _os_family == "windows":
+                        _terminate_stopped_instance_after = (
+                            _terminate_stopped_windows_instance_after
+                        )
+                    else:
+                        _terminate_stopped_instance_after = (
+                            _terminate_stopped_linux_instance_after
                         )
 
-                    try:
+                    if _terminate_stopped_instance_after == 0:
+                        logger.info(
+                            "_terminate_stopped_instance_after is disabled, skipping"
+                        )
+                        continue
+
+                    if (
+                        _session_state_latest_change_time
+                        + timedelta(hours=_terminate_stopped_instance_after)
+                    ) < datetime.now(timezone.utc):
+                        logger.info(
+                            f"Desktop {session_info.session_uuid} is ready to be terminated, last access time {_session_state_latest_change_time}, stop after idle time (hours): {_terminate_stopped_instance_after}"
+                        )
+
+                        _delete_stack = SocaCfnClient(
+                            stack_name=_stack_name
+                        ).delete_stack()
+                        if _delete_stack.get("success") is False:
+                            logger.error(f"Unable to terminate instance {_stack_name}")
+                            continue
+
                         session_info.is_active = False
                         session_info.deactivated_on = datetime.now(timezone.utc)
                         session_info.deactivated_by = "auto_terminate_stopped_instance"
@@ -775,14 +1168,12 @@ def auto_terminate_stopped_instance(app: Flask):
                             timezone.utc
                         )
                         db.session.commit()
-                        return SocaResponse(
-                            success=True,
-                            message=f"Terminated {_stack_name} successfully",
-                        )
-                    except Exception as err:
-                        return SocaError.GENERIC_ERROR(
-                            helper=f"Unable to update DB entry for {_stack_name} due to {err}"
-                        )
+                        logger.info(f"Terminated {_stack_name} successfully")
+
+                except Exception as err:
+                    logger.error(
+                        f"Error processing auto-terminate for session {session_info.session_uuid}: {err}"
+                    )
         else:
             logger.info(
                 f"No stopped sessions found or feature is disabled (0). {config.Config.DCV_WINDOWS_TERMINATE_STOPPED_SESSION=} {config.Config.DCV_LINUX_TERMINATE_STOPPED_SESSION=}"

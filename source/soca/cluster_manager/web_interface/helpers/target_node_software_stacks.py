@@ -141,20 +141,28 @@ class TargetNodeSoftwareStacksHelper:
             )
 
         if project:
-            _check_budget = SocaHttpClient(
-                endpoint=f"/api/cost_management/budget",
-                headers={
-                    "X-EDH-TOKEN": config.Config.API_ROOT_KEY,
-                },
-            ).get(params={"project_name": project})
-            if _check_budget.get("success") is False:
-                return SocaError.GENERIC_ERROR(helper=f"{_check_budget.get('message')}")
+            try:
+                _check_budget = SocaHttpClient(
+                    endpoint=f"/api/cost_management/budget",
+                    headers={
+                        "X-EDH-TOKEN": config.Config.API_ROOT_KEY,
+                    },
+                ).get(params={"project_name": project})
+            except Exception as err:
+                _check_budget = None
+                logger.warning(
+                    f"Budget check for project {project} errored, allowing launch: {err}"
+                )
+            if not _check_budget or _check_budget.get("success") is not True:
+                logger.warning(
+                    f"Budget check for project {project} unavailable, allowing launch"
+                )
             else:
-                if _check_budget.get("message").get("usage_pct") >= 100:
+                _budget_msg = _check_budget.get("message") or {}
+                if (_budget_msg.get("usage_pct", 0) or 0) >= 100:
                     return SocaError.GENERIC_ERROR(
                         helper="The budget allocation for this project has been exceeded."
                     )
-                else:
-                    logger.info(f"Budget {_check_budget.get('message')} is valid")
+                logger.info(f"Budget {_budget_msg} is valid")
 
         return SocaResponse(success=True, message=True)

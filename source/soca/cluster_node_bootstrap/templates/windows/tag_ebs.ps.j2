@@ -6,10 +6,10 @@ function Tag-EBS {
 
     Log-Info -Message "Tag EBS disks manually as CFN ASG does not support it"
     $clusterName = "{{ context.get('/configuration/ClusterId') }}"
-    $tagName = -join($clusterName, "-dcv-", "{{ context.get('/dcv/SessionOwner') }}", "-", "{{ context.get('/dcv/SessionId') }}")
+    $tagName = -join($clusterName, "-dcv-", "$env:EDH_DCV_SESSION_OWNER", "-", "$env:EDH_DCV_SESSION_ID")
     $tags = @(
         @{Key="Name";Value="$tagName"}
-        @{Key="edh:JobOwner";Value="{{ context.get('/dcv/SessionOwner') }}"}
+        @{Key="edh:JobOwner";Value="$env:EDH_DCV_SESSION_OWNER"}
         @{Key="edh:JobProject";Value="desktop"}
         @{Key="edh:NodeType";Value="dcv_node"}
         @{Key="edh:BaseOS";Value="{{ context.get('/job/BaseOS') }}"}

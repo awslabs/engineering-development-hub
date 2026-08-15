@@ -8,6 +8,18 @@ function Configure-DCVPermissions {
   Rename-Item -Path "C:\Program Files\NICE\DCV\Server\conf\default.perm" -NewName "default.perm.original.${timestamp}"
   # Add any additional permissions as needed:
   # https://docs.aws.amazon.com/dcv/latest/adminguide/security-authorization-file-create-permission.html
+  # %owner% allow builtin   -- session owner gets the full default capability set.
+  #
+  # DO NOT add `%any% allow display` here. It grants EVERY authenticated user
+  # view access to EVERY session unconditionally, which defeats per-user session
+  # sharing grants AND DCV's `unsupervised-access` owner-presence supervision
+  # (a denied guest is never gated/evicted because %any% already grants display).
+  # The DCV server authenticates each broker connection as the REAL user
+  # (verified in server.log: "user: <name>"), NOT %any%, so %any% is not needed
+  # for routing. Screenshots do not depend on it either: the SM Agent runs as
+  # LocalSystem (Windows, admin-equivalent) / is gated by `administrators=` in
+  # dcv.conf [security] (Linux). Non-owners must receive an explicit per-user
+  # grant (session sharing pushes one via UpdateSessionPermissions).
   @'
 [groups]
 ; Example:
@@ -18,11 +30,7 @@ function Configure-DCVPermissions {
 ; testalias = display, clipboard-copy, clipboard-paste, file-download, file-upload, mouse, keyboard, audio-in, audio-out, printer, usb, smartcard
 
 [permissions]
-; Example:
-; %owner% allow builtin
-; %any% deny clipboard-copy clipboard-paste smartcard
-; actor allow display
-; group:testgroup disallow testalias
+%owner% allow builtin
 '@ | Set-Content -Path "C:\Program Files\NICE\DCV\Server\conf\default.perm"
     Log-Info -Message "C:\Program Files\NICE\DCV\Server\conf\default.perm updated"
 

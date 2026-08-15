@@ -7,21 +7,21 @@ function file_download() {
   # file_download --download-url="https://link/file.txt" --save-as="file.txt" <-- will download from internet via https
   # file_download --download-url="s3://mybucket/file.txt" --save-as="file.txt"  <-- will download from s3 via awscli
   # file_download --download-url="https://github.com/user/repo.git" --save-as="repo" <-- will clone git repo
+  # file_download --download-url="s3://bucket/file.txt|https://fallback.org/file.txt" --save-as="file.txt" <-- multiple URLs separated by |, tries each in order
 
   # Optional: Specify --sha256-checksum to verify data integrity
   # Optional: Specify --wget-options to add any addition options (note: --quiet is enabled by default)
 
-  local DOWNLOAD_URL
+  local DOWNLOAD_URL_RAW
   local SAVE_AS
   local SHA256_CHECKSUM_EXPECTED
   local SHA256_CHECKSUM_FOUND
   local WGET_OPTIONS
-  local DOWNLOAD_TYPE
   log_info "Detected file_download request with args: ${*}"
 
   for arg in "$@"; do
     case $arg in
-      --download-url=*) DOWNLOAD_URL="${arg#*=}" ;;
+      --download-url=*) DOWNLOAD_URL_RAW="${arg#*=}" ;;
       --save-as=*) SAVE_AS="${arg#*=}" ;;
       --sha256-checksum=*) SHA256_CHECKSUM_EXPECTED="${arg#*=}" ;;
       --wget-options=*) WGET_OPTIONS="${arg#*=}" ;;
@@ -29,78 +29,102 @@ function file_download() {
     esac
   done
 
-  # Determine download type
-  if [[ ${DOWNLOAD_URL} =~ \.git$ ]]; then
-      log_info "${DOWNLOAD_URL} seems to be a Git repository"
-      DOWNLOAD_TYPE="git"
-  elif [[ ${DOWNLOAD_URL} =~ ^s3:// ]]; then
-      log_info "${DOWNLOAD_URL} seems to be a S3 URL"
-      DOWNLOAD_TYPE="s3"
-  else
-      log_info "${DOWNLOAD_URL} seems to be an HTTP URL"
-      DOWNLOAD_TYPE="http"
-  fi
-
-  if [[ -z ${DOWNLOAD_URL} ]]; then
-    exit_fail " --download-url  not found for file_download"
+  if [[ -z ${DOWNLOAD_URL_RAW} ]]; then
+    exit_fail "--download-url not found for file_download"
   fi
 
   if [[ -z ${SAVE_AS} ]]; then
-    exit_fail "SAVE_AS not found, for file_download. Please specify --save-as"
+    exit_fail "SAVE_AS not found for file_download. Please specify --save-as"
   fi
 
-  case "${DOWNLOAD_TYPE}" in
-    http)
-      # HTTP download
-      if ! verify_package_installed wget; then
-        packages_install wget
-      fi
+  # Support multiple URLs separated by | (try each in order until one succeeds)
+  IFS='|' read -ra DOWNLOAD_URLS <<< "${DOWNLOAD_URL_RAW}"
+  local DOWNLOAD_SUCCESS=false
+  local DOWNLOAD_URL
 
-      if wget --quiet ${WGET_OPTIONS} "${DOWNLOAD_URL}" -O "${SAVE_AS}"; then
-        log_info "${DOWNLOAD_URL} downloaded successfully and saved as ${SAVE_AS}"
-      else
-        exit_fail "Error downloading [${DOWNLOAD_URL}] wget returned an error, check the logs for more details"
-      fi
-      ;;
+  for DOWNLOAD_URL in "${DOWNLOAD_URLS[@]}"; do
+    # Skip empty entries from splitting
+    [[ -z "${DOWNLOAD_URL}" ]] && continue
 
-    s3)
-      # S3 download
-      local S3_ACTION
-      if [[ "${DOWNLOAD_URL}" =~ /$ ]]; then
-          log_info "${DOWNLOAD_URL} ends with /, using s3 sync"
-          S3_ACTION="sync"
-      else
-          log_info "${DOWNLOAD_URL} does not end with /, using s3 cp"
-          S3_ACTION="cp"
-      fi
+    log_info "Trying download URL: ${DOWNLOAD_URL}"
 
-      if aws_cli s3 ${S3_ACTION} ${DOWNLOAD_URL} ${SAVE_AS} --quiet; then
-        log_info "${DOWNLOAD_URL} downloaded successfully and saved as ${SAVE_AS}"
-      else
-        exit_fail "Error downloading ${DOWNLOAD_URL}. aws_cli returned an error"
-      fi
-      ;;
+    # Determine download type
+    local DOWNLOAD_TYPE
+    if [[ ${DOWNLOAD_URL} =~ \.git$ ]]; then
+        log_info "${DOWNLOAD_URL} seems to be a Git repository"
+        DOWNLOAD_TYPE="git"
+    elif [[ ${DOWNLOAD_URL} =~ ^s3:// ]]; then
+        log_info "${DOWNLOAD_URL} seems to be a S3 URL"
+        DOWNLOAD_TYPE="s3"
+    else
+        log_info "${DOWNLOAD_URL} seems to be an HTTP URL"
+        DOWNLOAD_TYPE="http"
+    fi
 
-    git)
-      # Git clone
-      if ! verify_package_installed git; then
-        packages_install git
-      fi
+    case "${DOWNLOAD_TYPE}" in
+      http)
+        if ! verify_package_installed wget; then
+          packages_install wget
+        fi
 
-      if git clone "${DOWNLOAD_URL}" "${SAVE_AS}"; then
-        log_info "Git repository ${DOWNLOAD_URL} cloned successfully into ${SAVE_AS}"
-      else
-        exit_fail "Error cloning git repository ${DOWNLOAD_URL}"
-      fi
-      ;;
-  esac
+        if wget --quiet ${WGET_OPTIONS} "${DOWNLOAD_URL}" -O "${SAVE_AS}"; then
+          log_info "${DOWNLOAD_URL} downloaded successfully and saved as ${SAVE_AS}"
+          DOWNLOAD_SUCCESS=true
+        else
+          log_info "Failed to download from ${DOWNLOAD_URL}, trying next URL if available ..."
+          rm -f "${SAVE_AS}"
+        fi
+        ;;
+
+      s3)
+        local S3_ACTION
+        if [[ "${DOWNLOAD_URL}" =~ /$ ]]; then
+            log_info "${DOWNLOAD_URL} ends with /, using s3 sync"
+            S3_ACTION="sync"
+        else
+            log_info "${DOWNLOAD_URL} does not end with /, using s3 cp"
+            S3_ACTION="cp"
+        fi
+
+        if aws_cli s3 ${S3_ACTION} ${DOWNLOAD_URL} ${SAVE_AS} --quiet; then
+          log_info "${DOWNLOAD_URL} downloaded successfully and saved as ${SAVE_AS}"
+          DOWNLOAD_SUCCESS=true
+        else
+          log_info "Failed to download from ${DOWNLOAD_URL}, trying next URL if available ..."
+          rm -f "${SAVE_AS}"
+        fi
+        ;;
+
+      git)
+        if ! verify_package_installed git; then
+          packages_install git
+        fi
+
+        if git clone "${DOWNLOAD_URL}" "${SAVE_AS}"; then
+          log_info "Git repository ${DOWNLOAD_URL} cloned successfully into ${SAVE_AS}"
+          DOWNLOAD_SUCCESS=true
+        else
+          log_info "Failed to clone from ${DOWNLOAD_URL}, trying next URL if available ..."
+          rm -rf "${SAVE_AS}"
+        fi
+        ;;
+    esac
+
+    if [[ "${DOWNLOAD_SUCCESS}" == "true" ]]; then
+      break
+    fi
+  done
+
+  if [[ "${DOWNLOAD_SUCCESS}" != "true" ]]; then
+    exit_fail "All download URLs failed for: ${DOWNLOAD_URL_RAW}"
+  fi
 
   # If --sha256-checksum is provided, proceed to an integrity check
   if [[ -n ${SHA256_CHECKSUM_EXPECTED} ]]; then
     log_info "--sha256-checksum found, verifying file"
     SHA256_CHECKSUM_FOUND=$(sha256sum "${SAVE_AS}" | awk '{print $1}')
-    if [[ "${SHA256_CHECKSUM_FOUND}" != "${SHA256_CHECKSUM_EXPECTED}" ]];  then
-      exit_fail "Checksum for ${DOWNLOAD_URL} failed. Expected SHA256 ${SHA256_CHECKSUM_EXPECTED}, but found ${SHA256_CHECKSUM_FOUND} File may be compromised."
+    if [[ "${SHA256_CHECKSUM_FOUND}" != "${SHA256_CHECKSUM_EXPECTED}" ]]; then
+      exit_fail "Checksum for ${DOWNLOAD_URL} failed. Expected SHA256 ${SHA256_CHECKSUM_EXPECTED}, but found ${SHA256_CHECKSUM_FOUND}. File may be compromised."
     else
       log_info "Checksum verified: Expected SHA256 ${SHA256_CHECKSUM_EXPECTED}, found ${SHA256_CHECKSUM_FOUND}"
     fi

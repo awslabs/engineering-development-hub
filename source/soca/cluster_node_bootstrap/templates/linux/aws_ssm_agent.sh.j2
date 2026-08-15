@@ -15,10 +15,12 @@ function install_ssm_agent () {
    {% else %}
     if ! systemctl status amazon-ssm-agent; then
         if [[ ${MACHINE} == "x86_64" ]]; then
-            packages_install "{{ context.get("/system/ssm/x86_64") }}"
+            file_download --download-url="{{ context.get("/system/ssm/x86_64") }}" --save-as="amazon_ssm_agent.rpm"
         elif [[ ${MACHINE} == "aarch64" ]]; then
-            packages_install "{{ context.get("/system/ssm/aarch64") }}"
+            file_download --download-url="{{ context.get("/system/ssm/aarch64") }}" --save-as="amazon_ssm_agent.rpm"
         fi
+        packages_install_file amazon_ssm_agent.rpm
+        
         systemctl enable amazon-ssm-agent || true
         systemctl restart amazon-ssm-agent
     fi

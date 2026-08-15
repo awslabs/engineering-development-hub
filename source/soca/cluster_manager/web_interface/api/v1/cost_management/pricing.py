@@ -12,6 +12,8 @@
 ######################################################################################################################
 
 from flask_restful import Resource, reqparse
+from decorators import private_api
+from flask_babel import gettext as _
 import logging
 import ast
 import re
@@ -88,9 +90,9 @@ def get_compute_pricing(instance_type: str) -> dict:
 
 
 class AwsPrice(Resource):
-    @staticmethod
-    def get():
-        """
+    @private_api
+    def get(self):
+        r"""
         Calculate AWS pricing for compute and storage resources
         ---
         openapi: 3.1.0
@@ -209,6 +211,8 @@ class AwsPrice(Resource):
                         compute:
                           type: object
                           required:
+                            - ondemand
+                            - reserved
                             - on_demand_hourly_rate
                             - reserved_hourly_rate
                             - estimated_on_demand_cost
@@ -216,7 +220,18 @@ class AwsPrice(Resource):
                             - nodes
                             - walltime
                             - instance_type
+                            - vcpus
                           properties:
+                            ondemand:
+                              type: number
+                              minimum: 0
+                              description: Raw on-demand price per hour from AWS Pricing API
+                              example: 0.096
+                            reserved:
+                              type: number
+                              minimum: 0
+                              description: Raw reserved price per hour from AWS Pricing API
+                              example: 0.058
                             on_demand_hourly_rate:
                               type: number
                               minimum: 0
@@ -270,12 +285,18 @@ class AwsPrice(Resource):
                           type: string
                           example: "0.003"
                         storage_pct:
-                          type: number
-                          minimum: 0
-                          maximum: 100
+                          oneOf:
+                            - type: number
+                              minimum: 0
+                              maximum: 100
+                            - type: integer
+                          description: Storage cost percentage of total (float when non-zero, integer 0 when no storage cost)
                           example: 6.34
                         compute_pct:
-                          type: string
+                          oneOf:
+                            - type: string
+                            - type: integer
+                          description: Compute cost percentage of total (string when non-zero, integer 0 when no compute cost)
                           example: "93.66"
           '400':
             description: Invalid parameters or wall_time format
@@ -342,6 +363,14 @@ class AwsPrice(Resource):
                       type: string
                       example: "Unable to get compute price. Instance type may be incorrect or region name not tracked correctly?"
         """
+        _region_resp = SocaConfig(key="/configuration/Region").get_value()
+        _region = _region_resp.message if _region_resp.success is True else ""
+        if _region.startswith("us-gov-"):
+            return SocaResponse(
+                success=False,
+                message=_("Cost estimation is not available in the GovCloud partition (the AWS Pricing API is not offered in aws-us-gov)."),
+            ).as_flask()
+
         parser = reqparse.RequestParser()
         parser.add_argument("instance_type", type=str, location="args")
         parser.add_argument(
@@ -396,27 +425,32 @@ class AwsPrice(Resource):
             sim_hours, sim_minutes, sim_seconds = map(
                 float, args["wall_time"].split(":")
             )
-
-        except ValueError:
+        except Exception as e:
             return SocaResponse(
                 success=False,
-                message="wall_time must use HH:MM:SS format and only use valid numbers",
+                message=_("wall_time must use HH:MM:SS format and only use valid numbers"),
             ).as_flask()
 
         walltime = sim_hours + (sim_minutes / 60) + (sim_seconds / 3600)
+
+        if float(walltime) == 0.0:
+            return SocaResponse(
+                success=False,
+                message="wall_time cannot be 00:00:00",
+            ).as_flask()
 
         # Calculate number of nodes required based on instance type and vCPUs requested
         if vcpus is None:
             nodect = 1
         else:
             _describe_instance_type = describe_instance_types(
-            instance_types=[instance_type]
-        )
+                instance_types=[instance_type]
+            )
         if _describe_instance_type.get("success") is False:
-             return SocaResponse(
-                    success=False,
-                    message=f"Unable to describe_instance {instance_type} because of {_describe_instance_type.get('message')} ",
-                ).as_flask()
+            return SocaResponse(
+                success=False,
+                message=_(f"Unable to describe_instance {instance_type} because of {_describe_instance_type.get('message')} "),
+            ).as_flask()
         else:
             _describe_instance_types = _describe_instance_type.get("message")
 
@@ -445,42 +479,39 @@ class AwsPrice(Resource):
             if not _compute_price:
                 return SocaResponse(
                     success=False,
-                    message=f"Unable to retrieve price for {instance_type}",
+                    message=_(f"Unable to retrieve price for {instance_type}"),
                 ).as_flask()
 
-            if "ondemand" not in _compute_price:
+            _ondemand_price = _compute_price.get("ondemand")
+            if _ondemand_price is None:
                 return SocaResponse(
                     success=False,
-                    message=f"Unable to retrieve 'ondemand' price for {instance_type}: {_compute_price}",
+                    message=_(f"Unable to retrieve 'ondemand' price for {instance_type}: {_compute_price}"),
                 ).as_flask()
 
-            if "reserved" not in _compute_price:
-                return SocaResponse(
-                    success=False,
-                    message=f"Unable to retrieve 'reserved' price for {instance_type}: {_compute_price}",
-                ).as_flask()
+            # No 1yr No-Upfront Standard RI offering for this family; fall back to on-demand.
+            _reserved_is_fallback = _compute_price.get("reserved") is None
+            _reserved_price = _compute_price.get("reserved", _ondemand_price)
 
-            _compute_price["on_demand_hourly_rate"] = float(
-                f"{_compute_price['ondemand']:.3f}"
-            )
-            _compute_price["reserved_hourly_rate"] = float(
-                f"{_compute_price['reserved']:.3f}"
-            )
+            _compute_price["reserved"] = _reserved_price
+            _compute_price["reserved_price_is_fallback"] = _reserved_is_fallback
+            _compute_price["on_demand_hourly_rate"] = float(f"{_ondemand_price:.3f}")
+            _compute_price["reserved_hourly_rate"] = float(f"{_reserved_price:.3f}")
             _compute_price["nodes"] = nodect
             _compute_price["walltime"] = float(f"{walltime:.3f}")
             _compute_price["instance_type"] = instance_type
             _compute_price["estimated_on_demand_cost"] = float(
-                f"{(_compute_price['ondemand'] * nodect) * walltime:.3f}"
+                f"{(_ondemand_price * nodect) * walltime:.3f}"
             )
             _compute_price["estimated_reserved_cost"] = float(
-                f"{(_compute_price['reserved'] * nodect) * walltime:.3f}"
+                f"{(_reserved_price * nodect) * walltime:.3f}"
             )
 
             sim_cost["compute"] = _compute_price
         except Exception as err:
             return SocaResponse(
                 success=False,
-                message=f"Unable to get compute price. Instance type may be incorrect or region name not tracked correctly? Error: {err}",
+                message=_(f"Unable to get compute price. Instance type may be incorrect or region name not tracked correctly? Error: {err}"),
             ).as_flask()
 
         # Output

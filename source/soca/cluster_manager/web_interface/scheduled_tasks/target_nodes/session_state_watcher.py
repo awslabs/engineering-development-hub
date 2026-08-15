@@ -110,9 +110,39 @@ def process_chunk(
         else:
             logger.info("No inactive session found")
 
-        # Update stopped sessions
+        # Update stopping sessions (EC2 instance transitioning, e.g. Windows
+        # shutdown mid-flight -- keep the WebUI honest instead of claiming
+        # "stopped" before the instance actually is)
         logger.info(
-            "Finding Target Nodes Sessions with stopped EC2 Instance but DB state is not stopped (e.g: if you stop the instance from AWS Console)"
+            "Finding Target Nodes Sessions with EC2 Instance stopping but DB state not yet stopping"
+        )
+        _sync_stopping_sessions = [
+            session
+            for session in sessions
+            if session.instance_id is not None
+            and instance_ids_by_state.get(session.instance_id) is not None
+            and instance_ids_by_state.get(session.instance_id).lower() == "stopping"
+            and session.session_state.lower() != "stopping"
+        ]
+        if _sync_stopping_sessions:
+            logger.info(
+                f"Found Sessions to update state to stopping: {_sync_stopping_sessions}"
+            )
+            update_target_node_state(
+                sessions=_sync_stopping_sessions,
+                new_state="stopping",
+                db_scoped_session=_db_scoped_session,
+            )
+        else:
+            logger.info("No session to update to stopping")
+
+        # Update stopped sessions -- only once EC2 itself reports "stopped"
+        # (not "stopping"; that transitional state is handled above and
+        # kept distinct so the WebUI doesn't claim "stopped" while the
+        # instance -- especially Windows -- is still mid-shutdown, e.g: if
+        # you stop the instance from AWS Console)
+        logger.info(
+            "Finding Target Nodes Sessions with stopped EC2 Instance but DB state is not stopped"
         )
 
         _sync_stopped_sessions = [
@@ -120,8 +150,7 @@ def process_chunk(
             for session in sessions
             if session.instance_id is not None
             and instance_ids_by_state.get(session.instance_id) is not None
-            and instance_ids_by_state.get(session.instance_id).lower()
-            in ["stopped", "stopping"]
+            and instance_ids_by_state.get(session.instance_id).lower() == "stopped"
             and session.session_state.lower() != "stopped"
         ]
         logger.info(

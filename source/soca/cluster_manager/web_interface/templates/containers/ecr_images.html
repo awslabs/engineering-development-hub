@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -20,37 +20,37 @@
     
                         <div class="card-body">
                             <div class="py-3 d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="List all your container images stored on one or more Amazon Elastic Container Registry (ECR).">My Container Images <i class="fas fa-question-circle"></i></h3>
+                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("List all your container images stored on one or more Amazon Elastic Container Registry (ECR).") }}">{{ _("My Container Images") }} <i class="fas fa-question-circle"></i></h3>
                             </div>
                             {% if not container_images %}
                             <div class="alert alert-warning">
-                                Unable to find any and <a href="https://aws.amazon.com/ecr/" target="_blank">Amazon Elastic Container Registry (ECR)</a> onboarded to this EDH environment. <br>
+                                {% trans link='<a href="https://aws.amazon.com/ecr/" target="_blank">Amazon Elastic Container Registry (ECR)</a>'|safe %}Unable to find any {{ link }} onboarded to this EDH environment.{% endtrans %} <br>
                                 Add the following tag  <kbd>edh:visibility:{{cluster_id}} = true</kbd> to the ECR registries you want to onboard.
                             </div>
                             {% else %}
                                 <div class="alert alert-primary">
                                     <ul>
-                                        <li>Only images that have tags are shown in the repository table. Untagged images are not displayed.</li>
+                                        <li>{{ _("Only images that have tags are shown in the repository table. Untagged images are not displayed.") }}</li>
                                         <li>
-                                            Add the following tag to onboard your <a href="https://aws.amazon.com/ecr/" target="_blank">Amazon Elastic Container repository (ECR)</a> to EDH:
+                                            {% trans link='<a href="https://aws.amazon.com/ecr/" target="_blank">Amazon Elastic Container repository (ECR)</a>'|safe %}Add the following tag to onboard your {{ link }} to EDH:{% endtrans %}
                                             <kbd>edh:visibility:{{cluster_id}} = true</kbd>
                                         </li>
                                     </ul>
                                 </div>
 
                                 <div class="col-md-12">
-                                    <input type="text" id="searchImages" class="form-control" placeholder="Search for an image tag, digest ..." aria-controls="allContainerImages">
+                                    <input type="text" id="searchImages" class="form-control" placeholder="{{ _("Search for an image tag, digest ...") }}" aria-controls="allContainerImages">
                                     </div>
                                 <br>
                                 <table id="allContainerImages" class="display stripe" style="width:100%">
                                     <thead>
                                         <tr>
-                                            <th>Repository Name</th>
-                                            <th>Image Tag</th>
-                                            <th>Image Digest</th>
-                                            <th>Date</th>
-                                            <th>Size (MB)</th>
-                                            <th>Action</th>
+                                            <th>{{ _("Repository Name") }}</th>
+                                            <th>{{ _("Image Tag") }}</th>
+                                            <th>{{ _("Image Digest") }}</th>
+                                            <th>{{ _("Date") }}</th>
+                                            <th>{{ _("Size (MB)") }}</th>
+                                            <th>{{ _("Action") }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -72,7 +72,7 @@
                                                                 <form method="POST" action="/containers/eks/setup">
                                                                             <input type="hidden" name="image_uri" value="{{image_info.imageUri}}">
                                                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                                            <button type="submit" class="btn btn-success btn-sm">Launch Container</button>
+                                                                            <button type="submit" class="btn btn-success btn-sm">{{ _("Launch Container") }}</button>
                                                                 </form>                                               
                                                         </td>
                                                     </tr>

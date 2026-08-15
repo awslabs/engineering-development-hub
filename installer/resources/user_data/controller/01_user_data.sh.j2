@@ -29,16 +29,15 @@
 # Load packages management functions
 {% include "templates/linux/system_packages/packages_management.sh.j2" %}
 
-# Install AWS Systems Manager agent
-{% include "templates/linux/aws_ssm_agent.sh.j2" %}
-
 # Install awscli
 {% include "templates/linux/awscli.sh.j2" %}
 
+# Install AWS Systems Manager agent
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
 # Remove any previous references of SOCA/EDH to the environment file (if any)
 cp /etc/environment /etc/environment.original.$(date +%s)
-sed -i '/EDH_/d' /etc/environment
-sed -i '/SOCA_/d' /etc/environment
+sed -i '/SOCA_\|EDH_/d' /etc/environment
 log_info "Running Kernel $(uname -r)"
 unset_reboot_required
 
@@ -49,11 +48,11 @@ EDH_BOOTSTRAP_LOGS_FOLDER="${EDH_BOOTSTRAP_ASSETS_FOLDER}/logs"
 if [[ ! -d "${EDH_BOOTSTRAP_ASSETS_FOLDER}" ]]; then
     log_info "First user data execution, downloading bootstrap sequence"
     # Retrieve Boostrap sequence from S3
-    {% if context.get("/configuration/Region") in ["us-gov-east-1', 'us-gov-west-1"]  %}
+    {% if context.get("/configuration/Region").startswith("us-gov-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["cn-north-1", "cn-northwest-1"]  %}
+    {% elif context.get("/configuration/Region").startswith("cn-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["eusc-de-east-1"] %}
+    {% elif context.get("/configuration/Region").startswith("eusc-") %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
     {% else %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')

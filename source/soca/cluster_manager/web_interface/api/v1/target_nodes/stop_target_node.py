@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from datetime import datetime, timezone
 from decorators import private_api, feature_flag
@@ -240,7 +241,7 @@ class StopTargetNode(Resource):
                 ).as_flask()
 
             try:
-                _check_session.session_state = "stopped"
+                _check_session.session_state = "stopping"
                 _check_session.session_state_latest_change_time = datetime.now(
                     timezone.utc
                 )
@@ -249,11 +250,11 @@ class StopTargetNode(Resource):
                 db.session.rollback()
                 return SocaError.DB_ERROR(
                     query=_check_session,
-                    helper=f"Unable to set session_state to stopped due to {err}",
+                    helper=f"Unable to set session_state to stopping due to {err}",
                 ).as_flask()
 
             return SocaResponse(
-                success=True, message=f"Your target node will be stopped soon."
+                success=True, message=_(f"Your target node will be stopped soon.")
             ).as_flask()
         else:
             return SocaError.VIRTUAL_DESKTOP_STOP_ERROR(

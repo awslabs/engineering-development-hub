@@ -1,0 +1,87 @@
+#!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Per-session environment variables for SOCA/EDH bootstrap.
+#
+# Rendered fresh on every VDI/HPC create (NOT cached) and uploaded to
+# the per-session S3 prefix. The UserData stub fetches and `source`s
+# this file BEFORE downloading the cached big bootstrap, so the cached
+# bash scripts can reference per-session values via ${EDH_*} shell
+# variables that resolve at run time.
+#
+# This file exists because the big bootstrap templates
+# (02_setup.sh, 03_setup_post_reboot.sh, install_required_packages.sh,
+# etc.) used to bake per-session values in via Jinja2 substitution at
+# render time. That defeated content-addressable caching: every session
+# rendered to a unique body. Surfacing per-session values via this env
+# file lets the big templates be rendered ONCE per stack-config and
+# reused for every session.
+#
+# See docs/BootstrapTemplateCache.md for the full design.
+#
+# IMPORTANT: keep this file SHORT and stable. Adding interpolations here
+# is cheap (small render, small upload). Adding rarely-used per-session
+# logic to the cached big templates and gating with `${EDH_*}` shell
+# `if` is the preferred direction. Do NOT add per-stack values here --
+# those go in the cached templates so they don't change the per-session
+# render footprint.
+
+# DCV session identity. These are unique per session. Empty on
+# non-VDI hosts (HPC compute_node) -- callers should default-guard with
+# ${EDH_DCV_SESSION_ID:-} when used in HPC-side templates.
+export EDH_DCV_SESSION_ID="{{ context.get('/dcv/SessionId') }}"
+export EDH_DCV_SESSION_NAME="{{ context.get('/dcv/SessionName') }}"
+export EDH_DCV_SESSION_OWNER="{{ context.get('/dcv/SessionOwner') }}"
+export EDH_DCV_SESSION_TYPE="{{ context.get('/dcv/SessionType') }}"
+
+# DCV event-relay (SNS+Lambda push). Both nullable: empty values cause
+# the publish helper to silently no-op (legacy clusters / event-relay
+# disabled). The HMAC secret is per-session, IMDS-readable only by THIS
+# instance; the topic ARN is cluster-wide.
+export EDH_DCV_SESSION_EVENTS_QUEUE_URL="{{ context.get('/configuration/DcvSessionEventsQueueUrl', '') }}"
+
+# Job identity (HPC + VDI both populate these via the controller).
+export EDH_JOB_ID="{{ context.get('/job/JobId') }}"
+export EDH_JOB_NAME="{{ context.get('/job/JobName') }}"
+export EDH_JOB_OWNER="{{ context.get('/job/JobOwner') }}"
+export EDH_JOB_PROJECT="{{ context.get('/job/JobProject') }}"
+export EDH_JOB_QUEUE="{{ context.get('/job/JobQueue') }}"
+export EDH_JOB_STACK_ID="{{ context.get('/job/StackId') }}"
+
+# Bootstrap-path / S3 prefix (per session).
+export EDH_JOB_BOOTSTRAP_PATH="{{ context.get('/job/BootstrapPath') }}"
+export EDH_JOB_BOOTSTRAP_S3="{{ context.get('/job/BootstrapScriptsS3Location') }}"
+
+# Lifecycle flags.
+export EDH_JOB_SCRATCH_SIZE="{{ context.get('/job/ScratchSize', 0) }}"
+export EDH_JOB_KEEP_FOREVER="{{ context.get('/job/KeepForever') }}"
+export EDH_JOB_TERMINATE_WHEN_IDLE="{{ context.get('/job/TerminateWhenIdle') }}"
+
+# Backwards-compatibility alias for the typo'd /job/SessionIr (== /dcv/SessionId)
+# that was in older templates. Safe to remove once no template references it.
+export EDH_JOB_SESSION_IR="${EDH_DCV_SESSION_ID}"
+
+# Convenience flag: cached scripts can do
+#   if [[ "${EDH_JOB_SCRATCH_ENABLED}" == "1" ]]; then ...
+# instead of needing to parse EDH_JOB_SCRATCH_SIZE as an integer.
+if [[ "${EDH_JOB_SCRATCH_SIZE}" =~ ^[0-9]+$ ]] && [[ "${EDH_JOB_SCRATCH_SIZE}" -gt 0 ]]; then
+    export EDH_JOB_SCRATCH_ENABLED=1
+else
+    export EDH_JOB_SCRATCH_ENABLED=0
+fi
+
+# Convenience flag: cached scripts can do
+#   if [[ "${EDH_JOB_QUEUE_IS_ALWAYSON}" == "1" ]]; then ...
+# instead of comparing string values.
+if [[ "${EDH_JOB_QUEUE}" == "alwayson" ]]; then
+    export EDH_JOB_QUEUE_IS_ALWAYSON=1
+else
+    export EDH_JOB_QUEUE_IS_ALWAYSON=0
+fi
+
+# VDI pool member marker. "true" only for session-less pool members, so the
+# cached big bootstrap (dcv_server.sh) emits the session-less pool-ready event
+# (-> relay -> ledger AVAILABLE) instead of session-ready. Runtime flag keeps
+# the cached bootstrap generic across pool and non-pool VDIs of the same stack.
+export EDH_DCV_POOL_MEMBER="{{ context.get('/dcv/PoolMember', 'false') }}"

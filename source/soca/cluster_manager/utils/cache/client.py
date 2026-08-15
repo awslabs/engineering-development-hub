@@ -3,8 +3,9 @@
 
 import logging
 import redis
-from utils.aws.secretsmanager_client import SocaSecret
+from redis.credentials import CredentialProvider
 import utils.aws.boto3_wrapper as utils_boto3
+from utils.cache.iam_auth import make_cache_token_generator
 from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
@@ -15,6 +16,21 @@ from cachetools import TTLCache, cached
 logger = logging.getLogger("soca_logger")
 
 
+class _ElastiCacheIAMProvider(CredentialProvider):
+    """
+    redis-py credential provider that mints a fresh ElastiCache IAM connect
+    token on every new connection (redis-py calls ``get_credentials`` at connect
+    time). No static password is ever stored; token minting is local SigV4
+    signing off the refreshable instance/Lambda-role credentials.
+    """
+
+    def __init__(self, token_generator):
+        self._token_generator = token_generator
+
+    def get_credentials(self):
+        return self._token_generator()
+
+
 class SocaCacheClient:
     def __init__(
         self,
@@ -22,7 +38,7 @@ class SocaCacheClient:
         is_admin: Optional[bool] = False,
     ):
         self.cache_key_prefix = cache_key_prefix
-        self.cache_config = get_cache_config(is_admin=is_admin)
+        self.cache_config = get_cache_config(is_admin=is_admin).get("message")
         logger.debug(f"Building CacheClient for: {self.cache_config}")
         self.cache_client = self.cache_config.get("cache_client")
         self.cache_info = self.cache_config.get("cache_info")
@@ -209,6 +225,178 @@ class SocaCacheClient:
         except Exception as err:
             return SocaError.CACHE_ERROR(helper=f"Unable to expire {key} due to {err}")
 
+    # ------------------------------------------------------------------
+    # Hash operations
+    #
+    # Used by SSM ConfigSync (one HASH per cluster, one field per SSM
+    # parameter leaf). Shape of the hash key is always cluster-prefixed
+    # via key_fqdn() like every other operation in this client. Field
+    # names and values are stored/returned as utf-8 strings (the
+    # underlying redis-py client runs with decode_responses=False, so
+    # we decode bytes here to give callers a stable str interface).
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _decode(value):
+        if isinstance(value, (bytes, bytearray)):
+            return value.decode("utf-8")
+        return value
+
+    def hset(self, key, field, value):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HSET {key=} {field=}")
+        try:
+            if self.redis:
+                _q = self.cache_client.hset(self.key_fqdn(key), field, value)
+                # HSET returns 1 if new field, 0 if updated. Both are success.
+                return SocaResponse(
+                    success=True,
+                    message=f"Field {field} on {key} written (new={_q})",
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to hset {key}.{field} due to {err}"
+            )
+
+    def hset_multi(self, key, mapping: dict):
+        """
+        Atomically set multiple fields on a hash. Equivalent to a single
+        HSET command with a mapping argument (replaces the deprecated
+        HMSET).
+        """
+        if not mapping:
+            return SocaResponse(success=True, message=f"No fields to write to {key}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HSET multi {key=} fields={len(mapping)}")
+        try:
+            if self.redis:
+                self.cache_client.hset(self.key_fqdn(key), mapping=mapping)
+                return SocaResponse(
+                    success=True,
+                    message=f"{len(mapping)} fields written to {key}",
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to hset_multi {key} due to {err}"
+            )
+
+    def hget(self, key, field):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HGET {key=} {field=}")
+        try:
+            if self.redis:
+                _value = self.cache_client.hget(self.key_fqdn(key), field)
+                if _value is None:
+                    return SocaResponse(success=False, message="CACHE_MISS")
+                return SocaResponse(success=True, message=self._decode(_value))
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to hget {key}.{field} due to {err}"
+            )
+
+    def hgetall(self, key):
+        """
+        Returns the entire hash as a dict of utf-8 strings. On missing
+        key, returns success=True with an empty dict (matches Redis HGETALL
+        semantics). Use exists() if you need to distinguish missing key
+        from empty hash.
+        """
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HGETALL {key=}")
+        try:
+            if self.redis:
+                _raw = self.cache_client.hgetall(self.key_fqdn(key))
+                _decoded = {self._decode(k): self._decode(v) for k, v in _raw.items()}
+                return SocaResponse(success=True, message=_decoded)
+        except Exception as err:
+            return SocaError.CACHE_ERROR(helper=f"Unable to hgetall {key} due to {err}")
+
+    def hdel(self, key, *fields):
+        if not fields:
+            return SocaResponse(success=True, message=f"No fields to delete from {key}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HDEL {key=} fields={fields}")
+        try:
+            if self.redis:
+                _q = self.cache_client.hdel(self.key_fqdn(key), *fields)
+                return SocaResponse(
+                    success=True, message=f"Deleted {_q} field(s) from {key}"
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to hdel {key} fields={fields} due to {err}"
+            )
+
+    def hexists(self, key, field):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HEXISTS {key=} {field=}")
+        try:
+            if self.redis:
+                _q = self.cache_client.hexists(self.key_fqdn(key), field)
+                return SocaResponse(success=bool(_q), message=bool(_q))
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to hexists {key}.{field} due to {err}"
+            )
+
+    def hkeys(self, key):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HKEYS {key=}")
+        try:
+            if self.redis:
+                _raw = self.cache_client.hkeys(self.key_fqdn(key))
+                return SocaResponse(
+                    success=True, message=[self._decode(f) for f in _raw]
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(helper=f"Unable to hkeys {key} due to {err}")
+
+    def hlen(self, key):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache HLEN {key=}")
+        try:
+            if self.redis:
+                return SocaResponse(
+                    success=True, message=self.cache_client.hlen(self.key_fqdn(key))
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(helper=f"Unable to hlen {key} due to {err}")
+
+    def rename(self, src, dst):
+        """
+        Atomic key rename. Used by the SSM ConfigSync flusher to swap a
+        freshly-built hash into place without ever leaving the readable
+        key empty. RENAME fails (raises) if src does not exist.
+        """
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cache RENAME {src=} -> {dst=}")
+        try:
+            if self.redis:
+                self.cache_client.rename(self.key_fqdn(src), self.key_fqdn(dst))
+                return SocaResponse(
+                    success=True, message=f"Renamed {src} to {dst}"
+                )
+        except Exception as err:
+            return SocaError.CACHE_ERROR(
+                helper=f"Unable to rename {src} to {dst} due to {err}"
+            )
+
+    def pipeline(self, transaction: bool = True):
+        """
+        Returns a redis-py pipeline bound to the underlying client. The
+        caller is responsible for FQDN-prefixing keys (use key_fqdn()).
+        Default transaction=True wraps the batch in MULTI/EXEC.
+
+        Example (build new hash + atomic swap):
+            pipe = client.pipeline()
+            pipe.hset(client.key_fqdn(tmp_key), mapping=full_dict)
+            pipe.rename(client.key_fqdn(tmp_key), client.key_fqdn(target_key))
+            pipe.execute()
+        """
+        if not self.redis:
+            return None
+        return self.cache_client.pipeline(transaction=transaction)
+
 
 @cached(TTLCache(maxsize=30, ttl=86400))
 def get_cache_config(is_admin: bool = False) -> dict:
@@ -228,12 +416,23 @@ def get_cache_config(is_admin: bool = False) -> dict:
         SocaCastEngine(data=_cache_info.get("enabled")).cast_as(bool).get("message")
         is True
     ):
-        _get_credentials = (
-            SocaSecret(secret_id="CacheAdminUser" if is_admin else "CacheReadOnlyUser")
-            .get_secret()
-            .get("message")
-        )
         if _cache_info.get("engine") in {"valkey", "redis"}:
+            # IAM auth (no static password): mint a SigV4 "connect" token per
+            # connection from the instance/Lambda role. Controller/admin path uses
+            # the broad controller user; every other path uses the scoped readonly
+            # user. UserName == UserId (lowercase) is an ElastiCache IAM constraint.
+            _cluster_id = os.environ.get("EDH_CLUSTER_ID", "")
+            _user_id = (
+                f"{_cluster_id}-controller"
+                if is_admin
+                else f"{_cluster_id}-readonlyuser"
+            ).lower()
+            _token_generator = make_cache_token_generator(
+                credentials=utils_boto3.get_boto_session_credentials().get("message"),
+                cache_name=_cache_info.get("name"),
+                user_id=_user_id,
+                region=utils_boto3.get_boto_session_region().get("message"),
+            ).get("message")
             _cache_client = redis.Redis(
                 host=_cache_info.get("endpoint"),
                 port=_cache_info.get("port"),
@@ -241,8 +440,7 @@ def get_cache_config(is_admin: bool = False) -> dict:
                 ssl=True,
                 ssl_cert_reqs=None,
                 decode_responses=False,
-                username=_get_credentials.get("username"),
-                password=_get_credentials.get("password"),
+                credential_provider=_ElastiCacheIAMProvider(_token_generator),
             )
             logger.debug("Cache client built successfully")
         else:
@@ -251,4 +449,4 @@ def get_cache_config(is_admin: bool = False) -> dict:
         logger.info("Cache not enabled, client is None")
         _cache_client = None
 
-    return {"cache_client": _cache_client, "cache_info": _cache_info}
+    return SocaResponse(success=True, message={"cache_client": _cache_client, "cache_info": _cache_info})

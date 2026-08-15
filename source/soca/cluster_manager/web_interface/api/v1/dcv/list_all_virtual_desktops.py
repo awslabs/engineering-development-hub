@@ -257,7 +257,7 @@ class ListAllVirtualDesktops(Resource):
                 _session_data = {
                     "id": session_info.id,
                     "is_active": session_info.is_active,
-                    "created_on": session_info.created_on,
+                    "created_on": session_info.created_on.isoformat() + "Z" if session_info.created_on else None,
                     "deactivated_on": session_info.deactivated_on,
                     "deactivated_by": session_info.deactivated_by,
                     "stack_name": session_info.stack_name,

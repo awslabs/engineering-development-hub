@@ -1,0 +1,347 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+    {% include 'common/header.html' %}
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <h3 class="mb-3"><i class="fa-solid fa-star mr-2"></i>{{ _("Golden Images") }}</h3>
+                    <p class="text-muted mb-4">{{ _("Review nominations, publish golden images to software stacks, and manage version history.") }}</p>
+
+                    <nav>
+                        <div class="nav nav-tabs" id="golden-tabs" role="tablist">
+                            <a class="nav-item nav-link active" id="tab-nominations" data-bs-toggle="tab" href="#panel-nominations" role="tab" aria-selected="true">
+                                {{ _("Nominations") }}
+                                {% if pending_nominations is not none %}<span class="badge rounded-pill ml-1" id="pending-nom-count" style="background:#fbeaea;color:#a12622;border:1px solid #f0c2c2;font-weight:600;{% if not pending_nominations %}display:none;{% endif %}">{{ pending_nominations|length }}</span>{% endif %}
+                            </a>
+                            <a class="nav-item nav-link" id="tab-stacks" data-bs-toggle="tab" href="#panel-stacks" role="tab" aria-selected="false">{{ _("Published Stacks") }}</a>
+                        </div>
+                    </nav>
+
+                    <div class="tab-content mt-3" id="golden-tab-content">
+                        <!-- Nominations Tab -->
+                        <div class="tab-pane fade show active" id="panel-nominations" role="tabpanel">
+                            <h5 class="mb-3">{{ _("Pending Nominations") }}</h5>
+                            {% if pending_nominations %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>{{ _("ID") }}</th>
+                                            <th>{{ _("AMI") }}</th>
+                                            <th>{{ _("Nominated By") }}</th>
+                                            <th>{{ _("Date") }}</th>
+                                            <th>{{ _("OS") }}</th>
+                                            <th>{{ _("Description") }}</th>
+                                            <th>{{ _("Actions") }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for nom in pending_nominations %}
+                                        <tr id="nom-row-{{ nom.id }}">
+                                            <td>{{ nom.id }}</td>
+                                            <td><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 mr-1" title="{{ _('Copy AMI ID') }}" onclick="edhCopyText(this.nextElementSibling.innerText, this)"><i class="fa-solid fa-copy"></i></button><code>{{ nom.ami_id }}</code></td>
+                                            <td>{{ nom.nominated_by }}</td>
+                                            <td>{{ nom.nominated_at.strftime('%Y-%m-%d %H:%M') if nom.nominated_at else '' }}</td>
+                                            <td><span class="badge" style="background:#eef1f5;color:#33475b;border:1px solid #d5dbe3;font-weight:500;">{{ nom.os_family }}</span></td>
+                                            <td class="small">{{ nom.label }}</td>
+                                            <td>
+                                                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approvemodal-{{ nom.id }}"><i class="fa-solid fa-check mr-1"></i>{{ _("Approve") }}</button>
+                                                <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectmodal-{{ nom.id }}"><i class="fa-solid fa-times mr-1"></i>{{ _("Reject") }}</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {# Modals rendered outside the table -- only <tr> is valid inside <tbody> #}
+                            {% for nom in pending_nominations %}
+                            <!-- Approve Modal -->
+                                        <div class="modal fade" id="approvemodal-{{ nom.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title"><i class="fa-solid fa-check-circle mr-2 text-success"></i>{{ _("Approve & Publish") }}</h5>
+                                                        <button type="button" class="close" data-bs-dismiss="modal"><span>&times;</span></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p class="small text-muted">{{ _("Approve this nomination and publish the AMI to a software stack.") }}</p>
+                                                        <p><strong>{{ nom.label }}</strong><br><code>{{ nom.ami_id }}</code> &middot; {{ nom.os_family }} &middot; {{ _("by") }} {{ nom.nominated_by }}</p>
+                                                        <label class="small font-weight-bold">{{ _("Target Stack") }}</label>
+                                                        <select class="form-control mb-2" id="approve-stack-{{ nom.id }}">
+                                                            {% for s in stacks %}
+                                                            <option value="{{ s.id }}">{{ s.stack_name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <label class="small font-weight-bold">{{ _("Notes (optional)") }}</label>
+                                                        <textarea class="form-control" id="approve-desc-{{ nom.id }}" rows="2" maxlength="500"></textarea>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                                                        <button type="button" class="btn btn-success" onclick="edhApproveAndPublish({{ nom.id }})"><i class="fa-solid fa-check mr-1"></i>{{ _("Approve & Publish") }}</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Reject Modal -->
+                                        <div class="modal fade" id="rejectmodal-{{ nom.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title"><i class="fa-solid fa-times-circle mr-2 text-danger"></i>{{ _("Reject Nomination") }}</h5>
+                                                        <button type="button" class="close" data-bs-dismiss="modal"><span>&times;</span></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p><strong>{{ nom.label }}</strong><br><code>{{ nom.ami_id }}</code> &middot; {{ _("by") }} {{ nom.nominated_by }}</p>
+                                                        <label class="small font-weight-bold">{{ _("Reason (optional — will be shown to the user)") }}</label>
+                                                        <textarea class="form-control" id="reject-note-{{ nom.id }}" rows="2" maxlength="500"></textarea>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                                                        <button type="button" class="btn btn-danger" onclick="edhRejectNomination({{ nom.id }})"><i class="fa-solid fa-times mr-1"></i>{{ _("Reject") }}</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-muted">{{ _("No pending nominations.") }}</p>
+                            {% endif %}
+
+                            {% if recent_nominations %}
+                            <h5 class="mt-4 mb-3">{{ _("Recent Activity") }}</h5>
+                            <div class="table-responsive">
+                                <table class="table table-sm small">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>{{ _("ID") }}</th>
+                                            <th>{{ _("AMI") }}</th>
+                                            <th>{{ _("By") }}</th>
+                                            <th>{{ _("Status") }}</th>
+                                            <th>{{ _("Reviewed By") }}</th>
+                                            <th>{{ _("Date") }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for nom in recent_nominations %}
+                                        <tr>
+                                            <td>{{ nom.id }}</td>
+                                            <td><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 mr-1" title="{{ _('Copy AMI ID') }}" onclick="edhCopyText(this.nextElementSibling.innerText, this)"><i class="fa-solid fa-copy"></i></button><code>{{ nom.ami_id }}</code></td>
+                                            <td>{{ nom.nominated_by }}</td>
+                                            <td>
+                                                {% if nom.status == 'published' %}<span class="badge bg-success">{{ _("Published") }}</span>
+                                                {% elif nom.status == 'approved' %}<span class="badge bg-info">{{ _("Approved") }}</span>
+                                                {% elif nom.status == 'rejected' %}<span class="badge bg-danger">{{ _("Rejected") }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ nom.reviewed_by or '' }}</td>
+                                            <td>{{ nom.reviewed_at.strftime('%Y-%m-%d %H:%M') if nom.reviewed_at else '' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Published Stacks Tab -->
+                        <div class="tab-pane fade" id="panel-stacks" role="tabpanel">
+                            {% if versioned_stacks %}
+                            {% for item in versioned_stacks %}
+                            <div class="card shadow mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0"><i class="fa-solid fa-layer-group mr-1"></i>{{ item.stack.stack_name }}</h6>
+                                    <span class="badge bg-primary">{{ item.versions|length }} {{ _("version(s)") }}</span>
+                                </div>
+                                <div class="card-body p-0">
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th>{{ _("v#") }}</th>
+                                                <th>{{ _("AMI") }}</th>
+                                                <th>{{ _("Published By") }}</th>
+                                                <th>{{ _("Date") }}</th>
+                                                <th>{{ _("Sysprep") }}</th>
+                                                <th>{{ _("Lineage") }}</th>
+                                                <th>{{ _("Active") }}</th>
+                                                <th>{{ _("Actions") }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for v in item.versions %}
+                                            <tr class="{{ 'table-success' if v.is_active else '' }}">
+                                                <td><strong>v{{ v.version }}</strong></td>
+                                                <td><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 mr-1" title="{{ _('Copy AMI ID') }}" onclick="edhCopyText(this.nextElementSibling.innerText, this)"><i class="fa-solid fa-copy"></i></button><code>{{ v.ami_id }}</code></td>
+                                                <td>{{ v.published_by }}</td>
+                                                <td class="small text-nowrap">{{ (v.published_at|string)[:16]|replace('T',' ') if v.published_at else '' }}</td>
+                                                <td>{% if v.sysprep_status in ['verified_clean','auto_sysprepped'] %}<span class="badge bg-success">{{ v.sysprep_status }}</span>{% elif v.sysprep_status == 'failed' %}<span class="badge bg-danger">{{ v.sysprep_status }}</span>{% else %}<span class="badge" style="background:#eef1f5;color:#33475b;border:1px solid #d5dbe3;font-weight:500;">{{ v.sysprep_status }}</span>{% endif %}{% if v.sysprep_status == 'failed' and v.failure_reason %}<div class="small text-danger mt-1" style="max-width:360px; white-space:normal;">{{ v.failure_reason }}</div>{% endif %}</td>
+                                                <td>{% if v.lineage_status == 'owned' %}<span class="badge bg-success">{{ v.lineage_status }}</span>{% elif v.lineage_status == 'copying' %}<span class="badge bg-warning text-dark">{{ v.lineage_status }}</span>{% elif v.lineage_status == 'copy_failed' %}<span class="badge bg-danger">{{ v.lineage_status }}</span>{% else %}<span class="badge" style="background:#eef1f5;color:#33475b;border:1px solid #d5dbe3;font-weight:500;">{{ v.lineage_status }}</span>{% endif %}</td>
+                                                <td>{% if v.is_active %}<i class="fa-solid fa-check-circle text-success"></i>{% else %}<i class="fa-solid fa-circle text-muted"></i>{% endif %}</td>
+                                                <td>
+                                                    {% if not v.is_active %}
+                                                    <button class="btn btn-outline-warning btn-sm" onclick="edhRollback({{ item.stack.id }}, {{ v.version }})"><i class="fa-solid fa-rotate-left mr-1"></i>{{ _("Rollback") }}</button>
+                                                    {% else %}
+                                                    <span class="text-muted small">{{ _("current") }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-muted mt-3">{{ _("No stacks have been published via Golden Images yet. Use the Nominations tab to approve and publish, or publish directly from your own saved desktops.") }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'common/footer.html' %}
+
+<script>
+window.showToast = window.showToast || function(message, type) {
+    type = type || 'info';
+    let c = document.getElementById('mc-toast-container');
+    if (!c) {
+        c = document.createElement('div');
+        c.id = 'mc-toast-container';
+        c.style.cssText = 'position:fixed; top:1rem; right:1rem; z-index:1200; display:flex; flex-direction:column; gap:0.5rem; max-width:360px;';
+        document.body.appendChild(c);
+    }
+    const colors = { success: '#198754', danger: '#dc3545', warning: '#ffc107', info: '#0d6efd' };
+    const t = document.createElement('div');
+    t.style.cssText = 'background:' + (colors[type] || colors.info) + '; color:' + (type === 'warning' ? '#212529' : '#fff') + '; padding:0.6rem 0.9rem; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.25); font-size:0.9rem; opacity:0; transition:opacity 0.2s;';
+    t.textContent = message;
+    c.appendChild(t);
+    requestAnimationFrame(function() { t.style.opacity = '1'; });
+    setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 250); }, 4000);
+};
+
+function edhCopyText(txt, btn){
+    navigator.clipboard.writeText(txt).then(function(){
+        var i = btn.querySelector('i');
+        if(i){ var old = i.className; i.className = 'fa-solid fa-check'; setTimeout(function(){ i.className = old; }, 1200); }
+    }).catch(function(){ window.showToast('Copy failed', 'danger'); });
+}
+
+function edhDecrPendingCount(){
+    var b = document.getElementById('pending-nom-count');
+    if(!b) return;
+    var n = Math.max(0, (parseInt(b.textContent, 10) || 0) - 1);
+    b.textContent = n;
+    if(n === 0){ b.style.display = 'none'; }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    if(window.location.hash === '#panel-stacks'){
+        var t = document.getElementById('tab-stacks');
+        if(t && window.bootstrap){ new bootstrap.Tab(t).show(); }
+    }
+    // While a publish is still in progress (a version row is pending/copying),
+    // reload periodically so the Published Stacks tab flips to active on its own.
+    var transitional = Array.prototype.some.call(
+        document.querySelectorAll('#panel-stacks .badge'),
+        function(el){ return /\b(pending|copying)\b/i.test(el.textContent || ''); }
+    );
+    if(transitional){ setTimeout(function(){ location.reload(); }, 15000); }
+});
+
+function edhApproveAndPublish(nomId){
+    var stackId = document.getElementById('approve-stack-' + nomId).value;
+    var desc = document.getElementById('approve-desc-' + nomId).value;
+    // Step 1: Approve
+    var fd = new FormData();
+    fd.append('nomination_id', nomId);
+    fd.append('target_stack_id', stackId);
+    fd.append('description', desc);
+    fetch('/api/dcv/golden-images/approve', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if(!data.success){
+                window.showToast(data.message || 'Approval failed.', 'danger');
+                return;
+            }
+            // Step 2: Publish
+            var fd2 = new FormData();
+            fd2.append('nomination_id', nomId);
+            fd2.append('target_stack_id', stackId);
+            fd2.append('description', desc);
+            return fetch('/api/dcv/golden-images/publish', {method:'POST', body:fd2});
+        })
+        .then(function(r){ if(r) return r.json(); })
+        .then(function(data){
+            if(data && data.success){
+                window.showToast(data.message, 'success');
+                var modal = bootstrap.Modal.getInstance(document.getElementById('approvemodal-' + nomId));
+                if(modal) modal.hide();
+                var row = document.getElementById('nom-row-' + nomId);
+                if(row) row.style.display = 'none';
+                edhDecrPendingCount();
+                setTimeout(function(){ window.location.hash = 'panel-stacks'; location.reload(); }, 1200);
+            } else if(data) {
+                window.showToast(data.message || 'Publish failed.', 'danger');
+            }
+        })
+        .catch(function(){ window.showToast('Request failed (network error)', 'danger'); });
+}
+
+function edhRejectNomination(nomId){
+    var note = document.getElementById('reject-note-' + nomId).value;
+    var fd = new FormData();
+    fd.append('nomination_id', nomId);
+    fd.append('rejection_note', note);
+    fetch('/api/dcv/golden-images/reject', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if(data.success){
+                window.showToast('Nomination rejected.', 'success');
+                var modal = bootstrap.Modal.getInstance(document.getElementById('rejectmodal-' + nomId));
+                if(modal) modal.hide();
+                var row = document.getElementById('nom-row-' + nomId);
+                if(row) row.style.display = 'none';
+                edhDecrPendingCount();
+            } else {
+                window.showToast(data.message || 'Rejection failed.', 'danger');
+            }
+        })
+        .catch(function(){ window.showToast('Request failed (network error)', 'danger'); });
+}
+
+function edhRollback(stackId, version){
+    if(!confirm('Rollback stack to v' + version + '? New VDI launches will use the rolled-back image immediately.')){
+        return;
+    }
+    var fd = new FormData();
+    fd.append('target_version', version);
+    fetch('/api/dcv/golden-images/' + stackId + '/rollback', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if(data.success){
+                window.showToast(data.message, 'success');
+                setTimeout(function(){ location.reload(); }, 1500);
+            } else {
+                window.showToast(data.message || 'Rollback failed.', 'danger');
+            }
+        })
+        .catch(function(){ window.showToast('Request failed (network error)', 'danger'); });
+}
+</script>
+
+</body>
+</html>

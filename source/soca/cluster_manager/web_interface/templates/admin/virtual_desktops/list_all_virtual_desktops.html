@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -23,20 +23,20 @@
                     <div class="card shadow mb-4">
                   
                         <div class="card-body">
-                            <h3>List all active Virtual Desktops</h3>
+                            <h3>{{ _("List all active Virtual Desktops") }}</h3>
                             <table id="allVirtualDesktopSessions" class="display" style="width:100%">
                                 <thead>
                                     <tr>
-                                        <th>Owner</th>
-                                        <th>Session Name</th>
-                                        <th>Status</th>
-                                        <th>Operating System</th>
-                                        <th>Instance Type</th>
-                                        <th>Host</th>
-                                        <th>AMI ID</th>
-                                        <th>Software Stack</th>
-                                        <th>VDI Profile</th>
-                                        <th>Created On</th>
+                                        <th>{{ _("Owner") }}</th>
+                                        <th>{{ _("Session Name") }}</th>
+                                        <th>{{ _("Status") }}</th>
+                                        <th>{{ _("Operating System") }}</th>
+                                        <th>{{ _("Instance Type") }}</th>
+                                        <th>{{ _("Host") }}</th>
+                                        <th>{{ _("AMI ID") }}</th>
+                                        <th>{{ _("Software Stack") }}</th>
+                                        <th>{{ _("VDI Profile") }}</th>
+                                        <th>{{ _("Created On") }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -45,13 +45,15 @@
                                     <td>{{session_info.session_owner}}</td>
                                     <td>{{session_info.session_name}}</td>
                                     <td> {% if session_info.session_state == "stopped" %}
-                                        <span class="badge rounded-pill bg-warning" style="color: black">stopped</span>
+                                        <span class="badge rounded-pill bg-warning" style="color: black">{{ _("stopped") }}</span>
+                                        {% elif session_info.session_state == "stopping" %}
+                                        <span class="badge rounded-pill bg-warning" style="color: black">{{ _("stopping") }}</span>
                                         {% elif session_info.session_state == "pending" %}
-                                        <span class="badge rounded-pill bg-primary" style="color: white">pending</span>
+                                        <span class="badge rounded-pill bg-primary" style="color: white">{{ _("pending") }}</span>
                                         {% elif session_info.session_state == "running" %}
-                                        <span class="badge rounded-pill bg-success" style="color: white">running</span>
+                                        <span class="badge rounded-pill bg-success" style="color: white">{{ _("running") }}</span>
                                         {% elif session_info.session_state == "error" %}
-                                        <span class="badge rounded-pill bg-danger" style="color: white">error</span>
+                                        <span class="badge rounded-pill bg-danger" style="color: white">{{ _("error") }}</span>
                                         {%else %}
                                         <span class="badge rounded-pill bg-secondary">{{session_info.session_state}}</span>
                                         {% endif %}

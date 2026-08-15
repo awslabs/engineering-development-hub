@@ -17,6 +17,8 @@ from utils.datamodels.hpc.scheduler import SocaHpcScheduler
 from utils.aws.cloudformation_client import SocaCfnClient
 from utils.datamodels.constants import SocaLinuxBaseOS
 from utils.aws.ec2_helper import describe_images
+from utils.aws.odcr_helper import get_reservation_info_soca_capacity_reservation
+from utils.datamodels.hpc.shared.job_resources import SocaHpcJobState
 from commands.config import get as config_get
 
 
@@ -328,7 +330,7 @@ def create_alwayson(
     _job.job_compute_node = "tbd"
     _job.nodes = nodes
     _job.base_os = base_os
-    _job.job_state = "QUEUED"  # alwayson will always use QUEUED. This is just to validate the SocaHpcJob model, and will not be needed as SOCA will now manage node lifecycle
+    _job.job_state = SocaHpcJobState.QUEUED  # alwayson always QUEUED; enum avoids serialization warning
     _job.job_scheduler_info = _scheduler_info
     _job.job_scheduler_state = "alwayson"
     _job.instance_ami = instance_ami
@@ -353,7 +355,13 @@ def create_alwayson(
         if subnet_ids is not None
         else None
     )
-    _job.capacity_reservation_id = capacity_reservation_id
+    _job.capacity_reservation_id = (
+        get_reservation_info_soca_capacity_reservation(
+            capacity_reservation_id=capacity_reservation_id
+        )
+        if capacity_reservation_id is not None
+        else None
+    )
     _job.anonymous_metrics = anonymous_metrics
     _job.fsx_lustre = fsx_lustre
     _job.fsx_lustre_size = fsx_lustre_size

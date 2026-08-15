@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -35,23 +35,23 @@
                         <div class="col-md-12">
                             <div class="card shadow mb-6">
                                 <div class="card-body">
-                                    <h3>Select your Workflow</h3>
+                                    <h3>{{ _("Select your Workflow") }}</h3>
                                     <br>
                                     <form id="search-application">
-                                        <input class="form-control" type="text" placeholder="What workflow do you want to run?" aria-label="Search">
+                                        <input class="form-control" type="text" placeholder="{{ _("What workflow do you want to run?") }}" aria-label="{{ _("Search") }}">
                                     </form>
                                     <hr>
 
                                     <div class="row">
                                     {% if not application_profiles %}
                                         No Workflow Profiles found. Please verify that you have been added to the appropriate 
-                                        <a href="/admin/projects">EDH projects</a>. 
+                                        <a href="/admin/projects">{{ _("EDH projects") }}</a>. 
                                         If the issue persists, contact your EDH administrator.
                                     {% else %}
                                         {% for app_data in application_profiles %}
                                         <form action="/submit_job" method="post" class="card shadow-sm border-0 mr-3 card-selectable" style="border-radius: 1rem;">
                                             <div id="{{ application }}">
-                                                <div class="card h-100 text-center">                                                                          
+                                                <div class="h-100 text-center">                                                                          
                                                     <div style="display: flex; justify-content: center;">
                                                         <img src="{{ app_data.profile_thumbnail }}" class="card-img-top" style="height: 150px; object-fit: contain;">
                                                     </div>

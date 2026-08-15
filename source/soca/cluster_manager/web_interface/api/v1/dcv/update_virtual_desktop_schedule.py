@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from models import db, VirtualDesktopSessions
@@ -186,9 +187,16 @@ class UpdateVirtualDesktopSchedule(Resource):
                                     return SocaError.CLIENT_MISSING_PARAMETER(
                                         parameter=f"schedule.{_day}.{_time_check} must be between 0 and 1440"
                                     ).as_flask()
-                            except:
+                            except (ValueError, TypeError):
                                 return SocaError.CLIENT_MISSING_PARAMETER(
                                     parameter=f"schedule.{_day}.{_time_check} must be between 0 and 1440 and a valid int"
+                                ).as_flask()
+                            except Exception as e:
+                                logger.warning(
+                                    f"schedule.{_day}.{_time_check} validation failed unexpectedly: {e}"
+                                )
+                                return SocaError.CLIENT_MISSING_PARAMETER(
+                                    parameter=f"schedule.{_day}.{_time_check} validation failed"
                                 ).as_flask()
 
             else:
@@ -202,12 +210,18 @@ class UpdateVirtualDesktopSchedule(Resource):
             session_owner=_user, session_uuid=_session_uuid, is_active=True
         ).first()
         if _check_session:
+            if _check_session.is_spot:
+                return SocaError.VIRTUAL_DESKTOP_RESTART_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper="Spot VDI sessions cannot be scheduled - they run until interrupted or manually terminated.",
+                ).as_flask()
             try:
                 _check_session.schedule = _schedule
                 db.session.commit()
                 return SocaResponse(
                     success=True,
-                    message=f"Your virtual desktop schedule has been updated",
+                    message=_(f"Your virtual desktop schedule has been updated"),
                 ).as_flask()
             except Exception as err:
                 db.session.rollback()

@@ -150,7 +150,7 @@ EOF
         sed -i 's/^\s*LSF_LOCAL_RESOURCES/#&/' "${LSF_SOCA_INSTALL_DIR}/conf/lsf.conf"
         # Specify a compute_node resource for this job. Only this job can use this machine
         # note: boolean = resource, string/numeric -> resourcemap
-        echo 'LSF_LOCAL_RESOURCES="[resource soca_hpc_node] [resourcemap '{{ context.get("/job/JobId") }}'*compute_node] [resourcemap {{ context.get("/job/KeepForever") }}*keep_forever] [resourcemap {{ context.get("/job/TerminateWhenIdle") }}*terminate_when_idle] [resourcemap '"${INSTANCE_AZ}"'*availability_zone] [resourcemap {{ context.get("/job/StackId") }}*stack_id] [resourcemap '"${INSTANCE_ID}"'*instance_id]"' >> "${LSF_SOCA_INSTALL_DIR}/conf/lsf.conf"
+        echo 'LSF_LOCAL_RESOURCES="[resource soca_hpc_node] [resourcemap '${EDH_JOB_ID}'*compute_node] [resourcemap ${EDH_JOB_KEEP_FOREVER}*keep_forever] [resourcemap ${EDH_JOB_TERMINATE_WHEN_IDLE}*terminate_when_idle] [resourcemap '"${INSTANCE_AZ}"'*availability_zone] [resourcemap ${EDH_JOB_STACK_ID}*stack_id] [resourcemap '"${INSTANCE_ID}"'*instance_id]"' >> "${LSF_SOCA_INSTALL_DIR}/conf/lsf.conf"
 
     {% endif %}
     

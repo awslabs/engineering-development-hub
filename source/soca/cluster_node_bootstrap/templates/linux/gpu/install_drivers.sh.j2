@@ -20,15 +20,15 @@ function install_gpu_drivers () {
 
   # refer to: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html
 
-  local NVIDIA_TESLA_PUBLIC_DRIVER_PRODUCTION="535.104.05"
-  local NVIDIA_TESLA_PUBLIC_DRIVER_LTSB="470.199.02" # Long Term Servicing Branch, for older instance type
+  local NVIDIA_TESLA_PUBLIC_DRIVER_PRODUCTION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/production_version") }}"
+  local NVIDIA_TESLA_PUBLIC_DRIVER_LTSB="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/ltsb_version") }}" # Long Term Servicing Branch, for older instance type
   {% if context.get("/job/BaseOS") in ("amazonlinux2") %}
         # 18.1+ will not work on ALI2, driver does not support kernel 4.14
-        local NVIDIA_GRID_DRIVER_VERSION="grid-17.1"
+        local NVIDIA_GRID_DRIVER_VERSION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/version_amazonlinux2") }}"
     {% else %}
         # if the validated driver version below is incompatible with a newer AMI, SOCA will attempt to download the latest available driver. 
         # The listed version was validated with SOCA at the time of release, but future AMIs may ship with newer kernels that are not compatible.
-        local NVIDIA_GRID_DRIVER_VERSION="grid-19.4"
+        local NVIDIA_GRID_DRIVER_VERSION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/version") }}"
     {% endif %}
   local GPU_MANUFACTURER=$(ec2_describe_instance_types "GpuInfo.Gpus[].Manufacturer")
   local INSTANCE_FAMILY=$(instance_family) # INSTANCE_FAMILY is loaded from common.sh.j2
@@ -36,14 +36,14 @@ function install_gpu_drivers () {
   log_info "Detected GPU instance type: ${INSTANCE_FAMILY}. Installing GPU Drivers for GPU ${GPU_MANUFACTURER} ..."
   # This section has to be updated every time AWS release a new Accelerated Compute instance
   # https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html
-  # Ex: edhctl config set --key "/system/gpu/gpu_settings/nvidia/tesla_drivers_only" --value "(p3|p4d|p4de|p5|p5e|g5g|g6e|g6f|NEWINSTANCEFAMILY)"
+  # Ex: edhctl config set --key "/system/gpu/gpu_settings/nvidia/linux/tesla_drivers_only" --value "(p3|p4d|p4de|p5|p5e|g5g|g6e|g6f|NEWINSTANCEFAMILY)"
 
   ##################################
   # BEGIN NVIDIA GPU CONFIGURATION #
   # NVIDIA GPU Driver Matrix: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-driver-instance-type
   ##################################
-  local INSTANCE_SUPPORT_TESLA_DRIVERS_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/tesla_drivers_only") }}"
-  local INSTANCE_SUPPORT_TESLA_DRIVERS_LTSB_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/tesla_drivers_ltsb_only") }}"
+  local INSTANCE_SUPPORT_TESLA_DRIVERS_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers_only") }}"
+  local INSTANCE_SUPPORT_TESLA_DRIVERS_LTSB_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers_ltsb_only") }}"
   if [[ ${GPU_MANUFACTURER} == "NVIDIA" ]]; then
     log_info "Detected NVIDIA GPU"
 

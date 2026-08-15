@@ -4,6 +4,7 @@
 import logging
 from decorators import login_required, feature_flag
 from flask import Blueprint, render_template, session, redirect
+from flask_babel import gettext as _
 from utils.config import SocaConfig
 from utils.http_client import SocaHttpClient
 from utils.aws.boto3_wrapper import get_boto
@@ -36,8 +37,8 @@ def setup_job():
         logger.error(
             f"Unable to list Batch Job Queue image because of {_get_batch_job_queue}"
         )
-        flash(
-            f"Unable to list Batch Job Queue due to {_get_batch_job_queue.get('message')}",
+        flash(_(
+            f"Unable to list Batch Job Queue due to {_get_batch_job_queue.get('message')}"),
             "error",
         )
         _job_queues = []
@@ -55,8 +56,8 @@ def setup_job():
         logger.error(
             f"Unable to list Batch job definition because of {_get_batch_job_definition}"
         )
-        flash(
-            f"Unable to list your Batch Job Definition due to {_get_batch_job_definition.get('message')}",
+        flash(_(
+            f"Unable to list your Batch Job Definition due to {_get_batch_job_definition.get('message')}"),
             "error",
         )
         _job_definitions = []
@@ -81,8 +82,8 @@ def submit_job():
     ).post(data=request.form.to_dict())
 
     if _submit_job.get("success") is True:
-        flash(
-            f"{_submit_job.get('message', '')}",
+        flash(_(
+            f"{_submit_job.get('message', '')}"),
             "success",
         )
         return redirect("/containers/batch/list")
@@ -90,7 +91,7 @@ def submit_job():
         flash(
             _submit_job.get(
                 "message",
-                f"Unable to submit AWS Batch job due to {_submit_job.get('message')}",
+                _("Unable to submit AWS Batch job due to {error}").format(error=_submit_job.get('message')),
             ),
             "error",
         )
@@ -115,7 +116,7 @@ def list_jobs():
         flash(
             _get_batch_jobs.get(
                 "message",
-                f"Unable to list AWS Batch jobs due to {_get_batch_jobs.get('message')}",
+                _("Unable to list AWS Batch jobs due to {error}").format(error=_get_batch_jobs.get('message')),
             ),
             "error",
         )
@@ -136,7 +137,7 @@ def delete_job():
     logger.info(f"Deleting AWS Batch job {_job_id}")
 
     if not _job_id:
-        flash("Job ID is required to delete a Batch job.", "error")
+        flash(_("Job ID is required to delete a Batch job."), "error")
         return redirect("/containers/batch/list")
 
     _delete_job = SocaHttpClient(
@@ -151,10 +152,10 @@ def delete_job():
 
     logger.info(f"Delete Job Response: {_delete_job}")
     if _delete_job.get("success") is True:
-        flash(f"Batch job {_job_id} has been deleted successfully.", "success")
+        flash(_(f"Batch job {_job_id} has been deleted successfully."), "success")
     else:
         flash(
-            _delete_job.get("message", f"Unable to delete Batch job {_job_id}."),
+            _delete_job.get("message", _("Unable to delete Batch job {job_id}.").format(job_id=_job_id)),
             "error",
         )
 

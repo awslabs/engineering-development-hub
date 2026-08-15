@@ -7,6 +7,7 @@ from utils.error import SocaError
 from utils.config import SocaConfig
 from utils.aws.secretsmanager_client import SocaSecret
 from utils.response import SocaResponse
+from utils.validators import Validators
 import ldap
 from typing import Optional, Literal, List
 
@@ -395,30 +396,68 @@ class SocaIdentityProviderClient:
         scope: ldap = ldap.SCOPE_SUBTREE,
         filter: str = "(objectClass=*)",
         attr_list: list = None,
+        page_size: int = 1000,
+        max_results: int = None,
     ) -> SocaResponse:
         logger.debug(f"Received search request {locals()}")
+        # Page the search (RFC 2696) so result sets larger than the directory
+        # server-side size cap do not raise SIZELIMIT_EXCEEDED. Transparent to
+        # callers: the full result set is assembled across pages by looping on
+        # the continuation cookie. page_size defaults to 1000 (AWS Managed AD's
+        # fixed MaxPageSize); the server returns min(page_size, its own cap) per
+        # page, so smaller directories negotiate down gracefully. page_size is a
+        # round-trip/memory tuning knob only -- it never affects correctness.
+        from ldap.controls import SimplePagedResultsControl
+
+        _page_size = page_size
         try:
-            _search_result: list = self._conn.search_s(base, scope, filter, attr_list)
             # results are bytes, decoding them
             _decoded_result = []
 
             # List of bin attr we should not code
             _do_not_decode = ["objectSid"]
 
-            for dn, attrs in _search_result:
-                decoded_attrs = {
-                    key: [
-                        (
-                            value.decode("utf-8")
-                            if isinstance(value, bytes) and key not in _do_not_decode
-                            else value
-                        )
-                        for value in values
-                    ]
-                    for key, values in attrs.items()
-                }
-                _decoded_result.append((dn, decoded_attrs))
-            logger.debug(f"Search Result: {_decoded_result}")
+            _pg = SimplePagedResultsControl(True, size=_page_size, cookie="")
+            while True:
+                _msgid = self._conn.search_ext(
+                    base, scope, filter, attr_list, serverctrls=[_pg]
+                )
+                _rtype, _search_result, _rmsgid, _serverctrls = self._conn.result3(
+                    _msgid
+                )
+                for dn, attrs in _search_result:
+                    decoded_attrs = {
+                        key: [
+                            (
+                                value.decode("utf-8")
+                                if Validators.is_bytes(value) and key not in _do_not_decode
+                                else value
+                            )
+                            for value in values
+                        ]
+                        for key, values in attrs.items()
+                    }
+                    _decoded_result.append((dn, decoded_attrs))
+                # Early-stop: when the caller only needs a bounded candidate
+                # set (e.g. a typeahead that renders [:N]), stop after the page
+                # that satisfies max_results instead of walking the full match
+                # set. Combined with a small page_size this is a single round
+                # trip. Result order is directory order, not ranked.
+                if max_results is not None and Validators.is_list_length_greater_equal_than(
+                    _decoded_result, max_results
+                ):
+                    del _decoded_result[max_results:]
+                    break
+                _cookies = [
+                    c.cookie
+                    for c in _serverctrls
+                    if c.controlType == SimplePagedResultsControl.controlType
+                ]
+                if _cookies and _cookies[0]:
+                    _pg.cookie = _cookies[0]
+                else:
+                    break
+            logger.debug(f"Search Result count: {len(_decoded_result)}")
             return SocaResponse(success=True, message=_decoded_result)
 
         except ldap.INSUFFICIENT_ACCESS:

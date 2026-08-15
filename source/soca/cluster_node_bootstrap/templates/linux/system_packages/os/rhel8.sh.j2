@@ -28,5 +28,10 @@ ADD_PKGS=(
   xz-devel
 )
 
+if grep -qE "^exclude=.*kernel" /etc/dnf/dnf.conf /etc/yum.conf 2>/dev/null; then
+    log_warning "Kernel packages are excluded via dnf/yum config. Removing kernel packages from install list to preserve current kernel version"
+    REMOVE_PKGS+=(kernel kernel-devel kernel-headers)
+fi
+
 log_info "Removing packages for RHEL8: ${REMOVE_PKGS[*]}"
 log_info "Adding extra packages for RHEL8: ${ADD_PKGS[*]}"

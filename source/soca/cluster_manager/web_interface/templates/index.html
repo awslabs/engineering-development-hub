@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -20,8 +20,8 @@
             <section class="jumbotron text-center">
                         <div class="container">
 
-                            <h1 class="jumbotron-heading" style="font-weight: 600;">Engineering Development Hub <sup style="font-size: 50%;font-weight: 200;">(EDH)</sup></h1>
-                            <p class="lead text-muted" style="color: #c7c8cd !important;">A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows.</p>
+                            <h1 class="jumbotron-heading" style="font-weight: 600;">{{ _("Engineering Development Hub") }} <sup style="font-size: 50%;font-weight: 200;">{{ _("(EDH)") }}</sup></h1>
+                            <p class="lead text-muted" style="color: #c7c8cd !important;">{{ _("A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows.") }}</p>
                                                     {% include 'common/flashed_messages.html' %}
 
                         </div>
@@ -32,35 +32,35 @@
                         <div class="col-md-8">
                             <div class="card shadow mb-4" style="margin-top: -6rem">
                                 <div class="card-body">
-                                    <h2 style="color: #424650;">Benefits and Features</h2>
+                                    <h2 style="color: #424650;">{{ _("Benefits and Features") }}</h2>
                                         <br>
                                     <div class="row">
                                         <div class="col-md-6" style="border-right:solid 1px #c5c5cc;"> 
-                                            <h5>Virtual Desktops</h5>
+                                            <h5>{{ _("Virtual Desktops") }}</h5>
                                             <p> 
-                                                Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks.
+                                                {{ _("Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks.") }}
                                             </p>
                                             <br>
-                                            <h5> Embeeded Development</h5>
+                                            <h5> {{ _("Embeeded Development") }}</h5>
                                             <p>
-                                                Run, test, and emulate embedded ECUs and target hardware directly in the cloud.
+                                                {{ _("Run, test, and emulate embedded ECUs and target hardware directly in the cloud.") }}
                                             </p>
                                             <br>
-                                            <h5> High Performance Computing</h5>
+                                            <h5> {{ _("High Performance Computing") }}</h5>
                                             <p>
-                                                Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations
+                                                {{ _("Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations") }}
                                                 
                                             </p>
                                         </div>
                                         <div class="col-md-6">
-                                            <h5>100% Customizable</h5>
-                                            <p> EDH is built entirely on top of AWS and can be customized by users as needed. More importantly, the entire codebase is open-source and available on GitHub</p>
+                                            <h5>{{ _("100 Customizable") }}</h5>
+                                            <p> {{ _("EDH is built entirely on top of AWS and can be customized by users as needed. More importantly, the entire codebase is open-source and available on GitHub") }}</p>
                                             <br>
-                                            <h5>Support for network license</h5>
-                                            <p>EDH includes a Floating Licenses-enabled script which calculate the number of licenses for a given feature and only start to provision capacity when enough licenses are available</p>
+                                            <h5>{{ _("Support for network license") }}</h5>
+                                            <p>{{ _("EDH includes a Floating Licenses-enabled script which calculate the number of licenses for a given feature and only start to provision capacity when enough licenses are available") }}</p>
                                             <br>
-                                            <h5>Budgets and Cost Management</h5>
-                                            <p>create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags.</p>
+                                            <h5>{{ _("Budgets and Cost Management") }}</h5>
+                                            <p>{{ _("create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags.") }}</p>
 
                                         </div>
                                     </div>
@@ -73,9 +73,9 @@
                         <div class="col-md-4">
                             <div class="card shadow mb-4" style="margin-top: -6rem">
                                 <div class="card-body">
-                                    <h2 style="color: #424650;">Company Resources</h3>
+                                    <h2 style="color: #424650;">{{ _("Company Resources") }}</h3>
                                         {% if not custom_links %}
-                                            No links have been configured by your EDH Administrators
+                                            {{ _("No links have been configured by your EDH Administrators") }}
                                         {% else %}
                                             {% for link in custom_links %}
                                                 <a href="{{link.get('url')}}">{{ link.get('text') }}</a><br>
@@ -86,26 +86,28 @@
 
                             <div class="card shadow mb-4">
                                 <div class="card-body">
-                                    <h2 style="color: #424650;">Get Started</h3>
-                                    <a href="https://awslabs.github.io/engineering-development-hub/documentation/" target="_blank">EDH Public Documentation <i class="fa-solid fa-arrow-up-right-from-square"></i></a>             
+                                    <h2 style="color: #424650;">{{ _("Get Started") }}</h3>
+                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/" target="_blank">{{ _("EDH Public Documentation") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>             
                                     <br>
-                                    <a href="/file_explorer">Explore your Filesystem</a>
+                                    <a href="/file_explorer">{{ _("Explore your Filesystem") }}</a>
                                     <br>
-                                    <a href="/virtual_desktops">Manage your Virtual Desktops</a>
+                                    <a href="/web_terminal">{{ _("Open a SSH Terminal") }}</a>
                                     <br>
-                                    <a href="/target_nodes">Manage your Virtual Targets</a>
+                                    <a href="/virtual_desktops">{{ _("Manage your Virtual Desktops") }}</a>
                                     <br>
-                                    <a href="/ssh">Access your cluster via SSH</a>
+                                    <a href="/target_nodes">{{ _("Manage your Virtual Targets") }}</a>
                                     <br>
-                                    <a href="/my_api_key">View HTTP API documentation</a>
+                                    <a href="/ssh">{{ _("Access your cluster via SSH") }}</a>
                                     <br>
-                                    <a href="/my_account">Update your password</a>
+                                    <a href="/my_api_tokens">{{ _("View HTTP API documentation") }}</a>
                                     <br>
-                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/tutorials/integration-ec2-job-parameters/" target="_blank">Review HPC parameters <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                    <a href="/my_account">{{ _("Update your password") }}</a>
                                     <br>
-                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/budget/" target="_blank">Cost Control and Budgets <i class="fa-solid fa-arrow-up-right-from-square"></i></a> 
+                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/tutorials/integration-ec2-job-parameters/" target="_blank">{{ _("Review HPC parameters") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                                     <br>
-                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/security/soca-projects/" target="_blank">Projects and Role Based ACLs <i class="fa-solid fa-arrow-up-right-from-square"></i></a>          
+                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/budget/" target="_blank">{{ _("Cost Control and Budgets") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a> 
+                                    <br>
+                                    <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/security/soca-projects/" target="_blank">{{ _("Projects and Role Based ACLs") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>          
                                 </div>
                             </div>
                             
@@ -126,13 +128,13 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">🎉 SOCA YEAH 🌴</h5>
-              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
+                <h5 class="modal-title">{{ _("🎉 SOCA YEAH 🌴") }}</h5>
+              <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                <span aria-hidden="true">{{ _("&times;") }}</span>
              </button>
             </div>
             <div class="modal-body text-center">
-                <p>You made it that far? Congrats from the SOCA team! <br> MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖</p>
+                <p>{{ _("You made it that far? Congrats from the SOCA team!") }} <br> {{ _("MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖") }}</p>
             </div>
             </div>
         </div>

@@ -249,28 +249,16 @@ class SocaCloudFormationBuilderHpc:
 
             logger.debug(f"Full Jinja context for {_job.job_id}: {_soca_parameters}")
 
-            logger.debug(f"Creating User Data for {_job.job_id=}")
-            _render_user_data = SocaJinja2Generator(
-                get_template="compute_node/01_user_data.sh.j2",
-                template_dirs=[f"/opt/edh/{_cluster_id}/cluster_node_bootstrap/"],
-                variables=_soca_parameters,
-            ).to_stdout(autocast_values=True)
-
-            if _render_user_data.get("success") is False:
-                return SocaError.GENERIC_ERROR(
-                    helper=f"Unable to generate compute_node/01_user_data.sh.j2 Jinja2 template because of {_render_user_data.get('message')}",
-                )
-            else:
-                _user_data = sanitize_user_data(
-                    text_to_remove=[
-                        "# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.",
-                        "# SPDX-License-Identifier: Apache-2.0",
-                    ],
-                    user_data=_render_user_data.get("message"),
-                )
-                logger.debug(
-                    f"UserData: 01_user_data.sh generated successfully for {_job.job_id}"
-                )
+            # NOTE: UserData (compute_node/01_user_data.sh.j2) is rendered
+            # AFTER render_bootstrap_bundle() below, once
+            # /job/BootstrapScriptsS3Location (cache URI) and
+            # /job/SessionEnvS3Location (per-session) hold their final
+            # values. Rendering it here would bake in the early per-session
+            # prefix, and the worker would `s3 sync` from a dir that only
+            # contains 00_session_env.sh -- the cache holds the big bootstrap
+            # bodies (02_setup.sh etc.) elsewhere -- so 02_setup.sh would
+            # never land on the node and `bash 02_setup.sh` fails. Mirrors the
+            # DCV create path. See docs/BootstrapTemplateCache.md.
 
             # Create bootstrap setup invoked by user data
             # Create directory structure
@@ -357,33 +345,93 @@ class SocaCloudFormationBuilderHpc:
                         "AD is enabled and JoinEphemeralNodesToAD is true will not attempt to sync AD users."
                     )
 
-            # Bootstrap Sequence: Generate template and upload them to S3
-            _templates_to_render = [
-                "templates/linux/system_packages/install_required_packages",
-                "templates/linux/filesystems_automount",
-                "compute_node/02_setup",
-                "compute_node/03_setup_post_reboot",
-                "compute_node/04_setup_user_customization",
-            ]
+            # Bootstrap Sequence: Generate templates and upload them to S3.
+            #
+            # Routed through the BootstrapTemplateCache (default
+            # enabled) so the big bootstrap bodies are rendered once
+            # per (stack-config, .j2 tree) and reused across HPC jobs
+            # of the same shape. Per-session values are surfaced via
+            # a small env file (00_session_env.sh) that the worker
+            # UserData stub sources before running the cached big
+            # bootstrap.
+            #
+            # See docs/BootstrapTemplateCache.md.
+            from utils.bootstrap_render import render_bootstrap_bundle
 
-            for _t in _templates_to_render:
-                # Render Template
-                _render_bootstrap_setup_template = SocaJinja2Generator(
-                    get_template=f"{_t}.sh.j2",
-                    template_dirs=[f"/opt/edh/{_cluster_id}/cluster_node_bootstrap/"],
-                    variables=_soca_parameters,
-                ).to_s3(
-                    bucket_name=_soca_parameters.get("/configuration/S3Bucket"),
-                    key=f"{_bootstrap_s3_location_folder}/{_t.split('/')[-1]}.sh",
-                    autocast_values=True,
+            try:
+                _render_result = render_bootstrap_bundle(
+                    soca_parameters=_soca_parameters,
+                    bootstrap_root=(
+                        f"/opt/edh/{_cluster_id}/cluster_node_bootstrap/"
+                    ),
+                    s3_client=get_boto(service_name="s3").message,
+                    bucket=_soca_parameters.get("/configuration/S3Bucket"),
+                    cluster_id=_cluster_id,
+                    per_session_prefix=_bootstrap_s3_location_folder,
+                    cache_prefix=f"{_cluster_id}/bootstrap/cache",
+                    big_templates=[
+                        "templates/linux/system_packages/install_required_packages.sh",
+                        "templates/linux/filesystems_automount.sh",
+                        "compute_node/02_setup.sh",
+                        "compute_node/03_setup_post_reboot.sh",
+                        "compute_node/04_setup_user_customization.sh",
+                    ],
+                    session_env_template="templates/linux/00_session_env.sh",
+                    session_env_filename="00_session_env.sh",
+                )
+            except Exception as exc:
+                logger.exception(
+                    "HPC bootstrap render failed for job=%s: %s",
+                    _job.job_id,
+                    exc,
+                )
+                return SocaResponse(
+                    success=False,
+                    message=(
+                        f"Unable to generate bootstrap templates for "
+                        f"job {_job.job_id} because of {exc}"
+                    ),
                 )
 
-                if _render_bootstrap_setup_template.get("success") is False:
-                    return SocaResponse(
-                        success=False,
-                        message=f"Unable to generate {_t}.sh.j2 Jinja2 template because of {_render_bootstrap_setup_template.get('message')}",
-                    )
-                logger.debug(f"UserData: {_t} generated successfully for {_job.job_id}")
+            _soca_parameters["/job/BootstrapScriptsS3Location"] = (
+                _render_result.bootstrap_scripts_s3
+            )
+            _soca_parameters["/job/SessionEnvS3Location"] = (
+                _render_result.session_env_s3
+            )
+            logger.info(
+                "HPC bootstrap render: job=%s cache_key=%s cache_hit=%s",
+                _job.job_id,
+                _render_result.cache_key,
+                _render_result.cache_hit,
+            )
+
+            # Render UserData now that /job/BootstrapScriptsS3Location (cache
+            # URI) and /job/SessionEnvS3Location (per-session) are finalized,
+            # so the worker s3-syncs the big bootstrap scripts from the cache
+            # prefix and cp's 00_session_env.sh from the per-session prefix.
+            logger.debug(f"Creating User Data for {_job.job_id=}")
+            _render_user_data = SocaJinja2Generator(
+                get_template="compute_node/01_user_data.sh.j2",
+                template_dirs=[f"/opt/edh/{_cluster_id}/cluster_node_bootstrap/"],
+                variables=_soca_parameters,
+            ).to_stdout(autocast_values=True)
+
+            if _render_user_data.get("success") is False:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Unable to generate compute_node/01_user_data.sh.j2 Jinja2 template because of {_render_user_data.get('message')}",
+                )
+            else:
+                _user_data = sanitize_user_data(
+                    text_to_remove=[
+                        "# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.",
+                        "# SPDX-License-Identifier: Apache-2.0",
+                    ],
+                    user_data=_render_user_data.get("message"),
+                )
+                logger.debug(
+                    f"UserData: 01_user_data.sh generated successfully for {_job.job_id}"
+                )
 
             # Base tags
             _base_tags = {
@@ -409,42 +457,18 @@ class SocaCloudFormationBuilderHpc:
             ).get_value(return_as=bool)
             if _tags_allowed.get("success") is True:
                 if _tags_allowed.get("message") is True:
-                    _get_tags = SocaConfig(
-                        key="/configuration/Tags/CustomTags/"
-                    ).get_value(allow_unknown_key=True)
-                    if _get_tags.get("success") is True:
-                        _tag_dict = SocaCastEngine(
-                            data=_get_tags.get("message")
-                        ).autocast(preserve_key_name=True)
-                        if _tag_dict.get("success") is True:
-                            for tag_info in _tag_dict.get("message").values():
-                                if tag_info.get("Enabled", ""):
-                                    if tag_info["Key"] in _base_tags.keys():
-                                        logger.warning(
-                                            f"Specified custom tags {tag_info.get('Key')} is already defined in tag list, skipping ..."
-                                        )
-                                    else:
-                                        _base_tags[tag_info["Key"]] = tag_info["Value"]
-                                else:
-                                    logger.warning(
-                                        f"{tag_info} does not have Enabled key or Enabled is False."
-                                    )
-                        else:
+                    from utils.aws.odcr_helper import get_cluster_custom_tags
+                    for _ct in get_cluster_custom_tags():
+                        if _ct["Key"] in _base_tags:
                             logger.warning(
-                                f"Unable to autocast custom tags {_tag_dict=} "
+                                f"Specified custom tags {_ct.get('Key')} is already defined in tag list, skipping ..."
                             )
-                    else:
-                        logger.warning(
-                            "/configuration/CustomTags/ does not exist in this environment"
-                        )
+                        else:
+                            _base_tags[_ct["Key"]] = _ct.get("Value", "")
                 else:
-                    logger.warning(
-                        f"Unable to determine if tags are allowed because of: {_tags_allowed=} "
+                    logger.info(
+                        "Custom tags are not allowed. AllowCustomTagsHPC is set to false"
                     )
-            else:
-                logger.info(
-                    "Custom tags are not allowed. AllowCustomTagsHPC is set to false"
-                )
 
             logger.debug(f"Tags to apply: {_base_tags}")
 
@@ -578,9 +602,11 @@ class SocaCloudFormationBuilderHpc:
 
                         ltd.NetworkInterfaces.append(
                             NetworkInterfaces(
-                                InterfaceType="efa",
+                                # Card 0 is the primary ENI (full networking: SSH, NFS, SSM, IP traffic).
+                                # Cards 1+ are EFA-fabric-only -- no IP
+                                InterfaceType=("efa" if efa_index == 0 else "efa-only"),
                                 DeleteOnTermination=True,
-                                DeviceIndex=1 if efa_index > 0 else 0,
+                                DeviceIndex=0,
                                 NetworkCardIndex=efa_index,
                                 Groups=_job.security_groups,
                                 AssociatePublicIpAddress=False,

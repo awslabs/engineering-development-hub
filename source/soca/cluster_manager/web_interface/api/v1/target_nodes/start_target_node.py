@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from botocore.exceptions import ClientError
@@ -281,7 +282,7 @@ class StartTargetNode(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Your target node is starting",
+                message=_(f"Your target node is starting"),
             ).as_flask()
         else:
             return SocaError.VIRTUAL_DESKTOP_RESTART_ERROR(

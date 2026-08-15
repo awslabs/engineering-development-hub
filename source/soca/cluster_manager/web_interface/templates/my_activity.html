@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -29,36 +29,36 @@
 
                                 <br>
                                 {% if opensearch_enabled %}
+                                    {% if is_serverless %}
                                     <div class="alert alert-primary">
-                                        Your Analytics endpoint <strong>is only accessible from within your VPC</strong>.
-                                        You can access it via your EDH Virtual Desktops (Linux or Windows).
+                                        <strong>{{ _("No dashboard for serverless analytics.") }}</strong>
+                                        {{ _("This environment uses Amazon OpenSearch Serverless (AOSS), which does not expose a browser OpenSearch Dashboards UI. Your activity data is collected into the analytics collection and surfaced in-app; there is no external dashboard link to open.") }}
+                                    </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-primary">
+                                        {% trans emphasis='<strong>is only accessible from within your VPC</strong>'|safe %}Your Analytics endpoint {{ emphasis }}. You can access it via your EDH Virtual Desktops (Linux or Windows).{% endtrans %}
                                         <hr>
 
-                                        Make sure to have established connectivity between AWS and your corporate
-                                        network (e.g. via <a
-                                            href='https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html'
-                                            target='_blank'>AWS VPC Peering</a>, <a
-                                            href='https://aws.amazon.com/directconnect/' target='_blank'>AWS Direct
-                                        Connect</a>, <a href='https://aws.amazon.com/vpn/' target='_blank'>AWS VPN</a>
-                                        or similar) if you are planning to access the analytic dashboard URL from your
-                                        corporate machines.
+                                        {% trans peering='<a href="https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html" target="_blank">AWS VPC Peering</a>'|safe,
+               direct='<a href="https://aws.amazon.com/directconnect/" target="_blank">AWS Direct Connect</a>'|safe,
+               vpn='<a href="https://aws.amazon.com/vpn/" target="_blank">AWS VPN</a>'|safe %}Make sure to have established connectivity between AWS and your corporate network (e.g. via {{ peering }}, {{ direct }}, {{ vpn }} or similar) if you are planning to access the analytic dashboard URL from your corporate machines.{% endtrans %}
                                     </div>
                                     </div>
                                     <div class="card-body">
 
-                                        <a href="{{ dashboard_endpoint }}" target="_blank" class="btn btn-primary">Access
-                                            my Analytics Dashboard</a>
+                                        <a href="{{ dashboard_endpoint }}" target="_blank" class="btn btn-primary">{{ _("Access my Analytics Dashboard") }}</a>
                                         <hr>
 
-                                        <i>Note: Your Analytics Dashboard URL is <a href='{{ dashboard_endpoint }}'
+                                        <i>{{ _("Note: Your Analytics Dashboard URL is") }} <a href='{{ dashboard_endpoint }}'
                                                                                     target='_blank'>{{ dashboard_endpoint }}</a></i>
                                     </div>
+                                    {% endif %}
                                 {% else %}
                                     <div class="alert alert-warning">
-                                        EDH Analytics module is not enabled on your EDH environment.
+                                        {{ _("EDH Analytics module is not enabled on your EDH environment.") }}
                                         <hr>
-                                        Contact your EDH administrator if you want to add Analytics capability to your
-                                        cluster.
+                                        {{ _("Contact your EDH administrator if you want to add Analytics capability to your cluster.") }}
                                     </div>
                                 {% endif %}
                         </div>

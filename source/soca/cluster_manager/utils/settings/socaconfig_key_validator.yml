@@ -6,12 +6,14 @@ ValidationFunctions:
   IMMUTABLE_KEY: &immutable_key 'immutable' # Key is immutable and cannot be changed
   EXPECT_BOOLEAN: &bool '^(true|True|false|False)$' # Value must be a boolean
   EXPECT_INTEGER: &int '^-?\d+$'  # Value must be an integer
+  EXPECT_POSITIVE_INTEGER: &positive_int '^[1-9]\d*$'  # Value must be an integer >= 1 (no zero, no negative)
   EXPECT_STR: &str '^.*$' # No particular checks are executed here
-  EXPECT_URL: &url '^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.])([\/\w \.-]*)*\/?$'
+  EXPECT_URL: &url '^((https?:\/\/|s3:\/\/)([\da-z\.\-]+)(\.([a-z\.]))?([\/\w \.\-%]*)*\/?)((\|)(https?:\/\/|s3:\/\/)([\da-z\.\-]+)(\.([a-z\.]))?([\/\w \.\-%]*)*\/?)*$'
   EXPECT_VALID_IAM_ROLE: &valid_iam_role 'valid_iam_role' # This check will verify if the IAM role exist in the AWS account
   EXPECT_VALID_S3_BUCKET_NAME: &valid_s3_bucket 'valid_s3_bucket' # This check will verify if the IAM role exist in the AWS account
   EXPECT_LIST_OF_EC2_INSTANCES: &list_of_ec2_instances 'list_of_ec2_instance' # Verify if list provides contains only EC2 instance type
   EXPECT_LIST_OF_EC2_SUBNET_IDS: &list_of_ec2_subnet_ids 'list_of_ec2_subnet_ids' # Verify if list provides contains only EC2 subnet IDs
+  EXPECT_LIST_OF_STRINGS: &list_of_strings 'list_of_strings' # Verify the value is a list where each element is a string
   EXPECT_VALID_SSH_KEYPAIR: &valid_ssh_keypair 'valid_ssh_keypair'
   VALIDATE_FEATURE_FLAGS: &validate_feature_flags 'validate_feature_flags'
 
@@ -27,25 +29,90 @@ configuration:
   SSHKeyPair: *valid_ssh_keypair
   SolutionMetricsLambda: *immutable_key
   CustomAMI: '^ami-[0-9a-f]{8,17}$'
+  dcv:
+    high_scale: *bool
+    pool:
+      enabled: *bool
+      provisioning_timeout_seconds: *positive_int
+      connect_abandon_timeout_seconds: *positive_int
+      reconcile_interval_seconds: *positive_int
+      collision_alarm_pct: *positive_int
+      collision_alarm_min_attempts: *positive_int
+      asg_count_alarm_pct: *positive_int
+    session_sharing:
+      enabled: *bool
+      allow_unsupervised_access: *bool
+      guest_screenshot_enabled: *bool
+      allowed_sharing_modes: list_of_string
+    screenshot:
+      enabled: *bool
+      bucket_mode: '^(dedicated|cluster|existing)$'
+      existing_bucket: *str
+      bucket_prefix: *str
+      manage_bucket_policy: *bool
+      refresh_seconds: *positive_int
+      privacy_mode: *bool
+      max_width: *positive_int
+      max_height: *positive_int
+      terminated_retention_days: *positive_int
   FeatureFlags:
-    EnableCapacityReservation: *bool 
+    RunRemoteCommand: *bool
+    AsyncPlacement: *bool
+    EnableCapacityReservation: *bool
     EnforceStrictCapacityReservation: *bool
     Hpc:
       AllowCustomTags: *bool
       EnableDryRun: *bool
       EnableQuotasCheck: *bool
+      EnableNestedVirtualization: *bool
       JoinEphemeralNodesToAD: *bool
 
     Networking:
-      EnableIPv6: *bool  
+      EnableIPv6: *bool
       AutoManagedPrefixList: *bool
-    
+
     VirtualDesktops:
        AllowCustomTags: *bool
+       AllowSavedDesktops: *bool
+       AllowSpot: *bool
+       EnableNestedVirtualization: *bool
+       SavedImageRecycleTTLDays: *positive_int
 
     TargetNodes:
       AllowCustomTags: *bool
+      EnableNestedVirtualization: *bool
 
+    BootstrapTemplateCache:
+      enabled: *bool
+      ttl_minutes: *positive_int
+      cleanup_retention_days: *positive_int
+
+  HPC:
+    JobListing:
+      VisibilityScope: '^(all|project|owner_only)$'
+      DefaultWindow: '^(24h|72h|7d|30d)$'
+      MaxRows: *positive_int
+      IncludeFinished: *bool
+
+  WebInterface:
+    csrf_token_follows_session: *bool
+    csrf_token_lifetime_seconds: *positive_int
+    file_tail:
+      max_file_size: *positive_int
+      max_concurrent_per_user: *positive_int
+      max_concurrent_global: *positive_int
+      max_connection_seconds: *positive_int
+      idle_timeout_seconds: *positive_int
+      poll_interval_ms: *positive_int
+      initial_tail_bytes: *positive_int
+      chunk_size: *positive_int
+  FileBrowser:
+    TransferEngine: '^(v1|v2)$'
+    StagingDirectory: '^/[a-zA-Z0-9_./-]+$'
+    ZipStagingDirectory: '^/[a-zA-Z0-9_./-]+$'
+  BaseImageAcceleration:
+    Enabled: '^(true|false)$'
+    Priority: '^[A-Za-z0-9_,:\[\]\{\}" ]*$'
   FileSystemDataProvider: '^(efs|fsx_lustre)$'
   LdapBase: *str
   LdapHost: *str
@@ -54,7 +121,7 @@ configuration:
   S3InstallFolder: *str
   SpotFleetIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn)$:iam::\d{12}:role/.+$'
   Version: *immutable_key
-  BaseOS: '^(amazonlinux2|amazonlinux2023|rhel7|rhel8|rhel9|rocky8|rocky9|centos7)$'
+  BaseOS: '^(amazonlinux2|amazonlinux2023|rhel7|rhel8|rhel9|rocky8|rocky9|centos7|ubuntu2204|ubuntu2404)$'
   ComputeNodeIAMRole: *valid_iam_role
   ControllerIAMRole: *valid_iam_role
   ControllerSecurityGroup: '^sg-[0-9a-fz]{8,17}$'
@@ -68,11 +135,14 @@ configuration:
     mount_target: *str
     enabled: *bool
     on_mount_failure: *str
+    mount_drive_letter: '^[A-Z]:$'
+    smb_dns: *str
+    cifs_share_name: *str
   OSDomainEndpoint: *str
-  AnalyticsEngine: '^(opensearch|elasticsearch)$'
+  AnalyticsEngine: '^(opensearch|opensearch_serverless|aoss_serverless|elasticsearch)$'
   Analytics:
     enabled: *bool
-    engine: '^(opensearch|elasticsearch)$'
+    engine: '^(opensearch|opensearch_serverless|aoss_serverless|elasticsearch)$'
     endpoint: *str
   UserDirectory:
     provider: '^(aws_ds_managed_activedirectory|openldap)$'
@@ -98,7 +168,7 @@ configuration:
     port: *int
     enabled: *bool
     endpoint: *str
-    engine: '^(redis)$'
+    engine: '^(redis|valkey)$'
     ttl:
       long: *int
       short: *int
@@ -107,10 +177,16 @@ configuration:
   ControllerInstanceId: '^i-[0-9a-f]{8,17}$'
   ControllerPrivateDnsName: *str
   DCVAllowBareMetal: *bool
+  DCVHighScale: *bool
   DefaultMetricCollection: *bool
   DefaultVolumeType: '^(gp2|gp3)$'
+  VolumeInitializationRate: '^(0|1\d\d|2\d\d|300)$'
   NLBLoadBalancerDNSName: *str
   PublicSubnets: *list_of_ec2_subnet_ids
+  AIAssistant:
+    allowed_daily_tokens_per_user: *int
+    allowed_bedrock_model_ids: *list_of_strings
+    allowed_mcp_servers: *str
 
 packages:
   controller: *immutable_key
@@ -136,6 +212,19 @@ system:
         cjson:
           url: *url
           sha256: '^[a-fA-F0-9]{64}$'
+    slurm:
+      version: *str
+      url: *url
+      sha256: '^[a-fA-F0-9]{64}$'
+      compatibility_packages:
+        libjwt:
+          url: *url
+          sha256: '^[a-fA-F0-9]{64}$'
+    lsf:
+      version: *str
+      lsf_installer_s3_uri: *str
+      lsf_installer_file_name: *str
+      lsf_entitlement_file_name: *str
 
   orchestration:
     stack_grace_period_in_minutes: *int
@@ -155,6 +244,24 @@ system:
       x86_64:
         sha256: '^[a-fA-F0-9]{64}$'
         tgz: *str
+        url: *url
+        version: *str
+    al2:
+      aarch64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+      x86_64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+    al2023:
+      aarch64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+      x86_64:
+        sha256: '^[a-fA-F0-9]{64}$'
         url: *url
         version: *str
     el8:
@@ -177,6 +284,24 @@ system:
       x86_64:
         sha256: '^[a-fA-F0-9]{64}$'
         tgz: *str
+        url: *url
+        version: *str
+    ubuntu2204:
+      aarch64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+      x86_64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+    ubuntu2404:
+      aarch64:
+        sha256: '^[a-fA-F0-9]{64}$'
+        url: *url
+        version: *str
+      x86_64:
+        sha256: '^[a-fA-F0-9]{64}$'
         url: *url
         version: *str
 
@@ -237,4 +362,28 @@ system:
   ssm:
     aarch64: *url
     x86_64: *url
+  nodejs:
+    url: *url
+    sha256: '^[a-fA-F0-9]{64}$'
+  sqlite:
+    version: *str
+    url: *url
+    sha256: '^[a-fA-F0-9]{64}$'
+  s3_mountpoint:
+    x86_64:
+      url: *url
+      sha256: '^[a-fA-F0-9]{64}$'
+    aarch64:
+      url: *url
+      sha256: '^[a-fA-F0-9]{64}$'
+  munge:
+    version: *str
+    url: *url
+    sha256: '^[a-fA-F0-9]{64}$'
+  cache_client:
+    valkey:
+      url: *url
+      sha256: '^[a-fA-F0-9]{64}$'
+    redis:
+      url: *url
 

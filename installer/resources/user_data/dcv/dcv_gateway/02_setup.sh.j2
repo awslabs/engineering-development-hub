@@ -1,0 +1,312 @@
+#!/bin/bash -x
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# DCV Connection Gateway bootstrap
+
+{% include "templates/linux/common.sh.j2" %}
+
+# Validate umask
+{% include "templates/linux/umask.sh.j2" %}
+
+# Verify previous EDH Bootstrap lock presence
+if [[ -f "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed" ]]; then
+  exit_fail "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed already exist. To prevent configuration overwrite, we exit the script, since this machine seems to be already configured"
+fi
+
+{% include "templates/linux/system_packages/packages_management.sh.j2" %}
+
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
+{% include "templates/linux/awscli.sh.j2" %}
+
+# Configure environment
+set_environment_variable "AWS_DEFAULT_REGION" "{{ context.get("/configuration/Region") }}"
+set_environment_variable "EDH_BASE_OS" "{{ context.get("/configuration/BaseOS") }}"
+set_environment_variable "EDH_NODE_TYPE" "{{context.get("/job/NodeType")}}"
+set_environment_variable "EDH_CLUSTER_ID" "{{ context.get("/configuration/ClusterId") }}"
+set_environment_variable "EDH_S3_BUCKET" "{{ context.get("/configuration/S3Bucket") }}"
+set_environment_variable "EDH_VERSION" "{{ context.get("/configuration/Version") }}"
+
+# Wait for BulkSSMDcvParams Custom Resource to populate the SSM tree
+# before reading any /edh/${EDH_CLUSTER_ID}/dcv/* parameters below.
+wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
+
+
+log_info "Starting DCV Connection Gateway bootstrap"
+
+if ! verify_package_installed jq; then
+    packages_install jq
+fi
+
+if ! verify_package_installed nc; then
+    packages_install nc
+fi
+
+# Download and install DCV Connection Gateway from NICE CDN
+DCV_STAGING="/root/edh_bootstrap_$(instance_id)/dcv_staging"
+mkdir -p ${DCV_STAGING}
+pushd ${DCV_STAGING}
+
+MACHINE=$(uname -m)
+
+{% if context.get("/configuration/BaseOS") == "amazonlinux2" %}
+  {% set GW_OS = "al2" %}
+{% elif context.get("/configuration/BaseOS") == "amazonlinux2023" %}
+  {% set GW_OS = "al2023" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel8", "rocky8") %}
+  {% set GW_OS = "el8" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel9", "rocky9") %}
+  {% set GW_OS = "el9" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2204" %}
+  {% set GW_OS = "ubuntu2204" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2404" %}
+  {% set GW_OS = "ubuntu2404" %}
+{% else %}
+  exit_fail "Unsupported BaseOS: {{ context.get("/configuration/BaseOS") }}"
+{% endif %}
+
+if [[ ${MACHINE} == "x86_64" ]]; then
+  GW_URL="{{ context.get("/system/dcv/connection_gateway/" ~ GW_OS ~ "/x86_64/url") }}"
+  GW_SHA256="{{ context.get("/system/dcv/connection_gateway/" ~ GW_OS ~ "/x86_64/sha256") }}"
+elif [[ ${MACHINE} == "aarch64" ]]; then
+  GW_URL="{{ context.get("/system/dcv/connection_gateway/" ~ GW_OS ~ "/aarch64/url") }}"
+  GW_SHA256="{{ context.get("/system/dcv/connection_gateway/" ~ GW_OS ~ "/aarch64/sha256") }}"
+else
+  exit_fail "Unsupported architecture: ${MACHINE}"
+fi
+
+if ! verify_package_installed nice-dcv-connection-gateway; then
+    log_info "Downloading and installing DCV Gateway from ${GW_URL}"
+    file_download --download-url="{{context.get("/system/dcv/gpg_key_url")}}" --save-as="NICE-GPG-KEY"
+    {% if context.get("/configuration/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+        gpg --import NICE-GPG-KEY
+        file_download --download-url="${GW_URL}" --save-as="nice-dcv-connection-gateway.deb" --sha256-checksum="${GW_SHA256}"
+        if ! packages_install_file ./nice-dcv-connection-gateway.deb; then
+            exit_fail "Unable to Install NICE DCV Connection Gateway package. Please check the logs for more details."
+        fi
+    {% else %}
+        rpm --import "NICE-GPG-KEY"
+        file_download --download-url="${GW_URL}" --save-as="nice-dcv-connection-gateway.rpm" --sha256-checksum="${GW_SHA256}"
+        if ! packages_install_file ./nice-dcv-connection-gateway.rpm; then
+            exit_fail "Unable to Install NICE DCV Connection Gateway package. Please check the logs for more details."
+        fi
+    {% endif %}
+else
+    log_info "DCV Connection Gateway already installed, skipping installation"
+fi
+
+# DCV Web Viewer — required so the gateway can serve the browser-facing
+# web client (HTML/JS bundle). Without this the gateway returns 404 on GET /
+# and browsers cannot connect to sessions. The web-viewer package is shipped
+# inside the DCV Server tgz, so we download the matching server bundle and
+# install only the web-viewer subpackage from it.
+log_info "Installing DCV Web Viewer for browser-facing connections"
+{% if context.get("/configuration/BaseOS") == "amazonlinux2" %}
+  {% set DCV_SERVER_OS_TGZ = "al2" %}
+{% elif context.get("/configuration/BaseOS") == "amazonlinux2023" %}
+  {% set DCV_SERVER_OS_TGZ = "al2023" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel8", "rocky8") %}
+  {% set DCV_SERVER_OS_TGZ = "el8" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel9", "rocky9") %}
+  {% set DCV_SERVER_OS_TGZ = "el9" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2204" %}
+  {% set DCV_SERVER_OS_TGZ = "ubuntu2204" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2404" %}
+  {% set DCV_SERVER_OS_TGZ = "ubuntu2404" %}
+{% else %}
+  exit_fail "Unsupported BaseOS for DCV Web Viewer: {{ context.get("/configuration/BaseOS") }}"
+{% endif %}
+
+
+if [[ ${MACHINE} == "aarch64" ]]; then
+    DCV_SERVER_URL="{{ context.get("/system/dcv/" ~ DCV_SERVER_OS_TGZ ~ "/aarch64/url") }}"
+    DCV_SERVER_SHA256="{{ context.get("/system/dcv/" ~ DCV_SERVER_OS_TGZ ~ "/aarch64/sha256") }}"
+else
+    DCV_SERVER_URL="{{ context.get("/system/dcv/" ~ DCV_SERVER_OS_TGZ ~ "/x86_64/url") }}"
+    DCV_SERVER_SHA256="{{ context.get("/system/dcv/" ~ DCV_SERVER_OS_TGZ ~ "/x86_64/sha256") }}"
+fi
+
+
+file_download --download-url="${DCV_SERVER_URL}" --save-as="${DCV_STAGING}/dcv-server.tgz" --sha256-checksum="${DCV_SERVER_SHA256}"
+tar -xzf "${DCV_STAGING}/dcv-server.tgz" -C "${DCV_STAGING}"
+{% if context.get("/configuration/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+    WEB_VIEWER_PKG=$(find "${DCV_STAGING}" -name "nice-dcv-web-viewer*.deb" | head -1)
+{%else %}
+    WEB_VIEWER_PKG=$(find "${DCV_STAGING}" -name "nice-dcv-web-viewer*.rpm" | head -1)
+{% endif %}
+
+if [[ -n "${WEB_VIEWER_PKG}" ]]; then
+    if ! packages_install_file "${WEB_VIEWER_PKG}"; then
+        exit_fail "Unable to install DCV Web Viewer package. Please check the logs for more details."
+    fi
+    log_info "Installed DCV Web Viewer: ${WEB_VIEWER_PKG}"
+else
+    exit_fail "DCV Web Viewer package not found in DCV server bundle"
+fi
+
+popd
+
+# Read cluster config from SSM
+BACKEND_NLB_DNS=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/backend_nlb_dns" --query 'Parameter.Value' --output text)
+GATEWAY_TO_BROKER_PORT=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/gateway_port" --query 'Parameter.Value' --output text 2>/dev/null || echo "8447")
+FRONTEND_NLB_DNS=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/frontend_nlb_dns" --query 'Parameter.Value' --output text)
+
+# Generate self-signed TLS cert for the gateway with proper SAN.
+mkdir -p /etc/dcv-connection-gateway/certs
+log_info "Generating self-signed TLS certificate for DCV Connection Gateway"
+log_info "Cert will include SAN for: ${FRONTEND_NLB_DNS}"
+
+# Build an OpenSSL config with proper SAN. CN is capped at 64 chars by
+# RFC 5280; the frontend NLB DNS may exceed that, so we use a short CN
+# label and put the NLB DNS in subjectAltName (which is what modern
+# browsers actually validate against per RFC 6125).
+#
+# imds_get is provided by templates/linux/common/wrapper_imds.sh.j2
+# (included near the top of this script). It takes the FULL IMDS path,
+# not just the leaf field name.
+INSTANCE_PRIVATE_IP=$(imds_get /latest/meta-data/local-ipv4)
+if [[ -z "${INSTANCE_PRIVATE_IP}" ]]; then
+    exit_fail "Failed to retrieve instance private IP from IMDS - cannot build cert SAN"
+fi
+if [[ -z "${FRONTEND_NLB_DNS}" ]]; then
+    exit_fail "FRONTEND_NLB_DNS is empty - cannot build cert SAN"
+fi
+
+log_info "Cert SAN inputs: DNS=${FRONTEND_NLB_DNS} IP=${INSTANCE_PRIVATE_IP}"
+
+cat > /tmp/dcv-gw-san.cnf <<SAN_EOF
+[req]
+default_bits       = 4096
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = req_ext
+x509_extensions    = req_ext
+
+[dn]
+CN = SOCA-DCV-Gateway
+O  = SOCA
+
+[req_ext]
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${FRONTEND_NLB_DNS}
+DNS.2 = localhost
+IP.1  = 127.0.0.1
+IP.2  = ${INSTANCE_PRIVATE_IP}
+SAN_EOF
+
+if ! openssl req -x509 -new -newkey rsa:4096 -nodes -days 825 \
+    -keyout /etc/dcv-connection-gateway/certs/key.pem \
+    -out /etc/dcv-connection-gateway/certs/cert.pem \
+    -config /tmp/dcv-gw-san.cnf -extensions req_ext; then
+    rm -f /tmp/dcv-gw-san.cnf
+    exit_fail "openssl req failed for self-signed cert"
+
+fi
+rm -f /tmp/dcv-gw-san.cnf
+
+# Belt-and-suspenders: openssl can return 0 in some odd error paths,
+# so verify the files actually exist before chmod/chown glob-expand.
+if [[ ! -s /etc/dcv-connection-gateway/certs/cert.pem ]] || \
+   [[ ! -s /etc/dcv-connection-gateway/certs/key.pem ]]; then
+    ls -la /etc/dcv-connection-gateway/certs/ || true
+    exit_fail "openssl reported success but cert/key files are missing or empty"
+fi
+
+chmod 600 /etc/dcv-connection-gateway/certs/*.pem
+chown dcvcgw:dcvcgw /etc/dcv-connection-gateway/certs/*.pem
+
+log_info "Issued cert subject + SAN:"
+openssl x509 -in /etc/dcv-connection-gateway/certs/cert.pem -noout -subject -ext subjectAltName | sed 's/^/  /'
+
+# Self-signed cert paths (always under certs/; no OOTB fallback because
+# nothing else writes those files and pointing the gateway at a missing
+# file silently fails as exit 0 with "TLS acceptor configuration failed"
+# in the gateway log).
+CERT_FILE="/etc/dcv-connection-gateway/certs/cert.pem"
+KEY_FILE="/etc/dcv-connection-gateway/certs/key.pem"
+
+# Configure connection gateway
+TIMESTAMP=$(date +%s)
+if [[ -f /etc/dcv-connection-gateway/dcv-connection-gateway.conf ]]; then
+    mv /etc/dcv-connection-gateway/dcv-connection-gateway.conf /etc/dcv-connection-gateway/dcv-connection-gateway.conf.${TIMESTAMP}
+fi
+
+cat > /etc/dcv-connection-gateway/dcv-connection-gateway.conf << GW_EOF
+# EDH DCV Connection Gateway — generated at ${TIMESTAMP}
+[log]
+level = "info"
+
+[gateway]
+{% if context.get("/configuration/Networking/EnableIPv6") %}
+quic-listen-endpoints = ["0.0.0.0:8443", "[::]:8443"]
+web-listen-endpoints = ["0.0.0.0:8443", "[::]:8443"]
+{% else %}
+quic-listen-endpoints = ["0.0.0.0:8443"]
+web-listen-endpoints = ["0.0.0.0:8443"]
+{% endif %}
+cert-file = "${CERT_FILE}"
+cert-key-file = "${KEY_FILE}"
+
+[health-check]
+bind-addr = "::"
+port = 8989
+
+[dcv]
+tls-strict = false
+
+[resolver]
+url = "https://${BACKEND_NLB_DNS}:${GATEWAY_TO_BROKER_PORT}"
+tls-strict = false
+
+# Browser-facing web client (HTML/JS) shipped by nice-dcv-web-viewer.
+# Without this section the gateway returns 404 on GET / and browsers
+# cannot reach DCV sessions through the gateway.
+[web-resources]
+local-resources-path = "/usr/share/dcv/www"
+GW_EOF
+
+# Start gateway
+systemctl enable dcv-connection-gateway
+systemctl start dcv-connection-gateway
+
+# Install + start CloudWatch Agent for host-level metrics (mem, swap,
+# disk, procstat). Config in SSM at
+# /edh/${EDH_CLUSTER_ID}/cwagent/dcv-host-config. Best-effort.
+if ! verify_package_installed amazon-cloudwatch-agent-ctl; then
+    packages_install amazon-cloudwatch-agent
+fi
+
+if command -v amazon-cloudwatch-agent-ctl >/dev/null 2>&1; then
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+        -a fetch-config -m ec2 -s \
+        -c "ssm:/edh/${EDH_CLUSTER_ID}/cwagent/dcv-host-config" || \
+        echo "WARN: cwagent fetch-config failed, host metrics will be unavailable"
+fi
+
+# Verify gateway health check
+VERIFY_COUNT=0
+while [[ ${VERIFY_COUNT} -lt 10 ]]; do
+    if nc -z localhost 8989 2>/dev/null; then
+        log_info "DCV Connection Gateway health check passed"
+        break
+    fi
+    log_warning "DCV Gateway not ready yet (attempt ${VERIFY_COUNT}/10), waiting 15s..."
+    VERIFY_COUNT=$((VERIFY_COUNT + 1))
+    sleep 15
+done
+
+if [[ ${VERIFY_COUNT} -ge 10 ]]; then
+    exit_fail "DCV Connection Gateway failed to start after 10 attempts"
+fi
+
+# Create bootstrap lock
+touch "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed"
+
+log_info "DCV Connection Gateway bootstrap complete"

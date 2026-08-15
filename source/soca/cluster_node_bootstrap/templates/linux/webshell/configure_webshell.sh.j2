@@ -1,0 +1,112 @@
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: EDH Webshell (in-browser terminal) service
+function configure_webshell () {
+    log_info "Installing edh-webshell service"
+        
+    local EDH_WEBSHELL_HOME="/opt/edh/${EDH_CLUSTER_ID}/webshell"
+    local EDH_WEBSHELL_CONTROLLER_URL="https://{{ context.get('/configuration/ControllerPrivateIP') }}:8443"
+    local EDH_WEBSHELL_LISTEN_PORT={{ context.get('/configuration/WebShell/port', 7681) }}
+    local EDH_WEBSHELL_HEALTH_PORT={{ context.get('/configuration/WebShell/health_port', 7681) }}
+    local EDH_WEBSHELL_IDLE_TIMEOUT=14400
+    local EDH_WEBSHELL_LOG_LEVEL="INFO"
+    local EDH_WEBSHELL_CW_NAMESPACE="EDH/Webshell"
+        
+    if [[ -d "${EDH_WEBSHELL_HOME}" ]]; then
+        log_warning "${EDH_WEBSHELL_HOME} already exist from a previous installation, deleting it ..."
+        rm -rf "${EDH_WEBSHELL_HOME}"
+    fi
+        
+    mkdir -p "${EDH_WEBSHELL_HOME}"
+
+    if ! verify_package_installed tmux; then
+        packages_install tmux
+    fi
+
+    if ! tmux -V >/dev/null 2>&1; then
+        log_error "EDH Webshell FATAL error 'tmux -V' failed. tmux binary exists but is not runnable. Webshell will not be available on this machine" >&2
+        tmux -V >&2 || true
+    fi
+        
+    log_info "Copying ${EDH_WEBSHELL_HOME}/webshell_service.py"
+    cat << 'EOF' > "${EDH_WEBSHELL_HOME}/webshell_service.py"
+{% include "templates/linux/webshell/webshell_service.py" %}
+EOF
+
+    log_info "Copying ${EDH_WEBSHELL_HOME}/webshell_utmp.py"
+    cat << 'EOF' > "${EDH_WEBSHELL_HOME}/webshell_utmp.py"
+{% include "templates/linux/webshell/webshell_utmp.py" %}
+EOF
+
+    log_info "Writing ${EDH_WEBSHELL_HOME}/webshell.tmux.conf"
+    cat << 'EOF' > "${EDH_WEBSHELL_HOME}/webshell.tmux.conf"
+# EDH webshell: mouse off (browser owns select/copy + right-click); wheel user-keys drive copy-mode scroll; tmux only for suspend/resume + scrollback
+set -g mouse off
+set -g mode-keys emacs
+set -s user-keys[0] "\e[5000~"
+set -s user-keys[1] "\e[5001~"
+bind -n User0 copy-mode -e \; send-keys -X -N 3 scroll-up
+bind -n User1 if -F "#{pane_in_mode}" "send-keys -X -N 3 scroll-down"
+bind -T copy-mode-emacs User0 send-keys -X -N 3 scroll-up
+bind -T copy-mode-emacs User1 send-keys -X -N 3 scroll-down
+bind -T copy-mode-emacs Enter send-keys -X cancel
+EOF
+
+    log_info "Creating Webshell systemd"
+    echo -e """
+[Unit]
+Description=EDH Webshell Service (browser terminal for Login Nodes)
+Documentation=https://awslabs.github.io/engineering-development-hub/
+After=network-online.target remote-fs.target
+Wants=network-online.target remote-fs.target
+
+[Service]
+Type=simple
+
+# Must run as root so we can setuid() into the target user after auth.
+User=root
+Group=root
+
+Environment=EDH_WEBSHELL_CONTROLLER_URL=${EDH_WEBSHELL_CONTROLLER_URL}
+Environment=EDH_WEBSHELL_LISTEN_PORT=${EDH_WEBSHELL_LISTEN_PORT}
+Environment=EDH_WEBSHELL_HEALTH_PORT=${EDH_WEBSHELL_HEALTH_PORT}
+Environment=EDH_WEBSHELL_IDLE_TIMEOUT=${EDH_WEBSHELL_IDLE_TIMEOUT}
+Environment=EDH_WEBSHELL_LOG_LEVEL=${EDH_WEBSHELL_LOG_LEVEL}
+Environment=EDH_WEBSHELL_CW_NAMESPACE=${EDH_WEBSHELL_CW_NAMESPACE}
+
+ExecStart=/opt/edh/${EDH_CLUSTER_ID}/python/latest/bin/python3 ${EDH_WEBSHELL_HOME}/webshell_service.py
+Restart=on-failure
+RestartSec=5s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=edh-webshell
+
+NoNewPrivileges=false
+RestrictSUIDSGID=false
+PrivateTmp=false
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target""" > /etc/systemd/system/edh-webshell.service
+
+    chmod 644 /etc/systemd/system/edh-webshell.service
+    log_info "EDH Webshell systemd written to /etc/systemd/system/edh-webshell.service"
+
+    systemctl daemon-reload
+    systemctl enable edh-webshell.service
+    systemctl restart edh-webshell.service
+
+    sleep 2
+    if ! systemctl is-active --quiet edh-webshell.service; then
+        log_error "EDH Webshell service failed to start. Last journal entries:" >&2
+        journalctl -u edh-webshell.service -n 30 --no-pager >&2 || true
+        log_error "EDH Webshell will not be available on this login node"
+    else
+        log_info "EDH Webshell service is active on port ${EDH_WEBSHELL_LISTEN_PORT:-7681}"
+    fi 
+}
+configure_webshell
+# End: EDH Webshell (in-browser terminal) service

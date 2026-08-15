@@ -2,13 +2,74 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Begin - Wrapper AWSCLI. Added via common.sh.j2
+#
+# Usage:
+#   aws_cli <aws-cli-args...>
+#   aws_cli --no-cache <aws-cli-args...>
+#   aws_cli --no-cache --quiet-error <aws-cli-args...>
+#
+# Behaviour:
+#   - Injects --region from the Jinja context (/configuration/Region) if not supplied.
+#   - Retries on throttling / rate-limit errors.
+#   - By default, calls are cached via ElastiCache (cache_get_key) when
+#     the cache client is available. This speeds up repeated reads and
+#     reduces API load.
+#
+# Optional leading flags (order-independent, consumed before the aws CLI args):
+#
+#   --no-cache      Bypass the ElastiCache response cache and always hit
+#                   the AWS API. Required for polling loops where a stale
+#                   cached value would be wrong (e.g. wait_for_ssm_sentinel).
+#
+#   --quiet-error   Downgrade non-throttling errors from ERROR log level
+#                   to DEBUG. Intended for polling loops where "not found"
+#                   or "not ready" is expected and repeated -- otherwise
+#                   every poll pollutes the discrete bootstrap_ERROR.log
+#                   file with false alarms. Throttling errors are still
+#                   logged at WARNING (they represent real AWS pressure).
+#
+# The secretsmanager sub-command automatically disables caching (and
+# success logging) regardless of --no-cache, for credential-handling
+# hygiene.
 function aws_cli () {
   local AWS
   AWS=$(command -v aws)
 
+  # Fail loud if aws is not on PATH yet (e.g. called before awscli install); running with an empty binary yields a confusing "--region: command not found".
+  if [[ -z "${AWS}" ]]; then
+    log_warning "aws_cli: AWS CLI not on PATH yet; skipping call: $*"
+    return 1
+  fi
+
   local CHECK_CACHE
   local CACHED_RESULT
   local LOG_OUTPUT
+  local _USER_NO_CACHE="false"
+  local _USER_QUIET_ERROR="false"
+
+  # Parse optional flags (must be first positional args, in any order).
+  # Consume them so they don't leak into the underlying aws CLI
+  # invocation. Known flags:
+  #   --no-cache     -- skip the ElastiCache response cache
+  #   --quiet-error  -- downgrade non-throttling errors from ERROR to
+  #                     DEBUG. Intended for polling loops where a
+  #                     transient "not found" is expected -- keeps
+  #                     the bootstrap_ERROR.log free of false alarms.
+  while true; do
+    case "${1:-}" in
+      --no-cache)
+        _USER_NO_CACHE="true"
+        shift
+        ;;
+      --quiet-error)
+        _USER_QUIET_ERROR="true"
+        shift
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
 
   # Automatically add --region if not specified
   if [[ "$*" == *"--region"* ]]; then
@@ -26,6 +87,14 @@ function aws_cli () {
   else
     CHECK_CACHE="true"
     LOG_OUTPUT="true"
+  fi
+
+  # Caller-supplied --no-cache override. Applied after the
+  # secretsmanager branch so it can never accidentally re-enable cache
+  # for a secretsmanager call.
+  if [[ "${_USER_NO_CACHE}" == "true" ]]; then
+    CHECK_CACHE="false"
+    log_info "aws_cli: cache bypass requested via --no-cache"
   fi
 
   run_awscli_with_retry() {
@@ -58,8 +127,14 @@ function aws_cli () {
             sleep "${SLEEP_TIME}"
             ATTEMPT=$((ATTEMPT + 1))
         else
-            log_error "aws_cli: ${AWS_API_CALL} returned a non-throttling error: ${OUTPUT}"
-            printf '%s\n' "${OUTPUT}"
+            if [[ "${_USER_QUIET_ERROR}" == "true" ]]; then
+                log_debug "aws_cli: ${AWS_API_CALL} returned a non-throttling error (suppressed by --quiet-error): ${OUTPUT}"
+                # --quiet-error: error text to stderr (not stdout) so callers don't capture it into $(...)
+                printf '%s\n' "${OUTPUT}" >&2
+            else
+                log_error "aws_cli: ${AWS_API_CALL} returned a non-throttling error: ${OUTPUT}"
+                printf '%s\n' "${OUTPUT}"
+            fi
             return ${EXIT_CODE}
         fi
     done

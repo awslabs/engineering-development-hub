@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from datetime import datetime, timezone
 from utils.response import SocaResponse
@@ -147,7 +148,7 @@ class DeleteTargetNode(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Your Target Node is about to be terminated",
+                message=_(f"Your Target Node is about to be terminated"),
             ).as_flask()
 
         else:

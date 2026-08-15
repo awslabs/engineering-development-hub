@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -9,6 +9,7 @@
 
 <body id="page-top">
     {% include 'common/horizontal_menu_bar.html' %}
+    {% include 'common/js_i18n.html' %}
 
     <div id="wrapper">
         {% include 'common/vertical_menu_bar.html' %}
@@ -20,19 +21,19 @@
 
                         <div class="card-body">
                             <div class="py-3 d-flex justify-content-between align-items-center">
-                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="List all your AWS Batch jobs.">My AWS Batch Jobs <i class="fas fa-question-circle"></i></h3>
+                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("List all your AWS Batch jobs.") }}">{{ _("My AWS Batch Jobs") }} <i class="fas fa-question-circle"></i></h3>
 
                                 <div class="d-flex ms-auto align-items-center gap-2">
                                     <select id="timeRange" class="form-control mr-3" style="width: auto;" onchange="applyTimeRange(this.value)">
-                                        <option value="6" {{ 'selected' if request.args.get('time_range', '24') == '6' }}>Last 6 hours</option>
-                                        <option value="12" {{ 'selected' if request.args.get('time_range', '24') == '12' }}>Last 12 hours</option>
-                                        <option value="24" {{ 'selected' if request.args.get('time_range', '24') == '24' }}>Last 24 hours</option>
-                                        <option value="48" {{ 'selected' if request.args.get('time_range', '24') == '48' }}>Last 2 days</option>
-                                        <option value="168" {{ 'selected' if request.args.get('time_range', '24') == '168' }}>Last 7 days</option>
-                                        <option value="720" {{ 'selected' if request.args.get('time_range', '24') == '720' }}>Last 30 days</option>
+                                        <option value="6" {{ 'selected' if request.args.get('time_range', '24') == '6' }}>{{ _("Last 6 hours") }}</option>
+                                        <option value="12" {{ 'selected' if request.args.get('time_range', '24') == '12' }}>{{ _("Last 12 hours") }}</option>
+                                        <option value="24" {{ 'selected' if request.args.get('time_range', '24') == '24' }}>{{ _("Last 24 hours") }}</option>
+                                        <option value="48" {{ 'selected' if request.args.get('time_range', '24') == '48' }}>{{ _("Last 2 days") }}</option>
+                                        <option value="168" {{ 'selected' if request.args.get('time_range', '24') == '168' }}>{{ _("Last 7 days") }}</option>
+                                        <option value="720" {{ 'selected' if request.args.get('time_range', '24') == '720' }}>{{ _("Last 30 days") }}</option>
                                     </select>
                                     <a href="/containers/batch/setup"><button type="button" class="btn btn-success">
-                                        Submit a New Batch Job
+                                        {{ _("Submit a New Batch Job") }}
                                     </button></a>
                                 </div>
                             </div>
@@ -54,13 +55,13 @@
                                     <table class="table table-striped">
                                         <thead>
                                         <tr>
-                                            <th scope="col">Job Name</th>
-                                            <th scope="col">Job ID</th>
-                                            <th scope="col">Job Queue</th>
-                                            <th scope="col">Job Definition</th>
-                                            <th scope="col">Status</th>
-                                            <th scope="col">Created</th>
-                                            <th scope="col">Actions</th>
+                                            <th scope="col">{{ _("Job Name") }}</th>
+                                            <th scope="col">{{ _("Job ID") }}</th>
+                                            <th scope="col">{{ _("Job Queue") }}</th>
+                                            <th scope="col">{{ _("Job Definition") }}</th>
+                                            <th scope="col">{{ _("Status") }}</th>
+                                            <th scope="col">{{ _("Created") }}</th>
+                                            <th scope="col">{{ _("Actions") }}</th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -103,10 +104,10 @@
                                                 </td>
                                                 <td>
                                                     <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                                            data-bs-target="#jobInfo{{ loop.index0 }}">Info</button>
+                                                            data-bs-target="#jobInfo{{ loop.index0 }}">{{ _("Info") }}</button>
                                                     {% if status not in ['SUCCEEDED', 'FAILED'] %}
                                                     <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                                            data-bs-target="#terminateJob{{ loop.index0 }}">Terminate</button>
+                                                            data-bs-target="#terminateJob{{ loop.index0 }}">{{ _("Terminate") }}</button>
                                                     {% endif %}
                                                 </td>
                                             </tr>
@@ -118,8 +119,8 @@
                                                     <div class="modal-content modal-lg">
                                                         <div class="modal-header">
                                                             <h5 class="modal-title">Job Info: {{ job.get('jobName', '') }}</h5>
-                                                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                               <span aria-hidden="true">&times;</span>
+                                                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                               <span aria-hidden="true">{{ _("&times;") }}</span>
                                                             </button>
                                                         </div>
                                                         <div class="modal-body container">
@@ -127,7 +128,7 @@
                                                         </div>
                                                         <div class="modal-footer">
                                                             <button type="button" class="btn btn-secondary"
-                                                                    data-bs-dismiss="modal">Close</button>
+                                                                    data-bs-dismiss="modal">{{ _("Close") }}</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -140,20 +141,20 @@
                                                 <div class="modal-dialog" role="document">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title">Confirm Terminate</h5>
-                                                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                <span aria-hidden="true">&times;</span>
+                                                            <h5 class="modal-title">{{ _("Confirm Terminate") }}</h5>
+                                                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                <span aria-hidden="true">{{ _("&times;") }}</span>
                                                             </button>
                                                         </div>
                                                         <div class="modal-body container">
                                                             <div class="alert alert-danger">
-                                                                <strong>Attention</strong><br>
-                                                                You are about to terminate this AWS Batch job: <strong>{{ job.get('jobName', '') }}</strong>
+                                                                <strong>{{ _("Attention") }}</strong><br>
+                                                                {{ _("You are about to terminate this AWS Batch job:") }} <strong>{{ job.get('jobName', '') }}</strong>
                                                             </div>
                                                             <form action="/containers/batch/delete" method="post">
                                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                                 <input type="hidden" name="job_id" value="{{ job.get('jobId') }}">
-                                                                <button type="submit" class="btn btn-danger form-control">Terminate Job</button>
+                                                                <button type="submit" class="btn btn-danger form-control">{{ _("Terminate Job") }}</button>
                                                             </form>
                                                         </div>
                                                     </div>
@@ -168,7 +169,7 @@
                                     <hr>
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <h6 class="font-weight-bold">Job Status Legend</h6>
+                                            <h6 class="font-weight-bold">{{ _("Job Status Legend") }}</h6>
                                             <ul class="list-unstyled">
                                             {% for key, explanation in status_explanations.items() %}
                                             <li>
@@ -196,9 +197,9 @@
                                      <div class="d-flex ms-auto align-items-center">
                                         <div class="col-auto">
                                             <button type="button" id="refreshButton" class="btn btn-sm btn-secondary" onclick="manualRefresh()">
-                                                <i class="fas fa-sync-alt me-1"></i> Refresh (<span id="countdown">120</span>s)
+                                                <i class="fas fa-sync-alt me-1"></i> {% trans countdown='<span id="countdown">120</span>'|safe %}Refresh ({{ countdown }}s){% endtrans %}
                                             </button>
-                                            <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger" onclick="toggleAutoRefresh()">Disable Auto-Refresh
+                                            <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger" onclick="toggleAutoRefresh()">{{ _("Disable Auto-Refresh") }}
                                             </button>
                                         </div>
                                     </div>
@@ -277,12 +278,12 @@
   function toggleAutoRefresh() {
     autoRefreshEnabled = !autoRefreshEnabled;
     if (autoRefreshEnabled) {
-      toggleButton.textContent = 'Disable Auto-Refresh';
+      toggleButton.textContent = i18n.disable_auto_refresh;
       toggleButton.classList.remove('btn-outline-success');
       toggleButton.classList.add('btn-outline-danger');
       counter = refreshInterval;
     } else {
-      toggleButton.textContent = 'Enable Auto-Refresh';
+      toggleButton.textContent = i18n.enable_auto_refresh;
       toggleButton.classList.remove('btn-outline-danger');
       toggleButton.classList.add('btn-outline-success');
     }

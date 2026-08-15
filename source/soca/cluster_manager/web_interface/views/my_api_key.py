@@ -5,6 +5,7 @@
 import logging
 import config
 from flask import render_template, Blueprint, request, redirect, session, flash
+from flask_babel import gettext as _
 from requests import get, delete
 from decorators import login_required, feature_flag
 from utils.config import SocaConfig
@@ -27,8 +28,8 @@ def index():
     if _check_user_key.get("success") is False:
         logger.error(f"Unable to retrieve API key for user due to {_check_user_key}")
         _user_token = "UNKNOWN"
-        flash(
-            "Unable to retrieve API key for user. See logs for additional details.",
+        flash(_(
+            "Unable to retrieve API key for user. See logs for additional details."),
             "error",
         )
     else:
@@ -55,6 +56,10 @@ def index():
 def reset_key():
     user = request.form.get("user", None)
     if user is not None:
+        if user != session.get("user", ""):
+            flash("You can only reset your own API key", "error")
+            return redirect("/my_api_key")
+
         invalidate_user_key = delete(
             config.Config.FLASK_ENDPOINT + "/api/user/api_key",
             headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},

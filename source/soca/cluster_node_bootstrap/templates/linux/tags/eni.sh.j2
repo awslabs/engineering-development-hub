@@ -11,9 +11,9 @@ function tags_eni () {
   {% elif context.get("/job/NodeType") == "login_node" %}
     local TAGS="Key=Name,Value=\"EBS_SOCA_LoginNode\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
   {% elif context.get("/job/NodeType") == "dcv_node" %}
-    local TAGS="Key=Name,Value=\"EBS_SOCA_DCV_{{ context.get("/job/SessionOwner") }}\" Key=edh:JobOwner,Value=\"{{ context.get("/job/SessionOwner") }}\" Key=edh:JobProject,Value=\"dcv\" Key=Name,Value=\"edh-job-{{ context.get("/job/SessionIr") }}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
+    local TAGS="Key=Name,Value=\"EBS_SOCA_DCV_${EDH_DCV_SESSION_OWNER}\" Key=edh:JobOwner,Value=\"${EDH_DCV_SESSION_OWNER}\" Key=edh:JobProject,Value=\"dcv\" Key=Name,Value=\"edh-job-${EDH_DCV_SESSION_ID}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
    {% else %}
-    local TAGS="Key=Name,Value=\"EBS_SOCA_JobId_{{ context.get("/job/JobId") }}\" Key=edh:JobOwner,Value=\"{{ context.get("/job/JobOwner") }}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=Name,Value=\"edh-job-{{ context.get("/job/JobId") }}\"  Key=edh:JobId,Value=\"{{ context.get("/job/JobId") }}\" Key=edh:JobQueue,Value=\"{{ context.get("/job/JobQueue") }}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
+    local TAGS="Key=Name,Value=\"EBS_SOCA_JobId_${EDH_JOB_ID}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=Name,Value=\"edh-job-${EDH_JOB_ID}\"  Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
   {% endif %}
 
 

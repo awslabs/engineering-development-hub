@@ -1,0 +1,281 @@
+{# DCV session-event publisher (Linux). Pure-bash; wrapped in raw so Jinja2 #}
+{# does not parse bash ${#var} or here-doc patterns as comment/block tags. #}
+{% raw %}
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# DCV session-event publisher (Linux).
+#
+# Sourced into the bootstrap; defines a single function `edh_dcv_publish_event`
+# that the bootstrap and lifecycle hooks call. Publishes to the per-cluster
+# Amazon SQS queue with minimal envelope:
+#
+#   - 32-byte CSPRNG nonce               (replay protection on controller)
+#   - ISO-8601 timestamp                  (5-min freshness window)
+#   - body.instance_id                    (cross-checked against AWS-attested
+#                                          SQS SenderId on the relay Lambda)
+#
+# No HMAC, no IID document, no per-session secret. Provenance is established
+# via the AWS-set SQS SenderId attribute (= role-id:i-XXXXXXXX) which the
+# relay Lambda extracts and forwards to the controller in a header bound
+# into the relay HMAC. See docs/DCVEventRelay.md for the full chain of trust.
+#
+# Required env vars (set in /etc/environment by bootstrap):
+#   EDH_DCV_SESSION_EVENTS_QUEUE_URL -- https://sqs.<region>.amazonaws.com/<acct>/<name>
+#   EDH_DCV_SESSION_ID               -- UUID matching DB session_uuid
+#
+# Call signature:
+#   edh_dcv_publish_event "<event_type>" [checkpoint] [sub_status]
+#
+#   where event_type is one of:
+#     session-ready         bootstrap completed, DCV session created
+#     session-resumed       dcvserver started post-reboot/hibernate
+#     session-failed        bootstrap or session-create failed
+#     session-heartbeat     optional periodic ping (not used by default)
+#     bootstrap-checkpoint  explicit lifecycle marker driven by log_checkpoint;
+#                           requires non-empty `checkpoint` argument (e.g.
+#                           "boot-started", "dcv-installing"). Optional
+#                           `sub_status` (free-form, capped 256 chars).
+#     bootstrap-status      free-form progress update driven by log_status;
+#                           requires non-empty `sub_status` argument. Does
+#                           NOT change session_state on the controller -- it
+#                           is a stream-only event for SSE consumers.
+#
+# Failures are logged and silently swallowed (return 0). The cold-session
+# probe on the controller is the safety net if the push doesn't land.
+
+edh_dcv_publish_event() {
+  local event_type="$1"
+  local checkpoint="${2:-}"
+  local sub_status="${3:-}"
+
+  if [[ -z "${event_type}" ]]; then
+    echo "[edh_dcv_publish_event] missing event_type" 1>&2
+    return 0
+  fi
+  case "${event_type}" in
+    session-ready|session-resumed|session-failed|session-heartbeat|pool-ready) ;;
+    bootstrap-checkpoint)
+      if [[ -z "${checkpoint}" ]]; then
+        echo "[edh_dcv_publish_event] bootstrap-checkpoint requires checkpoint name" 1>&2
+        return 0
+      fi
+      ;;
+    bootstrap-status)
+      if [[ -z "${sub_status}" ]]; then
+        echo "[edh_dcv_publish_event] bootstrap-status requires sub_status" 1>&2
+        return 0
+      fi
+      ;;
+    *)
+      echo "[edh_dcv_publish_event] unknown event_type=${event_type}" 1>&2
+      return 0
+      ;;
+  esac
+
+  # Truncate sub_status defensively. Controller also enforces 256, but
+  # trimming here keeps the SQS message small and the local log readable.
+  if [[ -n "${sub_status}" ]] && [[ "${#sub_status}" -gt 256 ]]; then
+    sub_status="${sub_status:0:253}..."
+  fi
+
+  # Required env -- if any missing, this cluster isn't event-relay-enabled
+  # (legacy single-VDI mode) and we silently skip.
+  if [[ -z "${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}" ]]; then
+    return 0
+  fi
+  # Session-bound events require a session id; pool-ready is session-less
+  # (an idle pool member has no EDH_DCV_SESSION_ID) so it is exempt.
+  if [[ "${event_type}" != "pool-ready" ]] && [[ -z "${EDH_DCV_SESSION_ID:-}" ]]; then
+    return 0
+  fi
+
+  # Fetch instance ID via IMDSv2. The body.instance_id will be cross-
+  # checked against the AWS-attested SenderId by the relay Lambda; if the
+  # values disagree, the event is rejected as a forgery attempt.
+  local imds_token instance_id
+  imds_token=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null) || return 0
+  if [[ -z "${imds_token}" ]]; then return 0; fi
+
+  instance_id=$(curl -sS -H "X-aws-ec2-metadata-token: ${imds_token}" \
+    http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null) || return 0
+  if [[ -z "${instance_id}" ]]; then return 0; fi
+
+  # 32 byte CSPRNG nonce as 64-char hex.
+  local nonce
+  nonce=$(head -c 32 /dev/urandom | xxd -p -c 32) || return 0
+
+  # Microsecond-precision UTC ISO-8601 timestamp.
+  local timestamp
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%6NZ")
+
+  # Build the JSON body via python3 for reliable escape handling.
+  # checkpoint and sub_status are emitted only when non-empty so the wire
+  # shape stays unchanged for the original 4 event types.
+  local body
+  body=$(EDH_DCV_SESSION_ID="${EDH_DCV_SESSION_ID}" \
+         EDH_INSTANCE_ID="${instance_id}" \
+         EDH_EVENT_TYPE="${event_type}" \
+         EDH_TS="${timestamp}" \
+         EDH_NONCE="${nonce}" \
+         EDH_CHECKPOINT="${checkpoint}" \
+         EDH_SUB_STATUS="${sub_status}" \
+         python3 -c '
+import json, os
+payload = {
+    "event_type":      os.environ["EDH_EVENT_TYPE"],
+    "session_uuid":    os.environ["EDH_DCV_SESSION_ID"],
+    "instance_id":     os.environ["EDH_INSTANCE_ID"],
+    "event_timestamp": os.environ["EDH_TS"],
+    "nonce":           os.environ["EDH_NONCE"],
+}
+checkpoint = os.environ.get("EDH_CHECKPOINT", "")
+if checkpoint:
+    payload["checkpoint"] = checkpoint
+sub_status = os.environ.get("EDH_SUB_STATUS", "")
+if sub_status:
+    payload["sub_status"] = sub_status
+print(json.dumps(payload, separators=(",", ":")))
+') || return 0
+
+  # Publish via aws sqs send-message. SQS attaches our AWS-attested
+  # SenderId on the receive side automatically -- the relay Lambda reads
+  # it from Records[].attributes.SenderId and validates against
+  # body.instance_id.
+  if ! aws sqs send-message \
+       --queue-url "${EDH_DCV_SESSION_EVENTS_QUEUE_URL}" \
+       --message-body "${body}" \
+       --output text --query MessageId 1>/dev/null 2>/var/log/edh_dcv_publish.log; then
+    echo "[edh_dcv_publish_event] sqs send-message failed (${event_type})" 1>&2
+    return 0
+  fi
+  echo "[edh_dcv_publish_event] published ${event_type} for ${EDH_DCV_SESSION_ID}" 1>&2
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Phase timing helpers (Bash). Mirror the PowerShell helpers in
+# templates/windows/dcv/dcv_event_publish.ps.j2:
+#   Format-EdhDuration    -> edh_format_duration
+#   Measure-EdhPhase      -> edh_measure_phase  (phase_name_var, phase_cmd...)
+#   Invoke-EdhRetryablePhase -> edh_retry_phase (phase_name, max_attempts, backoff_csv, phase_cmd...)
+#
+# Wrap a long-running bootstrap phase to emit start + end status events so
+# the WebUI strip shows phase entry AND a final message including how
+# long it took. Failures inside the wrapped block emit a "failed in X"
+# end event then propagate (return non-zero from the wrapper).
+# ---------------------------------------------------------------------------
+
+# Format an integer second count as "Xs", "Xm Ys", or "Xh Ym".
+edh_format_duration() {
+  local total="${1:-0}"
+  if [ "${total}" -lt 60 ]; then
+    echo "${total}s"
+    return 0
+  fi
+  if [ "${total}" -lt 3600 ]; then
+    local m=$(( total / 60 ))
+    local s=$(( total % 60 ))
+    echo "${m}m ${s}s"
+    return 0
+  fi
+  local h=$(( total / 3600 ))
+  local m=$(( (total % 3600) / 60 ))
+  echo "${h}h ${m}m"
+}
+
+# Run a single phase: emit "Starting <name>", run cmd, emit
+# "<name> complete in <dur>" or "<name> failed in <dur>". Re-throws
+# (non-zero return) on failure so callers can decide.
+#
+# Usage: edh_measure_phase "Phase name" cmd arg1 arg2 ...
+edh_measure_phase() {
+  local name="$1"; shift
+  local t0
+  t0="$(date +%s)"
+  edh_dcv_publish_event "bootstrap-status" "" "Starting ${name}"
+  if "$@"; then
+    local t1
+    t1="$(date +%s)"
+    local dur
+    dur="$(edh_format_duration $((t1 - t0)))"
+    edh_dcv_publish_event "bootstrap-status" "" "${name} complete in ${dur}"
+    return 0
+  fi
+  local rc=$?
+  local t1
+  t1="$(date +%s)"
+  local dur
+  dur="$(edh_format_duration $((t1 - t0)))"
+  edh_dcv_publish_event "bootstrap-status" "" "${name} failed in ${dur}"
+  return ${rc}
+}
+
+# Run a phase with bounded retries and per-attempt status events.
+# Emits four kinds of messages (mirrors PS Invoke-EdhRetryablePhase):
+#   - "Starting <name> (attempt N/M)"
+#   - "<name> attempt N failed in <dur> -- retrying in <s>s: <err80>"
+#   - "<name> complete in <total> [(after K retries)]"
+#   - "<name> failed after M attempts in <total>: <err80>"
+#
+# Usage:
+#   edh_retry_phase "<name>" "<max_attempts>" "<backoff_csv>" cmd arg1 arg2 ...
+#
+# backoff_csv is comma-separated seconds, indexed by attempt-1; short
+# arrays clamp to last value.
+edh_retry_phase() {
+  local name="$1"; shift
+  local max_attempts="${1:-3}"; shift
+  local backoff_csv="${1:-15,60,120}"; shift
+  local overall_t0
+  overall_t0="$(date +%s)"
+  local attempt=1
+  local errfile
+  errfile="$(mktemp -t edh_retry.XXXXXX)"
+  while [ "${attempt}" -le "${max_attempts}" ]; do
+    edh_dcv_publish_event "bootstrap-status" "" \
+      "Starting ${name} (attempt ${attempt}/${max_attempts})"
+    local attempt_t0
+    attempt_t0="$(date +%s)"
+    if "$@" 2>"${errfile}"; then
+      local total_dur
+      total_dur="$(edh_format_duration $(( $(date +%s) - overall_t0 )))"
+      local end_msg="${name} complete in ${total_dur}"
+      if [ "${attempt}" -gt 1 ]; then
+        local retries=$(( attempt - 1 ))
+        local word="retries"
+        [ "${retries}" -eq 1 ] && word="retry"
+        end_msg="${end_msg} (after ${retries} ${word})"
+      fi
+      edh_dcv_publish_event "bootstrap-status" "" "${end_msg}"
+      rm -f "${errfile}"
+      return 0
+    fi
+    local rc=$?
+    local attempt_dur
+    attempt_dur="$(edh_format_duration $(( $(date +%s) - attempt_t0 )))"
+    local err80
+    err80="$(tail -c 200 "${errfile}" 2>/dev/null | tr -d '\n' | cut -c1-80)"
+    if [ "${attempt}" -lt "${max_attempts}" ]; then
+      # Pull backoff[attempt-1] from the CSV; clamp to last value.
+      local backoff
+      backoff="$(echo "${backoff_csv}" | awk -F, -v idx=$((attempt-1)) '{ if (idx>=NF) idx=NF-1; print $(idx+1) }')"
+      backoff="${backoff:-30}"
+      edh_dcv_publish_event "bootstrap-status" "" \
+        "${name} attempt ${attempt} failed in ${attempt_dur} -- retrying in ${backoff}s: ${err80}"
+      sleep "${backoff}"
+      attempt=$(( attempt + 1 ))
+    else
+      local total_dur
+      total_dur="$(edh_format_duration $(( $(date +%s) - overall_t0 )))"
+      edh_dcv_publish_event "bootstrap-status" "" \
+        "${name} failed after ${max_attempts} attempts in ${total_dur}: ${err80}"
+      rm -f "${errfile}"
+      return ${rc}
+    fi
+  done
+  rm -f "${errfile}"
+  return 1
+}
+{% endraw %}

@@ -15,6 +15,7 @@ import logging
 import boto3
 import config
 from flask import render_template, Blueprint, request, redirect, session, flash
+from flask_babel import gettext as _
 from decorators import login_required, admin_only
 from utils.http_client import SocaHttpClient
 
@@ -61,8 +62,8 @@ def index():
             region_name=get_region(),
         )
     else:
-        flash(
-            f"Unable to list SOCA Software Stacks because of {_list_software_stacks.get('message')}",
+        flash(_(
+            f"Unable to list SOCA Software Stacks because of {_list_software_stacks.get('message')}"),
             "error",
         )
         return render_template(
@@ -96,13 +97,13 @@ def software_stack_create():
     ).post(data=request.form.to_dict(), files=_files)
 
     if _create_target_node_software_stack.get("success") is True:
-        flash(
-            f"Your software stack {_create_target_node_software_stack.get('message')} has been registered successfully. Add it to at least one of your SOCA project before being able to use it.",
+        flash(_(
+            f"Your software stack {_create_target_node_software_stack.get('message')} has been registered successfully. Add it to at least one of your SOCA project before being able to use it."),
             "success",
         )
     else:
-        flash(
-            f"Unable to register your image because of {_create_target_node_software_stack.get('message')}",
+        flash(_(
+            f"Unable to register your image because of {_create_target_node_software_stack.get('message')}"),
             "error",
         )
 
@@ -128,13 +129,13 @@ def software_stack_delete():
     ).delete(data=request.form.to_dict())
 
     if _delete_software_stack.get("success") is True:
-        flash(
-            f"Your software stack has been removed  successfully",
+        flash(_(
+            f"Your software stack has been removed  successfully"),
             "success",
         )
     else:
-        flash(
-            f"Unable to remove your software stack because of {_delete_software_stack.get('message')}",
+        flash(_(
+            f"Unable to remove your software stack because of {_delete_software_stack.get('message')}"),
             "error",
         )
 
@@ -155,7 +156,7 @@ def software_stack_edit():
     )
     _software_stack_to_modify = request.form.get("software_stack_id", None)
     if _software_stack_to_modify is None:
-        flash("Missing software_stack_id", "error")
+        flash(_("Missing software_stack_id"), "error")
         return redirect("/admin/target_nodes/software_stacks")
 
     _get_software_stack_info = SocaHttpClient(
@@ -184,8 +185,8 @@ def software_stack_edit():
             region_name=get_region(),
         )
     else:
-        flash(
-            f"Unable to list SOCA Software Stacks because of {_get_software_stack_info.get('message')}",
+        flash(_(
+            f"Unable to list SOCA Software Stacks because of {_get_software_stack_info.get('message')}"),
             "error",
         )
         return redirect("/admin/target_nodes/software_stacks")
@@ -208,7 +209,7 @@ def software_stack_update():
     )
     _software_stack_to_modify = request.form.get("software_stack_id", None)
     if _software_stack_to_modify is None:
-        flash("Missing software_stack_id", "error")
+        flash(_("Missing software_stack_id"), "error")
         return redirect("/admin/target_nodes/software_stacks")
 
     _modify_software_stack = SocaHttpClient(
@@ -217,13 +218,13 @@ def software_stack_update():
     ).put(data=request.form.to_dict(), files=_files)
 
     if _modify_software_stack.get("success") is True:
-        flash(
-            f"Your Software Stack has been updated successfully",
+        flash(_(
+            f"Your Software Stack has been updated successfully"),
             "success",
         )
     else:
-        flash(
-            f"{_modify_software_stack.get('message')}",
+        flash(_(
+            f"{_modify_software_stack.get('message')}"),
             "error",
         )
     return redirect("/admin/target_nodes/software_stacks")

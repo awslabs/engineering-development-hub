@@ -14,6 +14,7 @@
 import re
 import config
 from flask_restful import Resource, reqparse
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, admin_api, feature_flag
 import json
@@ -69,7 +70,7 @@ class Reset(Resource):
                   directory_id:
                     type: string
                     description: AWS Directory Service ID (uses default if not provided)
-                    pattern: f'^d-[0-9a-f]{10}$'
+                    pattern: '^d-[0-9a-f]{10}$'
                     example: "d-1234567890"
         responses:
           '200':
@@ -167,7 +168,7 @@ class Reset(Resource):
 
             if _reset_password.get("ResponseMetadata").get("HTTPStatusCode") == 200:
                 return SocaResponse(
-                    success=True, message="Password updated correctly"
+                    success=True, message=_("Password updated correctly")
                 ).as_flask()
             else:
                 return SocaError.IDENTITY_PROVIDER_ERROR(

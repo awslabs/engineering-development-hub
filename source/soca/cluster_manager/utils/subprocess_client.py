@@ -7,7 +7,7 @@ import pwd
 import logging
 import grp
 import os
-from typing import Optional, Literal, Callable
+from typing import Optional, Callable
 import base64
 from utils.error import SocaError
 from utils.response import SocaResponse
@@ -54,9 +54,9 @@ class SocaSubprocessClient:
         cwd: Optional[str] = None,
         timeout: Optional[int] = 30,
         universal_newlines: Optional[bool] = None,  # cannot be set with text = True
-        stdin: Optional[Literal[subprocess.PIPE, subprocess.DEVNULL]] = None,
-        stdout: Optional[Literal[subprocess.PIPE, subprocess.DEVNULL]] = None,
-        stderr: Optional[Literal[subprocess.STDOUT]] = None,
+        stdin: Optional[int] = None,  # subprocess.PIPE / DEVNULL are int sentinels
+        stdout: Optional[int] = None,  # subprocess.PIPE / DEVNULL are int sentinels
+        stderr: Optional[int] = None,  # subprocess.STDOUT is an int sentinel
         env: Optional[dict] = None,
         non_fatal_rcs: Optional[list[int]] = None,
     ) -> dict:
@@ -147,13 +147,26 @@ class SocaSubprocessClient:
             else:
                 _run_cmd = shlex.split(self._command)
 
+            # Normalize capture_output into explicit PIPE streams before calling
+            # subprocess.run(). The WebUI runs under gevent (SSE), and gevent's
+            # monkey-patched subprocess.run() raises ValueError if stdout/stderr are
+            # present *at all* -- even as None -- alongside capture_output; stdlib
+            # only rejects non-None values. Passing explicit stdout/stderr and never
+            # passing capture_output is correct under both stdlib and gevent.
+            _stdout_arg = stdout
+            _stderr_arg = stderr
+            if capture_output:
+                if _stdout_arg is None:
+                    _stdout_arg = subprocess.PIPE
+                if _stderr_arg is None:
+                    _stderr_arg = subprocess.PIPE
+
             try:
                 _process = subprocess.run(
                     _run_cmd,
-                    capture_output=capture_output,
                     stdin=stdin,
-                    stdout=stdout,
-                    stderr=stderr,
+                    stdout=_stdout_arg,
+                    stderr=_stderr_arg,
                     text=text,
                     env=env,
                     shell=shell,

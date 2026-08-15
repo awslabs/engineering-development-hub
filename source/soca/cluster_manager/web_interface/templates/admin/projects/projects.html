@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -23,40 +23,41 @@
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab" href="#nav-add"
-                               role="tab" aria-controls="nav-home" aria-selected="true">Create EDH Project</a>
+                               role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Create EDH Project") }}</a>
                             <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab" href="#nav-delete"
-                               role="tab" aria-controls="nav-delete" aria-selected="false">Manage EDH Projects</a>
+                               role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Manage EDH Projects") }}</a>
                         </div>
                     </nav>
 
                     <div class="tab-content" id="nav-tabContent">
                         <div class="tab-pane fade show active" id="nav-add" role="tabpanel"
                              aria-labelledby="nav-home-tab">
-                            
+                            <br>
                             <div class="card shadow mb-4">
                                     <div class="card-body">
-                                          <h3>Create a new EDH Project</h3>
+                                          <h3>{{ _("Create a new EDH Project") }}</h3>
+                                          
                                         <div class="alert alert-primary">
-                                            EDH Projects let you control visibility for your <a href="/admin/virtual_desktops/software_stacks" target="_blank">Virtual Desktop Software stacks</a> and <a href="/admin/target_nodes/software_stacks" target="_blank">Target Nodes Software stacks</a>.
+                                            {% trans vd_link='<a href="/admin/virtual_desktops/software_stacks" target="_blank">Virtual Desktop Software stacks</a>'|safe, tn_link='<a href="/admin/target_nodes/software_stacks" target="_blank">Target Nodes Software stacks</a>'|safe %}EDH Projects let you control visibility for your {{ vd_link }} and {{ tn_link }}.{% endtrans %}
                                         </div>
 
                                         <form action="/admin/projects/create" method="post">
                                           <div class="form-group row">
-                                            <label for="project_name" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="Name for your project">
-                                              Project Name
+                                            <label for="project_name" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("Name for your project") }}">
+                                              {{ _("Project Name") }}
                                             </label>
                                             <div class="col-md-10">
-                                              <input id="project_name" placeholder="Friendly Name for your project" class="form-control" type="text" required name="project_name">
+                                              <input id="project_name" placeholder="{{ _("Friendly Name for your project") }}" class="form-control" type="text" required name="project_name">
                                             </div>
                                           </div>
 
                                           <div class="form-group row">
-                                            <label for="aws_budget" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="Control AWS resource deployment authorization via AWS Budget">
-                                              Associated AWS Budget
+                                            <label for="aws_budget" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("Control AWS resource deployment authorization via AWS Budget") }}">
+                                              {{ _("Associated AWS Budget") }}
                                             </label>
                                             <div class="col-md-10">
                                               <select class="form-control" id="aws_budget" name="aws_budget">
-                                                <option value="" selected>No Budget</option>
+                                                <option value="" selected>{{ _("No Budget") }}</option>
                                                 {% for budget_name in budgets %}
                                                 <option value="{{ budget_name }}">{{ budget_name }}</option>
                                                 {% endfor %}
@@ -65,26 +66,26 @@
                                           </div>
 
                                           <div class="form-group row">
-                                            <label for="description" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="Description of your Project">
-                                              Description
+                                            <label for="description" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("Description of your Project") }}">
+                                              {{ _("Description") }}
                                             </label>
                                             <div class="col-md-10">
-                                              <textarea id="description" class="form-control" rows="3" name="description" placeholder="(Optional) Description for your project (maximum 500 characters)."></textarea>
+                                              <textarea id="description" class="form-control" rows="3" name="description" placeholder="{{ _("(Optional) Description for your project (maximum 500 characters).") }}"></textarea>
                                             </div>
                                           </div>
 
                                           <!-- User/Group ACL -->
                                           <div class="form-group row">
-                                            <label for="project_name" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="List of allowed/denied users or group">
-                                              Users/Groups Permissions
+                                            <label for="project_name" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of allowed/denied users or group") }}">
+                                              {{ _("Users/Groups Permissions") }}
                                             </label>
                                             <div class="col-md-10">
                                               <nav>
                                                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                                   <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab" href="#users"
-                                                    role="tab" aria-controls="nav-home" aria-selected="true">Users Permissions</a>
+                                                    role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Users Permissions") }}</a>
                                                   <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab" href="#groups"
-                                                    role="tab" aria-controls="nav-delete" aria-selected="false">Groups Permissions</a>
+                                                    role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Groups Permissions") }}</a>
                                                 </div>
                                               </nav>
 
@@ -97,46 +98,37 @@
 
                                                   <!-- Allowed Users -->
                                                   <div class="form-group mb-3">
-                                                    <label for="allowed_users" data-bs-toggle="tooltip" title="List of allowed users">
-                                                      <strong>Allowed Users</strong>
+                                                    <label for="allowed_users" data-bs-toggle="tooltip" title="{{ _("List of allowed users") }}">
+                                                      <strong>{{ _("Allowed Users") }}</strong>
                                                     </label>
-                                                    <div class="row g-2 align-items-center">
-                                                      <div class="col-md-3">
-                                                        <div class="input-group">
-                                                          <select class="form-control" id="user_select">
-                                                            <option value="*">All users</option>
-                                                            {% for user in all_users %}
-                                                            <option value="{{ user }}">{{ user }}</option>
-                                                            {% endfor %}
-                                                          </select>
-                                                          <button class="btn btn-primary" type="button" id="add_user_btn">Add</button>
-                                                        </div>
-                                                      </div>
-                                                      <div class="col-md-9">
-                                                        <input id="allowed_users" class="form-control" name="allowed_users" value="*" data-ub-tag-variant="primary">
-                                                      </div>
-                                                    </div>
+                                                    <input type="text" id="allowed_users" class="form-control soca-tagsearch" name="allowed_users" value="*"
+                                                           data-ub-tag-variant="primary"
+                                                           data-endpoint="/api/ldap/users" data-allow-star="true"
+                                                           placeholder="{{ _('Type 2+ characters to search users, or * for all') }}">
                                                     <small>
                                                       <ul>
-                                                        <li>Must be a valid EDH user</li>
-                                                        <li>Use <code>*</code> to allow all users</li>
-                                                        <li>Leave blank to remove access</li>
+                                                        <li>{{ _("Must be a valid EDH user") }}</li>
+                                                        <li>{% trans star='<code>*</code>'|safe %}Use {{ star }} to allow all users{% endtrans %}</li>
+                                                        <li>{{ _("Leave blank to remove access") }}</li>
                                                       </ul>
                                                     </small>
                                                   </div>
 
                                                   <!-- Denied Users -->
                                                   <div class="form-group mb-3">
-                                                    <label for="denied_users" data-bs-toggle="tooltip" title="List of denied users">
-                                                      <strong>Denied Users</strong>
+                                                    <label for="denied_users" data-bs-toggle="tooltip" title="{{ _("List of denied users") }}">
+                                                      <strong>{{ _("Denied Users") }}</strong>
                                                     </label>
-                                                    <input id="denied_users" class="form-control mb-2" name="denied_users" data-ub-tag-variant="primary">                
+                                                    <input type="text" id="denied_users" class="form-control mb-2 soca-tagsearch" name="denied_users"
+                                                           data-ub-tag-variant="primary"
+                                                           data-endpoint="/api/ldap/users" data-allow-star="true"
+                                                           placeholder="{{ _('Type 2+ characters to search users, or * for all') }}">                
                                                   </div>
                                                   <small>
                                                       <ul>
-                                                        <li>Must be a valid EDH user</li>
-                                                        <li>Use <code>*</code> to deny all</li>
-                                                        <li>Deny takes precedence over allow</li>
+                                                        <li>{{ _("Must be a valid EDH user") }}</li>
+                                                        <li>{% trans star='<code>*</code>'|safe %}Use {{ star }} to deny all{% endtrans %}</li>
+                                                        <li>{{ _("Deny takes precedence over allow") }}</li>
                                                       </ul>
                                                     </small>
                                                 </div>
@@ -146,42 +138,34 @@
 
                                                   <!-- Allowed Groups -->
                                                   <div class="form-group mb-3">
-                                                    <label for="allowed_groups" data-bs-toggle="tooltip" title="List of allowed groups">
-                                                      <strong>Allowed Groups</strong>
+                                                    <label for="allowed_groups" data-bs-toggle="tooltip" title="{{ _("List of allowed groups") }}">
+                                                      <strong>{{ _("Allowed Groups") }}</strong>
                                                     </label>
-                                                    <div class="row g-2 align-items-center">
-                                                      <div class="col-md-3">
-                                                        <div class="input-group">
-                                                          <select class="form-control" id="group_select">
-                                                            {% for group in all_groups %}
-                                                            <option value="{{ group }}">{{ group }}</option>
-                                                            {% endfor %}
-                                                          </select>
-                                                          <button class="btn btn-primary" type="button" id="add_group_btn">Add</button>
-                                                        </div>
-                                                      </div>
-                                                      <div class="col-md-9">
-                                                        <input id="allowed_groups" class="form-control" name="allowed_groups" data-ub-tag-variant="primary">
-                                                      </div>
-                                                    </div>
+                                                    <input type="text" id="allowed_groups" class="form-control soca-tagsearch" name="allowed_groups"
+                                                           data-ub-tag-variant="primary"
+                                                           data-endpoint="/api/ldap/groups" data-value-field="group" data-label-field="group"
+                                                           placeholder="{{ _('Type 2+ characters to search groups') }}">
                                                     <small>
                                                       <ul>
-                                                        <li>Must be a valid EDH group</li>
+                                                        <li>{{ _("Must be a valid EDH group") }}</li>
                                                       </ul>
                                                     </small>
                                                   </div>
 
                                                   <!-- Denied Groups -->
                                                   <div class="form-group mb-3">
-                                                    <label for="denied_groups" data-bs-toggle="tooltip" title="List of denied groups">
-                                                      <strong>Denied Groups</strong>
+                                                    <label for="denied_groups" data-bs-toggle="tooltip" title="{{ _("List of denied groups") }}">
+                                                      <strong>{{ _("Denied Groups") }}</strong>
                                                     </label>
-                                                    <input id="denied_groups" class="form-control mb-2" name="denied_groups" data-ub-tag-variant="primary">
+                                                    <input type="text" id="denied_groups" class="form-control mb-2 soca-tagsearch" name="denied_groups"
+                                                           data-ub-tag-variant="primary"
+                                                           data-endpoint="/api/ldap/groups" data-value-field="group" data-label-field="group"
+                                                           placeholder="{{ _('Type 2+ characters to search groups') }}">
                                                     <small>
                                                       <ul>
-                                                        <li>Must be a valid EDH group</li>
-                                                        <li>Deny takes precedence over allow</li>
-                                                        <li>Users in denied groups will be denied even if individually allowed</li>
+                                                        <li>{{ _("Must be a valid EDH group") }}</li>
+                                                        <li>{{ _("Deny takes precedence over allow") }}</li>
+                                                        <li>{{ _("Users in denied groups will be denied even if individually allowed") }}</li>
                                                       </ul>
                                                     </small>
                                                   </div>
@@ -194,13 +178,13 @@
 
                                           <!-- Virtual Desktop Stacks -->
                                           <div class="form-group row">
-                                            <label for="software_stack_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="List of authorized Virtual Desktop Software Stacks">
-                                              Authorized <a target="_blank" href="/admin/virtual_desktops/software_stacks">Virtual Desktop Stacks</a>
+                                            <label for="software_stack_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of authorized Virtual Desktop Software Stacks") }}">
+                                              {{ _("Authorized") }} <a target="_blank" href="/admin/virtual_desktops/software_stacks">{{ _("Virtual Desktop Stacks") }}</a>
                                             </label>
                                             <div class="col-md-10">
                                               <div class="alert alert-warning" id="numberOfSelectedStacks"></div>
                                               <button class="btn btn-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#softwareStackSelect">
-                                                View/Manage Authorized Virtual Desktops Stacks
+                                                {{ _("View/Manage Authorized Virtual Desktops Stacks") }}
                                               </button>
                                               <div class="collapse" id="softwareStackSelect">
                                                 <select class="form-control" style="height: 500px;" id="software_stack_ids" name="software_stack_ids" multiple>
@@ -214,13 +198,13 @@
 
                                           <!-- Target Node Stacks -->
                                           <div class="form-group row">
-                                            <label for="target_nodes_software_stack_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="List of authorized Target node stacks">
-                                              Authorized <a target="_blank" href="/admin/target_nodes/software_stacks">Target Node Stacks</a>
+                                            <label for="target_nodes_software_stack_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of authorized Target node stacks") }}">
+                                              {{ _("Authorized") }} <a target="_blank" href="/admin/target_nodes/software_stacks">{{ _("Target Node Stacks") }}</a>
                                             </label>
                                             <div class="col-md-10">
                                               <div class="alert alert-warning" id="numberOfSelectedTargetNodeStacks"></div>
                                               <button class="btn btn-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#targetNodeSoftwareStackSelect">
-                                                View/Manage Authorized Target Nodes Stacks
+                                                {{ _("View/Manage Authorized Target Nodes Stacks") }}
                                               </button>
                                               <div class="collapse" id="targetNodeSoftwareStackSelect">
                                                 <select class="form-control" style="height: 500px;" id="target_nodes_software_stack_ids" name="target_nodes_software_stack_ids" multiple>
@@ -234,13 +218,13 @@
 
                                           <!-- Application Profiles -->
                                           <div class="form-group row">
-                                            <label for="application_profile_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="List of authorized Application Profiles">
-                                              Authorized <a target="_blank" href="/admin/applications">Application Profiles</a>
+                                            <label for="application_profile_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of authorized Application Profiles") }}">
+                                              {{ _("Authorized") }} <a target="_blank" href="/admin/applications">{{ _("Application Profiles") }}</a>
                                             </label>
                                             <div class="col-md-10">
                                               <div class="alert alert-warning" id="numberOfSelectedApplicationProfiles"></div>
                                               <button class="btn btn-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#ApplicationProfileSelect">
-                                                View/Manage Authorized Application Profiles
+                                                {{ _("View/Manage Authorized Application Profiles") }}
                                               </button>
                                               <div class="collapse" id="ApplicationProfileSelect">
                                                 <select class="form-control" style="height: 500px;" id="application_profile_ids" name="application_profile_ids" multiple>
@@ -255,7 +239,7 @@
                                           <div class="form-group row">
                                             <div class="col-md-9 offset-md-3">
                                               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                              <button type="submit" class="btn btn-primary">Create new EDH Project</button>
+                                              <button type="submit" class="btn btn-primary">{{ _("Create new EDH Project") }}</button>
                                             </div>
                                           </div>
                                         </form>
@@ -267,7 +251,7 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                            <h3>Manage EDH Projects</h3>
+                                            <h3>{{ _("Manage EDH Projects") }}</h3>
 
                                         <div class="row">
                                         {% if projects %}
@@ -287,6 +271,7 @@
                                                                 data-soca-budget="{{project_data.aws_budget}}"
                                                                 data-soca-description="{{project_data.description}}"
                                                                 data-soca-allowed-software-stacks="{{project_data.software_stack_ids}}"
+                                                                data-soca-hardware-profile-id="{{project_data.hardware_profile_id}}"
                                                                 data-soca-allowed-target-node-software-stacks="{{project_data.target_node_software_stack_ids}}">ID: {{project_id}} - {{project_data.project_name}}
                                                         </option>
                                                     {% endfor %}
@@ -297,20 +282,19 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                            required>
-                                                    <label class="form-check-label" for="verif">I am sure I want to
-                                                        delete this project from EDH</label>
+                                                    <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this project from EDH") }}</label>
                                                 </div>
                                                 <div class="d-flex justify-content-center">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="submit" class="btn btn-danger mr-2">Delete Project</button>
-                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">Edit Project</button>
+                                                    <button type="submit" class="btn btn-danger mr-2">{{ _("Delete Project") }}</button>
+                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">{{ _("Edit Project") }}</button>
 
                                                 </div>
                                             </form>
                                                 </div>
                                             <div class="col-md-7">
                                                  <div id="projectInfo">
-                                                            Select a Project to see details.
+                                                            {{ _("Select a Project to see details.") }}
                                                     </div>
                                             </div>
                                         {% else %}
@@ -326,6 +310,7 @@
                     </a>
 
                 {% include 'common/footer.html' %}
+                <script src="/static/js/soca_typeahead.js"></script>
                 <script>
                     $(document).ready(function () {
                         // enable tooltip
@@ -377,9 +362,17 @@
                             form.submit();
                         }
 
+                        // id -> name lookup for the Hardware Profile bound to each project
+                        var EDH_HW_PROFILES = {
+                            {% for hp in hardware_profiles %}"{{ hp.id }}": {{ hp.profile_name|tojson }},{% endfor %}
+                        };
+
                         function updateProjectInfo() {
                         var selectElement = document.getElementById("project_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
+
+                        var hwId = selectedOption.getAttribute("data-soca-hardware-profile-id");
+                        var hwName = (hwId && EDH_HW_PROFILES[hwId]) ? EDH_HW_PROFILES[hwId] : "None";
 
                         document.getElementById("projectInfo").innerHTML =
                             "<h3>Project Details:</h3> <hr>" +
@@ -389,6 +382,7 @@
                             "<br><strong>Denied Groups:</strong> " + selectedOption.getAttribute("data-soca-denied-groups") +
                             "<br><strong><a href='/admin/virtual_desktops/software_stacks' target='_blank'>Allowed Virtual Desktop Software Stack IDs:</a></strong> " + selectedOption.getAttribute("data-soca-allowed-software-stacks") +
                             "<br><strong><a href='/admin/target_nodes/software_stacks' target='_blank'>Allowed Target Node Software Stack IDs:</a></strong> " + selectedOption.getAttribute("data-soca-allowed-target-node-software-stacks") +
+                            "<br><strong><a href='/admin/virtual_desktops/hardware_profiles' target='_blank'>Hardware Profile:</a></strong> " + hwName +
                             "<br><strong><a href='/admin/applications' target='_blank'>Allowed Applications IDs:</a></strong> " + selectedOption.getAttribute("data-soca-allowed-application-profiles") +
                             "<br><strong>Description:</strong> " + selectedOption.getAttribute("data-soca-description") +
                             "<br><strong>Budget:</strong> " + selectedOption.getAttribute("data-soca-budget") +
@@ -402,38 +396,8 @@
                             document.getElementById("project_id").addEventListener("change", updateProjectInfo);
                         });
 
-                        const bootstrapTagInputBoxDeniedUsers = UseBootstrapTag(document.getElementById('denied_users'));
-                        const bootstrapTagInputBoxAllowedUsers = UseBootstrapTag(document.getElementById('allowed_users'));
-                        const bootstrapTagInputBoxDeniedGroups = UseBootstrapTag(document.getElementById('denied_groups'));
-                        const bootstrapTagInputBoxAllowedGroups = UseBootstrapTag(document.getElementById('allowed_groups'));
-                        document.getElementById('add_user_btn').addEventListener('click', function () {
-                          const select = document.getElementById('user_select');
-                          const selectedUser = select.value.trim();
-
-                          if (selectedUser === '*') {
-                            // Clear all tags first
-                            const existingTags = bootstrapTagInputBoxAllowedUsers.getValues();
-                            if (existingTags.length > 0) {
-                              bootstrapTagInputBoxAllowedUsers.removeValue(existingTags);
-                            }
-                            // Add only '*'
-                            bootstrapTagInputBoxAllowedUsers.addValue('*');
-                          } else {
-                            // If '*' is already present, remove it before adding others
-                            const existingTags = bootstrapTagInputBoxAllowedUsers.getValues();
-                            if (existingTags.includes('*')) {
-                              bootstrapTagInputBoxAllowedUsers.removeValue('*');
-                            }
-                            // Add the selected user
-                            bootstrapTagInputBoxAllowedUsers.addValue(selectedUser);
-                          }
-                        });
-                        document.getElementById('add_group_btn').addEventListener('click', function () {
-                          const select = document.getElementById('group_select');
-                          const selectedGroup = select.value.trim();
-                           bootstrapTagInputBoxAllowedGroups.addValue(selectedGroup);
-                    
-                        });
+                        // Allow/deny user+group chip pickers are initialized by
+                        // static/js/soca_typeahead.js (soca-tagsearch mode).
                     </script>
 
                 </div>

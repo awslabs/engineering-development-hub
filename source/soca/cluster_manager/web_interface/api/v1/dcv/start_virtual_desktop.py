@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from botocore.exceptions import ClientError
@@ -23,6 +24,7 @@ from utils.response import SocaResponse
 from datetime import datetime, timezone
 import utils.aws.odcr_helper as odcr_helper
 from utils.config import SocaConfig
+from utils.cast import SocaCastEngine
 
 logger = logging.getLogger("soca_logger")
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
@@ -163,41 +165,205 @@ class StartVirtualDesktop(Resource):
                 ).as_flask()
 
             try:
-                if (
-                    SocaConfig(key="/configuration/FeatureFlags/EnableCapacityReservation")
-                    .get_value(return_as=bool)
-                    .get("message")
-                    is True
-                ):
-                    logging.info("Retrieving instance information for new ODCR")
+                # --- ODCR resume handling -------------------------------------
+                # An instance copies its launch-time CapacityReservationSpecification
+                # for life. Per-session "auto" ODCRs are short-lived (minutes) and
+                # are long gone by resume, leaving the instance pinned to a dead CR
+                # with capacity-reservations-only (no On-Demand fallback) -> start
+                # fails with ReservationCapacityExceeded. For auto instances we
+                # re-secure capacity exactly like launch: reserve a fresh short-
+                # window ODCR in the instance's own AZ, then retarget the stopped
+                # instance to it. Admin-supplied CRs are left untouched -- they may
+                # be a large shared reservation the operator manages.
+                try:
                     _describe_instance = client_ec2.describe_instances(
                         InstanceIds=[_instance_id]
                     )
-                    _instance_info = _describe_instance["Reservations"][0]["Instances"][
-                        0
-                    ]
-                    logging.info("Probing EC2 availability for this instance")
-                    _request_on_demand_capacity_reservation = (
-                        odcr_helper.create_capacity_reservation(
-                            probe_capacity_only=True,
+                    _instance_info = _describe_instance["Reservations"][0][
+                        "Instances"
+                    ][0]
+                except Exception as err:
+                    logger.error(
+                        f"Unable to describe {_instance_id} for ODCR resume handling: {err}"
+                    )
+                    _instance_info = None
+
+                if _instance_info is not None:
+                    _cr_spec = (
+                        _instance_info.get("CapacityReservationSpecification") or {}
+                    )
+                    _targeted_cr = (
+                        _cr_spec.get("CapacityReservationTarget") or {}
+                    ).get("CapacityReservationId")
+                    _tags = {
+                        t.get("Key"): t.get("Value")
+                        for t in _instance_info.get("Tags", [])
+                    }
+                    # Provenance: prefer the launch-time tag; for legacy (pre-tag)
+                    # instances fall back to inspecting the targeted CR -- a live,
+                    # EDH-untagged reservation is treated as admin-owned (durable
+                    # shared pool); a gone/expired CR can only be a disposable auto.
+                    _cr_source = _tags.get("edh:CapacityReservationSource")
+                    if _cr_source is None and _targeted_cr:
+                        try:
+                            _cr_info = odcr_helper.get_reservation_info_soca_capacity_reservation(
+                                capacity_reservation_id=_targeted_cr
+                            )
+                            _cr_source = (
+                                "admin"
+                                if (
+                                    _cr_info.reservation_exist
+                                    and _cr_info.state == "active"
+                                )
+                                else "auto"
+                            )
+                        except Exception:
+                            _cr_source = "auto"
+
+                    if _cr_source == "admin":
+                        logger.info(
+                            f"Resume: {_instance_id} uses an admin-supplied capacity "
+                            f"reservation ({_targeted_cr}); leaving its spec untouched"
+                        )
+                    elif _cr_source == "auto":
+                        logger.info(
+                            f"Resume re-secure for {_instance_id} (old_cr={_targeted_cr}): "
+                            f"reserving a fresh ODCR in {_instance_info.get('SubnetId')}"
+                        )
+                        _fresh = odcr_helper.create_capacity_reservation(
+                            probe_capacity_only=False,
                             instance_type=_instance_info.get("InstanceType"),
                             capacity_reservation_name=_check_session.stack_name,
                             desired_capacity=1,
                             subnet_id=_instance_info.get("SubnetId"),
                             instance_ami=_instance_info.get("ImageId"),
-                            tenancy=_instance_info.get("Placement").get("Tenancy"),
+                            tenancy=_instance_info.get("Placement", {}).get("Tenancy"),
                         )
-                    )
-                    if _request_on_demand_capacity_reservation.get("success") is False:
-                        return SocaError.GENERIC_ERROR(
-                            helper=f"Unable to create capacity reservation due to {_request_on_demand_capacity_reservation.message}. Please try again later."
-                        ).as_flask()
-                    else:
-                        logger.info(
-                            f"Capacity reservation successfully validated {_request_on_demand_capacity_reservation.get('message')}"
-                        )
+                        if _fresh.get("success") is True and getattr(
+                            _fresh.message, "reservation_exist", False
+                        ):
+                            _new_cr_id = _fresh.message.reservation_id
+                            logger.info(
+                                f"Fresh ODCR {_new_cr_id} reserved; retargeting {_instance_id}"
+                            )
+                            # Target-only form (no capacity-reservations-only):
+                            # the modify API takes a target OR an open/none
+                            # preference, not the launch-template combo.
+                            try:
+                                client_ec2.modify_instance_capacity_reservation_attributes(
+                                    InstanceId=_instance_id,
+                                    CapacityReservationSpecification={
+                                        "CapacityReservationTarget": {
+                                            "CapacityReservationId": _new_cr_id
+                                        }
+                                    },
+                                )
+                            except ClientError as _mod_err:
+                                return SocaError.AWS_API_ERROR(
+                                    service_name="ec2",
+                                    helper=(
+                                        f"Failed to retarget {_instance_id} to "
+                                        f"{_new_cr_id}: {_mod_err}"
+                                    ),
+                                ).as_flask()
+                        else:
+                            # No reserved capacity in the instance's AZ. Honor the
+                            # resume On-Demand fallback (default ON): detach the dead
+                            # CR (preference=open) so the instance starts On-Demand
+                            # instead of ICE-ing on the dead reservation.
+                            _od_fallback_val = (
+                                SocaConfig(
+                                    key="/configuration/FeatureFlags/VirtualDesktops/ResumeODCRFallback"
+                                )
+                                .get_value(default="true", allow_unknown_key=True)
+                                .get("message", "true")
+                            )
+                            _od_fallback_cast = SocaCastEngine(_od_fallback_val).cast_as(
+                                bool
+                            )
+                            _od_fallback = (
+                                _od_fallback_cast.message
+                                if _od_fallback_cast.success
+                                else True
+                            )
+                            if _od_fallback:
+                                logger.warning(
+                                    f"No reserved capacity for "
+                                    f"{_instance_info.get('InstanceType')} in "
+                                    f"{_instance_info.get('SubnetId')}; detaching "
+                                    f"{_targeted_cr} and resuming {_instance_id} On-Demand"
+                                )
+                                try:
+                                    client_ec2.modify_instance_capacity_reservation_attributes(
+                                        InstanceId=_instance_id,
+                                        CapacityReservationSpecification={
+                                            "CapacityReservationPreference": "open"
+                                        },
+                                    )
+                                except ClientError as _mod_err:
+                                    logger.error(
+                                        f"On-Demand fallback modify failed for "
+                                        f"{_instance_id}: {_mod_err}"
+                                    )
+                                    return SocaError.AWS_API_ERROR(
+                                        service_name="ec2",
+                                        helper=(
+                                            f"Failed to detach dead capacity "
+                                            f"reservation from {_instance_id}: "
+                                            f"{_mod_err}"
+                                        ),
+                                    ).as_flask()
+                            else:
+                                return SocaError.GENERIC_ERROR(
+                                    helper=(
+                                        f"No reserved capacity available for "
+                                        f"{_instance_info.get('InstanceType')} in "
+                                        f"{_instance_info.get('SubnetId')} right now, and "
+                                        f"On-Demand fallback is disabled. Please try again later."
+                                    )
+                                ).as_flask()
                         
                 client_ec2.start_instances(InstanceIds=[_instance_id])
+
+                # --- High-scale broker re-registration on resume --------------
+                # The broker tears down its Session object when a VDI is
+                # stopped (SM agent goes offline). On resume, update_ec2_info()
+                # in session_state_watcher.py -- the only place that calls
+                # broker.create_session() -- is gated on the session having
+                # *no* EC2 instance info in the DB yet, which is only true on
+                # a brand-new launch. A resumed session already has
+                # instance_id/private_ip/private_dns persisted from its
+                # original launch, so update_ec2_info() skips it forever and
+                # the broker never gets a Session for this UUID again --
+                # _validate_dcv_sessions_via_broker() then has nothing to
+                # promote and the WebUI never leaves "pending".
+                #
+                # Clear authentication_token (the column doubles as the
+                # broker session Id handle -- see update_ec2_info) so the
+                # next session_state_watcher cycle's update_ec2_info() sees
+                # this as needing re-registration and retries
+                # broker.create_session() on its own schedule until the
+                # resumed instance's DCV server registers with the broker
+                # (mirrors the exact retry-until-ready behavior it already
+                # uses for a first launch -- no separate one-shot call here).
+                _is_high_scale_cast = SocaCastEngine(
+                    SocaConfig(key="/dcv/high_scale_enabled")
+                    .get_value(default="false", allow_unknown_key=True)
+                    .get("message", "false")
+                ).cast_as(bool)
+                _is_high_scale = (
+                    _is_high_scale_cast.message
+                    if _is_high_scale_cast.success
+                    else False
+                )
+                if _is_high_scale:
+                    logger.info(
+                        f"Resume: clearing stale broker session handle for "
+                        f"{_check_session.session_uuid} so session_state_watcher "
+                        f"re-registers it with the broker"
+                    )
+                    _check_session.authentication_token = None
+
                 try:
                     _check_session.session_state = "pending"
                     _check_session.session_state_latest_change_time = datetime.now(
@@ -231,7 +397,7 @@ class StartVirtualDesktop(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Your virtual desktop is starting",
+                message=_(f"Your virtual desktop is starting"),
             ).as_flask()
         else:
             return SocaError.VIRTUAL_DESKTOP_RESTART_ERROR(

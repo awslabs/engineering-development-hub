@@ -7,11 +7,12 @@
 
 function install_dcv_server () {
 
-  local DCV_SESSION_NAME="{{ context.get("/dcv/SessionName") }}"
-  local DCV_SESSION_OWNER="{{ context.get("/dcv/SessionOwner") }}"
-  local DCV_SESSION_ID="{{ context.get("/dcv/SessionId") }}"
+  local DCV_SESSION_NAME="${EDH_DCV_SESSION_NAME}"
+  local DCV_SESSION_OWNER="${EDH_DCV_SESSION_OWNER}"
+  local DCV_SESSION_ID="${EDH_DCV_SESSION_ID}"
   local DCV_AUTH_TOKEN_VERIFIER="{{ context.get("/dcv/AuthTokenVerifier") }}"
-  local DCV_SESSION_TYPE="{{ context.get("/dcv/SessionType") }}"
+  local DCV_SESSION_TYPE="${EDH_DCV_SESSION_TYPE}"
+  local DCV_HIGH_SCALE_ENABLED="{{ context.get("/configuration/DcvHighScale", false) | string | lower }}"
   local MACHINE=$(uname -m)
   local SERVER_HOSTNAME=$(hostname)
   local SERVER_HOSTNAME_ALT=$(echo $SERVER_HOSTNAME | cut -d. -f1)
@@ -125,7 +126,38 @@ function install_dcv_server () {
   chown ${DCV_SESSION_OWNER} ${DCV_STORAGE_ROOT}
 
   mv /etc/dcv/dcv.conf /etc/dcv/dcv.conf.original.$(date +%s)
-  echo -e """
+
+  # dcv.conf [session-management] handling:
+  # - Single-VDI (legacy) mode: dcvserver auto-creates a console session at
+  #   startup using the [session-management/automatic-console-session]
+  #   subsection (storage-root + owner). The legacy socadcv.service then
+  #   creates the SOCA-named session via `dcv create-session`.
+  # - High-scale (broker) mode: the broker is the system of record for
+  #   session lifecycle. The DCV server MUST NOT auto-create a console
+  #   session (that session has no AuthenticationToken registered with
+  #   the broker, so connect-time token validation always fails AND
+  #   it pre-empts the per-user session slot, causing the broker's later
+  #   `dcv create-session` request to fail with "max sessions reached").
+  #   Set create-session=false directly in the [session-management]
+  #   section header (NOT a duplicate appended block, which the DCV INI
+  #   parser handles inconsistently) and OMIT the
+  #   automatic-console-session subsection entirely.
+  if [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
+    echo -e """
+[license]
+[log]
+[session-management]
+create-session=false
+virtual-session-xdcv-args=\"-listen tcp\"
+[session-management/defaults]
+[display]
+# add more if using an instance with more GPU
+cuda-devices=[\"0\"]
+[connectivity]
+web-url-path=\"/${SERVER_HOSTNAME_ALT}\"
+idle-timeout=${IDLE_TIMEOUT}""" > /etc/dcv/dcv.conf
+  else
+    echo -e """
 [license]
 [log]
 [session-management]
@@ -140,14 +172,43 @@ cuda-devices=[\"0\"]
 [connectivity]
 web-url-path=\"/${SERVER_HOSTNAME_ALT}\"
 idle-timeout=${IDLE_TIMEOUT}""" > /etc/dcv/dcv.conf
+  fi
 
-  if [[  ${DCV_SESSION_TYPE} == "virtual" ]]; then
+  # The [security] block sets auth-token-verifier so the DCV server can
+  # validate connection tokens.
+  # - In single-VDI mode, the verifier points at the SOCA controller's
+  #   /api/dcv/authenticator and only virtual sessions need it (console
+  #   sessions on Linux use OS auth and never go through SOCA's flow).
+  # - In high-scale mode, ALL session types (console + virtual) must validate
+  #   tokens via the broker, so the block is always written.
+  if [[ ${DCV_SESSION_TYPE} == "virtual" ]] || [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
     echo -e """
 [security]
 auth-token-verifier=\"${DCV_AUTH_TOKEN_VERIFIER}\"
 no-tls-strict=true
+supervision-control=\"enforced\"
 os-auto-lock=false""" >> /etc/dcv/dcv.conf
   fi
+
+  # In high-scale mode the SM Agent (running as `dcvsmagent`, NOT root,
+  # NOT the session owner) needs admin privileges on the local DCV server
+  # so the broker can issue getSessionScreenshots requests on its behalf.
+  # Without this, `dcv get-screenshot` rejects the agent with "user is not
+  # authorized" -- the perm file (display, screenshot, even builtin) is
+  # NOT consulted by the screenshot path; admin authorization is what
+  # gates it. Windows works without this rule because the Windows agent
+  # already runs as LocalSystem (admin-equivalent). See:
+  # https://docs.aws.amazon.com/dcv/latest/adminguide/manage-conf-file.html
+  if [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
+    if ! grep -q '^administrators=' /etc/dcv/dcv.conf; then
+      sed -i '/^\[security\]/a administrators=["dcvsmagent"]' /etc/dcv/dcv.conf
+    fi
+  fi
+
+  # NOTE: create-session=false for high-scale mode is now written into the
+  # main dcv.conf heredoc above (single [session-management] section, no
+  # duplicates). Earlier versions appended a second [session-management]
+  # block here, which the DCV INI parser handles inconsistently.
 
   log_info "Disabling X11 DPMS"
   cp /etc/X11/xorg.conf.d/99-disable-dpms.conf /etc/X11/xorg.conf.d/99-disable-dpms.conf.original.$(date +%s) || echo "/etc/X11/xorg.conf.d/99-disable-dpms.conf not found, file will be created"
@@ -167,33 +228,73 @@ EndSection""" > /etc/X11/xorg.conf.d/99-disable-dpms.conf
 
   {% include "templates/linux/dcv/default_permissions.sh.j2" %}
 
-  log_info "Creating SOCA DCV Service to start/stop DCV session via socadcv"
+  # USB remotization allowlist: install the boot hook that writes
+  # /etc/dcv/usb-devices.conf before dcvserver starts (and re-runs every boot
+  # for the admin-adds-device -> reboot -> appears flow). Inert no-op on
+  # clusters where the resolver is not deployed.
+  {% include "templates/linux/dcv/usb_remotization.sh.j2" %}
 
-  if [[ -f "/etc/systemd/system/socadcv.service" ]]; then
-    log_info "/etc/systemd/system/socadcv.service already exist, probably from a previous configuration, removing it and creating a new one"
-    systemctl stop socadcv.service || echo "Stopping socadcv.service not needed"
-    systemctl disable socadcv.service || echo "Disabling socadcv.service not needed"
-    rm -f /etc/systemd/system/socadcv.service
-    systemctl daemon-reload
-    systemctl reset-failed socadcv.service || echo "reset-failed socadcv.service not needed"
-  fi
-
-  if [[ ${DCV_SESSION_TYPE} == "console" ]]; then
-    DCV_START_COMMAND="/usr/bin/dcv create-session --owner ${DCV_SESSION_OWNER} --type console --storage-root \"${DCV_STORAGE_ROOT}\" ${DCV_SESSION_ID}"
+  # socadcv.service generation:
+  # - Single-VDI mode: this oneshot service starts gdm + X + dcvserver and
+  #   then runs `dcv create-session` (ExecStartPost) to create the
+  #   SOCA-named session at boot. session_state_watcher polls
+  #   `dcv list-sessions` to know when it is ready.
+  # - High-scale (broker) mode: the broker is the system of record for
+  #   session lifecycle. The SOCA controller calls `broker.create_session`
+  #   which dispatches a createSession command to the SM Agent, which then
+  #   runs `dcv create-session` itself (no socadcv ExecStartPost). If
+  #   socadcv runs anyway, it races the broker for the per-user session
+  #   slot ("max sessions reached") and breaks startup. socadcv is
+  #   skipped entirely in high-scale mode -- dcvserver, dcvsessionlauncher,
+  #   gdm/X start via their own units; the broker drives create on demand.
+  if [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
+    log_info "High-scale mode -- broker drives session lifecycle, skipping socadcv.service generation"
+    # Make sure no stale socadcv.service from a prior single-VDI image is present
+    if [[ -f "/etc/systemd/system/socadcv.service" ]]; then
+      log_info "Removing legacy socadcv.service (high-scale mode does not use it)"
+      systemctl stop socadcv.service 2>/dev/null || true
+      systemctl disable socadcv.service 2>/dev/null || true
+      rm -f /etc/systemd/system/socadcv.service
+      systemctl daemon-reload
+      systemctl reset-failed socadcv.service 2>/dev/null || true
+    fi
+    # In high-scale mode we still need dcvserver running so the broker can
+    # talk to it. The dcvserver.service is enabled and started by the DCV
+    # RPM install; no extra glue needed here.
+    systemctl enable dcvserver 2>/dev/null || true
+    systemctl start dcvserver 2>/dev/null || true
   else
-    DCV_START_COMMAND="/usr/bin/dcv create-session --user ${DCV_SESSION_OWNER} --owner ${DCV_SESSION_OWNER} --type virtual --storage-root \"${DCV_STORAGE_ROOT}\" ${DCV_SESSION_ID}"
-  fi
+    log_info "Creating SOCA DCV Service to start/stop DCV session via socadcv"
 
-  log_info "Launching DCV session type ${DCV_SESSION_TYPE}: ${DCV_START_COMMAND}"
+    if [[ -f "/etc/systemd/system/socadcv.service" ]]; then
+      log_info "/etc/systemd/system/socadcv.service already exist, probably from a previous configuration, removing it and creating a new one"
+      systemctl stop socadcv.service || echo "Stopping socadcv.service not needed"
+      systemctl disable socadcv.service || echo "Disabling socadcv.service not needed"
+      rm -f /etc/systemd/system/socadcv.service
+      systemctl daemon-reload
+      systemctl reset-failed socadcv.service || echo "reset-failed socadcv.service not needed"
+    fi
 
-  echo -e "
+    if [[ ${DCV_SESSION_TYPE} == "console" ]]; then
+      DCV_START_COMMAND="/usr/bin/dcv create-session --owner ${DCV_SESSION_OWNER} --type console --storage-root \"${DCV_STORAGE_ROOT}\" ${DCV_SESSION_ID}"
+    else
+      DCV_START_COMMAND="/usr/bin/dcv create-session --user ${DCV_SESSION_OWNER} --owner ${DCV_SESSION_OWNER} --type virtual --storage-root \"${DCV_STORAGE_ROOT}\" ${DCV_SESSION_ID}"
+    fi
+
+    log_info "Launching DCV session type ${DCV_SESSION_TYPE}: ${DCV_START_COMMAND}"
+
+    # Note: `is-active --quiet dcvserver` (with space) is correct.
+    # Earlier versions had `--quietdcvserver` (no space) which systemctl
+    # rejects with `unrecognized option '--quietdcvserver'`. Harmless
+    # (the next start command still runs) but pollutes the journal.
+    echo -e "
 [Unit]
 Description=SOCA DCV Setup Service
 
 [Service]
 User=root
 Type=oneshot
-ExecStart=/bin/bash -c 'if systemctl is-active --quiet gdm; then systemctl stop gdm; fi; systemctl start gdm; for i in {1..10}; do if [[ -e /tmp/.X11-unix/X0 ]]; then break; else sleep 1; fi; done; if systemctl is-active --quietdcvserver; then systemctl stop dcvserver; fi; systemctl start dcvserver;'
+ExecStart=/bin/bash -c 'if systemctl is-active --quiet gdm; then systemctl stop gdm; fi; systemctl start gdm; for i in {1..10}; do if [[ -e /tmp/.X11-unix/X0 ]]; then break; else sleep 1; fi; done; if systemctl is-active --quiet dcvserver; then systemctl stop dcvserver; fi; systemctl start dcvserver;'
 ExecStartPost=${DCV_START_COMMAND}
 ExecStop=/bin/bash -c '/usr/bin/dcv close-session ${DCV_SESSION_ID}'
 
@@ -201,6 +302,7 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target" > /etc/systemd/system/socadcv.service
+  fi
 
 
   log_info "Removing Colord Authentication popup"
@@ -214,10 +316,156 @@ WantedBy=multi-user.target" > /etc/systemd/system/socadcv.service
   ResultActive=yes
 EOL
 
-  log_info "Enabling & start SOCA DCV Service as reboot"
-  systemctl enable socadcv
+  if [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
+    log_info "High-scale mode -- skipping socadcv enable/start (broker drives session lifecycle)"
+  else
+    log_info "Enabling & start SOCA DCV Service as reboot"
+    systemctl enable socadcv
 
-  systemctl start socadcv
+    systemctl start socadcv
+  fi
+
+  # ----- DCV event-relay: emit session-ready ----------------------------
+  # edh_dcv_publish_event() and log_checkpoint/log_status are already
+  # defined at script top level via common.sh.j2 -> dcv_event_publish.sh.j2.
+  # No-ops silently if EDH_DCV_SESSION_EVENTS_QUEUE_URL is not set
+  # (legacy clusters or event-relay disabled).
+
+  # Checkpoint: dcvserver is enabled+started by this point.
+  log_checkpoint "dcv-started" "DCV server systemd unit active"
+
+  if [[ "${DCV_HIGH_SCALE_ENABLED:-false}" == "true" ]]; then
+    # In high-scale mode the broker drives session create via the SM Agent.
+    # We emit session-ready as soon as the agent is up and the local
+    # dcvserver service is running -- the controller will poll broker for
+    # session state and reconcile from there.
+    log_checkpoint "broker-registered" "SM Agent registered with broker"
+    if [[ "${EDH_DCV_POOL_MEMBER:-false}" == "true" ]]; then
+      # Session-less pool member: announce availability to the relay, which
+      # writes the ledger AVAILABLE row (opens the claim gate). No session.
+      # This inline emit covers the COLD first boot.
+      # Gate emit on REAL broker registration: emitting pool-ready before the SM
+      # agent registers the DCV server races the claim ("DCV server not yet
+      # registered"). Wait (bounded) for the channel; best-effort emit if not
+      # confirmed so a member is never stranded.
+      _broker_ready=0
+      for _ in $(seq 1 36); do   # ~180s budget (5s * 36)
+        if grep -qaE 'sessionsUpdateResponse|registered with the broker|Registered agent|broker connection established' \
+            /var/log/dcv-session-manager-agent/agent.log 2>/dev/null; then
+          _broker_ready=1
+          break
+        fi
+        sleep 5
+      done
+      if [[ "${_broker_ready}" == "1" ]]; then
+        log_info "pool-ready: broker registration confirmed; emitting"
+      else
+        log_info "pool-ready: broker registration not confirmed in budget; emitting best-effort"
+      fi
+      edh_dcv_publish_event "pool-ready" || true
+
+      # Warm RESUMES + reboots do NOT re-run this bootstrap (EC2 user-data
+      # runs once + the userdata_completed lock), so the inline emit above
+      # never fires again -- a resumed warm member would come up ready but
+      # un-announced (no AVAILABLE row) and ABANDON at the hook timeout.
+      # Install a boot-time agent that re-announces on EVERY boot. It is
+      # enabled now (mid-first-boot) so it only fires on SUBSEQUENT boots
+      # (resume/reboot) -- no double-emit with the inline call above.
+      #
+      # Trust: the relay validates SenderId + the instance's edh:pool_id tag
+      # server-side, so this agent needs NO autoscaling/ec2 IAM and its inputs
+      # (queue URL) live in a plain file -- tampering only affects this one box.
+      mkdir -p /etc/edh
+      cat > /etc/edh/pool_member.env <<EOF
+EDH_DCV_POOL_MEMBER=true
+EDH_DCV_SESSION_EVENTS_QUEUE_URL=${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}
+EOF
+      cat > /usr/local/sbin/edh-dcv-pool-ready.sh <<'POOLAGENT'
+#!/bin/bash
+# EDH VDI pool boot-time pool-ready re-announce agent.
+# Runs on every boot (systemd oneshot). Idempotent; relay-validated.
+set -u
+ENV_FILE=/etc/edh/pool_member.env
+[ -r "$ENV_FILE" ] || exit 0
+. "$ENV_FILE"
+[ "${EDH_DCV_POOL_MEMBER:-false}" = "true" ] || exit 0
+[ -n "${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}" ] || exit 0
+
+_log() { echo "$(date -u +%FT%TZ) $*" >> /var/log/edh-dcv-pool-ready.log 2>/dev/null || true; }
+_log "agent start (boot re-announce)"
+# Warm RESUME can leave dcvserver inactive past 5 min, so wait up to ~15 min
+# (90 x 10s) for the DCV server to be active after boot.
+_ready=0
+for _ in $(seq 1 90); do
+  if systemctl is-active --quiet dcvserver 2>/dev/null; then _ready=1; break; fi
+  sleep 10
+done
+[ "$_ready" = "1" ] || { _log "dcvserver not active after ~15 min; exit (retries next boot)"; exit 0; }
+
+# Wait for the SM agent before re-announcing on resume, or the next claim hits
+# "DCV server not yet registered"; then a short settle for broker re-register.
+for _ in $(seq 1 30); do
+  if systemctl is-active --quiet dcv-session-manager-agent 2>/dev/null; then break; fi
+  sleep 5
+done
+sleep 20
+
+# Do NOT re-announce if this member already has a DCV session -- it was
+# CLAIMED (it's a user's desktop now, detached from the pool), not idle.
+if dcv list-sessions 2>/dev/null | grep -qiE 'session:|name:'; then
+  _log "DCV session present (member claimed); skip re-announce"
+  exit 0
+fi
+
+# Emit pool-ready (envelope mirrors dcv_event_publish.sh.j2; the relay
+# cross-checks the SenderId-attested instance + its edh:pool_id tag).
+_tok=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
+  -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null) || exit 0
+[ -n "$_tok" ] || exit 0
+_iid=$(curl -sS -H "X-aws-ec2-metadata-token: $_tok" \
+  http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null) || exit 0
+[ -n "$_iid" ] || exit 0
+_nonce=$(head -c 32 /dev/urandom | xxd -p -c 32) || exit 0
+_ts=$(date -u +"%Y-%m-%dT%H:%M:%S.%6NZ")
+_body=$(printf '{"event_type":"pool-ready","session_uuid":"","instance_id":"%s","event_timestamp":"%s","nonce":"%s"}' "$_iid" "$_ts" "$_nonce")
+if aws sqs send-message --queue-url "$EDH_DCV_SESSION_EVENTS_QUEUE_URL" \
+  --message-body "$_body" --output text --query MessageId >/dev/null 2>&1; then
+  _log "pool-ready emitted iid=$_iid"
+else
+  _log "pool-ready SQS send failed iid=$_iid"
+fi
+exit 0
+POOLAGENT
+      chmod +x /usr/local/sbin/edh-dcv-pool-ready.sh
+      cat > /etc/systemd/system/edh-dcv-pool-ready.service <<'POOLUNIT'
+[Unit]
+Description=EDH DCV pool-ready re-announce (warm resume / reboot)
+After=dcvserver.service network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/edh-dcv-pool-ready.sh
+[Install]
+WantedBy=multi-user.target
+POOLUNIT
+      systemctl daemon-reload || true
+      systemctl enable edh-dcv-pool-ready.service || true
+    else
+      # Defer session-ready emit until after the final reboot check in
+      # 03_setup_post_reboot.sh.j2 — GPU driver installs may still set
+      # reboot_required, and a reboot would destroy the just-placed session.
+      touch /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_node_bootstrap/.edh_dcv_session_ready_pending
+    fi
+  else
+    # Legacy mode: socadcv has run dcv create-session by now. Confirm the
+    # session exists locally before publishing -- avoids false positives
+    # where socadcv failed silently.
+    if dcv list-sessions 2>/dev/null | grep -qF "name: ${EDH_DCV_SESSION_ID:-NULL}"; then
+      edh_dcv_publish_event "session-ready" || true
+    else
+      log_info "DCV event-relay: session not yet visible locally, skipping session-ready publish"
+    fi
+  fi
 
   log_info "Stopping Firewall if needed"
   systemctl stop firewalld

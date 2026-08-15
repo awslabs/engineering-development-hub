@@ -1,0 +1,149 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# config_registry.yml -- catalog + policy for the SSM Configuration Editor
+# (Admin WebUI). This file governs, per config parameter, how the editor
+# treats it. It is consulted by config_registry.py and is editable between
+# releases without a code change.
+#
+# Keys are SSM parameter names RELATIVE to the cluster prefix
+# (/edh/<cluster_id>), e.g. "/configuration/VirtualDesktops/MaxProvisioning".
+#
+# Defaults for ANY parameter not matched below:
+#   editable: true, readonly: false, hidden: false, impact: hot, type: string
+#
+# Resolution order (config_registry.py): exact `params` match ->
+# longest-prefix `prefixes` match -> defaults.
+#
+# Fields:
+#   editable    (bool)   API/UI may write this key.
+#   readonly    (bool)   Visible but not editable.
+#   hidden      (bool)   Never shown in UI; redacted from key+value search
+#                        (both the match and the value). Use for secrets.
+#   impact      (str)    "hot" (effective on next read) or "restart:<service>"
+#                        (value is written immediately but only takes effect
+#                        after the named service is restarted; the UI warns).
+#   type        (str)    string | int | bool | json | csv  (drives the editor
+#                        input; validation is layered on top of SocaConfig's
+#                        own SocaConfigKeyVerifier).
+#   value_rules (map)    optional per-type validation (min/max/enum/regex).
+#   description (str)    help text shown in the editor.
+
+# Prefix rules -- matched longest-prefix-first.
+prefixes:
+  # Secrets / credential material: never expose in the editor.
+  /configuration/ClusterSecrets/:
+    hidden: true
+  /secrets/:
+    hidden: true
+
+  # The web tier (uwsgi) reads these at import time into the Flask Config class
+  # (config.py), so a value change only takes effect after a uwsgi reload -- the
+  # per-request Valkey hot path does not refresh the boot-time snapshot.
+  /configuration/WebInterface/:
+    impact: "restart:uwsgi"
+  /configuration/Database/:
+    impact: "restart:uwsgi"
+  /configuration/UserDirectory/:
+    impact: "restart:uwsgi"
+
+  # DCV Session Manager Broker reads its config at process start.
+  /dcv/broker/:
+    impact: "restart:dcv-session-manager-broker"
+
+# Exact-parameter overrides -- take precedence over any prefix rule.
+params:
+  # Read at import time in config.py (uwsgi boot) but NOT under a restart-tier
+  # prefix above, so annotated individually.
+  /configuration/DCVAllowedInstances:
+    impact: "restart:uwsgi"
+    type: csv
+    description: "Allowed EC2 instance types offered for Virtual Desktops."
+  /configuration/DCV/HibernateMaxRamMiBLinux:
+    impact: "restart:uwsgi"
+    type: int
+    description: "Max instance RAM (MiB) for which Linux VDI hibernation is offered."
+  /configuration/DCV/HibernateMaxRamMiBWindows:
+    impact: "restart:uwsgi"
+    type: int
+    description: "Max instance RAM (MiB) for which Windows VDI hibernation is offered."
+
+  # Hot: effective on the next read (no restart).
+  /configuration/FeatureFlags/VirtualDesktops/AllowCustomTags:
+    impact: hot
+    type: bool
+    description: "Enable custom tag support for Virtual Desktop instances."
+
+  # File transfer engine version selector. v1 = Dropzone upload + native browser
+  # download; v2 = Uppy/tus resumable upload + parallel ranged download (early
+  # access, slated to become the default in a future release). Read per-request by
+  # the file_explorer view (hot -- effective on next page load). Flip to v2 to
+  # enable the new transfer stack on a running cluster.
+  /configuration/FileBrowser/TransferEngine:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["v1", "v2"]
+    description: "File transfer engine: v1 (upload/download) or v2 (resumable/parallel)."
+
+  /configuration/FileBrowser/StagingDirectory:
+    impact: cold
+    type: string
+    value_rules:
+      regex: '^/[a-zA-Z0-9_./-]+$'
+    description: "Absolute path for tus partial-upload staging. Mount a dedicated EBS volume here for large-file workloads. Default: <app_root>/tmp/uploads"
+
+  /configuration/FileBrowser/ZipStagingDirectory:
+    impact: cold
+    type: string
+    value_rules:
+      regex: '^/[a-zA-Z0-9_./-]+$'
+    description: "Absolute path for zip download staging. Mount a dedicated volume to avoid filling root. Default: <app_root>/tmp/zip_downloads"
+
+  # My HPC Jobs listing controls. All hot (effective on next page load / next API query).
+  /configuration/HPC/JobListing/VisibilityScope:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["all", "project", "owner_only"]
+    description: "My HPC Jobs visibility ceiling for non-admins: all (like qstat), project (shared-project members), or owner_only. Admins always see all."
+
+  /configuration/HPC/JobListing/DefaultWindow:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["24h", "72h", "7d", "30d"]
+    description: "Default time range for finished jobs on first load. Users can widen via the range picker."
+
+  /configuration/HPC/JobListing/MaxRows:
+    impact: hot
+    type: string
+    value_rules:
+      regex: '^[1-9][0-9]*$'
+    description: "Max finished jobs loaded to the browser per query (newest first). Bounds client payload for large history."
+
+  /configuration/HPC/JobListing/IncludeFinished:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["true", "false"]
+    description: "Whether finished/historical jobs are shown by default."
+
+  # Owned-base AMI acceleration: copy AWS-published base AMIs into the account (owned lineage) so
+  # snapshot capture is incremental and ids survive AWS retiring the public bases. Cluster-wide;
+  # default off. Read on the VDI/HPC launch path (hot) via resolve_launch_ami().
+  /configuration/BaseImageAcceleration/Enabled:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["true", "false"]
+    description: "Enable owned-base AMI acceleration (copy AWS base AMIs local for fast capture + retirement durability)."
+
+  # Copy priority as JSON: { arch: [ordered base_os, ...] }. base_os leads within its arch; rest FIFO.
+  # Default {"x86_64":["windows2025","amazonlinux2023"],"arm64":["amazonlinux2023"]}.
+  /configuration/BaseImageAcceleration/Priority:
+    impact: hot
+    type: string
+    value_rules:
+      regex: '^[A-Za-z0-9_,:\[\]\{\}" ]*$'
+    description: "JSON { arch: [base_os,...] } of copy priority per architecture (base_os leads within its arch)."

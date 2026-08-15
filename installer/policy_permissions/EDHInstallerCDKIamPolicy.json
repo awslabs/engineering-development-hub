@@ -1,0 +1,105 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CDKPermission1",
+            "Action": [
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DeleteStack",
+                "cloudformation:CreateChangeSet",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:DescribeStacks",
+                "cloudformation:GetTemplate"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:cloudformation:*:<AWS_ACCOUNT_ID_REPLACE_ME>:stack/CDKToolkit/*"
+            ]
+        },
+        {
+            "Sid": "CDKPermission2",
+            "Action": [
+                "iam:GetRole",
+                "iam:UntagRole",
+                "iam:GetPolicy",
+                "iam:TagRole",
+                "iam:CreateRole",
+                "iam:DeleteRole",
+                "iam:AttachRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:TagPolicy",
+                "iam:DetachRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:UntagPolicy",
+                "iam:UpdateRole",
+                "iam:GetRolePolicy",
+                "sts:AssumeRole"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:iam::<AWS_ACCOUNT_ID_REPLACE_ME>:policy/<NAME_OF_YOUR_EDH_INSTALLER_POLICY_01>",
+                "arn:aws:iam::<AWS_ACCOUNT_ID_REPLACE_ME>:policy/<NAME_OF_YOUR_EDH_INSTALLER_POLICY_02>",
+                "arn:aws:iam::<AWS_ACCOUNT_ID_REPLACE_ME>:policy/<NAME_OF_YOUR_EDH_UNINSTALLER_POLICY>",
+                "arn:aws:iam::<AWS_ACCOUNT_ID_REPLACE_ME>:role/cdk-*"
+            ]
+        },
+        {
+            "Sid": "CDKPermission3",
+            "Action": [
+                "s3:PutEncryptionConfiguration",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:PutBucketPolicy",
+                "s3:CreateBucket",
+                "s3:DeleteBucketPolicy",
+                "s3:DeleteBucket",
+                "s3:GetBucketPolicy",
+                "s3:PutBucketVersioning",
+                "s3:PutLifecycleConfiguration"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:s3:::cdk-*"
+            ]
+        },
+        {
+            "Sid": "CDKPermission4",
+            "Action": [
+                "ssm:PutParameter",
+                "ssm:DeleteParameter",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:AddTagsToResource"
+
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:ssm:*:<AWS_ACCOUNT_ID_REPLACE_ME>:parameter/cdk-bootstrap/*"
+            ]
+        },
+        {
+            "Sid": "CDKPermission5",
+            "Action": [
+                "ecr:DeleteRepository",
+                "ecr:DescribeRepositories",
+                "ecr:SetRepositoryPolicy",
+                "ecr:PutLifecyclePolicy"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:ecr:*:<AWS_ACCOUNT_ID_REPLACE_ME>:repository/cdk-*"
+            ]
+        },
+        {
+            "Sid": "CDKPermission6",
+            "Action": [
+                "ecr:CreateRepository"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:ecr:*:<AWS_ACCOUNT_ID_REPLACE_ME>:repository/cdk-*"
+            ]
+        }
+
+    ]
+}

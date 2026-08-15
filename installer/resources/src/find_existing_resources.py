@@ -13,6 +13,7 @@
 
 import sys
 import os
+import re
 
 installer_path = "/".join(os.path.dirname(os.path.abspath(__file__)).split("/")[:-3])
 sys.path.append(installer_path)
@@ -22,6 +23,7 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 from collections import defaultdict
+from helpers.installer.i18n import _
 
 try:
     import boto3
@@ -38,15 +40,19 @@ class FindExistingResource:
     def __init__(self, region, client_ip):
         self.region = region
         self.client_ip = client_ip
-        session = boto3.Session(region_name=self.region)
-        self.ec2 = session.client("ec2")
-        self.efs = session.client("efs")
-        self.fsx = session.client("fsx")
-        self.ds = session.client("ds")
-        self.es = session.client("es")
-        self.iam = session.client("iam")
-        self.pcs = session.client("pcs")
-        self.sts = session.client("sts")
+        # Route through the shared-session cache in helpers.boto3_wrapper
+        # so credential resolution happens once per profile for the
+        # whole installer process. See SOCA_BOTO3_SHARED_SESSION.
+        from helpers.boto3_wrapper import get_shared_session
+        session = get_shared_session()
+        self.ec2 = session.client("ec2", region_name=self.region)
+        self.efs = session.client("efs", region_name=self.region)
+        self.fsx = session.client("fsx", region_name=self.region)
+        self.ds = session.client("ds", region_name=self.region)
+        self.es = session.client("es", region_name=self.region)
+        self.iam = session.client("iam", region_name=self.region)
+        self.pcs = session.client("pcs", region_name=self.region)
+        self.sts = session.client("sts", region_name=self.region)
         self.install_parameters = {}
         self.cache = {}
         self.console = Console(record=True)
@@ -207,13 +213,13 @@ class FindExistingResource:
 
             # Only allow selection of valid VPCs (that have properly configured VPC attributes)
             if not _vpc_allowed_list:
-                print(f"[red]FATAL ERROR: Unable to locate any valid VPCs in region {self.region}. Please see the VPC Table for specific errors.[default]")
+                print(f"[red]" + _("FATAL ERROR: Unable to locate any valid VPCs in region {region}. Please see the VPC Table for specific errors.").format(region=self.region) + "[default]")
                 sys.exit(1)
 
             allowed_choices = list(_vpc_allowed_list)
 
             choice = get_input(
-                prompt=f"Choose the VPC you want to use?",
+                prompt=_(f"Choose the VPC you want to use?"),
                 specified_value=None,
                 expected_answers=allowed_choices,
                 expected_type=int,
@@ -278,7 +284,7 @@ class FindExistingResource:
             if count <= 0:
                 # This happens when you select existing resources but there are none found
                 # So we have to error at this stage.
-                print(f"[red]FATAL ERROR: Unable to locate any valid Analytics engines in region {self.region} - VPC {vpc_id}. Please confirm and try again or re-run and select 'new' to create a new one.[default]")
+                print(f"[red]" + _("FATAL ERROR: Unable to locate any valid Analytics engines in region {region} - VPC {vpc_id}. Please confirm and try again or re-run and select 'new' to create a new one.").format(region=self.region, vpc_id=vpc_id) + "[default]")
                 sys.exit(1)
 
             print(
@@ -304,7 +310,7 @@ class FindExistingResource:
 
             allowed_choices = list(es.keys())
             choice = get_input(
-                prompt=f"Choose the OpenSearch Cluster you want to use?",
+                prompt=_(f"Choose the OpenSearch Cluster you want to use?"),
                 specified_value=None,
                 expected_answers=allowed_choices,
                 expected_type=int,
@@ -350,7 +356,7 @@ class FindExistingResource:
             ]
             allowed_choices = list(ds.keys())
             choice = get_input(
-                f"Choose the directory you want to use?", None, allowed_choices, int
+                _(f"Choose the directory you want to use?"), None, allowed_choices, int
             )
             return {"success": True, "message": ds[choice]}
 
@@ -424,11 +430,40 @@ class FindExistingResource:
             count = 1
 
             # print(f"DEBUG: pre-sort: {subnets_by_name=}")
-            # We now resort the entries based on the inserted SubnetName to keep similar named subnets together
+            # Sort subnets so visually-related entries are adjacent in
+            # the picker table. Sort keys, in priority order:
+            #
+            #   1. Numeric-aware (natural) lowercased Name tag --
+            #      groups subnets with related names, and orders
+            #      numeric suffixes correctly (e.g.
+            #      private-1 < private-2 < private-10, not the
+            #      lexicographic private-1 < private-10 < private-2).
+            #      Falls back to SubnetId when a Name tag is absent.
+            #   2. Availability Zone -- within a Name-group, subnets
+            #      line up by AZ (us-east-2a, -2b, -2c) for predictable
+            #      multi-AZ selection.
+            #   3. SubnetId -- final tie-breaker so the order is stable
+            #      across picker invocations even with duplicate names
+            #      and AZs.
+            #
+            # The natural-sort key is produced by splitting the name on
+            # runs of digits and converting digit runs to int; this is
+            # the standard "zero-dep natsort" idiom and avoids adding
+            # the `natsort` library as an installer dependency.
+            def _natural_key(_name: str) -> list:
+                return [
+                    int(_part) if _part.isdigit() else _part.lower()
+                    for _part in re.split(r"(\d+)", _name)
+                ]
+
             subnets_by_name: dict = dict(
                 sorted(
                     subnets_by_name.items(),
-                    key=lambda _sn: _sn[1].get("SubnetName", "")
+                    key=lambda _sn: (
+                        _natural_key(_sn[1].get("SubnetName") or _sn[0]),
+                        _sn[1].get("AvailabilityZone", ""),
+                        _sn[0],
+                    ),
                 )
             )
             # print(f"DEBUG: post-sorting subnets_by_name: {subnets_by_name=}")
@@ -512,7 +547,7 @@ class FindExistingResource:
             print(subnet_table)
 
             selected_subnets_count = get_input(
-                prompt=f"How many of these subnets do you want to use?",
+                prompt=_(f"How many of these subnets do you want to use?"),
                 specified_value=None,
                 expected_answers=list(range(1, count)),
                 expected_type=int,
@@ -524,7 +559,7 @@ class FindExistingResource:
                     f"[red] You must use at least 2 subnets for high availability [default]"
                 )
                 selected_subnets_count = get_input(
-                    prompt=f"How many of these subnets do you want to use?",
+                    prompt=_(f"How many of these subnets do you want to use?"),
                     specified_value=None,
                     expected_answers=list(range(1, count)),
                     expected_type=int,
@@ -536,7 +571,7 @@ class FindExistingResource:
                 if len(allowed_choices) == 0:
                     return {"success": False, "message": f"Not enough subnets available in VPC {vpc_id}"}
                 choice = get_input(
-                    prompt=f"Choose your subnet #{len(selected_subnets) + 1} ?",
+                    prompt=_(f"Choose your subnet #{len(selected_subnets) + 1} ?"),
                     specified_value=None,
                     expected_answers=allowed_choices,
                     expected_type=int,
@@ -619,7 +654,7 @@ class FindExistingResource:
 
             allowed_choices = list(filesystems.keys())
             choice = get_input(
-                prompt=f"Choose the filesystem to use for {environment}?",
+                prompt=_(f"Choose the filesystem to use for {environment}?"),
                 specified_value=None,
                 expected_answers=allowed_choices,
                 expected_type=int,
@@ -722,7 +757,7 @@ class FindExistingResource:
             allowed_choices = list(sgs.keys())
 
             choice = get_input(
-                prompt=f"What security group do you want to use for {environment.upper()}",
+                prompt=_(f"What security group do you want to use for {environment.upper()}"),
                 specified_value=None,
                 expected_answers=allowed_choices,
                 expected_type=int,
@@ -760,7 +795,7 @@ class FindExistingResource:
             ]
             allowed_choices = list(roles.keys())
             choice = get_input(
-                f"What IAM Role for you want to use for {environment.upper()}",
+                _(f"What IAM Role for you want to use for {environment.upper()}"),
                 None,
                 allowed_choices,
                 int,
@@ -1129,7 +1164,7 @@ class FindExistingResource:
 
             if confirm_sg_settings:
                 choice = get_input(
-                    "Your security groups may not be configured correctly. Verify them and determine if the warnings listed above are false-positive.\n Do you still want to continue with the installation?",
+                    _("Your security groups may not be configured correctly. Verify them and determine if the warnings listed above are false-positive.\n Do you still want to continue with the installation?"),
                     None,
                     ["yes", "no"],
                     str,

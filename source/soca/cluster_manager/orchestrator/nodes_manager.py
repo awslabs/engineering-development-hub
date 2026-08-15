@@ -32,6 +32,21 @@ def get_failed_cloudformation_stacks_assigned_to_scheduler(
     )
     _stacks = {}
 
+    # list_stacks has no cluster/tag filter, so it returns every failed stack in the
+    # account/region. Resolve our ClusterId up front to (a) scope by stack-name prefix
+    # before logging/describing anything, and (b) make the edh:ClusterId tag comparison
+    # below actually work (it previously referenced an undefined _cluster_id).
+    _cluster_id_resp = SocaConfig(key="/configuration/ClusterId").get_value()
+    _cluster_id = (
+        _cluster_id_resp.get("message")
+        if _cluster_id_resp.get("success") is True
+        else None
+    )
+    if not _cluster_id:
+        return SocaError.GENERIC_ERROR(
+            helper="Unable to resolve /configuration/ClusterId for failed-stack scan"
+        )
+
     try:
         cf_client = get_boto(service_name="cloudformation").message
 
@@ -45,8 +60,14 @@ def get_failed_cloudformation_stacks_assigned_to_scheduler(
                     _stack_name = summary["StackName"]
                     _stack_status = summary["StackStatus"]
 
+                    # Scope to THIS cluster's stacks up front. Skip foreign stacks
+                    # silently -- never log another cluster's failed stack here, it
+                    # causes needless operator alarm.
+                    if not _stack_name.startswith(f"{_cluster_id}-"):
+                        continue
+
                     _stack_data = SocaCfnClient(stack_name=_stack_name)
-                    logger.info(
+                    logger.debug(
                         f"{_stack_name} found in status {_stack_status}, checking if stack should be deleted"
                     )
                     if (

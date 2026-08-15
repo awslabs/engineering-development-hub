@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -12,6 +12,7 @@
 
     <div id="wrapper">
         {% include 'common/vertical_menu_bar.html' %}
+        {% include 'common/js_i18n.html' %}
         <div id="content-wrapper" class="d-flex flex-column">
             <div id="content" style="margin-top: 20px;">
                 <div class="container-fluid">
@@ -20,19 +21,19 @@
          
                         <div class="card-body">
                             <div class="d-flex align-items-center">
-                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="Setup your Amazon EKS Job">My Amazon EKS Job <i class="fas fa-question-circle"></i></h3>
+                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("Setup your Amazon EKS Job") }}">{{ _("My Amazon EKS Job") }} <i class="fas fa-question-circle"></i></h3>
                             </div>
                                        <br>
                                         {% if eks_clusters == [] %}
                                               <div class="alert alert-warning">
-                                                Unable to find any and <a href="https://aws.amazon.com/eks/" target="_blank">Amazon Elastic Kubernetes Service cluster (EKS)</a> onboarded to this EDH environment. <br>
-                                                 Add the following tag  <kbd>edh:visibility:{{cluster_id}} = true</kbd> to the EKS cluster(s) you want to onboard.
+                                                {% trans link='<a href="https://aws.amazon.com/eks/" target="_blank">Amazon Elastic Kubernetes Service cluster (EKS)</a>'|safe %}Unable to find any {{ link }} onboarded to this EDH environment.{% endtrans %} <br>
+                                                 {% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe %}Add the following tag {{ tag }} to the EKS cluster(s) you want to onboard.{% endtrans %}
                                               </div>
                                             {% else %}
                                             <form action="/containers/eks/submit" method="post" id="commandForm">
                                               <div class="row mb-3 align-items-center">
                                                 <label for="image_uri" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="URI of the Image to deploy on your pod">Image URI</label>
+                                                       title="{{ _("URI of the Image to deploy on your pod") }}">{{ _("Image URI") }}</label>
                                                 <div class="col-sm-9">
                                                   <input id="image_uri" class="form-control" type="text" disabled value="{{image_uri}}">
                                                   <input type="hidden" name="image_uri"  value="{{image_uri}}" id="image_uri_hidden">
@@ -41,20 +42,20 @@
                                              
                                               <div class="row mb-3 align-items-center">
                                                 <label for="eks_cluster" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Name of the EKS cluster to use">EKS Cluster</label>
+                                                       title="{{ _("Name of the EKS cluster to use") }}">{{ _("EKS Cluster") }}</label>
                                                 <div class="col-sm-9">
                                                   <select required class="form-control" id="eks_cluster" name="eks_cluster">
                                                     {% for eks_cluster in eks_clusters %}
                                                     <option value="{{eks_cluster}}">{{eks_cluster}}</option>
                                                     {% endfor %}
                                                   </select>
-                                                  <small class="form-text text-muted">Note: EKS clusters must have the tag <kbd>edh:visibility:{{cluster_id}} = true</kbd> to be visible on EDH</small>
+                                                  <small class="form-text text-muted">{% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe %}Note: EKS clusters must have the tag {{ tag }} to be visible on EDH{% endtrans %}</small>
                                                 </div>
                                               </div>
 
                                                 <div class="row mb-3 align-items-center">
                                                 <label for="job_name" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="EKS Namespace to launch your job on">EKS Namespace</label>
+                                                       title="{{ _("EKS Namespace to launch your job on") }}">{{ _("EKS Namespace") }}</label>
                                                 <div class="col-sm-9">
                                                   <input id="namespace" name="namespace" type="text" class="form-control" value="default" required>
                                                 </div>
@@ -62,44 +63,44 @@
 
                                               <div class="row mb-3 align-items-center">
                                                 <label for="job_name" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Name of your job">Job Name</label>
+                                                       title="{{ _("Name of your job") }}">{{ _("Job Name") }}</label>
                                                 <div class="col-sm-9">
                                                   <input id="job_name" name="job_name" type="text" class="form-control" required>
                                                 </div>
                                               </div>
 
                                               <!-- Section 2: Compute Resources -->
-                                              <h5 class="mt-4">Compute Resources</h5>
+                                              <h5 class="mt-4">{{ _("Compute Resources") }}</h5>
                                               <hr>
 
                                               <div class="row mb-3 align-items-center">
                                                   <div class="col-sm-3">
                                                     <label for="cpu" class="form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Number of CPUs to request for your job"><i class="fa-solid fa-microchip fa-xl"></i> CPUs</label>
+                                                       title="{{ _("Number of CPUs to request for your job") }}"><i class="fa-solid fa-microchip fa-xl"></i> {{ _("CPUs") }}</label>
                                                     <input id="cpu" name="cpu" type="number" class="form-control" step="any" value="1">
-                                                    <small class="form-text text-muted">Partial CPUs allowed (e.g. 0.5 = half a CPU)</small>
+                                                    <small class="form-text text-muted">{{ _("Partial CPUs allowed (e.g. 0.5 = half a CPU)") }}</small>
                                                   </div>
 
                                                   <div class="col-sm-3">
                                                     <label for="memory" class="form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Size of the memory to request for your job"><i class="fa-solid fa-memory fa-xl"></i> Memory (GB)</label>
+                                                       title="{{ _("Size of the memory to request for your job") }}"><i class="fa-solid fa-memory fa-xl"></i> {{ _("Memory (GB)") }}</label>
                                                     <input id="memory" name="memory" type="number" class="form-control" step="any" value="1">
-                                                    <small class="form-text text-muted">Partial GBs allowed (e.g. 2.5 = 2.5 GB RAM)</small>
+                                                    <small class="form-text text-muted">{{ _("Partial GBs allowed (e.g. 2.5 = 2.5 GB RAM)") }}</small>
                                                   </div>
 
                                                   <div class="col-sm-3">
                                                       <label for="gpu" class="form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Specify whether or not your job requires GPUs"><i class="fa-solid fa-bolt fa-xl"></i> GPUs</label>
+                                                       title="{{ _("Specify whether or not your job requires GPUs") }}"><i class="fa-solid fa-bolt fa-xl"></i> {{ _("GPUs") }}</label>
                                                       <input id="gpu" name="gpu" type="text" class="form-control" value="0">
-                                                      <small class="form-text text-muted">Number of GPU to allocate</small>
+                                                      <small class="form-text text-muted">{{ _("Number of GPU to allocate") }}</small>
 
                                                   </div>
 
                                                   <div class="col-sm-3">
                                                       <label for="instance_type" class="form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Select the instance type to deploy your job on"><i class="fa-brands fa-aws fa-xl"></i> Instance Type <span class="badge bg-info ms-1" style="color: white;font-size:0.7em;">Optional</span></label>
-                                                      <input id="instance_type" name="instance_type" type="text" class="form-control" placeholder="example: c6g.metal">
-                                                      <small class="form-text text-muted">Force your job to run on a specific instance type</small>
+                                                       title="{{ _("Select the instance type to deploy your job on") }}"><i class="fa-brands fa-aws fa-xl"></i> {{ _("Instance Type") }} <span class="badge bg-info ms-1" style="color: white;font-size:0.7em;">{{ _("Optional") }}</span></label>
+                                                      <input id="instance_type" name="instance_type" type="text" class="form-control" placeholder="{{ _("example: c6g.metal") }}">
+                                                      <small class="form-text text-muted">{{ _("Force your job to run on a specific instance type") }}</small>
 
                                                   </div>
                                                 </div>
@@ -107,18 +108,18 @@
 
                         
                                               <!-- Section 3: Container Command & Arguments -->
-                                              <h5 class="mt-4">(Optional) Advanced Customizations</h5>
+                                              <h5 class="mt-4">{{ _("(Optional) Advanced Customizations") }}</h5>
                                               <hr>
 
                                             <ul class="nav nav-tabs" id="myTab" role="tablist">
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="home-tab" data-bs-toggle="tab" href="#override_entry_point" role="tab" aria-controls="override_entry_point" aria-selected="true">Override Entry Point</a>
+                                                    <a class="nav-link" id="home-tab" data-bs-toggle="tab" href="#override_entry_point" role="tab" aria-controls="override_entry_point" aria-selected="true">{{ _("Override Entry Point") }}</a>
                                                 </li>
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#runtime_argument" role="tab" aria-controls="runtime_argument" aria-selected="false">Runtime Arguments</a>
+                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#runtime_argument" role="tab" aria-controls="runtime_argument" aria-selected="false">{{ _("Runtime Arguments") }}</a>
                                                 </li>
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#environment_variables" role="tab" aria-controls="environment_variables" aria-selected="false">Environment Variables</a>
+                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#environment_variables" role="tab" aria-controls="environment_variables" aria-selected="false">{{ _("Environment Variables") }}</a>
                                                 </li>
 
                                             </ul>
@@ -126,20 +127,20 @@
                                                 <div class="tab-pane fade" id="override_entry_point" role="tabpanel" aria-labelledby="override_entry_point-tab">
                                                     <br>
                                                     <div class="card card-body">
-                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="Add environment variables for your job"></label>
+                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Add environment variables for your job") }}"></label>
                                                         <div id="envInputs">
                                                         <div class="input-group mb-2">
-                                                            <input type="text" class="form-control" placeholder="KEY">
-                                                            <input type="text" class="form-control" placeholder="VALUE">
-                                                            <button type="button" style="border-radius: 0;" class="btn btn-danger" onclick="removeInput(this)">Remove</button>
+                                                            <input type="text" class="form-control" placeholder="{{ _("KEY") }}">
+                                                            <input type="text" class="form-control" placeholder="{{ _("VALUE") }}">
+                                                            <button type="button" style="border-radius: 0;" class="btn btn-danger" onclick="removeInput(this)">{{ _("Remove") }}</button>
                                                         </div>
                                                         </div>
-                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addEnvInput()">Add Variable</button>
+                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addEnvInput()">{{ _("Add Variable") }}</button>
                                                         <input type="hidden" name="envVars" id="envVarsArray">
                                                         <small class="form-text text-muted">
-                                                        Define environment variables as key-value pairs.<br>
-                                                        Example:<br>
-                                                        <code>MY_ENV</code> → <code>Hello</code>
+                                                        {{ _("Define environment variables as key-value pairs.") }}<br>
+                                                        {{ _("Example:") }}<br>
+                                                        <code>{{ _("MY_ENV") }}</code> → <code>{{ _("Hello") }}</code>
                                                         </small>
                                                     </div>
                                                 </div>
@@ -147,18 +148,18 @@
                                                 <div class="tab-pane fade" id="runtime_argument" role="tabpanel" aria-labelledby="runtime_argument-tab">
                                                     <br>
                                                     <div class="card card-body">
-                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="Override your container entrypoint"></label>
+                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Override your container entrypoint") }}"></label>
                                                         <div id="commandInputs">
                                                         <div class="input-group mb-2">
-                                                            <input type="text" class="form-control" placeholder="e.g. /bin/bash">
-                                                            <button type="button"style="border-radius: 0;"  class="btn btn-danger" onclick="removeInput(this)">Remove</button>
+                                                            <input type="text" class="form-control" placeholder="{{ _("e.g. /bin/bash") }}">
+                                                            <button type="button"style="border-radius: 0;"  class="btn btn-danger" onclick="removeInput(this)">{{ _("Remove") }}</button>
                                                         </div>
                                                         </div>
-                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addInput()">Add Argument</button>
+                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addInput()">{{ _("Add Argument") }}</button>
                                                         <input type="hidden" name="overrideCommands" id="commandArray">
                                                         <small class="form-text text-muted">
-                                                        Each line is one argument.<br>
-                                                        Example:<br>
+                                                        {{ _("Each line is one argument.") }}<br>
+                                                        {{ _("Example:") }}<br>
                                                         <code>/bin/bash</code><br>
                                                         <code>-c</code><br>
                                                         <code>echo Hello</code>
@@ -169,18 +170,18 @@
                                                 <div class="tab-pane fade" id="environment_variables" role="tabpanel" aria-labelledby="environment_variables-tab">
                                                     <br>
                                                     <div class="card card-body">
-                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="Override your container runtime arguments"></label>
+                                                        <label class="form-label" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Override your container runtime arguments") }}"></label>
                                                         <div id="argsInputs">
                                                         <div class="input-group mb-2">
-                                                            <input type="text" class="form-control" placeholder="e.g. --epochs">
-                                                            <button type="button" style="border-radius: 0;" class="btn btn-danger" onclick="removeInput(this)">Remove</button>
+                                                            <input type="text" class="form-control" placeholder="{{ _("e.g. --epochs") }}">
+                                                            <button type="button" style="border-radius: 0;" class="btn btn-danger" onclick="removeInput(this)">{{ _("Remove") }}</button>
                                                         </div>
                                                         </div>
-                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addArgsInput()">Add Argument</button>
+                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addArgsInput()">{{ _("Add Argument") }}</button>
                                                         <input type="hidden" name="overrideArgs" id="argsArray">
                                                         <small class="form-text text-muted">
-                                                        Each line is one argument.<br>
-                                                        Example:<br>
+                                                        {{ _("Each line is one argument.") }}<br>
+                                                        {{ _("Example:") }}<br>
                                                         <code>--epochs</code><br>
                                                         <code>10</code>
                                                         </small>
@@ -201,7 +202,7 @@
                                               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                               <div class="text-center mt-4">
                                                 <button type="submit" class="btn btn-primary px-5 py-3">
-                                                    Submit Amazon EKS Job
+                                                    {{ _("Submit Amazon EKS Job") }}
                                                 </button>
                                                 </div>
                                                 {% endif %}
@@ -275,9 +276,9 @@
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
     div.innerHTML = `
-      <input type="text" class="form-control" placeholder="Key">
-      <input type="text" class="form-control" placeholder="Value">
-      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">Remove</button>
+      <input type="text" class="form-control" placeholder="${i18n.key_placeholder}">
+      <input type="text" class="form-control" placeholder="${i18n.value_placeholder}">
+      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">${i18n.remove}</button>
     `;
     container.appendChild(div);
   }
@@ -287,8 +288,8 @@
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
     div.innerHTML = `
-      <input type="text" class="form-control" placeholder="e.g. argument">
-      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">Remove</button>
+      <input type="text" class="form-control" placeholder="${i18n.argument_placeholder}">
+      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">${i18n.remove}</button>
     `;
     container.appendChild(div);
   }
@@ -298,8 +299,8 @@
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
     div.innerHTML = `
-      <input type="text" class="form-control" placeholder="e.g. argument">
-      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">Remove</button>
+      <input type="text" class="form-control" placeholder="${i18n.argument_placeholder}">
+      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeInput(this)">${i18n.remove}</button>
     `;
     container.appendChild(div);
   }

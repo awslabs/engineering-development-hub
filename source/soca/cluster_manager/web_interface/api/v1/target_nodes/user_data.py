@@ -27,7 +27,9 @@ import utils.aws.boto3_wrapper as utils_boto3
 from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
+from utils.jinjanizer import SocaJinja2Renderer
 from flask import request
+from flask_babel import gettext as _
 from sqlalchemy.orm import joinedload
 import base64
 
@@ -237,6 +239,8 @@ class TargetNodeUserDataManager(Resource):
             description: Admin access required
           '409':
             description: Template name already exists
+          '500':
+            description: Database error during creation
         components:
           securitySchemes:
             socaAuth:
@@ -283,7 +287,7 @@ class TargetNodeUserDataManager(Resource):
 
         if len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
 
         if TargetNodeUserData.query.filter_by(
@@ -293,6 +297,11 @@ class TargetNodeUserDataManager(Resource):
                 helper=f"Template name {_template_name} already exists, pick a different name or deactivate the existing one",
             ).as_flask()
 
+       
+        _is_valid_template = SocaJinja2Renderer.validate_template(data=_user_data)
+        if _is_valid_template.get("success") is False:
+            return SocaError.GENERIC_ERROR(helper=f"Specified J2 template has invalid syntax {_is_valid_template.get('message')}").as_flask()
+        
         try:
             _user_data_encoded_bytes = base64.b64encode(_user_data.encode("utf-8"))
             _user_data_encoded_string = _user_data_encoded_bytes.decode("utf-8")
@@ -322,7 +331,7 @@ class TargetNodeUserDataManager(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"User Data template has been created successfully",
+            message=_(f"User Data template has been created successfully"),
         ).as_flask()
 
     @admin_api
@@ -400,6 +409,8 @@ class TargetNodeUserDataManager(Resource):
             description: Template not found
           '409':
             description: Template is in use by active software stacks
+          '500':
+            description: Database error during deletion
         components:
           securitySchemes:
             socaAuth:
@@ -472,7 +483,7 @@ class TargetNodeUserDataManager(Resource):
                 ).as_flask()
 
             return SocaResponse(
-                success=True, message=f"User Data Template deleted successfully"
+                success=True, message=_(f"User Data Template deleted successfully")
             ).as_flask()
 
         else:
@@ -568,6 +579,8 @@ class TargetNodeUserDataManager(Resource):
             description: Admin access required
           '404':
             description: Template not found
+          '500':
+            description: Database error during update
         components:
           securitySchemes:
             socaAuth:
@@ -617,10 +630,12 @@ class TargetNodeUserDataManager(Resource):
 
         if len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
 
-        if SocaCastEngine(data=_template_id).cast_as(int).get("success") is True:
+        _template_id_cast = SocaCastEngine(data=_template_id).cast_as(int)
+        if _template_id_cast.get("success") is True:
+            _template_id = _template_id_cast.get("message")
             _template_to_update = TargetNodeUserData.query.filter_by(
                 id=_template_id, is_active=True
             ).first()
@@ -656,5 +671,5 @@ class TargetNodeUserDataManager(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"User Data Template has been updated successfully",
+            message=_(f"User Data Template has been updated successfully"),
         ).as_flask()

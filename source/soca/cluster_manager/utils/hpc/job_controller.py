@@ -425,7 +425,10 @@ class SocaHpcJobController:
         if (
             self._job.job_provisioning_state
             and self._job.job_provisioning_state
-            != SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_BLOCKED
+            not in (
+                SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_BLOCKED,
+                SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_ERROR,
+            )
         ):
 
             _stack_older_than = SocaCfnClient(

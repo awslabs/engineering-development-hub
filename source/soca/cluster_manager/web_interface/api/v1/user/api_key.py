@@ -12,6 +12,7 @@
 ######################################################################################################################
 
 from flask_restful import Resource, reqparse
+from flask_babel import gettext as _
 from models import db, ApiKeys
 from datetime import datetime, timezone
 import secrets
@@ -77,7 +78,7 @@ class ApiKey(Resource):
                       example: true
                     message:
                       type: string
-                      pattern: f'^[a-f0-9]{32}$'
+                      pattern: '^[a-f0-9]{32}$'
                       example: a1b2c3d4e5f6789012345678
           '400':
             description: Missing required parameter
@@ -172,7 +173,7 @@ class ApiKey(Resource):
         openapi: 3.1.0
         operationId: deleteUserApiKey
         tags:
-          - User API Keys
+          - User
         parameters:
           - name: X-EDH-USER
             in: header
@@ -252,7 +253,7 @@ class ApiKey(Resource):
                             helper=f"Unable to deactivate key in DB due to {err}",
                         ).as_flask()
                 return SocaResponse(
-                    success=True, message="Successfully deactivated"
+                    success=True, message=_("Successfully deactivated")
                 ).as_flask()
             else:
                 logger.info("No active token found")

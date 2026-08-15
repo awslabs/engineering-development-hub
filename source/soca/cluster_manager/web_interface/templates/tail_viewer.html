@@ -1,0 +1,1191 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+     SPDX-License-Identifier: Apache-2.0 -->
+
+{# ------------------------------------------------------------------------
+   Live file tail viewer (body + JS only).
+
+   Shared between the modal (tail_modal.html) and the pop-out page
+   (tail_page.html). The caller MUST provide:
+     - A containing element with class "tail-container" that wraps the
+       rendered HTML (for layout / height control).
+     - Optional: a variable `tail_standalone` (bool). If true, the JS
+       auto-starts streaming with the `uid` from the URL query string.
+       Otherwise the JS exposes window.openTailModal(uid, displayName)
+       and waits for that to be called.
+
+   Depends on:
+     - Bootstrap 5 (already loaded by common/header.html)
+     - Font Awesome (already loaded)
+   ------------------------------------------------------------------------ #}
+
+<style>
+  /* Dark log-viewer aesthetic with swappable theme.
+     All colors are CSS custom properties; light mode overrides them.
+     Scope: .tv-root data-tv-theme="dark"|"light" (set on the host wrapper). */
+  .tv-root {
+    /* Dark (default) */
+    --tv-bg:            #1a1d22;
+    --tv-fg:            #e6e6e6;
+    --tv-toolbar-bg:    #242830;
+    --tv-toolbar-fg:    #d8dbe0;
+    --tv-border:        #3a3f48;
+    --tv-muted:         #8a8f98;
+    --tv-hover:         #343a44;
+    --tv-help-bg:       #1c1f24;
+    --tv-kbd-bg:        #343a44;
+    --tv-primary:       #2a5f99;
+    --tv-primary-hover: #3576b8;
+    --tv-paused:        #8a6b1c;
+    --tv-paused-hover:  #a4811f;
+    --tv-loading-bg:    #102a3a;
+    --tv-loading-fg:    #5aa9d9;
+    --tv-loading-bd:    #205a7b;
+    --tv-status-bg:     #3a3f48;
+    --tv-status-fg:     #c0c4cc;
+    --tv-live-bg:       #153a1e;
+    --tv-live-fg:       #6fcf7a;
+    --tv-live-bd:       #2e6b3c;
+    --tv-live-dot:      #4ecf5b;
+    --tv-paused-bg:     #3a2e10;
+    --tv-paused-fg:     #e6b955;
+    --tv-paused-bd:     #6b5320;
+    --tv-error-bg:      #3a1a1a;
+    --tv-error-fg:      #e06c6c;
+    --tv-error-bd:      #6b2828;
+    --tv-scrollbar:     #3a3f48;
+    --tv-scrollbar-hv:  #4a4f58;
+    --tv-checkpoint:    #5aa9d9;
+    --tv-checkpoint-bg: rgba(90,169,217,0.08);
+  }
+  .tv-root[data-tv-theme="light"] {
+    --tv-bg:            #fafafa;
+    --tv-fg:            #1c1f24;
+    --tv-toolbar-bg:    #eef0f2;
+    --tv-toolbar-fg:    #2c313a;
+    --tv-border:        #cdd2d8;
+    --tv-muted:         #6a7078;
+    --tv-hover:         #dde1e6;
+    --tv-help-bg:       #f4f6f8;
+    --tv-kbd-bg:        #dde1e6;
+    --tv-primary:       #1f6fd0;
+    --tv-primary-hover: #1859ad;
+    --tv-paused:        #b88620;
+    --tv-paused-hover:  #926a19;
+    --tv-loading-bg:    #dff0fa;
+    --tv-loading-fg:    #1a5a80;
+    --tv-loading-bd:    #9fc9e0;
+    --tv-status-bg:     #dde1e6;
+    --tv-status-fg:     #3a3f48;
+    --tv-live-bg:       #dff5e1;
+    --tv-live-fg:       #1d6b2d;
+    --tv-live-bd:       #7ac68a;
+    --tv-live-dot:      #2a9f3f;
+    --tv-paused-bg:     #fbefd4;
+    --tv-paused-fg:     #6b5320;
+    --tv-paused-bd:     #d9be7d;
+    --tv-error-bg:      #fadbdb;
+    --tv-error-fg:      #962020;
+    --tv-error-bd:      #e09d9d;
+    --tv-scrollbar:     #cdd2d8;
+    --tv-scrollbar-hv:  #9fa5ad;
+    --tv-checkpoint:    #1f6fd0;
+    --tv-checkpoint-bg: rgba(31,111,208,0.07);
+  }
+
+  .tv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--tv-toolbar-bg);
+    border-bottom: 1px solid var(--tv-border);
+    color: var(--tv-toolbar-fg);
+    font-size: 12px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono',
+                 Menlo, Courier, monospace;
+    flex-wrap: wrap;
+  }
+  .tv-title {
+    font-weight: 600;
+    color: var(--tv-fg);
+    max-width: 40ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+  .tv-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--tv-status-bg);
+    color: var(--tv-status-fg);
+    border: 1px solid var(--tv-border);
+  }
+  .tv-status::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--tv-muted);
+  }
+  .tv-status.tv-status--live {
+    background: var(--tv-live-bg);
+    color: var(--tv-live-fg);
+    border-color: var(--tv-live-bd);
+  }
+  .tv-status.tv-status--live::before {
+    background: var(--tv-live-dot);
+    box-shadow: 0 0 6px var(--tv-live-dot);
+    animation: tv-pulse 1.6s ease-in-out infinite;
+  }
+  .tv-status.tv-status--paused {
+    background: var(--tv-paused-bg);
+    color: var(--tv-paused-fg);
+    border-color: var(--tv-paused-bd);
+  }
+  .tv-status.tv-status--paused::before { background: var(--tv-paused-fg); }
+  .tv-status.tv-status--loading {
+    background: var(--tv-loading-bg);
+    color: var(--tv-loading-fg);
+    border-color: var(--tv-loading-bd);
+  }
+  .tv-status.tv-status--loading::before {
+    background: var(--tv-loading-fg);
+    animation: tv-pulse 1s ease-in-out infinite;
+  }
+  .tv-status.tv-status--error {
+    background: var(--tv-error-bg);
+    color: var(--tv-error-fg);
+    border-color: var(--tv-error-bd);
+  }
+  .tv-status.tv-status--error::before { background: var(--tv-error-fg); }
+  @keyframes tv-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+
+  .tv-btn, .tv-btn-group > .tv-btn {
+    appearance: none;
+    background: transparent;
+    color: var(--tv-toolbar-fg);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 120ms, color 120ms, border-color 120ms;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 26px;
+  }
+  .tv-btn i { font-size: 12px; }
+  .tv-btn:hover:not(:disabled) {
+    background: var(--tv-hover);
+    color: var(--tv-fg);
+  }
+  .tv-btn:focus-visible {
+    outline: 2px solid var(--tv-loading-fg);
+    outline-offset: 1px;
+  }
+  .tv-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .tv-btn--primary {
+    background: var(--tv-primary);
+    color: #fff;
+    border-color: var(--tv-primary);
+  }
+  .tv-btn--primary:hover:not(:disabled) {
+    background: var(--tv-primary-hover);
+    border-color: var(--tv-primary-hover);
+  }
+  .tv-btn--paused {
+    background: var(--tv-paused);
+    color: #fff;
+    border-color: var(--tv-paused);
+  }
+  .tv-btn--paused:hover:not(:disabled) {
+    background: var(--tv-paused-hover);
+    border-color: var(--tv-paused-hover);
+  }
+
+  .tv-btn-group {
+    display: inline-flex;
+    border: 1px solid var(--tv-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .tv-btn-group > .tv-btn {
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--tv-border);
+    padding: 4px 10px;
+  }
+  .tv-btn-group > .tv-btn:last-child { border-right: none; }
+
+  .tv-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--tv-border);
+    margin: 2px 4px;
+  }
+
+  .tv-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--tv-toolbar-fg);
+    cursor: pointer;
+    user-select: none;
+    font-size: 11px;
+  }
+  .tv-check input[type="checkbox"] {
+    accent-color: var(--tv-loading-fg);
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .tv-position {
+    margin-left: auto;
+    color: var(--tv-muted);
+    font-size: 11px;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    white-space: nowrap;
+  }
+  .tv-position-sep { color: var(--tv-border); margin: 0 6px; }
+
+  .tv-help {
+    display: none;
+    padding: 8px 12px;
+    background: var(--tv-help-bg);
+    border-bottom: 1px solid var(--tv-border);
+    font-size: 11px;
+    color: var(--tv-muted);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+  }
+  .tv-help kbd {
+    background: var(--tv-kbd-bg);
+    border: 1px solid var(--tv-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: var(--tv-fg);
+    margin: 0 1px;
+  }
+
+  .tv-loading {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 5px 12px;
+    background: var(--tv-loading-bg);
+    color: var(--tv-loading-fg);
+    font-size: 11px;
+    border-bottom: 1px solid var(--tv-loading-bd);
+  }
+
+  .tv-output {
+    margin: 0;
+    padding: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: var(--tv-bg);
+    color: var(--tv-fg);
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono',
+                 Menlo, Courier, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    outline: none;  /* hide default focus ring when focused for keyboard */
+    white-space: pre;
+    word-break: normal;
+    transition: opacity 120ms ease-in-out;
+  }
+  .tv-output::-webkit-scrollbar { width: 12px; height: 12px; }
+  .tv-output::-webkit-scrollbar-track { background: var(--tv-bg); }
+  .tv-output::-webkit-scrollbar-thumb {
+    background: var(--tv-scrollbar);
+    border-radius: 6px;
+    border: 3px solid var(--tv-bg);
+  }
+  .tv-output::-webkit-scrollbar-thumb:hover { background: var(--tv-scrollbar-hv); }
+
+  /* Timestamp checkpoint marker inserted by Enter key */
+  .tv-checkpoint {
+    display: block;
+    color: var(--tv-checkpoint);
+    background: var(--tv-checkpoint-bg);
+    border-left: 3px solid var(--tv-checkpoint);
+    padding: 2px 8px;
+    margin: 2px -12px;
+    font-weight: 600;
+    font-size: 11px;
+    white-space: pre;
+  }
+</style>
+
+<div class="tv-root" id="tailRoot" data-tv-theme="dark"
+     style="display:contents;">
+<div class="tv-toolbar">
+  <span id="tailStatusBadge" class="tv-status">{{ _("idle") }}</span>
+  <span class="tv-title" id="tailModalTitle">{{ _("Tail") }}</span>
+
+  <button id="tailPauseBtn" type="button"
+          class="tv-btn tv-btn--primary"
+          onclick="tailTogglePause()"
+          title="{{ _("Pause or resume (Space)") }}">
+    <i class="fas fa-pause"></i><span>{{ _("Pause") }}</span>
+  </button>
+
+  <span class="tv-divider"></span>
+
+  <div class="tv-btn-group" role="group" aria-label="{{ _("Navigate file") }}">
+    <button id="tailJumpStartBtn" type="button"
+            class="tv-btn"
+            onclick="tailJumpToStart()"
+            title="{{ _("Jump to start of file (Home)") }}">
+      <i class="fas fa-angle-double-up"></i>
+    </button>
+    <button id="tailLoadEarlierBtn" type="button"
+            class="tv-btn"
+            onclick="tailLoadEarlier()"
+            title="{{ _("Load earlier content (PageUp)") }}">
+      <i class="fas fa-angle-up"></i>
+    </button>
+    <button id="tailJumpLiveBtn" type="button"
+            class="tv-btn"
+            onclick="tailJumpToLive()"
+            title="{{ _("Jump to live (End)") }}">
+      <i class="fas fa-angle-double-down"></i>
+    </button>
+  </div>
+
+  <button id="tailClearBtn" type="button"
+          class="tv-btn"
+          onclick="tailClear()"
+          title="{{ _("Clear the buffer (Ctrl+L)") }}">
+    <i class="fas fa-eraser"></i>
+  </button>
+
+  <span class="tv-divider"></span>
+
+  <label class="tv-check" title="{{ _("Wrap long lines") }}">
+    <input type="checkbox" id="tailWrap"> {{ _("Wrap") }}
+  </label>
+  <label class="tv-check" title="{{ _("Stick to bottom when new data arrives") }}">
+    <input type="checkbox" id="tailAutoscroll" checked>
+    {{ _("Auto-scroll") }}
+  </label>
+
+  {% if not tail_standalone %}
+    <button id="tailPopoutBtn" type="button"
+            class="tv-btn"
+            onclick="tailPopout()"
+            title="{{ _("Open in a separate window") }}">
+      <i class="fas fa-external-link-alt"></i>
+    </button>
+  {% endif %}
+
+  <button id="tailHelpBtn" type="button"
+          class="tv-btn"
+          onclick="tailToggleHelp()"
+          title="{{ _("Keyboard shortcuts (?)") }}">
+    <i class="fas fa-keyboard"></i>
+  </button>
+
+  <button id="tailThemeBtn" type="button"
+          class="tv-btn"
+          onclick="tailToggleTheme()"
+          title="{{ _("Toggle light/dark theme (T)") }}">
+    <i class="fas fa-moon"></i>
+  </button>
+
+  <span class="tv-position" id="tailPositionInfo">&mdash;</span>
+</div>
+
+<div id="tailHelpPanel" class="tv-help">
+  <strong>{{ _("Keyboard shortcuts") }}:</strong>
+  <kbd>Space</kbd> {{ _("pause or resume") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>End</kbd> / <kbd>G</kbd> {{ _("jump to live") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>Home</kbd> / <kbd>Shift</kbd>+<kbd>G</kbd> {{ _("jump to start") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>PageUp</kbd> {{ _("load earlier") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>Ctrl</kbd>+<kbd>L</kbd> {{ _("clear the buffer") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>W</kbd> {{ _("toggle wrap") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>T</kbd> {{ _("toggle theme") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>Enter</kbd> {{ _("insert timestamp checkpoint") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>T</kbd> {{ _("toggle theme") }}
+  <span class="tv-position-sep">·</span>
+  <kbd>Enter</kbd> {{ _("insert timestamp checkpoint") }}
+  {% if not tail_standalone %}
+  <span class="tv-position-sep">·</span>
+  <kbd>Esc</kbd> {{ _("close the modal") }}
+  {% endif %}
+  <span class="tv-position-sep">·</span>
+  <kbd>?</kbd> {{ _("toggle this help") }}
+</div>
+
+<div id="tailLoadingStrip" class="tv-loading">
+  <i class="fas fa-spinner fa-spin"></i>
+  <span id="tailLoadingText">{{ _("Loading earlier content...") }}</span>
+</div>
+
+<pre id="tailOutput" class="tv-output" tabindex="0"></pre>
+</div><!-- /tv-root -->
+
+<script>
+  (function () {
+    const MAX_BUFFER_CHARS = 10_000_000;  // ~10 MB of text in DOM; trims end when over cap, unless user is scrolled up
+    const BACK_LOAD_CHUNK = 65536;        // request 64KB per "load earlier" action
+    const STANDALONE = {{ 'true' if tail_standalone else 'false' }};
+    let eventSource = null;
+    let currentUid = null;
+    let paused = false;
+    let byteCount = 0;
+
+    // Scroll-back state. earliestOffset/latestOffset track the byte range
+    // currently held in the DOM <pre>. currentInode is used to detect
+    // rotation during back-loads (poll may hit a new file if rotated
+    // between SSE start and back-load).
+    let earliestOffset = null;
+    let latestOffset = null;
+    let currentInode = null;
+    let currentFileSize = null;
+    let loadingEarlier = false;
+    // When user scrolls up, we stop auto-scrolling and the trim-on-overflow
+    // behaviour flips to preserve history (no trim). Reset on jump-to-live.
+    let userScrolledUp = false;
+
+    function $(id) { return document.getElementById(id); }
+
+    function setStatus(text, cls) {
+      const b = $("tailStatusBadge");
+      if (!b) return;
+      b.textContent = text;
+      // Translate legacy Bootstrap class hints into tv-status variants.
+      // Kept backwards-compat with the existing call sites.
+      let variant = "";
+      if (cls && cls.indexOf("bg-success") !== -1)      variant = "tv-status--live";
+      else if (cls && cls.indexOf("bg-warning") !== -1) variant = "tv-status--paused";
+      else if (cls && cls.indexOf("bg-info") !== -1)    variant = "tv-status--loading";
+      else if (cls && cls.indexOf("bg-danger") !== -1)  variant = "tv-status--error";
+      b.className = "tv-status" + (variant ? " " + variant : "");
+    }
+
+    function formatBytesShort(n) {
+      if (n === null || n === undefined || isNaN(n)) return "—";
+      if (n < 1024) return n + " B";
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+      if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + " MB";
+      return (n / 1024 / 1024 / 1024).toFixed(2) + " GB";
+    }
+
+    function updatePositionInfo() {
+      const el = $("tailPositionInfo");
+      if (!el) return;
+      if (earliestOffset === null || currentFileSize === null) {
+        el.textContent = "—";
+        return;
+      }
+      // "at 0 B of 42 KB · 42 KB loaded"
+      const loaded = latestOffset !== null
+        ? latestOffset - earliestOffset
+        : 0;
+      const parts = [
+        "@ " + formatBytesShort(earliestOffset),
+        "/ " + formatBytesShort(currentFileSize),
+      ];
+      if (loaded > 0) {
+        parts.push("· " + formatBytesShort(loaded) + " loaded");
+      }
+      el.textContent = parts.join(" ");
+    }
+
+    function appendText(text) {
+      if (paused) return;
+      byteCount += new Blob([text]).size;
+      const out = $("tailOutput");
+      // Track the byte range of the data we've received. Each appended
+      // payload is N bytes long, so the new end-offset advances by N.
+      if (latestOffset !== null) {
+        latestOffset += new Blob([text]).size;
+      }
+      if (currentFileSize !== null && latestOffset !== null) {
+        currentFileSize = Math.max(currentFileSize, latestOffset);
+      }
+      out.appendChild(document.createTextNode(text));
+      // Only trim when the user is at the bottom. If they've scrolled up
+      // to read history we must preserve it, even if the buffer grows
+      // over MAX_BUFFER_CHARS.
+      if (!userScrolledUp && out.textContent.length > MAX_BUFFER_CHARS) {
+        const excess = out.textContent.length - MAX_BUFFER_CHARS;
+        const trimmed = out.textContent.slice(excess);
+        out.textContent = trimmed;
+        // earliestOffset moves forward by however much we cut.
+        if (earliestOffset !== null) {
+          earliestOffset += excess;
+        }
+      }
+      const as = $("tailAutoscroll");
+      if (as && as.checked && !userScrolledUp) {
+        out.scrollTop = out.scrollHeight;
+      }
+      updatePositionInfo();
+    }
+
+    var _tailOrigTitle = null;
+    function closeEventSource() {
+      if (eventSource) {
+        try { eventSource.close(); } catch (e) {}
+        eventSource = null;
+      }
+      // Restore the browser tab title that was overwritten while tailing
+      // (set in the SSE "meta" handler). Covers every close path: modal
+      // dismiss (hidden.bs.modal), file-rotated, stream error, beforeunload.
+      if (_tailOrigTitle !== null) {
+        document.title = _tailOrigTitle;
+        _tailOrigTitle = null;
+      }
+    }
+
+    function startStream(uid, displayName) {
+      currentUid = uid;
+      paused = false;
+      byteCount = 0;
+      earliestOffset = null;
+      latestOffset = null;
+      currentInode = null;
+      currentFileSize = null;
+      loadingEarlier = false;
+      userScrolledUp = false;
+      lastCheckpointMs = null;
+      updatePositionInfo();
+      $("tailOutput").textContent = "";
+      if (displayName) {
+        $("tailModalTitle").textContent = displayName;
+      }
+      const pauseBtn = $("tailPauseBtn");
+      if (pauseBtn) {
+        pauseBtn.className = "tv-btn tv-btn--primary";
+        pauseBtn.innerHTML =
+          '<i class="fas fa-pause"></i><span>{{ _("Pause") }}</span>';
+      }
+
+      closeEventSource();
+      setStatus("{{ _("connecting") }}", "bg-warning text-dark");
+
+      const url = "/file_explorer/tail/stream?uid=" +
+                  encodeURIComponent(uid) +
+                  "&_=" + Date.now();
+      eventSource = new EventSource(url);
+
+      eventSource.addEventListener("start", function (ev) {
+        setStatus("{{ _("live") }}", "bg-success");
+        try {
+          const meta = JSON.parse(ev.data);
+          earliestOffset = meta.offset;
+          latestOffset = meta.offset;
+          currentInode = meta.inode || null;
+          currentFileSize = meta.size;
+          const title = displayName
+            ? (displayName + " (" + meta.path + ")")
+            : meta.path;
+          $("tailModalTitle").textContent = title;
+          if (_tailOrigTitle === null) { _tailOrigTitle = document.title; }
+          document.title = "tail: " + (displayName || meta.path);
+          // "Jump to start" makes no sense when we already started at offset 0.
+          updateJumpButtons();
+          updatePositionInfo();
+        } catch (e) {}
+      });
+
+      eventSource.addEventListener("data", function (ev) {
+        try {
+          const payload = JSON.parse(ev.data);
+          if (payload.text) appendText(payload.text);
+        } catch (e) {}
+      });
+
+      eventSource.addEventListener("rotated", function () {
+        appendText("\n--- {{ _("file rotated, stream ending") }} ---\n");
+        setStatus("{{ _("rotated") }}", "bg-info text-dark");
+        closeEventSource();
+      });
+
+      eventSource.addEventListener("truncated", function () {
+        appendText("\n--- {{ _("file truncated, resuming") }} ---\n");
+      });
+
+      eventSource.addEventListener("done", function (ev) {
+        let reason = "";
+        try { reason = JSON.parse(ev.data).reason || ""; } catch (e) {}
+        appendText("\n--- {{ _("stream ended") }}" +
+                   (reason ? " (" + reason + ")" : "") + " ---\n");
+        setStatus("{{ _("closed") }}", "bg-secondary");
+        closeEventSource();
+      });
+
+      eventSource.addEventListener("error", function (ev) {
+        let msg = "";
+        try { msg = JSON.parse(ev.data).message || ""; } catch (e) {}
+        if (msg) {
+          appendText("\n--- {{ _("error") }}: " + msg + " ---\n");
+          setStatus("{{ _("error") }}", "bg-danger");
+        } else {
+          setStatus("{{ _("disconnected") }}", "bg-danger");
+        }
+        closeEventSource();
+      });
+    }
+
+    // ---- Public API exposed on window ------------------------------------
+    // Called from file_explorer.html onClick.
+    window.openTailModal = function (uid, displayName) {
+      const modalEl = $("tailModal");
+      // If we're on the standalone page there is no modal; fallback to
+      // same-window start.
+      if (modalEl && window.bootstrap && bootstrap.Modal) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        modalEl.addEventListener("hidden.bs.modal", function onHide() {
+          modalEl.removeEventListener("hidden.bs.modal", onHide);
+          closeEventSource();
+        }, { once: true });
+      }
+      startStream(uid, displayName);
+    };
+
+    window.closeTailModal = function () {
+      closeEventSource();
+      setStatus("{{ _("idle") }}", "bg-secondary");
+    };
+
+    window.tailTogglePause = function () {
+      paused = !paused;
+      const btn = $("tailPauseBtn");
+      if (paused) {
+        btn.className = "tv-btn tv-btn--paused";
+        btn.innerHTML = '<i class="fas fa-play"></i><span>{{ _("Resume streaming") }}</span>';
+        setStatus("{{ _("paused") }}", "bg-warning text-dark");
+      } else {
+        btn.className = "tv-btn tv-btn--primary";
+        btn.innerHTML = '<i class="fas fa-pause"></i><span>{{ _("Pause") }}</span>';
+        if (eventSource) setStatus("{{ _("live") }}", "bg-success");
+      }
+    };
+
+    window.tailClear = function () {
+      $("tailOutput").textContent = "";
+      byteCount = 0;
+      lastCheckpointMs = null;
+      updatePositionInfo();
+    };
+
+    window.tailPopout = function () {
+      if (!currentUid) return;
+      const url = "/file_explorer/tail/view?uid=" +
+                  encodeURIComponent(currentUid);
+      // Sized generously; user can resize freely.
+      window.open(url, "tail_" + currentUid,
+                  "width=1100,height=650,resizable=yes,scrollbars=no");
+      // Close the in-page modal stream so we don't tie up a worker slot
+      // for a tail the user is now watching in the new window.
+      closeEventSource();
+      const modalEl = $("tailModal");
+      if (modalEl && window.bootstrap && bootstrap.Modal) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+      }
+    };
+
+    window.tailToggleHelp = function () {
+      const panel = $("tailHelpPanel");
+      if (!panel) return;
+      const shown = panel.style.display === "block";
+      panel.style.display = shown ? "none" : "block";
+    };
+
+    // ---- Theme toggle ---------------------------------------------------
+    const TV_THEME_KEY = "tail.theme";
+
+    function applyTheme(theme) {
+      const root = $("tailRoot");
+      if (!root) return;
+      root.setAttribute("data-tv-theme", theme);
+      const btn = $("tailThemeBtn");
+      if (btn) {
+        const icon = btn.querySelector("i");
+        if (icon) {
+          icon.className = theme === "light"
+            ? "fas fa-sun"
+            : "fas fa-moon";
+        }
+      }
+    }
+
+    function loadSavedTheme() {
+      try {
+        const saved = localStorage.getItem(TV_THEME_KEY);
+        if (saved === "light" || saved === "dark") {
+          applyTheme(saved);
+          return saved;
+        }
+      } catch (e) { /* localStorage disabled */ }
+      applyTheme("dark");
+      return "dark";
+    }
+
+    window.tailToggleTheme = function () {
+      const root = $("tailRoot");
+      if (!root) return;
+      const cur = root.getAttribute("data-tv-theme") || "dark";
+      const next = cur === "dark" ? "light" : "dark";
+      applyTheme(next);
+      try { localStorage.setItem(TV_THEME_KEY, next); } catch (e) {}
+    };
+
+    // ---- Timestamp checkpoint ------------------------------------------
+    // Tracks the last checkpoint wall-clock time so we can render a delta.
+    let lastCheckpointMs = null;
+
+    function formatDelta(ms) {
+      if (ms === null || ms < 0) return "";
+      const s = Math.floor(ms / 1000);
+      if (s < 1) return "0s";
+      if (s < 60) return s + "s";
+      const m = Math.floor(s / 60);
+      const rs = s % 60;
+      if (m < 60) return rs ? (m + "m " + rs + "s") : (m + "m");
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      if (h < 24) return rm ? (h + "h " + rm + "m") : (h + "h");
+      const d = Math.floor(h / 24);
+      const rh = h % 24;
+      return rh ? (d + "d " + rh + "h") : (d + "d");
+    }
+
+    function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+    function formatTimestampLocal(d) {
+      // "YYYY-MM-DD HH:MM:SS TZA" using the user's local clock.
+      const tzName = (Intl.DateTimeFormat().resolvedOptions().timeZone || "local");
+      return d.getFullYear() + "-" +
+             pad2(d.getMonth() + 1) + "-" +
+             pad2(d.getDate()) + " " +
+             pad2(d.getHours()) + ":" +
+             pad2(d.getMinutes()) + ":" +
+             pad2(d.getSeconds()) + " " +
+             tzName;
+    }
+
+    function formatTimestampUTC(d) {
+      return d.getUTCFullYear() + "-" +
+             pad2(d.getUTCMonth() + 1) + "-" +
+             pad2(d.getUTCDate()) + " " +
+             pad2(d.getUTCHours()) + ":" +
+             pad2(d.getUTCMinutes()) + ":" +
+             pad2(d.getUTCSeconds()) + " UTC";
+    }
+
+    window.tailInsertCheckpoint = function () {
+      const out = $("tailOutput");
+      if (!out) return;
+      const now = new Date();
+      const nowMs = now.getTime();
+      const localStr = formatTimestampLocal(now);
+      const utcStr = formatTimestampUTC(now);
+      let suffix = "";
+      if (lastCheckpointMs !== null) {
+        const delta = formatDelta(nowMs - lastCheckpointMs);
+        if (delta) {
+          suffix = "  ·  +" + delta + " {{ _("since last mark") }}";
+        }
+      }
+      lastCheckpointMs = nowMs;
+
+      // Build the checkpoint line as a styled span so it's visually
+      // distinct from the raw file content. Use U+2500 (box drawing) for
+      // the rule lines so it looks deliberate even in plain text paste.
+      const line = "──── " + localStr + "  ·  " + utcStr + suffix + " ────\n";
+      const span = document.createElement("span");
+      span.className = "tv-checkpoint";
+      span.textContent = line;
+      out.appendChild(span);
+
+      // Stick to bottom if user had autoscroll on.
+      const as = $("tailAutoscroll");
+      if (as && as.checked && !userScrolledUp) {
+        out.scrollTop = out.scrollHeight;
+      }
+    };
+
+    // ---- Scroll-back helpers --------------------------------------------
+    function updateJumpButtons() {
+      const startBtn = $("tailJumpStartBtn");
+      const earlierBtn = $("tailLoadEarlierBtn");
+      const liveBtn = $("tailJumpLiveBtn");
+      const atFileStart = earliestOffset !== null && earliestOffset <= 0;
+      if (startBtn) startBtn.disabled = atFileStart || loadingEarlier;
+      if (earlierBtn) earlierBtn.disabled = atFileStart || loadingEarlier;
+      if (liveBtn) liveBtn.disabled = !eventSource;
+    }
+
+    function showLoadingStrip(show, text) {
+      const strip = $("tailLoadingStrip");
+      const out = $("tailOutput");
+      const earlierBtn = $("tailLoadEarlierBtn");
+      const startBtn = $("tailJumpStartBtn");
+      if (strip) {
+        if (show) {
+          if (text) $("tailLoadingText").textContent = text;
+          strip.style.display = "flex";
+        } else {
+          strip.style.display = "none";
+        }
+      }
+      // Dim the output pane so the user sees the whole area is "working",
+      // not just the tiny strip at the top.
+      if (out) {
+        out.style.transition = "opacity 120ms ease-in-out";
+        out.style.opacity = show ? "0.55" : "1";
+        out.setAttribute("aria-busy", show ? "true" : "false");
+      }
+      // Swap the up-chevron icon for a spinner on the Load-earlier button.
+      if (earlierBtn) {
+        const icon = earlierBtn.querySelector("i");
+        if (icon) {
+          icon.className = show
+            ? "fas fa-spinner fa-spin"
+            : "fas fa-angle-up";
+        }
+      }
+      // Same treatment for Jump-to-start (only when it's the one driving
+      // the load; otherwise we'd show two spinners for loadEarlier).
+      if (startBtn) {
+        const icon = startBtn.querySelector("i");
+        if (icon) {
+          icon.className = show
+            ? "fas fa-spinner fa-spin"
+            : "fas fa-angle-double-up";
+        }
+      }
+    }
+
+    async function loadRange(fromOffset, maxBytes, opts) {
+      opts = opts || {};
+      if (!currentUid) return null;
+      const params = new URLSearchParams({
+        uid: currentUid,
+        offset: String(fromOffset),
+        max_bytes: String(maxBytes),
+      });
+      if (opts.alignNewline) params.set("align", "newline");
+      try {
+        const resp = await fetch(
+          "/file_explorer/tail/poll?" + params.toString(),
+          { credentials: "same-origin" }
+        );
+        if (!resp.ok) return null;
+        return await resp.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function loadEarlier(chunkBytes) {
+      if (loadingEarlier) return;
+      if (earliestOffset === null) return;
+      if (earliestOffset <= 0) return;
+
+      loadingEarlier = true;
+      updateJumpButtons();
+      const prevBadgeText = $("tailStatusBadge") ? $("tailStatusBadge").textContent : null;
+      const prevBadgeClass = $("tailStatusBadge") ? $("tailStatusBadge").className : null;
+      setStatus("{{ _("loading") }}", "bg-info text-dark");
+      showLoadingStrip(true, "{{ _("Loading earlier content...") }}");
+
+      const out = $("tailOutput");
+      // Preserve scroll anchor across prepend: remember distance from
+      // bottom, restore after DOM mutation.
+      const distanceFromBottom = out.scrollHeight - out.scrollTop;
+      const requested = Math.min(chunkBytes, earliestOffset);
+      const from = Math.max(0, earliestOffset - requested);
+      const data = await loadRange(from, requested, { alignNewline: from > 0 });
+      loadingEarlier = false;
+      showLoadingStrip(false);
+      // Restore the prior status — either live (stream still running) or
+      // whatever terminal state we were in.
+      if (prevBadgeText && $("tailStatusBadge")) {
+        $("tailStatusBadge").textContent = prevBadgeText;
+        $("tailStatusBadge").className = prevBadgeClass;
+      }
+
+      if (!data || !data.success) {
+        appendTopNotice("{{ _("Failed to load earlier content") }}");
+        updateJumpButtons();
+        return;
+      }
+
+      // Rotation detection: inode changed while we weren't looking.
+      if (currentInode !== null && data.inode && data.inode !== currentInode) {
+        appendTopNotice("{{ _("File rotated; earlier history is unavailable") }}");
+        earliestOffset = 0;
+        updateJumpButtons();
+        return;
+      }
+
+      if (data.text) {
+        // Prepend as a text node to avoid re-parsing the whole <pre>.
+        const node = document.createTextNode(data.text);
+        out.insertBefore(node, out.firstChild);
+        earliestOffset = data.start_offset;
+        byteCount += new Blob([data.text]).size;
+        // Restore scroll position.
+        out.scrollTop = out.scrollHeight - distanceFromBottom;
+      }
+      updateJumpButtons();
+      updatePositionInfo();
+    }
+
+    function appendTopNotice(msg) {
+      const out = $("tailOutput");
+      const node = document.createTextNode("--- " + msg + " ---\n");
+      out.insertBefore(node, out.firstChild);
+    }
+
+    window.tailLoadEarlier = function () {
+      loadEarlier(BACK_LOAD_CHUNK);
+    };
+
+    window.tailJumpToStart = function () {
+      if (earliestOffset === null || earliestOffset <= 0) return;
+      // Load from byte 0 up to min(earliestOffset, 1MB) in one shot so the
+      // user can scroll freely. For files larger than ~1MB they can keep
+      // clicking "Load earlier" to fill in.
+      (async function () {
+        if (loadingEarlier) return;
+        loadingEarlier = true;
+        updateJumpButtons();
+        const prevBadgeText = $("tailStatusBadge") ? $("tailStatusBadge").textContent : null;
+        const prevBadgeClass = $("tailStatusBadge") ? $("tailStatusBadge").className : null;
+        setStatus("{{ _("loading") }}", "bg-info text-dark");
+        showLoadingStrip(true, "{{ _("Jumping to start...") }}");
+        const out = $("tailOutput");
+        const distanceFromBottom = out.scrollHeight - out.scrollTop;
+        const requested = Math.min(earliestOffset, 1_048_576);
+        const from = Math.max(0, earliestOffset - requested);
+        const data = await loadRange(from, requested, { alignNewline: from > 0 });
+        loadingEarlier = false;
+        showLoadingStrip(false);
+        if (prevBadgeText && $("tailStatusBadge")) {
+          $("tailStatusBadge").textContent = prevBadgeText;
+          $("tailStatusBadge").className = prevBadgeClass;
+        }
+
+        if (data && data.success) {
+          if (currentInode !== null && data.inode && data.inode !== currentInode) {
+            appendTopNotice("{{ _("File rotated; earlier history is unavailable") }}");
+            earliestOffset = 0;
+            updateJumpButtons();
+            return;
+          }
+          if (data.text) {
+            const node = document.createTextNode(data.text);
+            out.insertBefore(node, out.firstChild);
+            earliestOffset = data.start_offset;
+            byteCount += new Blob([data.text]).size;
+            // Scroll to top so the user lands at the beginning.
+            if (earliestOffset <= 0) {
+              out.scrollTop = 0;
+            } else {
+              out.scrollTop = out.scrollHeight - distanceFromBottom;
+            }
+          }
+        }
+        updateJumpButtons();
+        updatePositionInfo();
+      })();
+    };
+
+    window.tailJumpToLive = function () {
+      const out = $("tailOutput");
+      userScrolledUp = false;
+      const as = $("tailAutoscroll");
+      if (as) as.checked = true;
+      out.scrollTop = out.scrollHeight;
+      updateJumpButtons();
+    };
+
+    // Scroll listener: detect user scrolling away from bottom (disables
+    // autoscroll + trim) and scrolling near top (auto-load earlier).
+    document.addEventListener("DOMContentLoaded", function () {
+      // Apply persisted theme (defaults to dark).
+      loadSavedTheme();
+
+      const out = $("tailOutput");
+      if (!out) return;
+      out.addEventListener("scroll", function () {
+        const atBottom =
+          out.scrollHeight - out.scrollTop - out.clientHeight < 30;
+        userScrolledUp = !atBottom;
+        // Auto-load earlier when within 200px of the top (classic
+        // infinite-scroll-up behaviour).
+        if (out.scrollTop < 200 &&
+            earliestOffset !== null && earliestOffset > 0 &&
+            !loadingEarlier) {
+          loadEarlier(BACK_LOAD_CHUNK);
+        }
+      }, { passive: true });
+    });
+
+    // Wrap toggle
+    document.addEventListener("change", function (ev) {
+      if (ev.target && ev.target.id === "tailWrap") {
+        $("tailOutput").style.whiteSpace =
+          ev.target.checked ? "pre-wrap" : "pre";
+      }
+    });
+
+    // ---- Keyboard shortcuts ----------------------------------------------
+    // Shortcuts only fire when this viewer is "focused" — i.e. the modal
+    // is open (Bootstrap sets aria-hidden=false), or we're on the
+    // standalone page. They also skip when the user is typing in an
+    // input/textarea or holds any non-target modifier.
+    function shortcutsActive() {
+      if (STANDALONE) return true;
+      const modalEl = $("tailModal");
+      return !!(modalEl && modalEl.classList.contains("show"));
+    }
+
+    function typingInInput(ev) {
+      const t = ev.target;
+      if (!t) return false;
+      const tag = (t.tagName || "").toUpperCase();
+      return tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable;
+    }
+
+    document.addEventListener("keydown", function (ev) {
+      if (!shortcutsActive()) return;
+      if (typingInInput(ev)) return;
+
+      // Shortcuts that require a modifier
+      if (ev.ctrlKey || ev.metaKey) {
+        // Ctrl/Cmd+L: clear. Overrides Chrome's "focus URL bar" so use with
+        // caution; users can still click the Clear button instead.
+        if (ev.key === "l" || ev.key === "L") {
+          ev.preventDefault();
+          window.tailClear();
+        }
+        return;
+      }
+      if (ev.altKey) return;
+
+      // Shift+G = jump to start (matches less/vim G convention where
+      // lowercase g goes to the start, capital G to the end; we invert
+      // because tail viewers typically open at the end).
+      if (ev.shiftKey) {
+        if (ev.key === "G") {
+          ev.preventDefault();
+          window.tailJumpToStart();
+        }
+        return;
+      }
+
+      // Unmodified single-key shortcuts
+      switch (ev.key) {
+        case " ":
+          ev.preventDefault();
+          window.tailTogglePause();
+          break;
+        case "End":
+        case "g":
+          ev.preventDefault();
+          window.tailJumpToLive();
+          break;
+        case "Home":
+          ev.preventDefault();
+          window.tailJumpToStart();
+          break;
+        case "PageUp":
+          ev.preventDefault();
+          window.tailLoadEarlier();
+          break;
+        case "w":
+        case "W": {
+          const wrap = $("tailWrap");
+          if (wrap) {
+            wrap.checked = !wrap.checked;
+            wrap.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          break;
+        }
+        case "t":
+        case "T":
+          window.tailToggleTheme();
+          break;
+        case "Enter":
+          ev.preventDefault();
+          window.tailInsertCheckpoint();
+          break;
+        case "?":
+          ev.preventDefault();
+          window.tailToggleHelp();
+          break;
+        case "Escape":
+          if (!STANDALONE) {
+            const modalEl = $("tailModal");
+            if (modalEl && window.bootstrap && bootstrap.Modal) {
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+          }
+          break;
+      }
+    });
+
+    // Apply persisted theme immediately if the DOM is already ready (the
+    // modal case, where this script runs after DOMContentLoaded has
+    // fired). The DOMContentLoaded handler below covers the standalone
+    // page case where this script runs before DOM is ready.
+    if (document.readyState !== "loading") {
+      try { loadSavedTheme(); } catch (e) {}
+    }
+
+    // Standalone mode: auto-start from ?uid=...
+    if (STANDALONE) {
+      const params = new URLSearchParams(window.location.search);
+      const uid = params.get("uid");
+      const name = params.get("name") || "";
+      if (uid) {
+        // Wait for DOM to be ready.
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () {
+            startStream(uid, name);
+          });
+        } else {
+          startStream(uid, name);
+        }
+      } else {
+        setStatus("{{ _("no file specified") }}", "bg-danger");
+      }
+      // Close the stream when the user closes/navigates the pop-out window.
+      window.addEventListener("beforeunload", closeEventSource);
+    }
+  })();
+</script>

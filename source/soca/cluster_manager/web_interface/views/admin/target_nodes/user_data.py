@@ -14,6 +14,7 @@
 import logging
 import boto3
 from flask import render_template, Blueprint, request, redirect, session, flash
+from flask_babel import gettext as _
 from decorators import login_required, admin_only
 from utils.http_client import SocaHttpClient
 from collections import defaultdict
@@ -41,8 +42,8 @@ def index():
     ).get()
 
     if _list_user_data_templates.get("success") is False:
-        flash(
-            f"Unable to list User Data Template  because of {_list_user_data_templates.get('message')}",
+        flash(_(
+            f"Unable to list User Data Template  because of {_list_user_data_templates.get('message')}"),
             "error",
         )
         _user_data_templates = {}
@@ -72,13 +73,13 @@ def user_data_template_create():
     ).post(data=request.form.to_dict())
 
     if _create_user_data.get("success") is True:
-        flash(
-            f"Your user data template has been created successfully",
+        flash(_(
+            f"Your user data template has been created successfully"),
             "success",
         )
     else:
-        flash(
-            f"Unable to create your user data template because of {_create_user_data.get('message')}",
+        flash(_(
+            f"Unable to create your user data template because of {_create_user_data.get('message')}"),
             "error",
         )
 
@@ -101,13 +102,13 @@ def user_data_template_delete():
     ).delete(data=request.form.to_dict())
 
     if _delete_user_data_template.get("success") is True:
-        flash(
-            f"Your User Data Template has been removed  successfully",
+        flash(_(
+            f"Your User Data Template has been removed  successfully"),
             "success",
         )
     else:
-        flash(
-            f"Unable to remove your User Data Template because of {_delete_user_data_template.get('message')}",
+        flash(_(
+            f"Unable to remove your User Data Template because of {_delete_user_data_template.get('message')}"),
             "error",
         )
 
@@ -128,7 +129,7 @@ def user_data_template_edit():
     )
     _template_to_modify = request.form.get("template_id", None)
     if _template_to_modify is None:
-        flash("Missing template_id", "error")
+        flash(_("Missing template_id"), "error")
         return redirect("/admin/target_nodes/user_data")
 
     _get_template_info = SocaHttpClient(
@@ -144,8 +145,8 @@ def user_data_template_edit():
             page="admin_target_nodes_user_data",
         )
     else:
-        flash(
-            f"Unable to list SOCA User Data Template because of {_get_template_info.get('message')}",
+        flash(_(
+            f"Unable to list SOCA User Data Template because of {_get_template_info.get('message')}"),
             "error",
         )
         return redirect("/admin/target_nodes/user_data")
@@ -161,7 +162,7 @@ def user_data_template_update():
 
     _template_to_modify = request.form.get("template_id", None)
     if _template_to_modify is None:
-        flash("Missing template_id", "error")
+        flash(_("Missing template_id"), "error")
         return redirect("/admin/target_nodes/user_data")
 
     _modify_user_data_template = SocaHttpClient(
@@ -170,13 +171,13 @@ def user_data_template_update():
     ).put(data=request.form.to_dict())
 
     if _modify_user_data_template.get("success") is True:
-        flash(
-            f"Your user data template has been updated successfully",
+        flash(_(
+            f"Your user data template has been updated successfully"),
             "success",
         )
     else:
-        flash(
-            f"{_modify_user_data_template.get('message')}",
+        flash(_(
+            f"{_modify_user_data_template.get('message')}"),
             "error",
         )
     return redirect("/admin/target_nodes/user_data")

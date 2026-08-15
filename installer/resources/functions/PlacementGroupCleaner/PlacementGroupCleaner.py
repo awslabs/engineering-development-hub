@@ -9,6 +9,13 @@ from botocore.exceptions import ClientError
 
 logging.getLogger().setLevel(logging.INFO)
 
+"""
+This function deletes orphaned EC2 Placement Groups requested via SOCA.
+This function is managed by AWS StepFunction:
+  - Triggered via EventBridge on CloudFormation stack state change
+  - Also triggered via scheduled execution to clean orphaned Placement Groups
+"""
+
 ec2_client = boto3.client("ec2")
 cfn_client = boto3.client("cloudformation")
 
@@ -163,13 +170,6 @@ def clean_orphaned_pg_on_schedule() -> bool:
 
 
 def lambda_handler(event, context):
-    """
-    This function deletes orphaned EC2 Placement Groups requested via SOCA.
-    This function is managed by AWS StepFunction:
-    - Triggered via EventBridge on CloudFormation stack state change
-    - Also triggered via scheduled execution to clean orphaned Placement Groups
-    """
-
     _stack_id = event.get(
         "stack_id", None
     )  # EventBridge return the entire ARN e.g: arn:aws:cloudformation:us-west-1:123456789012:stack/stack_name/stack_uuid

@@ -1,45 +1,154 @@
 ---
-
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 Config:
-  version: "26.4.0"  # version automatically populated as part of RELEASE-PIPELINE.sh (see github_release.py)
-  termination_protection: true  # Enable (recommended) or Disable Cloudformation Stack termination protection
-  entry_points_subnets: "Public"  # Public (recommended) or Private. In public mode the scheduler and ELB are deployed on PublicSubnets and assigned Public IPS. In Private mode scheduler and ELB are deployed in private subnets. In both case compute nodes and OpenSearch/EFS/FSxL are deployed in private subnets. Public does not means your cluster will be accessible to everyone by default, access to your cluster is still protected by security groups
-  admin_user_name: "edhadmin"  # The name of the default admin username that will be created.
-  metadata_http_tokens: "required"  # Supported values are "required" (recommended) for IMDSv2 or "optional" for IMDSv1 (https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-metadataoptions.html#cfn-ec2-launchtemplate-launchtemplatedata-metadataoptions-httptokens)
-  kms_key_id: ~  # A Global KMS KeyID (ARN) for any encrypted operations. Setting this removes the need to set on a per-resource basis. Note a per-resource key will over-ride this setting.
-  # Uncomment section below if you want to add additional tags to the resources created by SOCA. You can add additional tags post-deployment via `edhctl`
+  version: "26.8.0" # version automatically populated as part of RELEASE-PIPELINE.sh (see github_release.py)
+  termination_protection: true # Enable (recommended) or Disable Cloudformation Stack termination protection
+  admin_user_name: "edhadmin" # The name of the default admin username that will be created.
+  metadata_http_tokens: "required" # Supported values are "required" (recommended) for IMDSv2 or "optional" for IMDSv1 (https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-metadataoptions.html#cfn-ec2-launchtemplate-launchtemplatedata-metadataoptions-httptokens)
+
+  # A Global KMS KeyID (Arn) for any encrypted operations.
+  # Setting this removes the need to set on a per-resource basis.
+  # Note a per-resource key will over-ride this setting.
+  # Verify the policy access for your CMK before using it.
+  # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+  #{
+  #    "Sid": "Enable IAM User Permissions",
+  #    "Effect": "Allow",
+  #    "Principal": {
+  #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+  #    },
+  #    "Action": "kms:*",
+  #    "Resource": "*"
+  #  },
+
+  # As well as the following to allow CloudWatch to use the key for log encryption if you are using a custom CMK for logging:
+  #{
+  #"Effect": "Allow",
+  #"Principal": {
+  #  "Service": "logs.<region>.amazonaws.com"
+  #},
+  #"Action": [
+  #  "kms:Encrypt",
+  #  "kms:Decrypt",
+  #  "kms:ReEncrypt*",
+  #  "kms:GenerateDataKey*",
+  #  "kms:DescribeKey"
+  #],
+  #"Resource": "*",
+  #}
+
+  #Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+  kms_key_id: ~
+
+  # Uncomment section below if you want to add additional tags to the resources created by EDH. You can add additional tags post-deployment via `edhctl`
   # custom_tags:
   #  - Key: 'example:custom:Tag1Name'
   #    Value: 'Tag1Value'
   #  - Key: 'example:custom:Tag2Name'
   #    Value: 'Tag2Value'
-  
+
+  ai_assistant:
+    allowed_daily_tokens_per_user: 1000000 # Daily token limit per user for AI assistant usage.
+
+    allowed_bedrock_model_ids: # list of allowed Bedrock model IDs for AI assistant usage. First model is the default one.
+      - "global.anthropic.claude-opus-4-7"
+      - "global.anthropic.claude-opus-4-8"
+      - "global.anthropic.claude-sonnet-4-6"
+      - "global.anthropic.claude-sonnet-5"
+
+    allowed_mcp_servers:
+      ~ # list of allowed MCP servers
+      # example format
+      # -  {
+      # "name": "my-mcp",
+      #  "endpoint": "https://my-mcp.internal.com/mcp",
+      #  "headers": {"Authorization": "Bearer <token-if-needed>"}
+      #   }
+
   scheduler:
-    # Scheduler(s) to install/configure on the SOCA_CONTROLLER host
-    # Note: 
+    # Scheduler(s) to install/configure on the EDH_CONTROLLER host
+    # Note:
     # - LSF: Additional customer inputs are required. See Parameters.scheduler.lsf section below.
     # - OpenPBS: You can define various deployment type (default to git). See Parameters.scheduler.openpbs section below.
     # - PBSPro: Additional customer inputs are required. See Parameters.scheduler.pbspro section below
-    scheduler_engine: 
+    scheduler_engine:
       - "openpbs" # Production ready - Stable & Tested
-      #- "lsf" # Preview - Development, not stable, not fully tested and not suitable for production.
-      #- "slurm" # Preview - In Development, not stable, not fully tested and not suitable for production.
-      #- "pbspro" # Preview - In Development, not stable, not fully tested and not suitable for production.
+      # - "lsf" # Preview - Development, not stable, not fully tested and not suitable for production.
+      # - "slurm" # Preview - In Development, not stable, not fully tested and not suitable for production.
+      # - "pbspro" # Preview - In Development, not stable, not fully tested and not suitable for production.
 
   services:
     aws_backup:
-      enabled: true  # Enable (True) or Disable (False) AWS Backup integration.  WARNING - SETTING THIS TO FALSE WILL DISABLE AUTOMATIC BACKUPS OF YOUR SOCA ENVIRONMENT.
-      kms_key_id: ~  # Specify your own CMK to encrypt AWS Backup
+      enabled: true # Enable (True) or Disable (False) AWS Backup integration.  WARNING - SETTING THIS TO FALSE WILL DISABLE AUTOMATIC BACKUPS OF YOUR EDH ENVIRONMENT.
+
+      # Specify your own CMK Arn to encrypt AWS Backup
+      # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+      #{
+      #    "Sid": "Enable IAM User Permissions",
+      #    "Effect": "Allow",
+      #    "Principal": {
+      #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+      #    },
+      #    "Action": "kms:*",
+      #    "Resource": "*"
+      #  },
+      # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+      kms_key_id: ~
+      delete_after: 7 # (Experimental) In Days, choose backup retention period
+      # Support additional copy destinations in the AWS Backup Rule
+      # This allows for integration of Logically Air-gapped Vaults to provide
+      # additional protection of the backups
+      # The configured destination vault must already exist and be configured/reachable
+      # For more information: https://aws.amazon.com/blogs/storage/building-cyber-resiliency-with-aws-backup-logically-air-gapped-vault/
+      # additional_copy_destinations:
+      #   - "arn:aws:backup:us-east-1:123456789012:backup-vault:backupvaultname"
+
+    # Resource Mirroring: mirror external install artifacts into the cluster S3
+    # bucket so cluster nodes pull from S3 (egress-free) instead of public CDNs.
+    resources_mirroring:
+      enabled: true # CDK-time: deploy the cloud mirror executor (SFN + Lambdas)
+      method: "ask" # ask( (will prompt terminal UI question) | cloud-no-vpc  | cloud-in-vpc-nat | install-host
+      failure_mode: "soft" # soft (log misses, cluster still comes up) | hard (CloudFormation rollback on any on_error=fail failure)
+      max_concurrency: 16 # SFN Map fan-out
+      mirror_s3_sources: true # also mirror remote s3:// sources
+      mirror_gpu_nvidia: true # mirror NVIDIA GPU driver latest/ prefixes
+      mirror_gpu_amd: false # AMD GPU drivers off by default; re-enable via refresh
+
+    # USB Remotization: admin-managed USB device allowlist (Hardware Profiles).
+    # Deploys the boot-time resolver Lambda + IAM Function URL that VDIs call to
+    # fetch their effective usb-devices.conf. Requires the Aurora database
+    # provider. Inert until an admin creates a USB profile and binds a Hardware
+    # Profile to a software stack or project (empty allowlist = DCV defaults).
+    usb_remotization:
+      enabled: true # CDK-time: deploy the USB allowlist resolver Lambda + Function URL
+
+    # SSM ElastiCache ConfigSync: fronts SocaConfig reads with a Valkey HASH
+    # for /virtual_desktops performance at scale. Recommended (and effectively
+    # required) when dcv.high_scale is true. Set enabled: false to fall back to
+    # the per-key 60s app-cache workaround.
+    ssm_elasticache_config_sync:
+      enabled: true
 
     # Rework this section once migration is fully completed
     aws_elasticache:
-      enabled: true  # Required to be True for now
-      engine: "valkey"  # valkey (default) or redis are supported - https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/supported-engine-versions.html
-      engine_version: "8"  # Engine specific version information
-      kms_key_id: ~  # Specify your own CMK to encrypt ElastiCache
+      enabled: true # Required to be True for now
+      engine: "valkey" # valkey (default) or redis are supported - https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/supported-engine-versions.html
+      engine_version: "9" # Engine specific version information
+      # Specify your own CMK Arn to encrypt AWS ElastiCache
+      # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+      #{
+      #    "Sid": "Enable IAM User Permissions",
+      #    "Effect": "Allow",
+      #    "Principal": {
+      #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+      #    },
+      #    "Action": "kms:*",
+      #    "Resource": "*"
+      #  },
+      # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+      kms_key_id: ~
       limits:
         ecpu:
           min: 1000
@@ -51,36 +160,67 @@ Config:
         short: 3600
         long: 86400
     aws_batch:
-      create_default_edh_environment: true  # [Preview] Enable (True) or Disable (False) a default AWS Batch Compute Environment (Fargate) / Queue and basic Job Definition
+      create_default_edh_environment: true # [Preview] Enable (True) or Disable (False) a default AWS Batch Compute Environment (Fargate) / Queue and basic Job Definition
 
-    
+    aws_secretsmanager:
+      # Specify your own CMK to encrypt secrets manager secrets
+      # {
+      #    "Sid": "Enable IAM User Permissions",
+      #    "Effect": "Allow",
+      #    "Principal": {
+      #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+      #    },
+      #    "Action": "kms:*",
+      #    "Resource": "*"
+      #  },
+      # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+      kms_key_id: ~
+
     logging:
-      kms_key_id: ~  # KMS KeyID used for CloudWatch / logging operations
-      log_group_prefix: ~  # Create a specific log group prefix. If empty (~) , will use /edh by default. Including a leading / if needed.
-      log_group_class: "STANDARD"  # STANDARD or INFREQUENT_ACCESS . NOTE - feature differences existing between the classes
-      log_group_include_cluster_id: true  #  By default(true), include the cluster name in the created log-group so logs appear as <prefix>/<cluster_id>/<resource>
-      retention_policy: "THREE_YEARS"  # For valid values see the Enum: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html
-      removal_policy: "RETAIN"  # RETAIN or DESTROY
+      # CMK Arn used for CloudWatch / logging operations. Make sure the access policy of your CMK has proper permission for CloudWatch
+      # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+      #{
+      #"Effect": "Allow",
+      #"Principal": {
+      #  "Service": "logs.<region>.amazonaws.com"
+      #},
+      #"Action": [
+      #  "kms:Encrypt",
+      #  "kms:Decrypt",
+      #  "kms:ReEncrypt*",
+      #  "kms:GenerateDataKey*",
+      #  "kms:DescribeKey"
+      #],
+      #"Resource": "*",
+      #}
+      kms_key_id: ~
+      log_group_prefix: ~ # Create a specific log group prefix. If empty (~) , will use /edh by default. Including a leading / if needed.
+      log_group_class: "STANDARD" # STANDARD or INFREQUENT_ACCESS . NOTE - feature differences existing between the classes
+      log_group_include_cluster_id: true #  By default(true), include the cluster name in the created log-group so logs appear as <prefix>/<cluster_id>/<resource>
+      retention_policy: "THREE_YEARS" # For valid values see the Enum: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html
+      removal_policy: "RETAIN" # RETAIN or DESTROY
 
   # Configure your Network parameters below (CIDR range is configured interactively --vpc-cidr
   network:
-    alb_tls_policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"  # See https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
-    nat_gateways: 1  # Number of NAT gateways to create. Must be equal or lower to the numbers of public subnets
-    max_azs: 3  # Number of AZs to use. We will deploy the same number of private and public subnets. Must be greater than 2
-    cross_zone_enabled: true  # Enable NLB cross-zone access
-    enable_vpc_gateway_endpoints: true  # Enable(true)/Disable the default creation/use of gateway endpoints and routing updates (only applies to SOCA-created resources)
+    alb_tls_policy: "ELBSecurityPolicy-TLS13-1-2-2021-06" # See https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    nat_gateways: 1 # Number of NAT gateways to create. Must be equal or lower to the numbers of public subnets
+    max_azs: 3 # Number of AZs to use. We will deploy the same number of private and public subnets. Must be greater than 2
+    cross_zone_enabled: true # Enable NLB cross-zone access
+    enable_vpc_gateway_endpoints: true # Enable(true)/Disable the default creation/use of gateway endpoints and routing updates (only applies to EDH-created resources)
     vpc_gateway_endpoints:
       - s3
-    use_vpc_endpoints: false  # Enable / Disable (default) creation of VPC endpoints for various services (listed under vpc_interface_endpoints).
-    vpc_interface_endpoints:  # use_vpc_endpoints must be set to True. For list of services:  https://docs.aws.amazon.com/cdk/api/latest/python/aws_cdk.aws_ec2/InterfaceVpcEndpointAwsService.html
+    use_vpc_endpoints: false # Enable / Disable (default) creation of VPC endpoints for various services (listed under vpc_interface_endpoints).
+    vpc_interface_endpoints: # use_vpc_endpoints must be set to True. For list of services:  https://docs.aws.amazon.com/cdk/api/latest/python/aws_cdk.aws_ec2/InterfaceVpcEndpointAwsService.html
       - cloudformation
       - ec2
       - ec2messages
       - elasticache
       - elasticfilesystem
       - elasticloadbalancing
+      - execute-api
       - fsx
       - iam
+      - kms
       - logs
       - monitoring
       - secretsmanager
@@ -98,7 +238,7 @@ Config:
       # Enable AGA true/false
       # Only applies in public-facing deployments
       enabled: false
-      address_type: "IPV4"  # "IPV4" or "DUAL_STACK"
+      address_type: "IPV4" # "IPV4" or "DUAL_STACK"
       # What areas of SOCA are subject to AGA acceleration?
       acceleration:
         #
@@ -115,20 +255,44 @@ Config:
           enabled: true
           client_affinity: "SOURCE_IP"
 
-
   # Configure your Storage options below
   storage:
     # Define storage / filesystems
     # apps and data are required
     # Additional filesystems can be created by creating a new config tree
-    kms_key_id: ~  # Storge-wide KMS KeyID
+
+    # Specify your own CMK to encrypt all storage resources (EFS, FSx for Lustre and FSx for ONTAP)
+    # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+    # {
+    #    "Sid": "Enable IAM User Permissions",
+    #    "Effect": "Allow",
+    #    "Principal": {
+    #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+    #    },
+    #    "Action": "kms:*",
+    #    "Resource": "*"
+    #  },
+    # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+    kms_key_id: ~
     apps:
-      mount_point: "/apps"  # (Just for reference, this cannot be changed today) Where this should be mounted in the filesystem namespace.
-      kms_key_id: ~  # Specify your own CMK to encrypt filesystem.
+      mount_point: "/apps" # (Just for reference, this cannot be changed today) Where this should be mounted in the filesystem namespace.
+      # Specify your own CMK to encrypt /apps partition
+      # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+      # {
+      #    "Sid": "Enable IAM User Permissions",
+      #    "Effect": "Allow",
+      #    "Principal": {
+      #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+      #    },
+      #    "Action": "kms:*",
+      #    "Resource": "*"
+      #  },
+      # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+      kms_key_id: ~
       efs:
-        throughput_mode: "bursting"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-throughputmode
-        performance_mode: "generalPurpose"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-performancemode
-        deletion_policy: "NO_RETAIN"  # RETAIN will preserve the EFS even if you delete the stack. Any other value will delete EFS if you delete the CFN stack
+        throughput_mode: "bursting" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-throughputmode
+        performance_mode: "generalPurpose" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-performancemode
+        deletion_policy: "NO_RETAIN" # RETAIN will preserve the EFS even if you delete the stack. Any other value will delete EFS if you delete the CFN stack
       fsx_ontap:
         deployment_type: "MULTI_AZ_2"
         automatic_backup_retention_days: 7
@@ -136,24 +300,36 @@ Config:
         throughput_capacity: 384
         storage_capacity: 1024
         junction_path: "/apps"
-        netbios_name: "EDHAPPSSVM"  # 15 Chars Max, must be unique to your AD
-        file_system_administrators_group: ~  # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
-        organizational_unit_distinguished_name: ~  # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
+        netbios_name: "EDHAPPSSVM" # 15 Chars Max, must be unique to your AD
+        file_system_administrators_group: ~ # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
+        organizational_unit_distinguished_name: ~ # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
       fsx_lustre:
-        deployment_type: "PERSISTENT_2"  # Allowed values: PERSISTENT_1 | PERSISTENT_2 | SCRATCH_1 | SCRATCH_2. Region availability information  https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
-        drive_cache_type: "READ"  # Allowed values: NONE | READ. Required when storage_type is HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-drivecachetype
-        per_unit_storage_throughput: 125  # Allowed values: 12, 40 for HDD, 50, 100, 200 for SSD PERSISTENT_1, 125, 250, 500, 1000  for SSD PERSISTENT_2. Required for the PERSISTENT_1 & PERSISTENT_2 deployment_type. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-perunitstoragethroughput
-        storage_capacity: 1200  # For SCRATCH_2 and PERSISTENT_x types, valid values are 1,200, 2,400, then continuing in increments of 2,400 GiB. For SCRATCH_1 deployment types, valid values are 1,200, 2,400, 3,600, then continuing in increments of 3,600 GiB. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagecapacity
-        storage_type: "SSD"  # Allowed values: SSD or HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagetype
+        deployment_type: "PERSISTENT_2" # Allowed values: PERSISTENT_1 | PERSISTENT_2 | SCRATCH_1 | SCRATCH_2. Region availability information  https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
+        drive_cache_type: "READ" # Allowed values: NONE | READ. Required when storage_type is HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-drivecachetype
+        per_unit_storage_throughput: 125 # Allowed values: 12, 40 for HDD, 50, 100, 200 for SSD PERSISTENT_1, 125, 250, 500, 1000  for SSD PERSISTENT_2. Required for the PERSISTENT_1 & PERSISTENT_2 deployment_type. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-perunitstoragethroughput
+        storage_capacity: 1200 # For SCRATCH_2 and PERSISTENT_x types, valid values are 1,200, 2,400, then continuing in increments of 2,400 GiB. For SCRATCH_1 deployment types, valid values are 1,200, 2,400, 3,600, then continuing in increments of 3,600 GiB. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagecapacity
+        storage_type: "SSD" # Allowed values: SSD or HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagetype
 
     data:
-      mount_point: "/data"  # (Just for reference, this cannot be changed today) Where this should be mounted in the filesystem namespace.
-      kms_key_id: ~  # Specify your own CMK to encrypt filesystem.
+      mount_point: "/data" # (Just for reference, this cannot be changed today) Where this should be mounted in the filesystem namespace.
+      # Specify your own CMK Arn to encrypt /data partition
+      # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+      # {
+      #    "Sid": "Enable IAM User Permissions",
+      #    "Effect": "Allow",
+      #    "Principal": {
+      #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+      #    },
+      #    "Action": "kms:*",
+      #    "Resource": "*"
+      #  },
+      # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+      kms_key_id: ~
       efs:
-        throughput_mode: "bursting"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-throughputmode
-        performance_mode: "generalPurpose"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-performancemode
-        transition_to_ia: "AFTER_30_DAYS"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-efs-filesystem-lifecyclepolicy.html
-        deletion_policy: "NO_RETAIN"  # RETAIN will preserve the EFS even if you delete the stack. Any other value will delete EFS if you delete the CFN stack
+        throughput_mode: "bursting" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-throughputmode
+        performance_mode: "generalPurpose" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-efs-filesystem-performancemode
+        transition_to_ia: "AFTER_30_DAYS" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-efs-filesystem-lifecyclepolicy.html
+        deletion_policy: "NO_RETAIN" # RETAIN will preserve the EFS even if you delete the stack. Any other value will delete EFS if you delete the CFN stack
       fsx_ontap:
         deployment_type: "MULTI_AZ_2"
         automatic_backup_retention_days: 7
@@ -161,132 +337,326 @@ Config:
         throughput_capacity: 384
         storage_capacity: 1024
         junction_path: "/data"
-        netbios_name: "EDHDATASVM"  # 15 Chars Max, must be unique to your AD.
-        file_system_administrators_group: ~  # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
-        organizational_unit_distinguished_name: ~  # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
+        netbios_name: "EDHDATASVM" # 15 Chars Max, must be unique to your AD.
+        file_system_administrators_group: ~ # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
+        organizational_unit_distinguished_name: ~ # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
       fsx_lustre:
-        deployment_type: "PERSISTENT_2"  # Allowed values: PERSISTENT_1 | PERSISTENT_2 | SCRATCH_1 | SCRATCH_2. Region availability information  https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
-        drive_cache_type: "READ"  # Allowed values: NONE | READ. Required when storage_type is HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-drivecachetype
-        per_unit_storage_throughput: 125  # Allowed values: 12, 40 for HDD, 50, 100, 200 for SSD. Required for the PERSISTENT_1 deployment_type. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-perunitstoragethroughput
-        storage_capacity: 1200  # For SCRATCH_2 and PERSISTENT_x types, valid values are 1,200, 2,400, then continuing in increments of 2,400 GiB. For SCRATCH_1 deployment types, valid values are 1,200, 2,400, 3,600, then continuing in increments of 3,600 GiB. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagecapacity
-        storage_type: "SSD"  # Allowed values: SSD or HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagetype
-
+        deployment_type: "PERSISTENT_2" # Allowed values: PERSISTENT_1 | PERSISTENT_2 | SCRATCH_1 | SCRATCH_2. Region availability information  https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
+        drive_cache_type: "READ" # Allowed values: NONE | READ. Required when storage_type is HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-drivecachetype
+        per_unit_storage_throughput: 125 # Allowed values: 12, 40 for HDD, 50, 100, 200 for SSD. Required for the PERSISTENT_1 deployment_type. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-perunitstoragethroughput
+        storage_capacity: 1200 # For SCRATCH_2 and PERSISTENT_x types, valid values are 1,200, 2,400, then continuing in increments of 2,400 GiB. For SCRATCH_1 deployment types, valid values are 1,200, 2,400, 3,600, then continuing in increments of 3,600 GiB. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagecapacity
+        storage_type: "SSD" # Allowed values: SSD or HDD. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-storagetype
 
   # Configure your EC2 instance used as login host below
   login_node:
-    instance_type: ["m8i-flex.large", "m8i.large", "m7i-flex.large", "m7i.large", "m6a.large", "m6i.large", "m5.large"]  # Type of EC2 machine to deploy
-    min_count: 1  # Minimum Number of login node(s) to provision. This value can be changed post deployment
-    desired_count: ~  # Default is to match minimum count
-    max_count: 2  # Maximum Number of login node(s) to provision. This value can be changed post deployment
-    volume_size: 50  # Size of the EBS root disk in GB
+    instance_type: [
+        "m8i-flex.large",
+        "m8i.large",
+        "m7i-flex.large",
+        "m7i.large",
+        "m6a.large",
+        "m6i.large",
+        "m5.large",
+      ] # Type of EC2 machine to deploy
+    min_count: 1 # Minimum Number of login node(s) to provision. This value can be changed post deployment
+    desired_count: ~ # Default is to match minimum count
+    max_count: 2 # Maximum Number of login node(s) to provision. This value can be changed post deployment
+    volume_size: 50 # Size of the EBS root disk in GB
     volume_type: "gp3"
-    volume_kms_key_id: "alias/aws/ebs"  # Specify your own CMK to encrypt EBS volume.
+    # Specify your own CMK Arn to encrypt EBS volume
+    # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+    # {
+    #    "Sid": "Enable IAM User Permissions",
+    #    "Effect": "Allow",
+    #    "Principal": {
+    #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+    #    },
+    #    "Action": "kms:*",
+    #    "Resource": "*"
+    #  },
+    # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+    volume_kms_key_id: "alias/aws/ebs"
     # Security group settings for login nodes on the public
     security:
-      ssh_frontend_port: 22  # By default, the SSH port That the NLB listens on to forward to the LoginNode instances
-      ssh_backend_port: 22  # By default, the SSH port that the LoginNode listens on the instance
-#      additional_ports:
-#        tcp: [222] # List of TCP ports to allow from the client_ip and prefix-lists. These will be used for security group configurations
-#        udp: [333] # List of UDP ports to allow from the client_ip and prefix-lists. These will be used for security group configurations
+      ssh_frontend_port: 22 # By default, the SSH port That the NLB listens on to forward to the LoginNode instances
+      ssh_backend_port: 22 # By default, the SSH port that the LoginNode listens on the instance
+      #      additional_ports:
+      #        tcp: [222] # List of TCP ports to allow from the client_ip and prefix-lists. These will be used for security group configurations
+      #        udp: [333] # List of UDP ports to allow from the client_ip and prefix-lists. These will be used for security group configurations
 
-    #  Override AMI selection for login nodes
-    # ami:
-    #   arm64: "ami-123"  # SecOps AMI ID for arm64
-    #   x86_64: "ami-456"  # SecOps AMI ID for x86_64
+      #  Override AMI selection for login nodes
+      # ami:
+      #   arm64: "ami-123"  # SecOps AMI ID for arm64
+      #   x86_64: "ami-456"  # SecOps AMI ID for x86_64
+
+  # In-browser SSH terminal (webshell) feature.
+  # When enabled, the SSH page gains a "Web Terminal" tab powered by xterm.js.
+  # Sessions run on the Login Nodes inside tmux so closing the browser tab does
+  # not kill the shell; reconnecting reattaches to the same session.
+  # Requires that the edh-webshell service is installed on each Login Node
+  # (handled automatically by the Login Node bootstrap when this flag is true).
+  # Also adds an ALB listener rule forwarding /web_terminal/endpoint* to the Login Nodes
+  # on the configured port. Set enabled: false to disable entirely.
+  webshell:
+    port: 7681 # TCP port the edh-webshell service listens on (no TLS, ALB terminates TLS)
+    health_port: 7682 # TCP port for the HTTP /healthz endpoint (separate from WS port - the WS port can't serve plain HTTP)
 
   # Configure your EC2 instance used as controller host below
   # Make sure to adjust the size depending on the number of schedulers you are planning to host
   controller:
-    instance_type: ["m8i-flex.large", "m8i.large", "m7i-flex.large", "m7i.large", "m6a.large", "m6i.large", "m5.large"]  # Type of EC2 machine to deploy
-    volume_size: 300  # Size of the EBS root disk in GB
-    volume_type: "gp3"  #  'gp2' may be needed for AWS Outposts installations
-    volume_throughput: 150  #  For Provisioned IOPS SSD (io1) volumes
-    volume_iops: 8200  #  For Provisioned IOPS SSD (io1) volumes
-    volume_kms_key_id: "alias/aws/ebs"  # Specify your own CMK to encrypt EBS volume.
-    subnet_type: "private"  # Select if you want to deploy your EC2 machine in public or private subnet
+    instance_type: [
+        "m8i-flex.large",
+        "m8i.large",
+        "m7i-flex.large",
+        "m7i.large",
+        "m6a.large",
+        "m6i.large",
+        "m5.large",
+      ] # Type of EC2 machine to deploy
+    volume_size: 300 # Size of the EBS root disk in GB
+    volume_type: "gp3" #  'gp2' may be needed for AWS Outposts installations
+    volume_throughput: 150 #  For Provisioned IOPS SSD (io1) volumes
+    volume_iops: 8200 #  For Provisioned IOPS SSD (io1) volumes
+    # Specify your own CMK Arn to encrypt EBS volumes on the EDH controller host
+    # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+    # {
+    #    "Sid": "Enable IAM User Permissions",
+    #    "Effect": "Allow",
+    #    "Principal": {
+    #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+    #    },
+    #    "Action": "kms:*",
+    #    "Resource": "*"
+    #  },
+    # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+    volume_kms_key_id: "alias/aws/ebs"
+    subnet_type: "private" # Select if you want to deploy your EC2 machine in public or private subnet
 
   # Configure your AWS OpenSearch
   analytics:
     enabled: true
+    # engine choices:
+    #   "opensearch"            -> managed Amazon OpenSearch Service domain. Exposes an
+    #                              in-VPC OpenSearch Dashboards UI that the "My Activity"
+    #                              page links to directly. Default.
+    #   "opensearch_serverless" -> Amazon OpenSearch Serverless (AOSS). TRADEOFF: AOSS has
+    #                              NO browser Dashboards UI for end users -- AOSS Dashboards
+    #                              require AWS Console IAM/SAML sign-in and are not
+    #                              deep-linkable for EDH web (AD/LDAP) users. When serverless
+    #                              is selected the "My Activity" dashboard link is hidden and
+    #                              analytics are API-only. Choose serverless only if you do
+    #                              not need the end-user Dashboards experience.
     engine: "opensearch"
-    engine_version: "3.3"
-    kms_key_id: ~  # KMS KeyID for analytics
+    engine_version: "3.7"
+    # Specify your own CMK Arn to encrypt Opensearch
+    # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
+    # {
+    #    "Sid": "Enable IAM User Permissions",
+    #    "Effect": "Allow",
+    #    "Principal": {
+    #      "AWS": "arn:aws:iam::<your_aws_account>:root"
+    #    },
+    #    "Action": "kms:*",
+    #    "Resource": "*"
+    #  },
+    # Note: Once EDH is installed, you can scope down the KMS key policies to only allow access from the specific EDH IAM roles
+    kms_key_id: ~
     aoss:
-      standby_replicas: "DISABLED"  #  ENABLED (HA) or DISABLED (non-HA)
-      public_access: false  # Deploy the serverless cache with public reachability or in-VPC reachability (default)
-    data_node_instance_type: [ "m8g.medium.search", "m7g.medium.search", "m6g.large.search", "t3.medium.search"]  # instance type for analytics data nodes - automatically selected from the list based on regional availability
-    data_nodes: ~  # number of data nodes for analytics (default is automatic based on the private AZ/subnet count).
-    ebs_volume_size: 100  # EBS volume size attached to data nodes in GB
-    deletion_policy: "NO_RETAIN"  # RETAIN will preserve the OpenSearch even if you delete the stack. Any other value will delete OS if you delete the CFN stack
-
-  # Configure your AWS Secrets Manager options below
-  secretsmanager:
-    kms_key_id: ~  # Specify your own CMK to encrypt your Secret manager. If set to ~ , encryption will be managed by the default AWS key
-
-  # Configure your AWS Backup options below
-  backups:
-    delete_after: 7  # (Experimental) In Days, choose backup retention period
-    # Support additional copy destinations in the AWS Backup Rule
-    # This allows for integration of Logically Air-gapped Vaults to provide
-    # additional protection of the backups
-    # The configured destination vault must already exist and be configured/reachable
-    # For more information: https://aws.amazon.com/blogs/storage/building-cyber-resiliency-with-aws-backup-logically-air-gapped-vault/
-    # additional_copy_destinations:
-    #   - "arn:aws:backup:us-east-1:123456789012:backup-vault:backupvaultname"
+      standby_replicas: "DISABLED" #  ENABLED (HA) or DISABLED (non-HA). NOTE: NextGen forces ENABLED.
+      public_access: false # Deploy the serverless cache with public reachability or in-VPC reachability (default)
+      # Scale-to-zero uses the NextGen architecture (min OCU = 0): compute scales to zero after
+      # ~10 min idle (first request after idle incurs a ~10s cold start; requests are queued).
+      scale_to_zero: true
+      max_indexing_ocu: 2 # Ceiling for indexing OCUs (minimum is 0 when scale_to_zero is true)
+      max_search_ocu: 2 # Ceiling for search OCUs (minimum is 0 when scale_to_zero is true)
+    data_node_instance_type: [
+        "m8g.medium.search",
+        "m7g.medium.search",
+        "m6g.large.search",
+        "t3.medium.search",
+      ] # instance type for analytics data nodes - automatically selected from the list based on regional availability
+    data_nodes: ~ # number of data nodes for analytics (default is automatic based on the private AZ/subnet count).
+    ebs_volume_size: 100 # EBS volume size attached to data nodes in GB
+    deletion_policy: "NO_RETAIN" # RETAIN will preserve the OpenSearch even if you delete the stack. Any other value will delete OS if you delete the CFN stack
 
   dcv:
+    # EBS PRVI (volume initialization rate) in MiB/s applied to VDI root volumes at launch/resume;
+    # eliminates the lazy-load first-touch stall on fresh-lineage AMIs. 0 disables; max 300 (quota-safe).
+    volume_initialization_rate: 300
     # Default allowed EC2 instance types for VDI. Can be changed post-deployment via Virtual Desktop Profiles https://awslabs.github.io/engineering-development-hub-documentation/documentation/virtual-desktops/vdi-profiles/
-    allowed_instances: [
-      "m8i-flex.*",
-      "m8i.*",
-      "m7i-flex.*",
-      "m7i.*",
-      "c8i.*",
-      "c7i.*", 
-      "c6i.*",
-      "r7i.*",
-      "c7g.*",
-      "c8g.*",
-      "m8g.*",
-      "r8g.*",
-      "g7e.*",
-      "g6.*", 
-      "g6f.*",
-      "g6e.*",
-      "gr6.*",
-      "gr6f.*",
-      "g5.*",
-      "g5g.*",
-      "g4dn.*",
-      "g4ad.*"]  
-    allow_metal_instances: true  # Should the user be presented with metal instances?
-    version: "2023.1.16388"
-    high_scale: false  # Should DCV be configured to support HA and high scale?
+    allowed_instances:
+      [
+        "m8i-flex.*",
+        "m8i.*",
+        "m7i-flex.*",
+        "m7i.*",
+        "c8i.*",
+        "c7i.*",
+        "c6i.*",
+        "r7i.*",
+        "c7g.*",
+        "c8g.*",
+        "m8g.*",
+        "r8g.*",
+        "g7e.*",
+        "g6.*",
+        "g6f.*",
+        "g6e.*",
+        "gr6.*",
+        "gr6f.*",
+        "g5.*",
+        "g5g.*",
+        "g4dn.*",
+        "g4ad.*",
+      ]
+    allow_metal_instances: true # Should the user be presented with metal instances?
+    version: "2025.0.20103"
+    high_scale: true # Should DCV be configured to support HA and high scale?
+    pool:
+      # VDI pooling: pre-provisioned DCV desktops for faster time-to-desktop
+      enabled: true # Feature available cluster-wide (each VDI stack still opts in via the admin UI/API). Requires DCV High Scale.
+      provisioning_timeout_seconds: 1200 # launch -> instance READY (pool-ready) budget before abandon-terminate; MUST exceed the on-host agent DCV-readiness wait (900s)
+      connect_abandon_timeout_seconds: 600 # session READY -> first client connect grace before reclaim
+      reconcile_interval_seconds: 300 # PoolController drift-reconcile cadence
+      collision_alarm_pct: 25 # advisory alarm: sustained claim-collision rate (under-provisioned hot)
+      collision_alarm_min_attempts: 20 # floor: ignore collision rate below this attempt volume
+      asg_count_alarm_pct: 80 # advisory alarm: ASG count vs account limit
     gateway:
-      instance_type: ["m8i-flex.large", "m8i.large", "m7i-flex.large", "m7i.large", "m6a.large", "m6i.large", "m5.large"]  # Type of EC2 machine to deploy
-      instance_count: 1  # Number of DCV gateway node(s) to provision. This value can be changed post deployment
-      volume_size: 50  # Size of the EBS root disk in GB
+      instance_type: [
+          "m8i-flex.large",
+          "m8i.large",
+          "m7i-flex.large",
+          "m7i.large",
+          "m6a.large",
+          "m6i.large",
+          "m5.large",
+        ] # Type of EC2 machine to deploy
+      instance_count: 1 # Number of DCV gateway node(s) to provision. This value can be changed post deployment
+      volume_size: 50 # Size of the EBS root disk in GB
       volume_type: "gp3"
     broker:
-      instance_type: ["m8i-flex.large", "m8i.large", "m7i-flex.large", "m7i.large", "m6a.large", "m6i.large", "m5.large"]  # Type of EC2 machine to deploy
-      instance_count: 1  # Number of DCV broker node(s) to provision. This value can be changed post deployment
-      volume_size: 50  # Size of the EBS root disk in GB
+      instance_type: [
+          "m8i-flex.large",
+          "m8i.large",
+          "m7i-flex.large",
+          "m7i.large",
+          "m6a.large",
+          "m6i.large",
+          "m5.large",
+        ] # Type of EC2 machine to deploy
+      instance_count: 1 # Number of DCV broker node(s) to provision. This value can be changed post deployment
+      volume_size: 50 # Size of the EBS root disk in GB
       volume_type: "gp3"
-    manager:
-      instance_type: ["m8i-flex.large", "m8i.large", "m7i-flex.large", "m7i.large", "m6a.large", "m6i.large", "m5.large"]  # Type of EC2 machine to deploy
-      instance_count: 1  # Number of DCV session_manager node(s) to provision. This value can be changed post deployment
-      volume_size: 50  # Size of the EBS root disk in GB
-      volume_type: "gp3"
+      # Lifetime of the broker-issued connection JWT (the per-Connect token
+      # embedded in the .dcv file or the web client URL). The token gates
+      # only the initial connection handshake; an active session stays
+      # alive past expiry. Default 720 (12h) covers a full business day so
+      # a downloaded .dcv file is reusable through the day. Increase
+      # cautiously -- larger values widen the replay window if a .dcv
+      # file leaks. Maps to broker.properties:connect-session-token-duration-minutes.
+      connect_session_token_duration_minutes: 720
+      # Shared broker-to-broker (Apache Ignite) mTLS CA for the high-scale
+      # broker fleet. NOT required for clustering -- brokers cluster fine with
+      # their own self-signed CAs (broker-to-broker trust does not require a
+      # shared root; the SG self-ingress on the Ignite ports is what matters).
+      # This provides an operator-controlled, consistent CA with a configurable
+      # validity (default 3650d/10y) that avoids the DCV self-signed default's
+      # ~2y expiry, plus a single rotation point (rotation is phase-2; see
+      # dcv-broker-ca-lifecycle-spec.md). Minted once at deploy by the
+      # DcvBrokerCaGenerator Lambda into Secrets Manager; brokers install it
+      # read-only before first start, falling back to the DCV self-signed CA if
+      # absent. When shared_ca is false, no secret/generator is created and
+      # brokers use the DCV self-signed CA.
+      shared_ca: true # Mint + use an operator-controlled shared broker CA (consistency + 10y validity). Clustering does not require it.
+      ca_validity_days: 3650
+      ca_key_size: 2048 # RSA key size for the shared broker CA
+    # DCV Session Sharing: lets a session owner grant another cluster user
+    # time-boxed access to their running VDI via admin-defined permission
+    # profiles. Requires dcv.high_scale (broker UpdateSessionPermissions +
+    # per-user connection tokens).
+    session_sharing:
+      enabled: true # Feature available cluster-wide (each VDI profile opts in via share_scope/sharing_mode). Requires dcv.high_scale.
+      guest_screenshot_enabled: true # If guest users can see the thumbnail on their EDB Web interface
+      allow_unsupervised_access: true # Cluster policy: allow owners to grant owner-less (unsupervised) access. When false, every share is forced supervised regardless of profile or per-share toggle.
+      allowed_sharing_modes: # cluster ceiling VDI profiles pick from: none | secure (single-use nonce, default) | link (shareable URL, admin opt-in)
+        - none
+        - secure
+    screenshot:
+      enabled: true # Enable session screenshot thumbnails on VDI tile cards (requires high_scale: true)
+      # Where screenshot thumbnails are stored:
+      #   "dedicated" (default) - SOCA creates a dedicated, hardened S3 bucket.
+      #   "cluster"             - reuse the shared cluster (install) bucket under
+      #                           a prefix. No new bucket and no new bucket policy,
+      #                           so it works even when the installation role cannot
+      #                           create buckets or set bucket policies (e.g. SCPs).
+      #   "existing"            - use a pre-created bucket named in existing_bucket
+      #                           (have an admin create + harden it for you). SOCA
+      #                           imports it and only attaches IAM to its roles.
+      bucket_mode: "dedicated"
+      existing_bucket: ~ # Required when bucket_mode is "existing": name of the pre-created bucket.
+      bucket_prefix: ~ # Optional key prefix within the bucket. "cluster" mode defaults to <cluster_id>/dcv/screenshots.
+      # "dedicated" mode only: apply SOCA's TLS-only bucket policy. Set false if the
+      # installation role lacks s3:PutBucketPolicy (BlockPublicAccess + lifecycle are still
+      # applied at create time). Ignored for "cluster"/"existing" (operator owns policy).
+      manage_bucket_policy: true
+      # NOTE (bucket_mode: "existing" + customer-managed KMS key): SOCA grants its
+      # controller + screenshot-poller roles KMS use in their IAM, but the KEY POLICY
+      # on your CMK must also allow those role ARNs (and the bucket policy must not
+      # deny them), or screenshot writes/reads fail with AccessDenied. SOCA cannot set
+      # a key policy it does not own. "cluster" mode avoids this (key is SOCA-managed).
+      refresh_seconds: 120 # How often the Lambda polls the broker for new screenshots
+      privacy_mode: false # Default privacy mode for VDI tiles (true = screenshots blurred on page load)
+      # Capture resolution (max). Tile cards render at ~200x150px so the
+      # broker is asked for a downsampled image to keep S3 storage and
+      # network transfer modest. 400x300 = ~1/4 the bytes of 800x600 with
+      # no visible quality loss in the 150px tile.
+      max_width: 400
+      max_height: 300
+      terminated_retention_days: 3 # Days to keep screenshots after session termination (S3 lifecycle)
 
   # Configure your Directory options below
+  database:
+    # Relational state store for the EDH web app (sessions, software stacks,
+    # projects, API keys, profiles).
+    provider: "aurora_serverless_v2" # aurora_serverless_v2 OR sqlite (legacy local file)
+    aurora_serverless_v2:
+      engine_version: "17.9" # Aurora PostgreSQL major.minor
+      database_name: "edh" # Initial DB created on the cluster
+      admin_username: "edh_admin" # Admin user (password auto-generated in Secrets Manager)
+      acu:
+        # Aurora Capacity Units. 1 ACU ~= 2 GiB RAM + proportional CPU/IO.
+        # Min 0.5 keeps idle cost low; max 2 covers typical EDH web app load.
+        min: 0.5
+        max: 2
+      backup:
+        retention_days: 7 # Days. Range of 1-35.
+      # deletion_protection defaults to Config.termination_protection so ONE flag
+      # controls both -- disabling termination protection for teardown lets
+      # `cdk destroy` succeed without DELETE_FAILED. Uncomment to override.
+      # deletion_protection: true
+      removal_policy: "snapshot" # snapshot (recoverable) | retain | destroy
+      enable_reader: false # Set true to add a Reader replica (faster failover, ~2x ACU at idle)
+      # Specify your own CMK Arn to encrypt storage. If unset, uses AWS-managed key.
+      kms_key_id: ~
+
   directoryservice:
-    create_route53_resolver: true  # Create (true) the Route53 resolver and rules for the domain in AD mode. This may need to be set to false for shared VPC environments where the downstream AWS account is not able to create the Route53 resolver/rules.
+    create_route53_resolver: true # Create (true) the Route53 resolver and rules for the domain in AD mode. This may need to be set to false for shared VPC environments where the downstream AWS account is not able to create the Route53 resolver/rules.
     # Choose the Directory to use on SOCA:
     # 1 - aws_ds_managed_activedirectory (Recommended) - Create a new AWS Directory Service Managed Active Directory -  https://docs.aws.amazon.com/directoryservice/latest/admin-guide/directory_microsoft_ad.html
     # 2 - existing_active_directory (Experimental) - Connect to an existing Microsoft Active Directory
     # 3 - openldap - Create a new standalone OpenLDAP hosted on the Controller host - https://www.openldap.org/
     # 4 - existing_openldap - Connect to an existing OpenLDAP
     provider: "aws_ds_managed_activedirectory"
+    #
+    # Settings for the AWS Managed Active Directory password policy
+    #
+    password_policy:
+      minimum_age: 0 # AWS default 1 day
+      maximum_age: 0 # AWS default 42 days
+      minimum_length: ~ # AWS default 24
+      password_history: ~ # AWS default 24
+      password_complexity: ~ # AWS default true
+      password_reversible: ~ # AWS default false
 
     # DNS Domain name for your deployment. Automatically populated as <clusterID>.local unless specified here (e.g: soca-test.local)
     domain_name: ~
@@ -299,10 +669,10 @@ Config:
     short_name: ~
 
     aws_ds_managed_activedirectory:
-      edition: "Standard"  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-edition
+      edition: "Standard" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-edition
       # Note: These are the default settings created by AWS Directory Service which cannot be changed. Displayed for information only.
       # people_search_base: "cn=Users,<base_dn>", group_search_base: "cn=Group,<base_dn>", admins_search_base: "cn=AWS Delegated Administrators,ou=AWS Delegated Groups,<base_dn>"
-      admins_search_base: "cn=socasudoadminsgroup"  # Any users created in this group will have Linux SUDO & SOCA Admin permissions
+      admins_search_base: "cn=socasudoadminsgroup" # Any users created in this group will have Linux SUDO & SOCA Admin permissions
 
       # Password policy settings applied to the AWS Managed AD PSO during controller bootstrap.
       # Set to ~ (null) to skip password policy configuration entirely.
@@ -315,35 +685,50 @@ Config:
       #
       #
       password_policy:
-        enabled: true                                        # Set to false to skip password policy updates during the bootstrap process
-        pso_name: "CustomerPSO-01"                           # msDS-PasswordSettings object CN
-        max_password_age_days: 0                             # 0 = never expires, or number of days (AWS Managed AD Default is 42 days)
-        min_password_age_days: 1                             # Minimum days before password can be changed, 0 = no minimum
-        min_password_length: 7                               # Minimum password characters
-        password_history_length: 24                          # Number of previous passwords remembered
-        lockout_threshold: 0                                 # Failed attempts before lockout, 0 = never lock
-        lockout_duration_minutes: 30                         # Minutes locked out, 0 = unlock immediately
-        lockout_observation_window_minutes: 30               # Minutes before failed attempt counter resets, 0 = reset immediately
-        complexity_enabled: true                             # Require complex passwords
-        reversible_encryption: false                         # Store passwords with reversible encryption
-        max_retries: 10                                      # Number of LDAP query retry attempts with exponential backoff
+        enabled: true # Set to false to skip password policy updates during the bootstrap process
+        pso_name: "CustomerPSO-01" # msDS-PasswordSettings object CN
+        # Group(s) the PSO is linked to via msDS-PSOAppliesTo. A fine-grained
+        # password policy only governs principals listed here -- without this the
+        # PSO exists with the correct settings but applies to no one (all users
+        # fall through to the default domain policy). Comma-delimited group
+        # sAMAccountNames, each resolved under the domain root; surrounding
+        # whitespace is trimmed so names with spaces work (e.g. "Domain Users").
+        # Kept a scalar string (NOT a YAML list) because the installer's config
+        # flattener space-joins lists into one SSM value -- ambiguous for names
+        # containing spaces. Empty string ("") leaves the link unmanaged.
+        # "Domain Users" covers every EDH-created user.
+        # Examples:
+        #   Single group:    pso_applies_to: "Domain Users"
+        #   Multiple groups: pso_applies_to: "Domain Users,HPC-Admins,edh-users"
+        #   Unmanaged:       pso_applies_to: ""
+        pso_applies_to: "Domain Users"
+        max_password_age_days: 0 # 0 = never expires, or number of days (AWS Managed AD Default is 42 days)
+        min_password_age_days: 1 # Minimum days before password can be changed, 0 = no minimum
+        min_password_length: 7 # Minimum password characters
+        password_history_length: 24 # Number of previous passwords remembered
+        lockout_threshold: 0 # Failed attempts before lockout, 0 = never lock
+        lockout_duration_minutes: 30 # Minutes locked out, 0 = unlock immediately
+        lockout_observation_window_minutes: 30 # Minutes before failed attempt counter resets, 0 = reset immediately
+        complexity_enabled: true # Require complex passwords
+        reversible_encryption: false # Store passwords with reversible encryption
+        max_retries: 10 # Number of LDAP query retry attempts with exponential backoff
 
     openldap:
-      people_search_base: "ou=People"  # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
-      group_search_base: "ou=Group"  # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
-      admins_search_base: "ou=Sudoers"  # Any users created in this OU  will have Linux SUDO & SOCA Admin permissions https://www.sudo.ws/docs/man/sudoers.ldap.man/ (base_dn is automatically added as suffix if not present)
+      people_search_base: "ou=People" # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
+      group_search_base: "ou=Group" # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
+      admins_search_base: "ou=Sudoers" # Any users created in this OU  will have Linux SUDO & SOCA Admin permissions https://www.sudo.ws/docs/man/sudoers.ldap.man/ (base_dn is automatically added as suffix if not present)
 
     existing_openldap:
-      people_search_base: ~  # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
-      group_search_base: ~  # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
-      admins_search_base: ~  # Any users created in this Group will have Linux SUDO & SOCA Admin permissions (base_dn is automatically added as suffix if not present)
+      people_search_base: ~ # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
+      group_search_base: ~ # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
+      admins_search_base: ~ # Any users created in this Group will have Linux SUDO & SOCA Admin permissions (base_dn is automatically added as suffix if not present)
 
       #  If you change this value, SOCA will !!!NOT!!! create an OpenLDAP and will connect to the one you have specified.
       #  1. Verify if your OpenLDAP is reachable from the AWS Environment where you are about to install SOCA
       #  2. Verify the different Search Base above and ensure they match your environment
       #  3. You MUST set existing_directory_service_account_secret_name below
       #  4. Verify the provider (above) is the correct one based on your Directory platform
-      endpoint: ~  # ex: ldaps://10.5.5.10, ldap://myad.mycompany.com ... must start with ldap:// or ldaps://
+      endpoint: ~ # ex: ldaps://10.5.5.10, ldap://myad.mycompany.com ... must start with ldap:// or ldaps://
 
       # A service account with enough privileges to join other objects into the directory.
       # Left blank if you are not using an existing Directory, SOCA will automatically create a secure secret on SecretManager for you
@@ -361,16 +746,16 @@ Config:
       service_account_secret_name_arn: ~
 
     existing_active_directory:
-      people_search_base: ~  # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
-      group_search_base: ~  # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
-      admins_search_base: ~  # Any users created in this OU will have SUDO permissions https://www.sudo.ws/docs/man/sudoers.ldap.man/ (base_dn is automatically added as suffix if not present)
+      people_search_base: ~ # Users will be created or authenticated in this OrganizationAL Unit (OU) - (base_dn is automatically added as suffix if not present)
+      group_search_base: ~ # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
+      admins_search_base: ~ # Any users created in this OU will have SUDO permissions https://www.sudo.ws/docs/man/sudoers.ldap.man/ (base_dn is automatically added as suffix if not present)
 
       # If you change this value, SOCA will !!!NOT!!! create an Active Directory and will connect to the one you have specified.
       #  1. Verify if your Active Directory is reachable from the AWS Environment where you are about to install SOCA
       #  2. Verify the different Search Base above and ensure they match your environment
       #  3. You MUST set existing_directory_service_account_secret_name below
       #  4. Verify the provider (above) is the correct one based on your Directory platform
-      endpoint: ~  # ex: ldaps://10.5.5.10, ldap://myad.mycompany.com ... must start with ldap:// or ldaps://
+      endpoint: ~ # ex: ldaps://10.5.5.10, ldap://myad.mycompany.com ... must start with ldap:// or ldaps://
 
       #  List Domain Controller IPs, only needed if you are planning to use FSx for NetApp ONTAP
       # dc_ips:
@@ -395,7 +780,41 @@ Config:
 
   # Lambda Layer configuration
   lambda_layers:
-    Boto3Version: "1.42.87" # boto3 version to bundle as a Lambda layer for all functions
+    Boto3Version: "1.43.68" # boto3 version to bundle as a Lambda layer for all functions
+    CryptographyVersion: "48.0.0" # cryptography version for the shared crypto Lambda layer (X.509/CA generation; e.g. DcvBrokerCaGenerator). Compiled wheels are built arch-aware for the Lambda runtime. Empty disables the layer.
+
+  # File transfer engine version. v1 = Dropzone upload + native browser download.
+  # v2 = Uppy/tus resumable upload + parallel ranged download (early access; slated
+  # to become the default in a future release). Runtime-flippable post-deployment
+  # via `edhctl config set /edh/<cluster>/configuration/FileBrowser/TransferEngine v2`.
+  file_browser:
+    TransferEngine: "v1"
+
+  # My HPC Jobs listing controls. VisibilityScope is the non-admin visibility ceiling
+  # (all = like qstat, project = shared-project members, owner_only = self). DefaultWindow
+  # is the initial finished-jobs time range; MaxRows caps finished rows sent to the browser;
+  # IncludeFinished shows finished jobs by default. Runtime-flippable via
+  # `edhctl config set /edh/<cluster>/configuration/HPC/JobListing/<Key> <value>`.
+  hpc_job_listing:
+    VisibilityScope: "all"
+    DefaultWindow: "24h"
+    MaxRows: "1000"
+    IncludeFinished: "true"
+
+  # Owned-base AMI acceleration (golden image lineage). When Enabled, EDH copies the region_map
+  # base AMIs into the account so snapshot capture is incremental and ids survive AWS retiring the
+  # public bases. Cluster-wide; default off. Flip via `edhctl config set
+  # /edh/<cluster>/configuration/BaseImageAcceleration/Enabled true`.
+  base_image_acceleration:
+    Enabled: "false"
+    # Copy priority: arch first (only the two arches), then the ordered base_os list to lead within
+    # each arch; everything else follows FIFO. IDs match region_map.d base_os / arch.
+    Priority:
+      x86_64:
+        - windows2025
+        - amazonlinux2023
+      arm64:
+        - amazonlinux2023
 
   # Enable/Disable specific FF
   # NOTE: Web API Feature Flag can be found under cluster_manager/web_interface/feature_flags
@@ -403,27 +822,114 @@ Config:
   # List of allowed/denied users can also be managed post-deployment via `edhctl`
   feature_flags:
     RunRemoteCommand: false # When true, /api/user/run_command will be enabled and end user will have the ability to run remote command on the controller.
+    AsyncPlacement: true # When true, VDI creates are routed through the async serverless placement pipeline (SQS -> DcvPlacement -> CapacityExecutor): the create API skips the synchronous ODCR probe and returns fast (~0.9s). Set false to use the synchronous create path.
     EnableCapacityReservation: true # When false, SOCA will try to provision EC2 capacity and ignore capacity reservation request.
     EnforceStrictCapacityReservation: false # When enabled, SOCA enforces strict capacity reservation rules and blocks requests that include multiple subnet IDs or instance types without guaranteed capacity. Because capacity reservations are limited to a single subnet and instance type, SOCA attempts to enforce a 1:1 mapping. Disabling this option allows EC2 Fleet to provision capacity across multiple subnets or instance types for greater flexibility, but you may run into situation where the EC2Fleet cannot provision all capacity due to InsufficientInstanceCapacity. This setting is ignored if EnableCapacityReservation is not True
+
+    CapacityReservation:
+      # Readiness gate applied after an On-Demand Capacity Reservation (ODCR) is created,
+      # before its id is handed to a consumer (EC2Fleet via CapacityReservationTarget,
+      # provisioned through CloudFormation). Guards against the reservation being consumed
+      # while its pending->active transition
+      ActivationTimeoutSeconds: 120     # Max seconds to wait for a stable 'active' state before giving up.
+      ActivationPollIntervalSeconds: 2  # Seconds between reservation-state polls.
+      ActivationStableChecks: 1         # Consecutive 'active' reads required.
+      ActivationSettleSeconds: auto     # Extra dwell after 'active' is confirmed stable.
+
+    InternalApi:
+      # Shared IAM-auth HTTP API (API Gateway v2)
+      AccessLogRetentionDays: 90        # CloudWatch retention (days) for the access-log group. Snapped DOWN to the nearest CloudWatch-allowed value (1,3,5,7,14,30,60,90,120,150,180,365,400,545,731,...); out-of-range falls back to 90.
+      ThrottleRateLimit: 50             # Stage default steady-state requests/sec. Out-of-range falls back to 50.
+      ThrottleBurstLimit: 25            # Stage default burst-bucket size. Out-of-range falls back to 25.
+      DetailedMetricsEnabled: true      # Per-route CloudWatch metrics (4xx/5xx/latency/count) for alarming. Set false to collapse to stage-level metrics only.
 
     Hpc:
       AllowCustomTags: true
       EnableDryRun: true # Enforce EC2 DryRun prior to provisioning capacity
       EnableQuotasCheck: true # Query AWS Service Quotas before trying to provision capacity
       EnableNestedVirtualization: true # When true, users can request nested virtualization for HPC jobs via nested_virtualization=True resource directive
-      JoinEphemeralNodesToAD: false # Decide whether or not you want to join ephemeral HPC nodes to your Active Directory. Ignored if using OpenLDAP. If false, a local dump of your users it deployed as local users on each nodes
+      JoinEphemeralNodesToAD: false # Decide whether you want to join ephemeral HPC nodes to your Active Directory. Ignored if using OpenLDAP. If false, a local dump of your users it deployed as local users on each nodes
 
     Networking:
-      EnableIPv6: false  # [PREVIEW FEATURE] - Enable IPv6 CIDRs, SG rules. MPLs for newly created VPCs/Subnets
-      AutoManagedPrefixList: false  # [PREVIEW FEATURE] - Automatically create and use EC2 Managed Prefix Lists instead of CIDRs
-    
+      EnableIPv6: false # [PREVIEW FEATURE] - Enable IPv6 CIDRs, SG rules. MPLs for newly created VPCs/Subnets
+      AutoManagedPrefixList: true # Automatically create and use EC2 Managed Prefix Lists (MPL) for client/VPC ingress instead of raw CIDRs. Auto-disables to CIDR mode if the deploy identity lacks ec2:CreateManagedPrefixList.
+
     VirtualDesktops:
-       AllowCustomTags: true
-       EnableNestedVirtualization: false # When true, users can enable nested virtualization for virtual desktops
+      AllowCustomTags: true
+      AllowSavedDesktops: false  # When true, enables Saved Desktops: Save & Shut Down capture, Resume-from-saved-image, and Spot interruption auto-capture. Ships dark.
+      AllowSpot: false  # When true, users can request Spot capacity for virtual desktops (advanced launch option). Spot desktops may be interrupted and cannot be stopped/resumed.
+      EnableNestedVirtualization: true  # When true, users can enable nested virtualization for virtual desktops development
 
     TargetNodes:
       AllowCustomTags: true
       EnableNestedVirtualization: false # When true, users can enable nested virtualization for target nodes
+
+    BootstrapTemplateCache:
+      # When true, the controller caches rendered bootstrap templates
+      # (02_setup.sh, 03_setup_post_reboot.sh, install_required_packages.sh,
+      # filesystems_automount.sh, etc.) in the cluster S3 bucket under
+      # bootstrap/cache/<sha>/, keyed by a content-addressable hash of the
+      # stack-relevant SocaConfig values + every .j2 in the bootstrap tree.
+      # The per-session env file (00_session_env.sh) is always rendered
+      # fresh; cached big templates reference per-session values via
+      # ${EDH_*} shell variables sourced from the env file.
+      #
+      # Eliminates the redundant Jinja render + S3 PUT round-trip that
+      # otherwise dominates VDI/HPC create latency (~1.0-1.5s per create
+      # was rendering and uploading the same content over and over).
+      #
+      # See docs/BootstrapTemplateCache.md for the full design.
+      enabled:
+        true # Set to false to short-circuit to plain
+        # render-and-upload (today's behavior).
+      ttl_minutes:
+        120 # Cache entries older than this trigger
+        # re-render even when content addressing
+        # says "hit". Safety net for inputs that
+        # don't surface in the cache key (e.g.
+        # underlying AMI fingerprint changes).
+      cleanup_retention_days:
+        30 # BootstrapCacheCleaner Lambda runs
+        # weekly (Sun 03:00 UTC) and ages out
+        # cache entries whose .stack_meta.json
+        # marker is older than this. Keeps the
+        # bootstrap/cache/ S3 prefix bounded
+        # without a bucket-wide lifecycle rule
+        # (the cluster bucket is operator-
+        # supplied; SOCA does not manage its
+        # lifecycle config).
+
+  # ----------------------------------------------------------------------------
+  # Web interface settings. These are exposed to the Flask app via SSM at
+  # /configuration/WebInterface/* and read through SocaConfig at request time.
+  # Changes here require re-deployment (to repopulate SSM) and a web UI
+  # restart (edhwebui.sh restart) to pick up the new values.
+  # ----------------------------------------------------------------------------
+  web_interface:
+    # Live file tail (stream a file's output to the browser, e.g. HPC job stdout)
+    file_tail:
+      max_file_size: 1073741824 # 1 GB. Files larger than this cannot be tailed (use download).
+      max_concurrent_per_user: 3 # How many simultaneous tails one user can run. Protects against a single user exhausting uWSGI threads.
+      max_concurrent_global: 50 # Cluster-wide concurrent tail limit. Should be well below total uWSGI threads (processes * threads).
+      max_connection_seconds: 1800 # 30 minutes. Server closes the stream after this; client may reconnect.
+      idle_timeout_seconds: 300 # 5 minutes. Server closes the stream if no new bytes arrive in this window.
+      poll_interval_ms: 500 # How often the server checks for new bytes on the file while streaming.
+      initial_tail_bytes: 65536 # 64 KB. How many bytes from the end of the file the user sees on connect (like `tail -c N`).
+      chunk_size: 65536 # 64 KB. Max bytes per SSE event / poll response.
+
+    # CSRF (cross-site request forgery) token lifetime. The CSRF token is
+    # ALWAYS bound to the session secret, so it can never outlive the session
+    # regardless of these values -- there is no insecure setting here.
+    #   csrf_token_follows_session: true  -> token has NO independent expiry; it
+    #     stays valid for the life of the session cookie (recommended). Removes
+    #     the "your session has expired, refresh and try again" prompt on pages
+    #     left open longer than the old fixed 1h token window.
+    #   false -> token expires independently after csrf_token_lifetime_seconds.
+    csrf_token_follows_session: true
+    # Hard CSRF token TTL in seconds. Applied ONLY when
+    # csrf_token_follows_session is false. Must be >= 1. Default 3600 (1h) =
+    # Flask-WTF native default.
+    csrf_token_lifetime_seconds: 3600
 
 # Parameters below will be stored on AWS Parameter Store via /edh/<cluster_id/<root>/<key>
 # ex: /edh/edh-mycluster/system/awscliv2/x86_64
@@ -443,25 +949,16 @@ Parameters:
         - "windows2022"
         - "windows2025"
 
-
       # OS supported on previous SOCA versions but removed as they reached End-Of-Life and no further support is provided
       # Historical code may continue to work.
       eol:
         - "centos7"
         - "rhel7"
 
-    aws_pcs:
-      slurm_version: "23.11"
-      full_version: "23.11.9-1"
-      agent_version: "1.0.0-1"
-      linux:
-        installer:
-          url_pattern: "https://aws-pcs-repo-%region%.s3.amazonaws.com/aws-pcs-slurm/aws-pcs-slurm-%slurm_version%-installer-%version%.tar.gz"
-          sha256: "1de7d919c8632fe8e2806611bed4fde1005a4fadc795412456e935c7bba2a9b8"
-        agent:
-          url_pattern: "https://aws-pcs-repo-%region%.s3.amazonaws.com/aws-pcs-agent/aws-pcs-agent-v%version%.tar.gz"
-          sha256: "d2d3d68d00c685435c38af471d7e2492dde5ce9eb222d7b6ef0042144b134ce0"
-
+    # Be cautious when using an S3 URL. EDH nodes may not be able to download from S3 during bootstrap if AWS CLI is not already installed.
+    # This is generally not an issue on distributions such as Amazon Linux, which include AWS CLI by default but will be a problem for RHEL etc ...
+    # For other distributions, consider using the AWS CLI v2 installer URL, which is guaranteed to be available during bootstrap.
+    # For the same reason, this URL is excluded when using --resources-mirroring.
     awscliv2:
       linux:
         x86_64: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
@@ -471,9 +968,9 @@ Parameters:
 
     # SOCA Python, installed on all SOCA nodes
     python:
-      version: "3.13.2"
-      url: "https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tgz"
-      sha256: "b8d79530e3b7c96a5cb2d40d431ddb512af4a563e863728d8713039aa50203f9"
+      version: "3.13.13"
+      url: "https://www.python.org/ftp/python/3.13.13/Python-3.13.13.tgz"
+      sha256: "f9cde7b0e2ec8165d7326e2a0f59ea2686ce9d0c617dbbb3d66a7e54d31b74b9"
 
     # Scheduler to deploy on all SOCA nodes
     scheduler:
@@ -487,59 +984,59 @@ Parameters:
         version: "25-05-3-1"
         url: "https://github.com/SchedMD/slurm/archive/refs/tags/slurm-25-05-3-1.tar.gz"
         sha256: "a24d9a530e8ae1071dd3865c7260945ceffd6c65eea273d0ee21c85d8926782e"
-        
+
         compatibility_packages:
           # Note: SLURM is only compatible with libjwt 1.x as there is a dependency with jwt_add_header()
           libjwt:
             url: "https://github.com/benmcollins/libjwt/releases/download/v1.17.0/libjwt-1.17.0.tar.bz2"
             sha256: "b8b257da9b64ba9075fce3a3f670ae02dee7fc95ab7009a2e1ad60905e3f8d48"
-      
+
       lsf:
         # Install path. We recommend you to not change this path
         # if you do, make sure to update relevant cluster_analytics / log_backup paths as well
         # Note: there is no sysconfigdir_path for LSF, everything is self-contained within install_prefix_path
         # Note: $EDH_CLUSTER_ID will be automatically replaced by the SOCA Cluster Name specified at install time
         lsf_top: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/lsf"
-        
+
         # LSF version, used to browse default LSF folder name
         # Supported Version:
         # - 10.1 Service Pack 14 (10.1.0.14)
         # Note: This should match the major.minor version (e.g: if 10.1.0.14 then use 10.1).
         # This can be verified in the lsf installer name (e.g:lsf10.1_lsfinstall_linux_x86_64 or in an existing install (/opt/lsf/<version>)
         version: "10.1"
-       
+
         # Required -  Path to your S3 folder containing LSF installer: e.g: s3://mybucket/lsf/ (IMPORTANT: Must end with a /).
-        # Must contains all required install files + entitlement and fix pack.
+        # Must contain all required installation files + entitlement and fix pack.
         # IMPORTANT: Must use the same bucket as the one specified at install time
         lsf_installer_s3_uri: ~
-        
+
         # Required - Name of the installer file, e.g: lsf10.1_lsfinstall_linux_x86_64.tar.Z"
         lsf_installer_file_name: ~
-        
+
         # Required - Name of the entitlement file stored inside lsf_installer_s3_uri: e.g: lsf_std_entitlement.dat
         lsf_entitlement_file_name: ~
-        
+
         # Fix Pack (both x86/aarch64) file name
         lsf_fixpack_x86_file_name: ~ # Name of your x86_64 fixpack installer: e.g: lsf10.1_linux2.6-glibc2.3-x86_64-601547.tar.Z
         lsf_fixpack_aarch64_file_name: ~ # Name of your aarch64 LSF fixpack installer: e.g: lsf10.1_lnx312-lib217-armv8-601547.tar.Z
- 
+
       openpbs:
         # Install path. We recommend you to not change this path
         # if you do, make sure to update relevant cluster_analytics / log_backup paths as well
         # Note: $EDH_CLUSTER_ID will be automatically replaced by the SOCA Cluster Name specified at install time
         pbs_exec: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/openpbs" # Default is "/opt/pbs"
         pbs_home: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/openpbs/var/spool/pbs" # Default is "/var/spool/pbs" include spooler dirs, hierarchy will be created at compilation time but use the same tree as install_prefix_path. You can override this setting if needed.
-        
+
         deployment_type: "git" # tgz or git
-        tgz:  # Download OpenPBS tgz from the URL listed below
+        tgz: # Download OpenPBS tgz from the URL listed below
           version: "23.06.06"
           url: "https://github.com/openpbs/openpbs/archive/v23.06.06.tar.gz"
           sha256: "689df6caa101422237118d81f9cfb0e6cad432209c77a6b3b8021cf984a91a90"
-        git:  # Install OpenPBS from Source.
-          version: "23.06.06"  # Version to install (this can be anything, it's just used to avoid re-installation if the same version is already detected)
-          repo: "https://github.com/openpbs/openpbs.git"  # Repo to clone from, e.g https://github.com/openpbs/openpbs.git
-          branch: "master"  # (Optional: Specify the branch if you do not want to use the default)
-          commit_id: "2bf8f31fbd5bbd7fff4b1c620c625d2944b422b1"  # (Optional: Specify the commit id if you do not want to use the default)
+        git: # Install OpenPBS from Source.
+          version: "23.06.06" # Version to install (this can be anything, it's just used to avoid re-installation if the same version is already detected)
+          repo: "https://github.com/openpbs/openpbs.git" # Repo to clone from, e.g https://github.com/openpbs/openpbs.git
+          branch: "master" # (Optional: Specify the branch if you do not want to use the default)
+          commit_id: "2bf8f31fbd5bbd7fff4b1c620c625d2944b422b1" # (Optional: Specify the commit id if you do not want to use the default)
 
         compatibility_packages:
           # Package installed/replaced on older distro (RHEL8, Rocky8 ..) to enable OpenPBS compilation for python3.13
@@ -558,7 +1055,7 @@ Parameters:
           cjson:
             url: "https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.18.tar.gz"
             sha256: "3aa806844a03442c00769b83e99970be70fbef03735ff898f4811dd03b9f5ee5"
-      
+
       pbspro:
         # PBSPro version
         # Supported Version:
@@ -576,31 +1073,30 @@ Parameters:
         # Note: $EDH_CLUSTER_ID will be automatically replaced by the SOCA Cluster Name specified at install time
         pbs_exec: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/pbspro"
         pbs_home: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/pbspro/var/spool/pbs" # include spooler dirs, hierarchy will be created at compilation time but use the same tree as install_prefix_path. You can override this setting if needed.
-        
 
         # Required -  Path to your S3 folder containing PBSPro installer: e.g: s3://mybucket/pbspro/ (IMPORTANT: Must end with a /).
         # Must contain all required installation files + entitlement and fix pack.
         # IMPORTANT: Must use the same bucket as the one specified at install time
-        pbspro_installer_s3_uri: ~ # 
-        
+        pbspro_installer_s3_uri: ~ # Required for PBSPro
+
         # License Server Path: port@host
-        # Note: Connectivity must be authorized between the SOCA Controller and your license server on the port specified 
-        pbspro_license_server: ~  # e.g: 6200@mylicense.com
+        # Note: Connectivity must be authorized between the SOCA Controller and your license server on the port specified
+        pbspro_license_server: ~ # e.g: 6200@mylicense.com
 
         x86:
           pbspro_installer_rhel9_filename: ~ # e.g: PBSPro_2026.0.0-RHEL9_x86_64.tar.gz
-          pbspro_installer_rhel8_filename: ~ # e.g: PBSPro_2026.0.0-RHEL8_x86_64.tar.gz 
-          pbspro_installer_rocky9_filename: ~ # e.g: PBSPro_2026.0.0-Rocky9_x86_64.tar.gz 
-          pbspro_installer_rocky8_filename: ~ # e.g: PBSPro_2026.0.0-Rocky8_x86_64.tar.gz 
-          pbspro_installer_ubuntu2404_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu24_x86_64.tar.gz           
-          pbspro_installer_ubuntu2204_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu22_x86_64.tar.gz 
+          pbspro_installer_rhel8_filename: ~ # e.g: PBSPro_2026.0.0-RHEL8_x86_64.tar.gz
+          pbspro_installer_rocky9_filename: ~ # e.g: PBSPro_2026.0.0-Rocky9_x86_64.tar.gz
+          pbspro_installer_rocky8_filename: ~ # e.g: PBSPro_2026.0.0-Rocky8_x86_64.tar.gz
+          pbspro_installer_ubuntu2404_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu24_x86_64.tar.gz
+          pbspro_installer_ubuntu2204_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu22_x86_64.tar.gz
         aarch64:
           pbspro_installer_rhel9_filename: ~ # e.g: PBSPro_2026.0.0-RHEL9_aarch64.tar.gz
-          pbspro_installer_rhel8_filename: ~ # e.g: PBSPro_2026.0.0-RHEL8_aarch64.tar.gz 
-          pbspro_installer_rocky9_filename: ~ # e.g: PBSPro_2026.0.0-Rocky9_aarch64.tar.gz 
-          pbspro_installer_rocky8_filename: ~ # e.g: PBSPro_2026.0.0-Rocky8_aarch64.tar.gz 
-          pbspro_installer_ubuntu2404_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu24_aarch64.tar.gz 
-          pbspro_installer_ubuntu2204_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu22_aarch64.tar.gz 
+          pbspro_installer_rhel8_filename: ~ # e.g: PBSPro_2026.0.0-RHEL8_aarch64.tar.gz
+          pbspro_installer_rocky9_filename: ~ # e.g: PBSPro_2026.0.0-Rocky9_aarch64.tar.gz
+          pbspro_installer_rocky8_filename: ~ # e.g: PBSPro_2026.0.0-Rocky8_aarch64.tar.gz
+          pbspro_installer_ubuntu2404_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu24_aarch64.tar.gz
+          pbspro_installer_ubuntu2204_filename: ~ # e.g: PBSPro_2026.0.0-Ubuntu22_aarch64.tar.gz
 
     cache_client:
       valkey:
@@ -641,17 +1137,16 @@ Parameters:
         url: "https://s3.amazonaws.com/mountpoint-s3-release/1.14.0/arm64/mount-s3-1.14.0-arm64.rpm"
         sha256: "5c13de3fa0a8fd884444c5bf149cc4c3967aadad5c6fc4925df2529d4a83a5dd"
 
-
     nodejs:
-      url: "https://nodejs.org/dist/v22.16.0/node-v22.16.0-linux-x64.tar.xz"
-      sha256: "f4cb75bb036f0d0eddf6b79d9596df1aaab9ddccd6a20bf489be5abe9467e84e"
+      url: "https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-x64.tar.xz"
+      sha256: "472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6"
 
     # EFA Drivers installed on all HPC Compute node when efa_support=True is specified
     # https://aws.amazon.com/hpc/efa/
     efa:
-      version: "1.47.0"
-      url: "https://efa-installer.amazonaws.com/aws-efa-installer-1.47.0.tar.gz"
-      sha256: "2df4201e046833c7dc8160907bee7f52b76ff80ed147376a2d0ed8a0dd66b2db"
+      version: "1.48.0"
+      url: "https://efa-installer.amazonaws.com/aws-efa-installer-1.48.0.tar.gz"
+      sha256: "f3a8aadc2b94288694a9b9375bcad84a82f0f843e0eefafda7b158b2200549cc"
 
     # SQLite is installed on the controller host and is the primary DB for SOCA Web UI
     sqlite:
@@ -662,8 +1157,6 @@ Parameters:
     # EPEL repository
     # https://docs.fedoraproject.org/en-US/epel/
     epel:
-      el7:
-        url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
       el8:
         url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm"
       el9:
@@ -682,20 +1175,26 @@ Parameters:
             # If EC2 Instance Family only supports Tesla, SOCA will install Tesla Drivers
             # If EC2 Instance family supports both Tesla and Grid, SOCA will only install Grid Driver if it's a DCV (Virtual Desktop) machine
             tesla_drivers_only: "(p3|p4d|p4de|p5|p5e|p5en|p6-b200|p6e-gb200|p6-b300|g5g)"
-            tesla_drivers_ltsb_only: "(p2|g2)"  # (Experimental) For Older GPU generation
+            tesla_drivers_ltsb_only: "(p2|g2)" # (Experimental) For Older GPU generation
             grid_drivers:
               s3_bucket_url: "https://ec2-linux-nvidia-drivers.s3.amazonaws.com"
-              s3_bucket_path: "s3://ec2-linux-nvidia-drivers" # Note: GRID Driver version is managed via linux/gpu/install_drivers.sh.j2
+              s3_bucket_path: "s3://ec2-linux-nvidia-drivers"
+              version: "grid-19.4" # Default GRID driver version (validated at release)
+              version_amazonlinux2: "grid-17.1" # ALI2 caps here: 18.1+ needs a newer kernel than 4.14
 
             tesla_drivers:
-              public_driver_url_endpoint: "https://us.download.nvidia.com/tesla" # Edit linux/gpu/install_drivers.sh.j2 if you need to change the driver versions
+              public_driver_url_endpoint: "https://us.download.nvidia.com/tesla"
+              production_version: "535.104.05" # Tesla production driver
+              ltsb_version: "470.199.02" # Long Term Servicing Branch, for older GPU generations
 
           windows:
             # Windows is only for VDI instance, so we install only Grid Drivers.
             # User can replace with TESLA post-VDI deployment if needed.
             grid_drivers:
               s3_bucket_url: "https://ec2-windows-nvidia-drivers.s3.amazonaws.com"
-              s3_bucket_path: "s3://ec2-windows-nvidia-drivers" # Note: GRID Driver version is managed via windows/gpu/nvidia_drivers.ps.j2
+              s3_bucket_path: "s3://ec2-windows-nvidia-drivers"
+              version: "grid-19.4" # Default GRID driver version (WS2022 / WS2025)
+              version_server2019: "grid-18.0" # Latest GRID driver providing WS2019 support
 
         amd:
           linux:
@@ -707,7 +1206,6 @@ Parameters:
             s3_bucket_path: "s3://ec2-amd-windows-drivers/latest/"
 
     orchestration:
-     
       # SOCA will automatically try to re-create the CloudFormation stack associated to the job if the
       # CloudFormation stack is `CREATE_COMPLETE` but job has not started within the grace period configured
       stack_grace_period_in_minutes: 45
@@ -721,7 +1219,8 @@ Parameters:
     dcv:
       session_storage: "dcv_session_storage"
       idle_timeout: 1440
-      el7:  ## Centos7/RHEL7 [IMPORTANT: Latest supported is 2023.1]
+      gpg_key_url: "https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY"
+      el7: ## Centos7/RHEL7 [IMPORTANT: Latest supported is 2023.1]
         x86_64:
           version: "2023.1-17701-el7-x86_64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2023.1/Servers/nice-dcv-2023.1-17701-el7-x86_64.tgz"
@@ -731,15 +1230,15 @@ Parameters:
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2023.1/Servers/nice-dcv-2023.1-17701-el7-aarch64.tgz"
           sha256: "e44f3c06e1830ccc52d25995227bbbb2060bc81a9623420ade8ef69317784fdd"
 
-      al2:  # Amazon Linux 2  [IMPORTANT: Latest supported is 2024.0]
+      al2: # Amazon Linux 2
         x86_64:
-          version: "2024.0-17979-el7-only-al2-x86_64"
-          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-17979-el7-only-al2-x86_64.tgz"
-          sha256: "0dc68b98a27e245697e56e4d27c0eb4d648613a60290e7976f31a9b1aaca7e67"
+          version: "2025.0-20103-amzn2-x86_64"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-amzn2-x86_64.tgz"
+          sha256: "81d120b639963dff9d7c60f73dda254e2adeb42fcdb3390e1396a40395812865"
         aarch64:
-          version: "2024.0-17979-el7-only-al2-aarch64"
-          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-17979-el7-only-al2-aarch64.tgz"
-          sha256: "59011a340e903c058013c8c8f2aa346e864eb3a4168f6d74779e21f9ea8e8e86"
+          version: "2025.0-20103-amzn2-aarch64"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-amzn2-aarch64.tgz"
+          sha256: "e706e6531a979ce325a8ffd5eeb4a377f7c897f0df9a614e6d59526bc188c3b3"
 
       al2023: # Amazon Linux 2023
         x86_64:
@@ -750,7 +1249,7 @@ Parameters:
           version: "nice-dcv-2025.0-20103-amzn2023-aarch64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-amzn2023-aarch64.tgz"
           sha256: "8c9d29b41ee5f9fdfced4ae257c8e6444298a61da62beb2a38add1783c2e3858"
-      
+
       el8: # Rocky8 / RHEL8
         x86_64:
           version: "nice-dcv-2025.0-20103-el8-x86_64"
@@ -760,7 +1259,7 @@ Parameters:
           version: "nice-dcv-2025.0-20103-el8-aarch64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-el8-aarch64.tgz"
           sha256: "89fcb456ee47464ff1fd4657e50814e6a9b18dd7a1fc29ba89b6649239103eda"
-      
+
       el9: # Rocky9 / RHEL9
         x86_64:
           version: "nice-dcv-2025.0-20103-el9-x86_64"
@@ -770,7 +1269,7 @@ Parameters:
           version: "nice-dcv-2025.0-20103-el9-aarch64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-el9-aarch64.tgz"
           sha256: "90b33e27e149ad3ca2ebaf8b562c86ba9115c8c282e5d87bd75cfb8ba3054419"
-      
+
       ubuntu2204: # Ubuntu 22.04
         x86_64:
           version: "nice-dcv-2025.0-20103-ubuntu2204-x86_64"
@@ -780,7 +1279,7 @@ Parameters:
           version: "nice-dcv-2025.0-20103-ubuntu2204-aarch64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-ubuntu2204-aarch64.tgz"
           sha256: "770058467e36686e77b4cd6a3d9a953f6714862182e2c9ccd72958d59f35df5b"
-      
+
       ubuntu2404: # Ubuntu 24.04
         x86_64:
           version: "nice-dcv-2025.0-20103-ubuntu2404-x86_64"
@@ -790,8 +1289,163 @@ Parameters:
           version: "nice-dcv-2025.0-20103-ubuntu2404-aarch64"
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-ubuntu2404-aarch64.tgz"
           sha256: "47205acfab5d35a7f6fe18f9311295aee51189636a2a76d14e0eca39f780192d"
-      
+
       windows: # Windows Server 2019/2022/2025
         version: "2025.0-20103"
         url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-server-x64-Release-2025.0-20103.msi"
         sha256: "593e2b78cd41b64fac255f303e48b1e7f73129969279ba2eae067e519f962067"
+
+      # DCV Session Manager Broker (noarch — Java-based, one RPM per OS family)
+      session_manager_broker:
+        al2:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker-2025.0.561-1.el7.noarch.rpm"
+          sha256: "6a2af8f32bf1dbe674ae3873c1dcc7d1a129d020cfda41781ded2a1568b650ce"
+        al2023:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker-2025.0.561-1.amzn2023.noarch.rpm"
+          sha256: "6a84c08dc75188a35d44d92f5ccd865f889188498ab812124437944d1ff202a8"
+        el8:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker-2025.0.561-1.el8.noarch.rpm"
+          sha256: "2dbfa169d8801ff1f141f7e3fb653f7630b9fc2eeae75d918cd9d50754e94d04"
+        el9:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker-2025.0.561-1.el9.noarch.rpm"
+          sha256: "0a9e7003c139b6ee19aa92212724064696f01ea03c9124a82ea599c22f18fc30"
+        ubuntu2204:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker_2025.0.561-1_all.ubuntu2204.deb"
+          sha256: "c6e312063e5a2d66d55001d9db853ff254a2efeb88ba29bef6cabfe68f5e066b"
+        ubuntu2404:
+          version: "2025.0.561-1"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerBrokers/nice-dcv-session-manager-broker_2025.0.561-1_all.ubuntu2404.deb"
+          sha256: "cd22b9f0726d2fc7afe1c2bcb6c4ddef17f1146ae1008e697c4585655f6b17dc"
+
+      # DCV Connection Gateway (arch-specific)
+      connection_gateway:
+        al2:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el7.x86_64.rpm"
+            sha256: "63d9517032e5ac6d2b927970dc6c80712e628b3db3cd67118830b83964417448"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el7.aarch64.rpm"
+            sha256: "4126e1967325e09e0fc405aeb18f459620db9e6af9e44db8386c26c9f8c38dc5"
+        al2023:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.amzn2023.x86_64.rpm"
+            sha256: "ba91a79b24f7b702ee7fb80d3878e4e9e8bc64a0694cd2a4da84ff4c69317f99"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.amzn2023.aarch64.rpm"
+            sha256: "2e7c84b41fb2359e4ffb59de6b9c29fc906e972f9fccabe4d182bb43bf9c45a6"
+        el8:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el8.x86_64.rpm"
+            sha256: "ac725c783de4823c7681c9296ed0e67d4caa1e5ba5956c8fd39799a089140276"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el8.aarch64.rpm"
+            sha256: "59efebcf2b9e3a564b61e5852480a9f8e3e87f689b623e10cda917816e88ba16"
+        el9:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el9.x86_64.rpm"
+            sha256: "962a059175b2ca1290baed0bf82a42dbc78f806fb867905169023b9f2d9a55e5"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway-2025.0.886-1.el9.aarch64.rpm"
+            sha256: "985fcf7f9919ea2ba167647388c6d93a454de2edc4d974ac8729c609043ea410"
+        ubuntu2204:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway_2025.0.886-1_amd64.ubuntu2204.deb"
+            sha256: "2fef89633c8b7262086030cb79250289c957182b00117854e9ea77bed42f6c40"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway_2025.0.886-1_arm64.ubuntu2204.deb"
+            sha256: "40f44e25863a3e5ca0a341491b03b83b2b7cb6c05102df731be846d3aaaafb56"
+        ubuntu2404:
+          x86_64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway_2025.0.886-1_amd64.ubuntu2404.deb"
+            sha256: "d660557b4d4ed52aa24e95a1be4531ff9dcd3e71e5d787af2425fba3a3de704a"
+          aarch64:
+            version: "2025.0.886-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Gateway/nice-dcv-connection-gateway_2025.0.886-1_arm64.ubuntu2404.deb"
+            sha256: "363f85dba4a06b66b6682547adc971b0cf7037022c715162a2e2d0b52a26779d"
+
+      # DCV Session Manager Agent (arch-specific, installed on VDI hosts)
+      session_manager_agent:
+        al2:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el7.x86_64.rpm"
+            sha256: "c10e3b0badffea9235f3b61aa024c51f3d3d175b3d5b5de384b4a5cfa9f60fda"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el7.aarch64.rpm"
+            sha256: "d9ac28902d14b2e1a3535528fc98cc7605b4858fa4ddb8e7e2c33bd7b68ae8e3"
+        al2023:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.amzn2023.x86_64.rpm"
+            sha256: "80f10179652ff239aa170e8862ee286cf41c3546015e1f120488663b7bd30984"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.amzn2023.aarch64.rpm"
+            sha256: "0b4417f35826ec7bd85a3fa0d63c32183998f04fd7e29f1f2d39cc02c486c679"
+        el8:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el8.x86_64.rpm"
+            sha256: "707a7476d68b4c06a939dcb19c74992439503ac63c8e3b5e91171dcecfa1ad61"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el8.aarch64.rpm"
+            sha256: "51da291c91deb11fa6b6212017c5c01db4f51fdf58e49e9a12d867ba9a0ec51d"
+        el9:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el9.x86_64.rpm"
+            sha256: "4594cda647381f921ec3b84c56eecc10f51588da912ab9aa50cad69835d18a5e"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-2025.0.902-1.el9.aarch64.rpm"
+            sha256: "a4e7e93c30ff330d6663fe594698b999e231f57c81d6d8de34eedfeeccc4a7bd"
+        ubuntu2204:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent_2025.0.902-1_amd64.ubuntu2204.deb"
+            sha256: "e8da98843fe50435a398de5885654c935daa22bb99bf4bcb2fdc94ce089cf618"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent_2025.0.902-1_arm64.ubuntu2204.deb"
+            sha256: "ec44943ac0ce23c8aa609e05e1ad1856e98c846e002b786439e53841dccefdec"
+        ubuntu2404:
+          x86_64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent_2025.0.902-1_amd64.ubuntu2404.deb"
+            sha256: "4dffa1ffd87f79f20023109a4baf749f2b22676a3ed63814cf62bec8b2de1830"
+          aarch64:
+            version: "2025.0.902-1"
+            url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent_2025.0.902-1_arm64.ubuntu2404.deb"
+            sha256: "a70b1d7835aefee5371faa8f986bf963a832b2cda29db7a9ef2906b2574d7560"
+        windows:
+          version: "2025.0-902"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-x64-Release-2025.0-902.msi"
+          sha256: "b518a5039388c1dabc3bdd359743ce99b0a6e2a2fa3fb70a513813e0b5aa3b09"
+
+      # DCV Session Manager CLI (noarch — Python 3 zip, runs anywhere)
+      # Operator/admin tool for the broker. Installed on the broker host so
+      # cluster admins can issue session-manager API calls locally without
+      # bouncing off the broker REST endpoint.
+      session_manager_cli:
+        noarch:
+          version: "2025.0.0-159"
+          url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerCLI/nice-dcv-session-manager-cli-2025.0.0-159.zip"
+          sha256: "c09f24fc7c9f91fab87bbd874e4c2678b3bdf564ecea1afbe58e67ae10cc9641"

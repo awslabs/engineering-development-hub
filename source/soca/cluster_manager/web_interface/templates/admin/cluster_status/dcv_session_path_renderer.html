@@ -1,0 +1,272 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+Shared JS renderer for the session-path drill-down. Used by:
+  - the modal in dcv_overview.html
+  - the standalone pop-out page in dcv_session_path_view.html
+
+Exports two globals:
+  window.__renderSessionPathHTML(data) -> HTML string
+  window.__renderSessionPathSparks(data) -> renders Chart.js into the
+                                            canvases just inserted.
+
+The data shape is whatever _session_path_snapshot returns -- see
+views/admin/cluster_status/dcv_overview.py.
+-->
+
+<script>
+(function() {
+    const STATUS_CLASS = {
+        ok: "s-ok", warn: "s-warn", danger: "s-danger", unknown: "s-unknown"
+    };
+    const STATUS_LABEL = {
+        ok: "healthy", warn: "elevated", danger: "critical", unknown: "no data"
+    };
+
+    function _esc(v) {
+        if (v === null || v === undefined) return "-";
+        return String(v).replace(/[&<>"]/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+        })[c]);
+    }
+    function _fmtPct(v) {
+        if (v === null || v === undefined || isNaN(v)) return "-";
+        return Number(v).toFixed(0) + "%";
+    }
+    function _fmtBps(v) {
+        if (v === null || v === undefined || isNaN(v)) return "-";
+        const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+        let n = Math.abs(v); let i = 0;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return n.toFixed(1) + " " + units[i];
+    }
+    function _fmtBytes(v) {
+        if (v === null || v === undefined || isNaN(v)) return "-";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let n = Math.abs(v); let i = 0;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return n.toFixed(1) + " " + units[i];
+    }
+    function _fmtMs(v) {
+        if (v === null || v === undefined || isNaN(v)) return "-";
+        return v < 1 ? v.toFixed(2) + " ms" : Math.round(v) + " ms";
+    }
+
+    function statsBlock(h) {
+        if (!h || (h.cpu_pct == null && h.mem_pct == null)) {
+            return `<div class="text-muted small">${_esc("(no host metrics yet)")}</div>`;
+        }
+        const rows = [];
+        if (h.cpu_pct != null)  rows.push(`<span class="label">CPU</span><span>${_fmtPct(h.cpu_pct)}</span>`);
+        if (h.mem_pct != null)  rows.push(`<span class="label">Memory</span><span>${_fmtPct(h.mem_pct)}</span>`);
+        if (h.swap_pct != null) rows.push(`<span class="label">Swap</span><span>${_fmtPct(h.swap_pct)}</span>`);
+        if (h.disk_pct != null) rows.push(`<span class="label">Disk</span><span>${_fmtPct(h.disk_pct)}</span>`);
+        if (h.net_in_bps  != null) rows.push(`<span class="label">Net In</span><span>${_fmtBps(h.net_in_bps)}</span>`);
+        if (h.net_out_bps != null) rows.push(`<span class="label">Net Out</span><span>${_fmtBps(h.net_out_bps)}</span>`);
+        return `<div class="step-stats">${rows.join("")}</div>`;
+    }
+
+    function statusHeader(title, status, reason) {
+        const cls = STATUS_CLASS[status] || STATUS_CLASS.unknown;
+        const lbl = STATUS_LABEL[status] || STATUS_LABEL.unknown;
+        return `<div class="step-title">
+            <span><span class="step-status-dot ${cls}"></span>${_esc(title)}</span>
+            <span title="${_esc(reason || '')}" style="text-transform:none; font-weight:500;">${_esc(lbl)}</span>
+        </div>`;
+    }
+
+    function stepCard(title, status, reason, bodyHtml, sparkCanvasId) {
+        const cls = STATUS_CLASS[status] || STATUS_CLASS.unknown;
+        const spark = sparkCanvasId
+            ? `<div class="step-spark"><canvas id="${sparkCanvasId}"></canvas></div>`
+            : "";
+        return `<div class="step-card ${cls}">
+            ${statusHeader(title, status, reason)}
+            <div style="font-size:13px; line-height:1.4;">${bodyHtml}</div>
+            ${spark}
+        </div>`;
+    }
+
+    function arrowCell() {
+        return `<div class="arrow-cell">→</div>`;
+    }
+
+    window.__renderSessionPathHTML = function(d) {
+        if (!d) return '<div class="alert alert-warning">No data</div>';
+        if (d.error) return `<div class="alert alert-warning">${_esc(d.error)}</div>`;
+        if (!d.available) return '<div class="alert alert-warning">No data</div>';
+
+        const s = d.session || {};
+        const bv = d.broker_view || {};
+        const bo = d.broker_owning || {};
+        const ds = d.dcv_server || {};
+        const gws = d.gateway_fleet || [];
+        const brokers = d.broker_fleet || [];
+        const t = d.timing || {};
+
+        // ---- Overall banner ----
+        const overall = d.overall_status || "unknown";
+        const banner = `<div class="overall-banner ${STATUS_CLASS[overall]}">
+            <b>${_esc(s.session_name || s.session_uuid || '?')}</b>
+            <span class="text-muted"> &middot; ${_esc(s.session_owner || '-')} </span>
+            <span class="text-muted"> &middot; active for ${_esc(t.active_human || '-')}</span>
+            <span class="ms-2 badge bg-secondary">${_esc(overall)}</span>
+        </div>`;
+
+        // ---- Step 1: Client ----
+        const clientBody = `
+            <div><b>Owner:</b> ${_esc(s.session_owner)}</div>
+            <div><b>Type:</b> ${_esc(s.session_type)}</div>
+            <div class="text-muted small">SOCA: <code>${_esc((s.session_uuid || '').slice(0, 12))}...</code></div>
+            <div class="text-muted small">State: ${_esc(s.session_state)}</div>`;
+        const clientCard = stepCard("Client", "ok", "client identity", clientBody, null);
+
+        // ---- Step 2: Gateway fleet (one card per gateway, side-by-side
+        // inside the gateway slot if multiple, since NLB stickiness picks one)
+        let gwBody = "";
+        let gwWorst = "ok";
+        if (!gws.length) {
+            gwBody = '<div class="text-muted">No gateways</div>';
+            gwWorst = "unknown";
+        } else {
+            const rank = {ok:0, unknown:0, warn:1, danger:2};
+            for (const g of gws) {
+                const st = g.status || "unknown";
+                if ((rank[st]||0) > (rank[gwWorst]||0)) gwWorst = st;
+            }
+            gwBody = gws.map(g => `
+                <div style="border-top:1px solid var(--border, #dee2e6); padding-top:6px; margin-top:6px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <code class="small">${_esc(g.instance_id || '?')}</code>
+                        <span class="step-status-dot ${STATUS_CLASS[g.status||'unknown']}" title="${_esc(g.status_reason||'')}"></span>
+                    </div>
+                    <div class="text-muted small">${_esc(g.private_ip)} &middot; ${_esc(g.az)}</div>
+                    ${statsBlock(g.health)}
+                </div>
+            `).join("");
+            // Strip the first border-top (cosmetics)
+            gwBody = gwBody.replace('border-top:1px solid var(--border, #dee2e6); padding-top:6px; margin-top:6px;', '');
+        }
+        const gwTitle = gws.length > 1 ? `Gateway candidates (${gws.length})` : 'Gateway';
+        const gwCard = stepCard(gwTitle, gwWorst, gws.length ? "NLB source-IP stickiness" : "no gateways", gwBody, null);
+
+        // ---- Step 3: Broker fleet ----
+        let bkBody = "";
+        let bkWorst = "ok";
+        if (!brokers.length) {
+            bkBody = `<div class="text-muted">Owning Ignite node: <code>${_esc((bo.node_id||'').slice(0,8))}...</code></div>
+                      <div class="text-muted small">Broker fleet not enumerated yet.</div>`;
+            bkWorst = "unknown";
+        } else {
+            const rank = {ok:0, unknown:0, warn:1, danger:2};
+            for (const b of brokers) {
+                const st = b.status || "unknown";
+                if ((rank[st]||0) > (rank[bkWorst]||0)) bkWorst = st;
+            }
+            bkBody = brokers.map((b, i) => `
+                <div style="${i>0?'border-top:1px solid var(--border, #dee2e6); padding-top:6px; margin-top:6px;':''}">
+                    <div style="display:flex; justify-content:space-between;">
+                        <code class="small">${_esc(b.instance_id || '?')}</code>
+                        <span class="step-status-dot ${STATUS_CLASS[b.status||'unknown']}" title="${_esc(b.status_reason||'')}"></span>
+                    </div>
+                    <div class="text-muted small">${_esc(b.private_ip)} &middot; ${_esc(b.az)}</div>
+                    ${statsBlock(b.health)}
+                </div>
+            `).join("");
+            bkBody += `<div class="text-muted small mt-2">DDB-shared state — any broker can answer.<br>Owning Ignite node: <code>${_esc((bo.node_id||'').slice(0,8))}...</code></div>`;
+        }
+        const bkCard = stepCard(`Broker fleet (${brokers.length})`, bkWorst, "JVM heap + control-plane state", bkBody, null);
+
+        // ---- Step 4: DCV server ----
+        const dsStatus = ds.status || "unknown";
+        const dsBody = `
+            <div><b>Instance:</b> <code>${_esc(ds.instance_id)}</code></div>
+            <div><b>IP:</b> ${_esc(ds.ip)}</div>
+            <div><b>OS:</b> ${_esc(s.instance_base_os)}</div>
+            <div><b>Type:</b> ${_esc(s.instance_type)}</div>
+            <div><b>Broker says:</b> ${_esc(ds.availability)}</div>
+            ${statsBlock(ds.health)}`;
+        const dsSparkId = "spark-dcv-" + (ds.instance_id || "x");
+        const dsCard = stepCard("DCV Server", dsStatus, ds.status_reason, dsBody, dsSparkId);
+
+        // ---- Layout: 4 cards in a row at >= md, stacked below md ----
+        const breadcrumb = `<div class="row g-2 mb-3">
+            <div class="col-md-3">${clientCard}</div>
+            <div class="col-md-3">${gwCard}</div>
+            <div class="col-md-3">${bkCard}</div>
+            <div class="col-md-3">${dsCard}</div>
+        </div>`;
+
+        // ---- Metadata / timing tables (same as before, just slightly cleaner) ----
+        const meta = `<div class="row g-3">
+            <div class="col-md-6">
+                <div class="card"><div class="card-body" style="padding:12px;">
+                    <h6 class="text-muted text-uppercase small mb-2">SOCA</h6>
+                    <table class="table table-sm small mb-0">
+                        <tr><td>session_uuid</td><td><code>${_esc(s.session_uuid)}</code></td></tr>
+                        <tr><td>broker_session_id</td><td><code>${_esc((s.broker_session_id || '-').slice(0, 24))}...</code></td></tr>
+                        <tr><td>session_state</td><td>${_esc(s.session_state)}</td></tr>
+                        <tr><td>session_name</td><td>${_esc(s.session_name)}</td></tr>
+                        <tr><td>created_on</td><td>${_esc(s.created_on)}</td></tr>
+                        <tr><td>active for</td><td>${_esc(t.active_human)}</td></tr>
+                        <tr><td>SSM ping</td><td>${_esc(s.ssm_ping_status)}</td></tr>
+                    </table>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card"><div class="card-body" style="padding:12px;">
+                    <h6 class="text-muted text-uppercase small mb-2">Broker view</h6>
+                    <table class="table table-sm small mb-0">
+                        <tr><td>state</td><td>${_esc(bv.state)}</td></tr>
+                        <tr><td>type</td><td>${_esc(bv.type)}</td></tr>
+                        <tr><td>num_connections</td><td>${bv.num_connections != null ? bv.num_connections : '-'}</td></tr>
+                        <tr><td>creation_time</td><td>${_esc(bv.creation_time)}</td></tr>
+                        <tr><td>last_disconnection_time</td><td>${_esc(bv.last_disconnection_time)}</td></tr>
+                        <tr><td>db_to_broker_skew</td><td>${t.db_to_broker_skew_seconds != null ? t.db_to_broker_skew_seconds + 's' : '-'}</td></tr>
+                    </table>
+                </div></div>
+            </div>
+        </div>`;
+
+        return banner + breadcrumb + meta;
+    };
+
+    // Render Chart.js sparklines into any canvas inserted by the
+    // breadcrumb. Currently only the DCV server card carries one (CPU
+    // utilization last hour) — gateway / broker have multiple instances
+    // each so a single sparkline would mislead.
+    window.__renderSessionPathSparks = function(d) {
+        if (typeof Chart === 'undefined' || !d || !d.dcv_server) return;
+        const ds = d.dcv_server || {};
+        const h = ds.health || {};
+        const cpuSeries = h.cpu_series || [];
+        if (!cpuSeries.length || !ds.instance_id) return;
+        const canvas = document.getElementById('spark-dcv-' + ds.instance_id);
+        if (!canvas) return;
+        const labels = cpuSeries.map(p => new Date(p[0]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+        const values = cpuSeries.map(p => p[1] || 0);
+        new Chart(canvas, {
+            type: 'line',
+            data: { labels: labels, datasets: [{
+                data: values,
+                borderColor: '#17a2b8',
+                backgroundColor: 'rgba(23,162,184,0.10)',
+                borderWidth: 1.2,
+                tension: 0.25,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 3,
+            }]},
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { displayColors: false, callbacks: { label: (ctx) => 'CPU ' + Math.round(ctx.parsed.y) + '%' } }
+                },
+                scales: { x: { display: false }, y: { display: false, beginAtZero: true, max: 100 } }
+            }
+        });
+    };
+})();
+</script>

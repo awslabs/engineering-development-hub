@@ -1,0 +1,114 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# --- Warm-resume AD secure-channel heal (Saved Desktops / Resume-From) --------------------
+# A resumed VDI is launched from a specialized create-image AMI, so it carries the SAME AD
+# identity as the captured desktop (computer name + SID + machine secret as-of-capture). Live
+# proof (edh-devnew3, 2026-07-08) showed the secure channel is broken on resume even minutes
+# after capture, so it MUST be healed before the desktop is usable. Unlike the cold-join path,
+# resume NEVER creates a new object and NEVER renames -- it re-establishes trust for the
+# EXISTING identity. This script is sourced ONLY by the warm-resume user_data, never by the
+# cold provisioning path.
+#
+# Two tiers (idempotent, object-state-agnostic):
+#   Tier 1 (reset) : the AD computer object still exists (preserved at capture via the
+#                    edh:PreserveAdObject tag + ADComputerCleaner skip-guard) ->
+#                    Test-ComputerSecureChannel -Repair re-syncs the machine secret. No reboot.
+#   Tier 2 (ODJ)   : the object is gone (never preserved / cleaned / machine password rotated
+#                    past tolerance) -> re-provision via offline domain join (Samba
+#                    `net offlinejoin provision` on the controller -> djoin /loadfile -> reboot),
+#                    the no-NTLM path proven on edh-adotp5. STUBBED here; flags for follow-up.
+#   Healthy channel -> no-op.
+
+function Get-SocaImdsInfo {
+    $tok = Invoke-RestMethod -Method PUT -Uri 'http://169.254.169.254/latest/api/token' -Headers @{ 'X-aws-ec2-metadata-token-ttl-seconds' = '21600' }
+    $hdr = @{ 'X-aws-ec2-metadata-token' = $tok }
+    return @{
+        InstanceId = (Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/instance-id' -Headers $hdr)
+        Region     = (Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/placement/region' -Headers $hdr)
+    }
+}
+
+function Set-SocaResumeHealTag {
+    # Best-effort telemetry tag so the resume orchestration / operators can see the heal outcome
+    # (healthy | reset | needs-odj) on the instance. Non-fatal if it fails.
+    param([Parameter(Mandatory=$true)][string]$Key, [Parameter(Mandatory=$true)][string]$Value)
+    try {
+        $imds = Get-SocaImdsInfo
+        aws ec2 create-tags --region $imds.Region --resources $imds.InstanceId --tags "Key=$Key,Value=$Value" | Out-Null
+    } catch {
+        Log-Warning -Message "Resume-heal: failed to set tag $Key=$Value (non-fatal): $($_.Exception.Message)"
+    }
+}
+
+function Invoke-SocaResumeAdHeal {
+    Log-Info -Message "Warm-resume AD heal: starting for $env:COMPUTERNAME"
+
+    if (-not (Get-CimInstance Win32_ComputerSystem).PartOfDomain) {
+        # A resumed specialized image is expected to boot already domain-joined. Not-joined here
+        # means this is not a resume image (or a cold path mis-invoked this script) -- do nothing.
+        Log-Warning -Message "Resume-heal: host is NOT domain-joined -- nothing to heal. Skipping."
+        return $true
+    }
+
+    # Idempotent no-op: already healthy (e.g. a benign re-run).
+    $healthy = $false
+    try { $healthy = Test-ComputerSecureChannel } catch { $healthy = $false }
+    if ($healthy) {
+        Log-Info -Message "Resume-heal: secure channel already healthy for $env:COMPUTERNAME -- no heal needed"
+        Set-SocaResumeHealTag -Key 'edh:ResumeAdHealed' -Value 'healthy'
+        return $true
+    }
+    Log-Warning -Message "Resume-heal: secure channel BROKEN for $env:COMPUTERNAME -- attempting Tier 1 (reset)"
+
+    # Directory service-account credential -- fetched locally on the box from Secrets Manager via
+    # its instance role, so the password never crosses the wire (mirrors the cold-join path).
+    $secret = Get-Secret -SecretId "{{ context.get('/configuration/UserDirectory/service_account_secret_arn') }}"
+    if (-not $secret) {
+        Log-Warning -Message "Resume-heal: could not retrieve the directory service-account secret -- cannot run Tier 1. Flagging for ODJ."
+        Set-SocaResumeHealTag -Key 'edh:ResumeHealNeedsOdj' -Value 'true'
+        return $false
+    }
+    $saUser = $secret.username.Split('@')[0]
+    $saPass = ConvertTo-SecureString "$($secret.password)" -AsPlainText -Force
+    $cred   = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$saUser", $saPass
+
+    # --- Tier 1: repair the machine secret against the EXISTING computer object ----------------
+    # Test-ComputerSecureChannel -Repair uses the supplied credential to reset the trust without
+    # needing a working channel first. It REQUIRES the object to exist (a missing object throws
+    # "Cannot find the computer account" -- the exact failure observed when the object was purged
+    # on capture-terminate, which the preserve-tag now prevents).
+    $objectMissing = $false
+    try {
+        Test-ComputerSecureChannel -Repair -Credential $cred -ErrorAction Stop | Out-Null
+        Log-Info -Message "Resume-heal: Tier 1 repair issued"
+    } catch {
+        $m = $_.Exception.Message
+        Log-Warning -Message "Resume-heal: Tier 1 repair failed: $m"
+        if ($m -match 'Cannot find the computer account|No computer account|cannot be found') {
+            $objectMissing = $true
+        }
+    }
+
+    if (-not $objectMissing) {
+        $healed = $false
+        try { $healed = Test-ComputerSecureChannel } catch { $healed = $false }
+        if ($healed) {
+            Log-Info -Message "Resume-heal: SUCCESS via Tier 1 (reset) -- secure channel healthy for $env:COMPUTERNAME"
+            Set-SocaResumeHealTag -Key 'edh:ResumeAdHealed' -Value 'reset'
+            return $true
+        }
+        Log-Warning -Message "Resume-heal: Tier 1 issued but the channel is still not healthy"
+    }
+
+    # --- Tier 2: ODJ re-provision (STUBBED -- not yet implemented) -----------------------------
+    # Authoritative fix when the object is gone or a bare reset was insufficient: offline domain
+    # join re-provision for THIS computer name (controller `net offlinejoin provision` ->
+    # djoin /requestODJ /loadfile -> reboot), the no-NTLM path proven on edh-adotp5. Wiring
+    # pending ODJ authority completion. Until then, flag the instance for follow-up.
+    Log-Warning -Message "Resume-heal: Tier 1 could not heal (objectMissing=$objectMissing). Tier 2 ODJ re-provision is NOT YET IMPLEMENTED -- flagging edh:ResumeHealNeedsOdj=true."
+    Set-SocaResumeHealTag -Key 'edh:ResumeHealNeedsOdj' -Value 'true'
+    return $false
+}
+Invoke-SocaResumeAdHeal
+# End - Warm-resume AD secure-channel heal

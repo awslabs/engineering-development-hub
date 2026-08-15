@@ -7,6 +7,13 @@ from botocore.exceptions import ClientError
 import boto3
 import logging
 
+"""
+This function cancel orphaned ODCR requested via SOCA if the capacity is manually deleted directly from the AWS console.
+This function is managed by AWS StepFunction:
+    - called via AWS EventBridge when a CloudFormation Stack change state (event stack_name) will be received
+    - also called via Schedule to recycle all orphaned ODCR
+"""
+
 cfn_client = boto3.client("cloudformation")
 ec2_client = boto3.client("ec2")
 
@@ -174,14 +181,7 @@ def clean_orphaned_odcr_on_schedule() -> bool:
 
 
 def lambda_handler(event, context):
-    """
-    This function cancel orphaned ODCR requested via SOCA if the capacity is manually deleted directly from the AWS console.
-    This function is managed by AWS StepFunction:
-    - called via AWS EventBridge when a CloudFormation Stack change state (event stack_name) will be received
-    - also called via Schedule to recycle all orphaned ODCR
 
-
-    """
     _stack_id = event.get(
         "stack_id", None
     )  # EventBridge return the entire ARN e.g: arn:aws:cloudformation:us-west-1:123456789012:stack/stack_name/stack_uuid
@@ -216,5 +216,5 @@ def lambda_handler(event, context):
                 raise CleanupFailed(
                     "Un-recoverable errors detected during clean_orphaned_odcr_on_schedule"
                 )
-    
+
     logging.info("Lambda execution complete")

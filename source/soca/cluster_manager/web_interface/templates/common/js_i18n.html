@@ -1,0 +1,115 @@
+{# JS i18n helper - include this before any <script> blocks that need translation #}
+<script>
+window.i18n = {
+    // Common
+    please_wait: {{ _("Please wait ...")|tojson }},
+    no_description: {{ _("No Description Provided")|tojson }},
+    remove: {{ _("Remove")|tojson }},
+    // Dropdowns
+    choose_instance_type: {{ _("Choose an Instance Type")|tojson }},
+    choose_software_stack: {{ _("Choose a EDH software stack for")|tojson }},
+    choose_instance_for_stack: {{ _("Choose an Instance Type supported for this Software Stack")|tojson }},
+    select_project: {{ _("Select an EDH Project")|tojson }},
+    search_instance_type: {{ _("Type to search an instance type...")|tojson }},
+    select_this_stack: {{ _("Select this Stack")|tojson }},
+    instance_family: {{ _("Instance Family")|tojson }},
+    // Pagination: use as `i18n.page_of_template.replace('%(current)s', n).replace('%(total)s', m)`.
+    // Identity kwargs are required: Jinja2's i18n extension unconditionally runs
+    // `translated % variables` after gettext, so a zero-kwarg _() on a msgid that
+    // contains %(name)s placeholders raises KeyError at render time. Passing each
+    // placeholder back as its own literal value keeps the placeholders intact in
+    // the rendered JS string so the .replace() calls above can substitute them.
+    page_of_template: {{ _("Page %(current)s of %(total)s", current="%(current)s", total="%(total)s")|tojson }},
+    // No data
+    no_software_stack: {{ _("No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator.")|tojson }},
+    // File explorer
+    drag_drop_upload: {{ _("Drag and Drop files to upload or click")|tojson }},
+    files_uploaded_under: {{ _("File(s) will be uploaded under")|tojson }},
+    error_uploading: {{ _("Error uploading file!")|tojson }},
+    uploaded_to_edh: {{ _("has been uploaded to EDH")|tojson }},
+    upload_complete: {{ _("All operations have completed. Page will reload automatically in 5 seconds")|tojson }},
+    click_manual_reload: {{ _("click here for manual reload")|tojson }},
+    upload_canceled: {{ _("upload was canceled")|tojson }},
+    error_during: {{ _("Error during")|tojson }},
+    upload_because: {{ _("upload because of")|tojson }},
+    no_files_in_dir: {{ _("No files in this directory")|tojson }},
+    download_limit: {{ _("Sorry you cannot download more than 40 files in a single call")|tojson }},
+    // Schedule
+    next_day: {{ _("(Next Day)")|tojson }},
+    // Applications formBuilder
+    recommended_params: {{ _("Recommended Parameters")|tojson }},
+    app_params: {{ _("Application parameters")|tojson }},
+    instance_type_label: {{ _("What type of instance do you want to use?")|tojson }},
+    instance_type_desc: {{ _("EC2 instance type to provision")|tojson }},
+    small_instance: {{ _("Small (2 vCPUs, 8GB RAM)")|tojson }},
+    medium_instance: {{ _("Medium (4 vCPUs, 16 GB RAM)")|tojson }},
+    large_instance: {{ _("Large (8 vCPUs, 32 GB RAM)")|tojson }},
+    force_ri_label: {{ _("Do you want to limit your job to Reserved Instance only?")|tojson }},
+    vcpus_label: {{ _("How many Virtual CPUs do you want?")|tojson }},
+    vcpus_desc: {{ _("Number of vCPUs to allocate to the simulation")|tojson }},
+    job_name_label: {{ _("Job Name")|tojson }},
+    no_spaces: {{ _("Do not use spaces")|tojson }},
+    input_file_label: {{ _("Input location")|tojson }},
+    wall_time_label: {{ _("Do you want to limit how long the job will be running?")|tojson }},
+    wall_time_format: {{ _("Use HH:MM:SS format (hours:minutes:seconds)")|tojson }},
+    no_more_1h: {{ _("No more than 1 hour")|tojson }},
+    no_more_5h: {{ _("No more than 5 hours")|tojson }},
+    no_more_1d: {{ _("No more than 1 day")|tojson }},
+    no_more_1m: {{ _("No more than 1 month")|tojson }},
+    storage_label: {{ _("How much storage do you want (SSD under /scratch)")|tojson }},
+    queue_label: {{ _("What queue do you want to use?")|tojson }},
+    queue_low: {{ _("Queue 1 (Low Priority)")|tojson }},
+    queue_high: {{ _("Queue 2 (High Priority)")|tojson }},
+    solver_label: {{ _("What version of the solver do you want to use?")|tojson }},
+    solver_desc: {{ _("Path to the solver executable/binary")|tojson }},
+    enter_value: {{ _("Enter value")|tojson }},
+    enter_shell_code: {{ _("Enter shell code here")|tojson }},
+    pre_exec_label: {{ _("User code to be executed BEFORE the solver command")|tojson }},
+    post_exec_label: {{ _("User code to be executed AFTER the solver command")|tojson }},
+    // Auto-refresh
+    disable_auto_refresh: {{ _("Disable Auto-Refresh")|tojson }},
+    enable_auto_refresh: {{ _("Enable Auto-Refresh")|tojson }},
+    // Validation
+    max_consumable_resources: {{ _("Maximum of 5 consumable resources allowed.")|tojson }},
+    // Placeholders for dynamically-inserted form inputs (served from JS template literals)
+    resource_type_placeholder: {{ _("Resource Type (e.g., GPU, FPGA)")|tojson }},
+    resource_value_placeholder: {{ _("Value (e.g., 1, 2)")|tojson }},
+    argument_placeholder: {{ _("e.g. argument")|tojson }},
+    key_placeholder: {{ _("Key")|tojson }},
+    value_placeholder: {{ _("Value")|tojson }},
+    // formBuilder extended
+    instance_type_provision_desc: {{ _("EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision")|tojson }},
+    force_ri_desc: {{ _("If force_ri is True, the job must ONLY run on Reserved Instance. If there is not enough RI, job will stay in the queue. Parameter is ignored if you use Spot")|tojson }},
+    vcpus_placeholder: {{ _("Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count")|tojson }},
+    vcpus_provision_desc: {{ _("Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision")|tojson }},
+    input_file_placeholder: {{ _("(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file.")|tojson }},
+    input_file_desc: {{ _("input_file is a reserved name on EDH. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name")|tojson }},
+    wall_time_format_desc: {{ _("Use HH:MM:SS format (hours:minutes:seconds). For example 90 minutes is 00:90:00 or 01:30:00")|tojson }},
+    solver_bin_desc: {{ _("Path to the solver executable/binary. It is usually located within the bin folder of your installation directory")|tojson }},
+    // Cost estimate
+    cost_please_wait: {{ _("Please wait while we estimate the price of this job ...")|tojson }},
+    cost_estimated: {{ _("Estimated Cost:")|tojson }},
+    cost_hour: {{ _("hour")|tojson }},
+    cost_estimate_based: {{ _("This estimate is based on a simulation time of")|tojson }},
+    cost_hours_ht: {{ _("hour(s) with HyperThreading support set to True")|tojson }},
+    cost_compute: {{ _("Compute")|tojson }},
+    cost_storage: {{ _("Storage")|tojson }},
+    cost_nodes_count: {{ _("Nodes Count")|tojson }},
+    cost_instance_type: {{ _("Instance Type:")|tojson }},
+    cost_requested_vcpus: {{ _("Requested vCPUs:")|tojson }},
+    cost_estimated_ondemand: {{ _("Estimated Compute OnDemand")|tojson }},
+    cost_save_ri: {{ _("You could save money by")|tojson }},
+    cost_purchasing_ri: {{ _("purchasing Reserved Instances")|tojson }},
+    cost_estimated_ri: {{ _("Estimated compute price with RI")|tojson }},
+    cost_root_partition: {{ _("Root Partition (default 40GB if not set):")|tojson }},
+    cost_scratch_partition: {{ _("Scratch Partition:")|tojson }},
+    cost_fsx_lustre: {{ _("FSx for Lustre:")|tojson }},
+    cost_estimated_storage: {{ _("Estimated Storage:")|tojson }},
+    cost_important_vcpu: {{ _("IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)")|tojson }},
+    cost_unable: {{ _("Unable to estimate cost")|tojson }},
+    cost_error: {{ _("Error:")|tojson }},
+    // File explorer errors
+    upload_error_during: {{ _("Error during")|tojson }},
+    upload_error_because: {{ _("upload because of")|tojson }},
+};
+</script>

@@ -3,6 +3,16 @@
 
 {% include "templates/windows/common.ps.j2" %}
 
+# AD-join helpers (Get-SocaAdHostname / Invoke-SocaCleanDomainJoin). Sourced here in 02 (an
+# S3-downloaded script) rather than common.ps.j2 to keep them OUT of the inline 16 KB
+# LaunchTemplate UserData (01_user_data). join_activedirectory below depends on them.
+{% include "templates/windows/ad_join_helpers.ps.j2" %}
+
+# Package-install helper (Invoke-SOCAInstallPackage). Sourced here in 02 (an S3-downloaded
+# script) rather than common.ps.j2 to keep it OUT of the inline 16 KB LaunchTemplate UserData
+# (01_user_data). chocolatey + nvidia_drivers below depend on it.
+{% include "templates/windows/common/wrapper_install_package.ps.j2" %}
+
 {% include "templates/windows/common/wrapper_secretsmanager.ps.j2" %}
 
 $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -13,14 +23,48 @@ $EDHBootstrapAssetsFolder = $env:EDHBootstrapAssetsFolder
 # CD into boostrap location
 Set-Location -Path $EDHBootstrapAssetsFolder
 
-# Install Chocolatey package manager
-{% include "templates/windows/chocolatey.ps.j2" %}
+# DCV event-relay publisher (no-op if EDH_DCV_SESSION_EVENTS_QUEUE_URL is unset).
+{% include "templates/windows/dcv/dcv_event_publish.ps.j2" %}
+
+# Checkpoint: bootstrap script started running. Lights dot 4 (boot) on
+# the WebUI grid timeline. Best-effort -- failures are warnings, not fatal.
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-checkpoint" `
+        -Checkpoint "boot-started" `
+        -SubStatus "Windows post-launch setup started"
+} catch {
+    Write-Warning "edh-publish: boot-started checkpoint threw: $_"
+}
+
+# Status: package manager install. Bounded: if Chocolatey CDN hangs or 429s,
+# skip it — DCV and AD join do not depend on it.
+$chocoJob = Start-Job -ScriptBlock {
+    Invoke-EdhRetryablePhase -Name "Chocolatey install" -MaxAttempts 2 -BackoffSeconds @(10, 30) -Body {
+        {% include "templates/windows/chocolatey.ps.j2" %}
+    }
+}
+$done = $chocoJob | Wait-Job -Timeout 120
+if (-not $done) {
+    $chocoJob | Stop-Job
+    $chocoJob | Remove-Job -Force
+    Log-Info -Message "WARNING: Chocolatey install timed out after 120s (skipped, non-fatal)"
+} elseif ($chocoJob.State -eq 'Failed') {
+    Log-Info -Message "WARNING: Chocolatey install failed (non-fatal): $($chocoJob.ChildJobs[0].JobStateInfo.Reason)"
+    $chocoJob | Remove-Job -Force
+} else {
+    $chocoJob | Remove-Job
+}
 
 {% if  context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
     Log-Info -Message "Using Active Directory"
     # DOMAIN\<EDH_user>
-    $EDHUser = "{{ context.get('/configuration/UserDirectory/short_name') }}\{{ context.get('/dcv/SessionOwner') }}"
-    {% include "templates/windows/join_activedirectory.ps.j2" %}
+    $EDHUser = "{{ context.get('/configuration/UserDirectory/short_name') }}\$env:EDH_DCV_SESSION_OWNER"
+    # Wrapped: AD join is the most retry-prone phase -- the DC's SRV
+    # records sometimes haven't propagated yet during cluster spin-up,
+    # and Realm join can fail transiently on DNS races.
+    Invoke-EdhRetryablePhase -Name "Active Directory domain join" -MaxAttempts 3 -BackoffSeconds @(30, 90) -Body {
+        {% include "templates/windows/join_activedirectory.ps.j2" %}
+    }
 
 {% else %}
     Log-Info -Message "Using OpenLDAP. Creating a local EDH user"
@@ -30,7 +74,7 @@ Set-Location -Path $EDHBootstrapAssetsFolder
     $userAccount | Set-LocalUser -Password $password
 
     # Create a new local user for the current EDH User
-    $EDHUser = "{{ context.get('/dcv/SessionOwner') }}"
+    $EDHUser = "$env:EDH_DCV_SESSION_OWNER"
     if (Get-LocalUser $EDHUser) {
         Log-Info -Message "Local user already exist. Resetting password"
         Set-LocalUser $EDHUser -Password $password
@@ -41,19 +85,44 @@ Set-Location -Path $EDHBootstrapAssetsFolder
 
 {% endif %}
 
+# --- Reboot guard ---------------------------------------------------------------------------
+# The AD join above stages the host rename via Add-Computer JoinWithNewName, which ONLY takes
+# effect on the reboot issued at the END of this script. The phases below (DCV install,
+# Session Manager agent, VDI monitoring) can throw -- and if one does, this script must STILL
+# schedule 03_setup_post_reboot and reboot. Otherwise the staged rename never applies and the
+# host is left half-joined (AD object created as the unique SOCA-<hash> name, but the machine
+# still carries its EC2 sysprep name) -> domain logins fail with "the security database on the
+# server does not have a computer account for this workstation trust relationship", and 03
+# (which converges identity) is never even scheduled. try/finally makes the reboot + 03
+# scheduling un-strandable regardless of any phase failure below.
+try {
+
 # Add user to local Admin group to make sure he has all permissions on his/her own machine
-Add-LocalGroupMember -Group "Administrators" -Member "$EDHUser"
+if (-not [string]::IsNullOrWhiteSpace($env:EDH_DCV_SESSION_OWNER)) {
+    Add-LocalGroupMember -Group "Administrators" -Member "$EDHUser"
+}
 
 $instanceInfo = Invoke-SOCAAwsCli ec2 describe-instance-types --instance-types $InstanceType --output json | ConvertFrom-Json
 if ($instanceInfo.InstanceTypes.GpuInfo) {
     $gpu = $instanceInfo.InstanceTypes.GpuInfo.Gpus | ForEach-Object { $_.Manufacturer }
     if ($gpu -eq "NVIDIA") {
         Log-Info -Message "Detected NVIDIA GPU"
-        {% include  "templates/windows/gpu/nvidia_drivers.ps.j2" %}
+        # Wrapped: GPU driver download from S3 is the slowest phase and
+        # most likely to hit a transient network blip. 3 attempts with
+        # generous backoff -- if it really keeps failing, the third
+        # failure surfaces clearly on the timeline.
+        Invoke-EdhRetryablePhase -Name "NVIDIA GPU driver install" -MaxAttempts 3 -BackoffSeconds @(30, 90) -Body {
+            {% include  "templates/windows/gpu/nvidia_drivers.ps.j2" %}
+        }
+        # Optional GPU Optimization for NVIDIA
+        Log-Info -Message "GPU Optimization can take several minutes to run and is disabled by default. Uncomment the line below if you want to activate it"
+        {# include  "templates/windows/gpu/optimize_gpu.ps.j2" #}
     } elseif ($gpu -eq "AMD")
     {
         Log-Info -Message "Detected AMD GPU"
-        {% include  "templates/windows/gpu/amd_drivers.ps.j2" %}
+        Invoke-EdhRetryablePhase -Name "AMD GPU driver install" -MaxAttempts 3 -BackoffSeconds @(30, 90) -Body {
+            {% include  "templates/windows/gpu/amd_drivers.ps.j2" %}
+        }
     }
     else
     {
@@ -64,11 +133,42 @@ if ($instanceInfo.InstanceTypes.GpuInfo) {
 }
 
 # Install and configure DCV
+# Checkpoint: DCV install starting. Lights dot 5 (install) on the
+# WebUI grid timeline. Best-effort -- failures are warnings, not fatal.
+$_dcvInstallT0 = Get-Date
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-checkpoint" `
+        -Checkpoint "dcv-installing" `
+        -SubStatus "Installing DCV server"
+} catch {
+    Write-Warning "edh-publish: dcv-installing checkpoint threw: $_"
+}
 {% include "templates/windows/dcv/dcv_server.ps.j2" %}
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" `
+        -SubStatus ("DCV server installed in " + (Format-EdhDuration ((Get-Date) - $_dcvInstallT0)))
+} catch { Write-Warning "edh-publish: dcv-installed end threw: $_" }
 
 {% include "templates/windows/dcv/dcv_session_setup.ps.j2" %}
 
 {% include "templates/windows/dcv/default_permissions.ps.j2" %}
+
+{# USB remotization allowlist: register the boot hook that writes
+   usb-devices.conf (change-detect + conditional dcvserver restart). Inert
+   no-op on clusters where the resolver is not deployed. #}
+{% include "templates/windows/dcv/usb_remotization.ps.j2" %}
+
+{% if context.get("/configuration/DcvHighScale", false) | string | lower == "true" %}
+Log-Info -Message "DCV High-Scale mode enabled - installing Session Manager Agent + monitoring"
+{% include "templates/windows/dcv/dcv_session_manager_agent.ps.j2" %}
+{% include "templates/windows/dcv/dcv_vdi_monitoring.ps.j2" %}
+{% endif %}
+
+}
+catch {
+    Log-Warning -Message "02_setup post-join phase threw: $($_.Exception.Message) -- proceeding to schedule 03 + reboot anyway so the staged AD rename applies and 03 can converge identity."
+}
+finally {
 
 Log-Info -Message "Reboot required?: $requireReboot"
 
@@ -90,3 +190,5 @@ if ($requireReboot)
     & "${EDHBootstrapAssetsFolder}\03_setup_post_reboot.ps1" *> "${EDHBootstrapAssetsFolder}\03_setup_post_reboot.ps1.log"
 
 }
+
+}  # end finally (reboot guard)

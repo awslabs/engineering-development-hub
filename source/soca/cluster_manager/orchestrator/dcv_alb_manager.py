@@ -24,6 +24,15 @@ from utils.aws.ec2_helper import describe_instances_paginate
 
 from utils.datamodels.soca_dcv import SocaDCVInstance
 
+# Ownership tag applied to every ALB rule this module creates. The cleanup
+# loop only considers rules that carry this tag, so other features can
+# safely add their own rules to the same listener without being clobbered
+# on the next reconcile. When adding a new feature that shares this
+# listener, do NOT reuse this tag key - pick a different edh:ManagedBy
+# value (e.g. webshell, bulktransfer) so each subsystem owns its own rules.
+DCV_ALB_MANAGED_BY_TAG_KEY = "edh:ManagedBy"
+DCV_ALB_MANAGED_BY_TAG_VALUE = "dcv_alb_manager"
+
 
 def get_ec2_dcv_instances(cluster_id: str) -> SocaResponse | SocaError:
     _instance_list = []
@@ -132,8 +141,10 @@ def create_new_target_group(
             )
 
             if target_group_arn is None:
-                return SocaError.GENERIC_ERROR(helper=f"Target Group created but unable to retrieve the GroupArn: {new_target_group}")
-            
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Target Group created but unable to retrieve the GroupArn: {new_target_group}"
+                )
+
             return SocaResponse(
                 success=True,
                 message=target_group_arn,
@@ -172,6 +183,17 @@ def create_new_alb_rule(
             Priority=int(priority),
             Conditions=[{"Field": "path-pattern", "Values": [f"/{instance_dns}/*"]}],
             Actions=[{"Type": "forward", "TargetGroupArn": target_group_arn}],
+            # Tag the rule so future reconcile cycles (and other features
+            # that share this listener, e.g. the webshell /web_terminal/endpoint*
+            # rule) know this rule is ours and can be safely cleaned up
+            # when the backing DCV instance is gone. Rules without this
+            # tag are left alone - see get_current_listener_rules.
+            Tags=[
+                {
+                    "Key": DCV_ALB_MANAGED_BY_TAG_KEY,
+                    "Value": DCV_ALB_MANAGED_BY_TAG_VALUE,
+                },
+            ],
         )
         logger.info("Rule created successfully")
         return SocaResponse(success=True, message=new_target_group)
@@ -182,25 +204,88 @@ def create_new_alb_rule(
 
 
 def get_current_listener_rules(listener_arn: str) -> SocaResponse | SocaError:
+    """Return (rules, priority_taken) for the listener.
+
+    * `rules` contains ONLY rules that this module owns (tagged with
+      DCV_ALB_MANAGED_BY_TAG_KEY = DCV_ALB_MANAGED_BY_TAG_VALUE). This is
+      what the cleanup loop iterates over - unowned rules belonging to
+      other features (e.g. /web_terminal/endpoint* for the webshell) are left alone.
+
+    * `priority_taken` contains priorities of ALL non-default rules,
+      regardless of ownership, so `create_new_alb_rule` doesn't try to
+      reuse a priority already claimed by another feature.
+    """
     logger.info(f"Fetching all listener rules for {listener_arn=}")
     rules = {}
     priority_taken = []
     try:
-        for rule in elbv2_client.describe_rules(ListenerArn=listener_arn)["Rules"]:
-            if rule["Priority"] != "default" and rule["Priority"] != "1":
-                priority_taken.append(int(rule["Priority"]))
-                for condition in rule["Conditions"]:
-                    condition_list = []
-                    for value in condition["Values"]:
-                        condition_list.append(value)
-
-                    rules[rule["RuleArn"]] = condition_list
+        all_rules = elbv2_client.describe_rules(ListenerArn=listener_arn)["Rules"]
     except Exception as err:
         return SocaError.GENERIC_ERROR(
             error_message=f"Unable to describe rules from listener {listener_arn} with error: {err}"
         )
 
-    logger.info(f"Found {len(rules)} rules in {listener_arn}")
+    # Collect priorities first (regardless of ownership) so we don't race
+    # another feature's rule on rule creation.
+    candidate_arns = []
+    for rule in all_rules:
+        if rule["Priority"] in ("default", "1"):
+            continue
+        priority_taken.append(int(rule["Priority"]))
+        candidate_arns.append(rule["RuleArn"])
+
+    # Batch describe_tags - one API call for up to 20 rules. The API
+    # accepts up to 20 ARNs per call (ELBv2 API quota); chunk if we ever
+    # exceed that.
+    owned_arns = set()
+    if candidate_arns:
+        try:
+            for chunk_start in range(0, len(candidate_arns), 20):
+                chunk = candidate_arns[chunk_start : chunk_start + 20]
+                tag_resp = elbv2_client.describe_tags(ResourceArns=chunk)
+                for td in tag_resp.get("TagDescriptions", []):
+                    arn = td.get("ResourceArn")
+                    for t in td.get("Tags", []):
+                        if (
+                            t.get("Key") == DCV_ALB_MANAGED_BY_TAG_KEY
+                            and t.get("Value") == DCV_ALB_MANAGED_BY_TAG_VALUE
+                        ):
+                            owned_arns.add(arn)
+                            break
+        except Exception as err:
+            # FAIL-SAFE: if tag lookup fails we cannot tell our rules from
+            # rules owned by other features (e.g. the webshell `/web_terminal/endpoint`
+            # rule). Treating every non-default rule as ours - the legacy
+            # behaviour - would let the cleanup loop delete those foreign
+            # rules and break the other feature.
+            #
+            # Returning an explicit error here aborts this reconcile cycle.
+            # The DCV instances stay routable until the next cycle (their
+            # rules survive untouched). Operator can investigate and the
+            # next cycle will retry once permissions / network recover.
+            return SocaError.GENERIC_ERROR(
+                error_message=(
+                    f"Unable to describe_tags for {len(candidate_arns)} ALB "
+                    f"rules on {listener_arn}: {err}. Refusing to reconcile "
+                    f"because we cannot distinguish DCV-owned rules from "
+                    f"rules owned by other features (e.g. webshell). The "
+                    f"reconcile will retry on the next scheduled run."
+                )
+            )
+
+    # Only include owned rules in the cleanup candidate set.
+    for rule in all_rules:
+        if rule["RuleArn"] not in owned_arns:
+            continue
+        condition_list = []
+        for condition in rule["Conditions"]:
+            for value in condition["Values"]:
+                condition_list.append(value)
+        rules[rule["RuleArn"]] = condition_list
+
+    logger.info(
+        f"Found {len(rules)} owned rules (of {len(candidate_arns)} non-default/non-1) in {listener_arn}"
+    )
     logger.debug(
         f"found current listener rules for {listener_arn}: {rules=} / {priority_taken=}"
     )
@@ -288,6 +373,22 @@ if __name__ == "__main__":
 
     elbv2_client = utils_boto3_wrapper.get_boto(service_name="elbv2").message
     ec2_client = utils_boto3_wrapper.get_boto(service_name="ec2").message
+
+    # In DCV high-scale mode the broker + gateway (NLB) handle session
+    # routing, so the per-VDI ALB target-group/rule mechanism this script
+    # manages is not used. Exit as a no-op to avoid creating orphaned
+    # per-instance target groups on high-scale clusters.
+    _high_scale_resp = SocaConfig(key="/dcv/high_scale_enabled").get_value()
+    if _high_scale_resp.get("success") is not True:
+        logger.warning(
+            f"Unable to read /dcv/high_scale_enabled ({_high_scale_resp.get('message')}); "
+            "continuing with per-VDI ALB management."
+        )
+    elif str(_high_scale_resp.get("message")).lower() == "true":
+        logger.info(
+            "DCV high-scale mode enabled; per-VDI ALB management is not used. Exiting no-op."
+        )
+        sys.exit(0)
 
     # Step 1 - Verify if HTTPS listener exist
     if (_get_alb_https_listener := return_alb_https_listener(alb_arn=alb_arn)).get(

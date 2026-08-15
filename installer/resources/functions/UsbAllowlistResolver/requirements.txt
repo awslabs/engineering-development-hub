@@ -1,0 +1,12 @@
+# USB Allowlist Resolver Lambda dependencies.
+#
+# psycopg (v3, with the compiled libpq binary) is NOT vendored into this asset
+# directory. It is provided at deploy time by the shared "PsycopgLayer" that
+# cdk_construct.py builds from the Lambda runtime's manylinux x86_64 wheels
+# (see Config.lambda_layers.PsycopgVersion). The function pins
+# architecture=X86_64 to match the layer.
+#
+# This file is documentation only -- nothing consumes it at build time
+# (Code.from_asset zips this directory as-is). Do NOT `pip install -t .` here:
+# that would bake host-arch wheels into the asset and double-package psycopg.
+psycopg[binary]

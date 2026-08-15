@@ -1,0 +1,5277 @@
+# Chinese translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-06-02 14:33+0200\nPO-Revision-Date: 2026-03-26 17:43-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: zh\nLanguage-Team: zh <LL@li.org>\nPlural-Forms: nplurals=1; plural=0;\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.16.0\n"
+
+msgid " Download file is disabled. Please contact your SOCA cluster administrator"
+msgstr " 下载文件已禁用。请联系您的 SOCA 集群管理员"
+
+#, python-format
+msgid "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
+msgstr "%(em_prefix)s。如果使用新的/自定义 shell，请确保您的 shell 已安装在所有计算节点上"
+
+#, python-format
+msgid "%(link)s enables fully managed support for SFTP, FTPS and FTP to move large amounts of data into AWS."
+msgstr "%(link)s 支持对 SFTP、FTPS 和 FTP 的完全托管支持，以便将大量数据迁移到 AWS。"
+
+#, python-format
+msgid "%(link)s is a secure, online service that automates and accelerates moving data between on-premises and AWS storage services."
+msgstr "%(link)s 是一项安全的在线服务，可自动并加速本地和 AWS 存储服务之间的数据移动。"
+
+msgid "&times;"
+msgstr "×"
+
+msgid "(Default Shell) /bin/bash"
+msgstr "（默认 Shell）/bin/bash"
+
+msgid "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file."
+msgstr "（请勿删除）此条目将自动使用输入文件的绝对路径预先填充。"
+
+msgid "(EDH version 26.8.0)"
+msgstr "（EDH 版本 26.8.0）"
+
+msgid "(EDH)"
+msgstr "（EDH）"
+
+msgid "(Next Day)"
+msgstr "（第二天）"
+
+msgid "(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+msgstr "（如果不使用主机租赁，则为可选）启动主机 ID (h-xxx)"
+
+msgid "(Optional) Advanced Customizations"
+msgstr "（可选）高级自定义"
+
+msgid "(Optional) Description for your Target Node Profile (maximum 500 characters)."
+msgstr "（可选）目标节点配置文件的描述（最多 500 个字符）。"
+
+msgid "(Optional) Description for your Virtual Desktop Profile (maximum 500 characters)."
+msgstr "（可选）虚拟桌面配置文件的描述（最多 500 个字符）。"
+
+msgid "(Optional) Description for your project (maximum 500 characters)."
+msgstr "（可选）项目描述（最多 500 个字符）。"
+
+msgid "(Optional) Description for your project maximum 500 characters."
+msgstr "（可选）项目描述最多 500 个字符。"
+
+msgid "(Optional) Description for your software stack (maximum 500 characters)."
+msgstr "（可选）软件堆栈的描述（最多 500 个字符）。"
+
+msgid "(Optional) Description for your software stack, maximum 500 characters."
+msgstr "（可选）软件堆栈的描述，最多 500 个字符。"
+
+msgid "(Optional) Description for your template, maximum 500 characters."
+msgstr "（可选）模板描述，最多 500 个字符。"
+
+msgid "(Optional) User GID"
+msgstr "（可选）用户 GID"
+
+msgid "(Optional) User UID"
+msgstr "（可选）用户 UID"
+
+msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
+msgstr "（可选）myvar1=myvalue1，myvar2=myvalue2"
+
+#, python-format
+msgid "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+msgstr "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+
+msgid ", "
+msgstr "， "
+
+msgid "/root size in GB (default: 10)"
+msgstr "/root 大小以 GB 为单位（默认值：10）"
+
+msgid "/scratch size in GB (default: 0)"
+msgstr "/scratch 大小，以 GB 为单位（默认值：0）"
+
+msgid "0-9999"
+msgstr "0-9999"
+
+msgid "1-10"
+msgstr "1-10"
+
+msgid "100 Customizable"
+msgstr "100 可定制"
+
+msgid "24H"
+msgstr "24 小时"
+
+msgid "A Target Node Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "目标节点配置文件控制 EC2 实例类型列表、最大存储大小以及经批准的子网 ID"
+
+msgid "A Virtual Desktop Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "虚拟桌面配置文件控制 EC2 实例类型列表、最大存储大小以及经批准的子网 ID"
+
+msgid "A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows."
+msgstr "适用于云工作站、云仿真和人工智能支持的工程工作流程的统一平台。"
+
+msgid "ADD"
+msgstr "添加"
+
+msgid "AM/PM"
+msgstr "上午/下午"
+
+msgid "AMI ID"
+msgstr "AMI ID"
+
+msgid "API Documentation"
+msgstr "API 文档"
+
+msgid "AWS Batch Containers"
+msgstr "AWS 批量容器"
+
+msgid "AWS DataSync"
+msgstr "AWS 数据同步"
+
+msgid "AWS Region of the target node"
+msgstr "目标节点的 AWS 区域"
+
+msgid "AWS Transfer"
+msgstr "AWS 转账"
+
+msgid "Access denied"
+msgstr "访问被拒绝"
+
+msgid "Access my Analytics Dashboard"
+msgstr "访问我的分析控制面板"
+
+msgid "Access the cluster via Secure Shell (SSH)"
+msgstr "通过安全外壳 (SSH) 访问集群"
+
+msgid "Access the cluster via a Web Terminal"
+msgstr "通过 Web 终端访问集群"
+
+msgid "Access your cluster via SSH"
+msgstr "通过 SSH 访问您的集群"
+
+msgid "Action"
+msgstr "行动"
+
+msgid "Actions"
+msgstr "行动"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Add Argument"
+msgstr "添加参数"
+
+msgid "Add New User"
+msgstr "添加新用户"
+
+msgid "Add Resource"
+msgstr "添加资源"
+
+msgid "Add Variable"
+msgstr "添加变量"
+
+msgid "Add a user to your group"
+msgstr "将用户添加到您的群组"
+
+msgid "Add environment variables for your job"
+msgstr "为你的工作添加环境变量"
+
+msgid "Add new user"
+msgstr "添加新用户"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job definition(s) you want to onboard."
+msgstr "将以下标签 %(tag)s 添加到您要加入的 AWS 批处理任务定义中。"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job queue(s) you want to onboard."
+msgstr "将以下标签 %(tag)s 添加到您要加入的 AWS 批处理任务队列中。"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the EKS cluster(s) you want to onboard."
+msgstr "将以下标签 %(tag)s 添加到您要加入的 EKS 集群中。"
+
+#, python-format
+msgid "Add the following tag to onboard your %(link)s to EDH:"
+msgstr "添加以下标签以将您的 %(link)s 加入 EDH："
+
+msgid "Add to group"
+msgstr "添加到群组"
+
+msgid "Add user"
+msgstr "添加用户"
+
+msgid "Add user to your group"
+msgstr "将用户添加到您的群组"
+
+msgid "Additional documentation and examples can be found here:"
+msgstr "可以在此处找到其他文档和示例："
+
+msgid "Additional variables (case-sensitive)"
+msgstr "其他变量（区分大小写）"
+
+#, python-format
+msgid "Additional variables can be defined on the %(stack_link)s associated to this user data template. Variables can be retrieved via %(var_syntax)s syntax."
+msgstr "可以在与此用户数据模板关联的 %(stack_link)s 上定义其他变量。可以通过 %(var_syntax)s 语法检索变量。"
+
+msgid "Additionally, your job definition status must be ACTIVE."
+msgstr "此外，您的任务定义状态必须为 “活动”。"
+
+msgid "Additionally, your job queue state must be ENABLED and status must be VALID."
+msgstr "此外，您的任务队列状态必须为 “启用”，状态必须为 “有效”。"
+
+msgid "Admin Section"
+msgstr "管理员专区"
+
+msgid "Admin permissions granted"
+msgstr "已授予管理员权限"
+
+msgid "Admin permissions revoked"
+msgstr "管理员权限已撤销"
+
+#, python-format
+msgid "Admin username and password can be found on %(u)s and %(pw)s."
+msgstr "管理员用户名和密码可以在 %(u)s 和 %(pw)s 上找到。"
+
+msgid "Advanced Settings"
+msgstr "高级设置"
+
+msgid "All"
+msgstr "全部"
+
+msgid "All operations have completed. Page will reload automatically in 5 seconds"
+msgstr "所有操作均已完成。页面将在 5 秒后自动重新加载"
+
+msgid "All users"
+msgstr "所有用户"
+
+msgid "Allowed Groups"
+msgstr "允许的群组"
+
+msgid "Allowed Users"
+msgstr "允许的用户"
+
+msgid "Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname."
+msgstr "或者，你可以使用 WinSCP/FileZilla。请参阅本网站提供的说明并使用您的 AWS Transfer 终端节点作为主机名。"
+
+msgid "Always On"
+msgstr "永远在线"
+
+msgid "AlwaysOn"
+msgstr "永远在线"
+
+msgid "Amazon DCV"
+msgstr "亚马逊 DCV"
+
+msgid "Amazon EKS Containers"
+msgstr "亚马逊 EKS 容器"
+
+msgid "AmazonElasticFileSystemClientReadWriteAccess"
+msgstr "亚马逊 ElasticFileSystemClient 读写权限"
+
+msgid "Analytics / Budget"
+msgstr "分析/预算"
+
+msgid "Any script authenticating to SOCA using this key will return"
+msgstr "任何使用此密钥向 SOCA 进行身份验证的脚本都将返回"
+
+msgid "Application Imported successfully"
+msgstr "应用程序已成功导入"
+
+msgid "Application Profiles"
+msgstr "应用程序配置文件"
+
+msgid "Application deleted successfully"
+msgstr "应用程序已成功删除"
+
+msgid "Application not found or user is not authorized."
+msgstr "未找到应用程序或用户未获得授权。"
+
+msgid "Application parameters"
+msgstr "应用程序参数"
+
+msgid "Application updated successfully"
+msgstr "应用程序已成功更新"
+
+msgid "Applications are loaded in memory and will restart automatically"
+msgstr "应用程序已加载到内存中并将自动重启"
+
+msgid "Architecture (x86_64/ aarch64) of the target node"
+msgstr "目标节点的架构 (x86_64/ aarch64)"
+
+msgid "Array Size"
+msgstr "数组大小"
+
+msgid "As hostname, enter the following for the Login Node load balancer endpoint:"
+msgstr "作为主机名，为登录节点负载平衡器端点输入以下内容："
+
+msgid "Assign this desktop to an existing capacity reservation id"
+msgstr "将此桌面分配给现有容量预留 ID"
+
+msgid "Associated AWS Budget"
+msgstr "相关的 AWS 预算"
+
+msgid "Associated Budgets"
+msgstr "相关预算"
+
+msgid "Associated Profile"
+msgstr "关联档案"
+
+msgid "Associated Projects"
+msgstr "关联项目"
+
+msgid "Attention"
+msgstr "注意"
+
+msgid "Attention: Your job cannot run"
+msgstr "注意：您的作业无法运行"
+
+msgid "Authentication failed - please refresh the page and try again."
+msgstr "身份验证失败-请刷新页面，然后重试。"
+
+msgid "Authentication failed. Close this window and open a new pop-out from the main SSH page."
+msgstr "身份验证失败。关闭此窗口，然后从 SSH 主页面打开一个新的弹出窗口。"
+
+msgid "Authorized"
+msgstr "已授权"
+
+msgid "Auto-filled with the input file path"
+msgstr "自动填充输入文件路径"
+
+msgid "Auto-scroll"
+msgstr "自动滚动"
+
+msgid "Automatic Provisioning"
+msgstr "自动配置"
+
+msgid "Automatic Provisioning (Default)"
+msgstr "自动配置（默认）"
+
+msgid "Automatically start/stop this session based on schedule."
+msgstr "根据时间表自动启动/停止此会话。"
+
+msgid "Benefits and Features"
+msgstr "优点和特点"
+
+msgid "Both commands will return a JSON object with all information regarding your job."
+msgstr "这两个命令都将返回一个 JSON 对象，其中包含有关您的任务的所有信息。"
+
+msgid "Both commands will return the ID associated to the job you just submitted"
+msgstr "这两个命令都将返回与您刚刚提交的任务关联的 ID"
+
+msgid "Browse Software Stacks"
+msgstr "浏览软件堆栈"
+
+msgid "Budgets and Cost Management"
+msgstr "预算和成本管理"
+
+msgid "CPUs"
+msgstr "中央处理器"
+
+msgid "Cache updated with the latest revision of the folder"
+msgstr "使用最新版本的文件夹更新了缓存"
+
+msgid "Calculate number of nodes to provision automatically"
+msgstr "计算要自动配置的节点数量"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Capacity being provisioned"
+msgstr "正在配置容量"
+
+msgid "Capacity provisioning blocked"
+msgstr "容量配置受阻"
+
+msgid "Change group membership"
+msgstr "更改群组成员资格"
+
+msgid "Change my password"
+msgstr "更改我的密码"
+
+msgid "Changing an instance type does not cause data loss."
+msgstr "更改实例类型不会导致数据丢失。"
+
+msgid "Check Project Membership"
+msgstr "查看项目成员资格"
+
+msgid "Check group"
+msgstr "检查群组"
+
+msgid "Check group membership"
+msgstr "检查群组成员资格"
+
+msgid "Check project membership for a given user"
+msgstr "检查给定用户的项目成员资格"
+
+#, python-format
+msgid "Choose %(ep_type)s depending on your setup. It's recommended to use %(vpc)s for IP restrictions via your security groups. %(pub)s means your AWS Transfer endpoint won't be protected by IP safelist."
+msgstr "根据您的设置选择 %(ep_type)s。建议通过您的安全组使用 %(vpc)s 进行 IP 限制。%(pub)s 意味着您的 AWS 传输终端节点将不受到 IP 安全列表的保护。"
+
+msgid "Choose AMI launch tenancy setting"
+msgstr "选择 AMI 启动租户设置"
+
+msgid "Choose a EDH software stack for"
+msgstr "选择 EDH 软件堆栈"
+
+msgid "Choose a friendly name for your AMI."
+msgstr "为您的 AMI 选择一个友好的名称。"
+
+msgid "Choose an Instance Type"
+msgstr "选择实例类型"
+
+msgid "Choose an Instance Type supported for this Software Stack"
+msgstr "选择此软件堆栈支持的实例类型"
+
+msgid "Choose what interpreter you want to use to execute the code below:"
+msgstr "选择要使用哪个解释器来执行以下代码："
+
+msgid "Choose your Operating System"
+msgstr "选择你的操作系统"
+
+msgid "Choose your Software Stack"
+msgstr "选择您的软件堆栈"
+
+msgid "Clear the buffer (Ctrl+L)"
+msgstr "清除缓冲区 (Ctrl+L)"
+
+#, python-format
+msgid "Click %(start_a)shere%(end_a)s to download it"
+msgstr "Click %(start_a)shere%(end_a)s to download it"
+
+msgid "Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it."
+msgstr "单击 + 添加新的终端选项卡。使用选项卡上的 ⏸ 分离（保持会话运行），或使用 × 结束会话。"
+
+msgid "Click connect/open to access the cluster"
+msgstr "单击 “连接/打开” 以访问集群"
+
+msgid "Click here to Open Terminal in a separate window"
+msgstr "点击此处在单独的窗口中打开终端"
+
+msgid "Click here to learn how to Import/Export your Workflow Profiles"
+msgstr "单击此处了解如何导入/导出您的工作流程配置文件"
+
+msgid "Click here to learn how to create custom images"
+msgstr "点击此处了解如何创建自定义镜像"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Closing tabs or this window leaves them running so you can resume later."
+msgstr "关闭选项卡或此窗口会使它们保持运行状态，因此您可以稍后恢复。"
+
+msgid "Cluster"
+msgstr "集群"
+
+msgid "Cluster Metrics"
+msgstr "集群指标"
+
+msgid "Code Editor"
+msgstr "代码编辑器"
+
+msgid "Code Editor is taking longer than expected to load."
+msgstr "代码编辑器的加载时间比预期的要长。"
+
+msgid "Comma separated value of key=value variable that will be replaced in the user data if present."
+msgstr "key=value 变量的逗号分隔值，如果存在，将在用户数据中替换。"
+
+msgid "Command Override"
+msgstr "命令覆盖"
+
+msgid "Company Resources"
+msgstr "公司资源"
+
+msgid "Compute"
+msgstr "计算"
+
+msgid "Compute Resources"
+msgstr "计算资源"
+
+msgid "Compute rate are retrieved for your running region"
+msgstr "系统会检索您的跑步区域的计算速率"
+
+msgid "Configure Job Cost Estimate automatically"
+msgstr "自动配置任务成本估算"
+
+msgid "Confirm Delete"
+msgstr "确认删除"
+
+msgid "Confirm New Password"
+msgstr "确认新密码"
+
+msgid "Confirm Password"
+msgstr "确认密码"
+
+msgid "Confirm Terminate"
+msgstr "确认终止"
+
+msgid "Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:"
+msgstr "通过命令行使用您最喜欢的 FTP 应用程序连接到您的 AWS Transfer 终端节点，例如："
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "Connecting..."
+msgstr "正在连接..."
+
+msgid "Connection String"
+msgstr "连接字符串"
+
+msgid "Consumable Resource Override"
+msgstr "消耗资源覆盖"
+
+msgid "Contact your EDH administrator if you want to add Analytics capability to your cluster."
+msgstr "如果您想向集群添加分析功能，请联系您的 EDH 管理员。"
+
+msgid "Container Overrides"
+msgstr "容器覆盖"
+
+msgid "Continue to GitHub"
+msgstr "继续访问 GitHub"
+
+msgid "Control AWS resource deployment authorization via AWS Budget"
+msgstr "通过 AWS 预算控制 AWS 资源部署授权"
+
+msgid "Cost Control and Budgets"
+msgstr "成本控制和预算"
+
+msgid "Cost Management"
+msgstr "成本管理"
+
+msgid "Cost estimate for your job"
+msgstr "工作成本估算"
+
+msgid "Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file."
+msgstr "无法估算成本，因为此工作流程将生成 Linux 命令而不是 qsub 文件。"
+
+msgid "Could not check group membership: "
+msgstr "无法检查群组成员资格： "
+
+msgid "Could not delete group: "
+msgstr "无法删除群组： "
+
+msgid "Could not delete user: "
+msgstr "无法删除用户： "
+
+msgid "Could not locate the directory. Did you delete it ?"
+msgstr "找不到该目录。你删除了吗？"
+
+msgid "Could not locate the directory: "
+msgstr "找不到该目录： "
+
+msgid "Create Account"
+msgstr "创建账户"
+
+msgid "Create EDH Project"
+msgstr "创建 EDH 项目"
+
+msgid "Create Folder"
+msgstr "创建文件夹"
+
+msgid "Create Group"
+msgstr "创建群组"
+
+msgid "Create User Data template"
+msgstr "创建用户数据模板"
+
+msgid "Create a \"mynewgroup.ldif\" text file."
+msgstr "创建一个 “mynewgroup.ldif” 文本文件。"
+
+msgid "Create a group"
+msgstr "创建群组"
+
+msgid "Create a new EDH Project"
+msgstr "创建新的 EDH 项目"
+
+msgid "Create a new Target Node Profile"
+msgstr "创建新的目标节点配置文件"
+
+msgid "Create a new User Data Template"
+msgstr "创建新的用户数据模板"
+
+msgid "Create a new Virtual Desktop Profile"
+msgstr "创建新的虚拟桌面配置文件"
+
+msgid "Create a new Workflow Profile"
+msgstr "创建新的工作流程配置文件"
+
+msgid "Create a new group"
+msgstr "创建新群组"
+
+msgid "Create a new queue"
+msgstr "创建新队列"
+
+msgid "Create a queue"
+msgstr "创建队列"
+
+msgid "Create new EDH Project"
+msgstr "创建新的 EDH 项目"
+
+msgid "Create new Queue"
+msgstr "创建新队列"
+
+msgid "Create new Target Node Profile"
+msgstr "创建新的目标节点配置文件"
+
+msgid "Create new User Data Template"
+msgstr "创建新的用户数据模板"
+
+msgid "Create new Virtual Desktop Profile"
+msgstr "创建新的虚拟桌面配置文件"
+
+msgid "Create new Workflow Profile"
+msgstr "创建新的工作流程配置文件"
+
+msgid "Create this Workflow Profile"
+msgstr "创建此工作流程配置文件"
+
+msgid "Created"
+msgstr "已创建"
+
+msgid "Created On"
+msgstr "创建于"
+
+msgid "Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account."
+msgstr "在 Active Directory 上创建用户最多可能需要 1 分钟。在 EDH 创建新账户时，请勿刷新页面。"
+
+msgid "Custom"
+msgstr "自定义"
+
+msgid "Custom Consumable Resources"
+msgstr "自定义消耗品资源"
+
+msgid "DANGER ZONE - Reset my API key"
+msgstr "危险地带-重置我的 API 密钥"
+
+msgid "DCV Session Type."
+msgstr "DCV 会话类型。"
+
+msgid "Data Transfer to/from EDH"
+msgstr "向/从 EDH 传输数据"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "Dedicated Host Tenancy"
+msgstr "专用主机租赁"
+
+msgid "Dedicated Host Tenancy (host)"
+msgstr "专用主机租赁（主机）"
+
+msgid "Dedicated Instance Tenancy"
+msgstr "专用实例租赁"
+
+msgid "Dedicated Instance Tenancy (instance)"
+msgstr "专用实例租赁（实例）"
+
+msgid "Default Tenancy"
+msgstr "默认租约"
+
+msgid "Default Tenancy (default)"
+msgstr "默认租赁（默认）"
+
+msgid "Define custom consumable resources beyond vCPU and Memory."
+msgstr "定义除 vCPU 和内存之外的自定义消耗资源。"
+
+msgid "Define environment variables as key-value pairs."
+msgstr "将环境变量定义为键值对。"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete Desktop"
+msgstr "删除桌面"
+
+msgid "Delete Group"
+msgstr "删除群组"
+
+msgid "Delete Job"
+msgstr "删除作业"
+
+msgid "Delete Project"
+msgstr "删除项目"
+
+msgid "Delete Queue"
+msgstr "删除队列"
+
+msgid "Delete Target Node"
+msgstr "删除目标节点"
+
+msgid "Delete Target Node Profile"
+msgstr "删除目标节点配置文件"
+
+msgid "Delete User"
+msgstr "删除用户"
+
+msgid "Delete User Data Template"
+msgstr "删除用户数据模板"
+
+msgid "Delete Virtual Desktop Profile"
+msgstr "删除虚拟桌面配置文件"
+
+msgid "Delete Workflow Profile"
+msgstr "删除工作流程配置文件"
+
+msgid "Delete a group"
+msgstr "删除群组"
+
+msgid "Delete a job"
+msgstr "删除作业"
+
+msgid "Delete a queue"
+msgstr "删除队列"
+
+msgid "Delete an existing Workflow Profile"
+msgstr "删除现有的工作流程配置文件"
+
+msgid "Delete file"
+msgstr "删除文件"
+
+msgid "Delete group"
+msgstr "删除群组"
+
+msgid "Delete the folder"
+msgstr "删除该文件夹"
+
+msgid "Delete this file"
+msgstr "删除这个文件"
+
+msgid "Delete user"
+msgstr "删除用户"
+
+msgid "Deleted user"
+msgstr "已删除用户"
+
+#, python-format
+msgid "Deleting a virtual desktop will NOT delete content from %(owner_path)s partition"
+msgstr "删除虚拟桌面不会从 %(owner_path)s 分区中删除内容"
+
+msgid "Deleting a virtual desktop will delete content stored on your local partition (ex:"
+msgstr "删除虚拟桌面将删除存储在本地分区上的内容（例如："
+
+msgid "Deleting group may cause access issue. Make sure your group is no longer in use before deleting it"
+msgstr "删除群组可能会导致访问问题。在删除群组之前，请确保您的群组已不再使用"
+
+msgid "Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data"
+msgstr "删除用户将阻止用户访问集群，但不会删除关联的 $HOME 目录和数据"
+
+msgid "Denied Groups"
+msgstr "被拒绝的群组"
+
+msgid "Denied Users"
+msgstr "被拒绝的用户"
+
+msgid "Deny takes precedence over allow"
+msgstr "拒绝优先于允许"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Description of your Project"
+msgstr "您的项目描述"
+
+msgid "Description of your Software Stack"
+msgstr "您的软件堆栈的描述"
+
+msgid "Description of your Target Node Profile"
+msgstr "您的目标节点配置文件描述"
+
+msgid "Description of your User Data Template"
+msgstr "您的用户数据模板的描述"
+
+msgid "Description of your Virtual Desktop Profile"
+msgstr "您的虚拟桌面配置文件描述"
+
+msgid "Detach (session keeps running)"
+msgstr "分离（会话继续运行）"
+
+msgid "Detached"
+msgstr "超脱的"
+
+msgid "Disable Auto-Refresh"
+msgstr "禁用自动刷新"
+
+msgid "Disclaimer: Baseline numbers"
+msgstr "免责声明：基准数字"
+
+msgid "Disconnected"
+msgstr "断开连接"
+
+msgid "Do not close the page while uploading."
+msgstr "上传时请勿关闭页面。"
+
+msgid "Do not use spaces"
+msgstr "不要使用空格"
+
+msgid "Do you want to limit how long the job will be running?"
+msgstr "你想限制任务的运行时间吗？"
+
+msgid "Do you want to limit your job to Reserved Instance only?"
+msgstr "您是否想将任务仅限于预留实例？"
+
+msgid "Do you want to specify a thumbnail (this will be scaled to 150*150px)?"
+msgstr "是否要指定缩略图（缩略图将缩放到 150*150 像素）？"
+
+msgid "Documentation"
+msgstr "文档"
+
+msgid "Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)"
+msgstr "不反映任何额外费用，例如网络或存储传输或 io2 卷的使用（默认为 gp3）"
+
+msgid "Download FileZilla"
+msgstr "下载 FileZilla"
+
+msgid "Download PuTTY"
+msgstr "下载 PuTTY"
+
+#, python-format
+msgid "Download PuttyGEN from %(puttygen_link)s, then convert the key you have downloaded on step1 to %(fmt)s format"
+msgstr "从 %(puttygen_link)s 下载 PuTTYGen，然后将你在 step1 中下载的密钥转换为 %(fmt)s 格式"
+
+msgid "Download Session File"
+msgstr "下载会话文件"
+
+msgid "Download all"
+msgstr "全部下载"
+
+msgid "Download file is disabled. Please contact your cluster administrator"
+msgstr "下载文件已禁用。请联系您的集群管理员"
+
+msgid "Download my private key"
+msgstr "下载我的私钥"
+
+msgid "Download selected"
+msgstr "下载选定内容"
+
+msgid "Download selected files"
+msgstr "下载所选文件"
+
+msgid "Download this file"
+msgstr "下载这个文件"
+
+#, python-format
+msgid "Download your %(kind)s SSH key"
+msgstr "下载你的 %(kind)s SSH 密钥"
+
+msgid "Download your client here."
+msgstr "在这里下载您的客户端。"
+
+msgid "Drag & Drop form components based on your own requirements."
+msgstr "根据您自己的要求拖放表单组件。"
+
+msgid "Drag and Drop files to upload or click"
+msgstr "拖放要上传的文件或点击"
+
+msgid "EBS/FSx rates as of January 2025 based on us-east-1"
+msgstr "截至2025年1月的EBS/FSx利率基于us-east-1"
+
+msgid "EC2 Instance Types you are authorized to deploy for this software stack. Manage list via"
+msgstr "您有权为此软件堆栈部署的 EC2 实例类型。通过以下方式管理清单"
+
+msgid "EC2 instance type to provision"
+msgstr "要预置的 EC2 实例类型"
+
+msgid "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision"
+msgstr "要配置的 EC2 实例类型。这将与 vcpu 一起用于计算要配置的节点数量"
+
+msgid "EDH - Engineering Development Hub"
+msgstr "EDH-工程开发中心"
+
+msgid "EDH APIs"
+msgstr "EDH API"
+
+msgid "EDH Analytics module is not enabled on your EDH environment."
+msgstr "您的 EDH 环境中未启用 EDH 分析模块。"
+
+msgid "EDH CAE Assistant"
+msgstr "EDH CAE 助手"
+
+msgid "EDH Profiles"
+msgstr "EDH 简介"
+
+msgid "EDH Projects"
+msgstr "EDH 项目"
+
+#, python-format
+msgid "EDH Projects let you control visibility for your %(vd_link)s and %(tn_link)s."
+msgstr "EDH 项目允许您控制 %(vd_link)s 和 %(tn_link)s 的可见性。"
+
+msgid "EDH Projects."
+msgstr "EDH 项目。"
+
+msgid "EDH Public Documentation"
+msgstr "EDH 公共文档"
+
+msgid "EDH Software Stacks"
+msgstr "EDH 软件堆栈"
+
+msgid "EDH Target Nodes Profiles."
+msgstr "EDH 目标节点配置文件。"
+
+msgid "EDH Terminal"
+msgstr "EDH 终端"
+
+msgid "EDH VDI Profiles."
+msgstr "EDH VDI 配置文件。"
+
+msgid "EDH includes a Floating Licenses-enabled script which calculate the number of licenses for a given feature and only start to provision capacity when enough licenses are available"
+msgstr "EDH 包括一个支持浮动许可证的脚本，该脚本计算给定功能的许可证数量，并且只有在有足够的许可证可用时才开始配置容量"
+
+msgid "EDH is built entirely on top of AWS and can be customized by users as needed. More importantly, the entire codebase is open-source and available on GitHub"
+msgstr "EDH 完全建立在 AWS 之上，用户可以根据需要进行自定义。更重要的是，整个代码库都是开源的，可以在GitHub上使用"
+
+msgid "EDH projects"
+msgstr "EDH 项目"
+
+msgid "EDH projects you are authorized to use for this stack. Resources will use the assigned budget if specified. Manage list via"
+msgstr "您有权在此堆栈中使用的 EDH 项目。如果指定，资源将使用分配的预算。通过以下方式管理清单"
+
+msgid "EDH public GitHub repository"
+msgstr "EDH GitHub 公共存储库"
+
+msgid "EDH reserved variables"
+msgstr "EDH 保留变量"
+
+msgid "EDH tried to restart the session automatically, but was unable to do so. Please contact your EDH administrator for further troubleshooting."
+msgstr "EDH 尝试自动重启会话，但无法重启会话。请联系您的 EDH 管理员进行进一步的故障排除。"
+
+msgid "EDIT"
+msgstr "编辑"
+
+msgid "EKS Cluster"
+msgstr "EKS 集群"
+
+msgid "EKS Namespace"
+msgstr "EKS 名称空间"
+
+msgid "EKS Namespace to launch your job on"
+msgstr "用于启动任务的 EKS 命名空间"
+
+msgid "Each line is one argument."
+msgstr "每行都是一个参数。"
+
+msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations"
+msgstr "轻松提交 LSF、OpenPBS、pbsPro、Slurm 的作业，并为您的 HPC 仿真无缝定制计算、存储和操作系统要求"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Edit EDH Project"
+msgstr "编辑 EDH 项目"
+
+msgid "Edit File"
+msgstr "编辑文件"
+
+msgid "Edit Project"
+msgstr "编辑项目"
+
+msgid "Edit SOCA User Data Template"
+msgstr "编辑 SOCA 用户数据模板"
+
+msgid "Edit Software Stack"
+msgstr "编辑软件堆栈"
+
+msgid "Edit Target Node Profile"
+msgstr "编辑目标节点配置文件"
+
+msgid "Edit User Data Template"
+msgstr "编辑用户数据模板"
+
+msgid "Edit Virtual Desktop Profile"
+msgstr "编辑虚拟桌面配置文件"
+
+msgid "Edit Workflow Profile"
+msgstr "编辑工作流程配置文件"
+
+msgid "Edit an existing Workflow Profile"
+msgstr "编辑现有的工作流程配置文件"
+
+#, python-format
+msgid "Edit the test template below to match the variables you have created on your form or simply write code that cannot be changed by the user. To read values from your form, use %(jinja_link)s syntax (e.g. if your form input name is %(my_param)s, retrieve the value via %(my_param_ref)s)"
+msgstr "编辑下面的测试模板以匹配您在表单上创建的变量，或者干脆编写用户无法更改的代码。要从表单中读取值，请使用 %(jinja_link)s 语法（例如，如果您的表单输入名称是 %(my_param)s，则通过 %(my_param_ref)s 检索值）"
+
+msgid "Edit this file (text file only)"
+msgstr "编辑此文件（仅限文本文件）"
+
+msgid "Email"
+msgstr "电子邮件"
+
+msgid "Embeeded Development"
+msgstr "嵌入式开发"
+
+msgid "Enable Auto-Refresh"
+msgstr "启用自动刷新"
+
+msgid "Enable Hibernation Support."
+msgstr "启用休眠支持。"
+
+msgid "Enable Nested Virtualization. Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)."
+msgstr "启用嵌套虚拟化。需要第 8 代 AWS 实例类型系列（例如 c8i、r8i、m8i）。"
+
+msgid "Enable Sudo Access"
+msgstr "启用 Sudo 访问权限"
+
+msgid "End session (terminates tmux)"
+msgstr "结束会话（终止 tmux）"
+
+msgid "End this terminal session? The remote tmux will be terminated."
+msgstr "结束这个终端会话？远程 tmux 将被终止。"
+
+msgid "Engineering Development Hub"
+msgstr "工程开发中心"
+
+msgid "Enter friendly AMI Name"
+msgstr "输入友好的 AMI 名称"
+
+msgid "Enter one environment variable per line in KEY=VALUE format."
+msgstr "以 KEY=VALUE 格式每行输入一个环境变量。"
+
+msgid "Enter shell code here"
+msgstr "在这里输入外壳代码"
+
+msgid "Enter value"
+msgstr "输入值"
+
+msgid "Entering the Danger Zone"
+msgstr "进入危险区域"
+
+msgid "Entering the danger zone"
+msgstr "进入危险区域"
+
+msgid "Environment Variables"
+msgstr "环境变量"
+
+msgid "Error during"
+msgstr "期间出错"
+
+msgid "Error uploading file!"
+msgstr "上传文件时出错！"
+
+msgid "Error while creating "
+msgstr "创建时出错 "
+
+msgid "Error, could not connect to your virtual desktop."
+msgstr "错误，无法连接到您的虚拟桌面。"
+
+msgid "Error, this path probably does not exist. "
+msgstr "错误，此路径可能不存在。 "
+
+msgid "Error:"
+msgstr "错误："
+
+msgid "Error: "
+msgstr "错误： "
+
+msgid "Estimated Compute OnDemand"
+msgstr "预计按需计算"
+
+msgid "Estimated Cost:"
+msgstr "预计成本："
+
+msgid "Estimated Storage:"
+msgstr "预计存储空间："
+
+msgid "Estimated compute price with RI"
+msgstr "使用 RI 的估计计算价格"
+
+msgid "Example:"
+msgstr "示例："
+
+msgid "Example: Create a new LDAP group"
+msgstr "示例：创建新的 LDAP 组"
+
+msgid "Example: Delete Operation"
+msgstr "示例：删除操作"
+
+msgid "Example: How to submit/query and delete a job via HTTP API"
+msgstr "示例：如何通过 HTTP API 提交/查询和删除作业"
+
+msgid "Example: Modify Operation"
+msgstr "示例：修改操作"
+
+msgid "Execution timeout"
+msgstr "执行超时"
+
+msgid "Explore your Filesystem"
+msgstr "探索您的文件系统"
+
+msgid "Export"
+msgstr "出口"
+
+msgid "Export existing Workflow Profile"
+msgstr "导出现有的工作流程配置文件"
+
+msgid "External Website Notice"
+msgstr "外部网站通知"
+
+msgid "FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "FSx 永久基准：（50 MB/s/TiB 基准，高达 1.3 GB/s/TiB burst）"
+
+msgid "FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "fsX 暂存基准：（200 MB/s/TiB 基准，高达 1.3 GB/s/TiB 突发速度）"
+
+msgid "FSx for Lustre size in GB (default: 0)"
+msgstr "FSx for Lustre 大小，以 GB 为单位（默认值：0）"
+
+msgid "FSx for Lustre:"
+msgstr "Lustre 的 fSx："
+
+msgid "Failed to load earlier content"
+msgstr "无法加载之前的内容"
+
+msgid "Failure to do so will result in your profile remaining hidden from users."
+msgstr "不这样做将导致您的个人资料对用户隐藏。"
+
+msgid "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "该功能在此 EDH 集群上不可用。请联系您的管理员将其启用。"
+
+msgid "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "该功能在此 EDH 集群上不可用。请联系您的管理员将其启用。"
+
+msgid "File Explorer"
+msgstr "文件资源管理器"
+
+msgid "File Updated."
+msgstr "文件已更新。"
+
+msgid "File appears to be binary and cannot be tailed"
+msgstr "文件似乎是二进制文件，无法结尾"
+
+msgid "File does not exist or is not a regular file"
+msgstr "文件不存在或不是常规文件"
+
+#, python-brace-format
+msgid "File is too large to tail (max {max_mb:.0f} MB). Use download instead."
+msgstr "文件太大而无法结尾（最大 {max_mb: .0f} MB）。改为使用下载。"
+
+msgid "File removed"
+msgstr "文件已删除"
+
+msgid "File rotated"
+msgstr "文件已旋转"
+
+msgid "File rotated; earlier history is unavailable"
+msgstr "文件已旋转；之前的历史记录不可用"
+
+msgid "File truncated"
+msgstr "文件被截断"
+
+msgid "File(s) will be uploaded under"
+msgstr "文件将上传到"
+
+msgid "Filter"
+msgstr "筛选"
+
+msgid "Finally valid your group has been created correctly using"
+msgstr "终于生效了您的群组已使用正确创建"
+
+msgid "Folder Name"
+msgstr "文件夹名称"
+
+msgid "Folder removed."
+msgstr "已移除文件夹。"
+
+msgid "For Linux user data, we recommend starting the script with:"
+msgstr "对于 Linux 用户数据，我们建议使用以下命令启动脚本："
+
+msgid "For Windows user data, we recommend starting the script with:"
+msgstr "对于 Windows 用户数据，我们建议使用以下命令启动脚本："
+
+#, python-format
+msgid "For example, %(ex_var)s on your user data will automatically be replaced with \"test123\" if you configure %(ex_assign)s on the Software Stack associated to this User Data."
+msgstr "例如，如果您在与此用户数据关联的软件堆栈上配置 %(ex_assign)s，则用户数据上的 %(ex_var)s 将自动替换为 \"test123\"。"
+
+msgid "For internal support, refer to the links provided by your Administrator or contact your AWS account team."
+msgstr "有关内部支持，请参阅管理员提供的链接或联系您的 AWS 账户团队。"
+
+msgid "For the best performance, use the dedicated client application."
+msgstr "为获得最佳性能，请使用专用的客户端应用程序。"
+
+msgid "Force your job to run on a specific instance type"
+msgstr "强制您的任务在特定的实例类型上运行"
+
+msgid "Friendly Name for your project"
+msgstr "项目的友好名称"
+
+msgid "Friendly Name for your template"
+msgstr "模板的友好名称"
+
+msgid "Friendly name for your User Data template"
+msgstr "用户数据模板的友好名称"
+
+msgid "GPUs"
+msgstr "GPU"
+
+msgid "General Options"
+msgstr "通用选项"
+
+msgid "Generate temporary password"
+msgstr "生成临时密码"
+
+#, python-format
+msgid "Generating a new API key will invalidate the previous key (%(token)s %(show_btn)s)."
+msgstr "生成新的 API 密钥将使先前的密钥失效（%(token)s %(show_btn)s）。"
+
+msgid "Get Started"
+msgstr "开始吧"
+
+msgid "Grant Admin permission"
+msgstr "授予管理员权限"
+
+msgid "Grant user Admin permission"
+msgstr "授予用户管理员权限"
+
+msgid "Grant/Revoke Admin permissions"
+msgstr "授予/撤消管理员权限"
+
+msgid "Group "
+msgstr "小组 "
+
+msgid "Group ID"
+msgstr "群组 ID"
+
+msgid "Group created successfully"
+msgstr "群组已成功创建"
+
+msgid "Group deleted successfully"
+msgstr "群组已成功删除"
+
+msgid "Group name"
+msgstr "群组名称"
+
+msgid "Group update successfully"
+msgstr "群组更新成功"
+
+msgid "Group updated successfully"
+msgstr "群组已成功更新"
+
+msgid "Group: "
+msgstr "群组： "
+
+msgid "Groups Management"
+msgstr "群组管理"
+
+msgid "Groups Permissions"
+msgstr "群组权限"
+
+msgid "Groups: OU=Group,DC=soca,DC=local"
+msgstr "群组：OU=群组，dc=Soca，dc=本地"
+
+msgid "HTTP 401/Unauthorized"
+msgstr "HTTP 401/未经授权"
+
+msgid "Hello"
+msgstr "你好"
+
+msgid "Here are some documentation to help you transfer files from/to Engineering Development Hub:"
+msgstr "以下是一些可帮助您从/向工程开发中心传输文件的文档："
+
+msgid "Hibernation will not cause any data loss"
+msgstr "休眠不会导致任何数据丢失"
+
+msgid "High Performance Computing"
+msgstr "高性能计算"
+
+msgid "Home Directory"
+msgstr "主目录"
+
+msgid "Host"
+msgstr "主持人"
+
+msgid "Host in this queue will stay online until an admin decide to manually turn them off"
+msgstr "该队列中的主机将保持在线状态，直到管理员决定手动将其关闭"
+
+msgid "Host(s)"
+msgstr "主机"
+
+msgid "Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete."
+msgstr "该队列中的主机将根据排队的任务数量自动配置。主机仅限于给定的任务 ID，并在任务完成后立即自动终止。"
+
+msgid "How do you want to name this Workflow Profile?"
+msgstr "你想如何命名这个工作流程配置文件？"
+
+msgid "How many Virtual CPUs do you want?"
+msgstr "你想要多少个虚拟 CPU？"
+
+msgid "How much storage do you want (SSD under /scratch)"
+msgstr "你想要多少存储空间（/scratch 下的 SSD）"
+
+msgid "How to interact with EDH APIs"
+msgstr "如何与 EDH API 进行交互"
+
+msgid "I am sure I want to"
+msgstr "我确定我想要"
+
+#, python-format
+msgid "I am sure I want to %(action)s Admin permission to this user"
+msgstr "我确定我想要这个用户获得 %(action)s 管理员权限"
+
+#, python-format
+msgid "I am sure I want to %(verb)s this user from my group"
+msgstr "我确定我想对我群组中的这个用户进行 %(verb)s"
+
+msgid "I am sure I want to delete this Target Node Profile"
+msgstr "我确定要删除这个目标节点配置文件"
+
+msgid "I am sure I want to delete this User Data Template from EDH"
+msgstr "我确定要从 EDH 中删除这个用户数据模板"
+
+msgid "I am sure I want to delete this Virtual Desktop Profile"
+msgstr "我确定要删除这个虚拟桌面配置文件"
+
+msgid "I am sure I want to delete this group"
+msgstr "我确定要删除这个群组"
+
+msgid "I am sure I want to delete this project from EDH"
+msgstr "我确定要从 EDH 中删除这个项目"
+
+msgid "I am sure I want to delete this queue"
+msgstr "我确定要删除这个队列"
+
+msgid "I am sure I want to delete this target node"
+msgstr "我确定要删除这个目标节点"
+
+msgid "I am sure I want to delete this user"
+msgstr "我确定要删除这个用户"
+
+msgid "I am sure I want to delete this virtual desktop"
+msgstr "我确定要删除这个虚拟桌面"
+
+msgid "I am sure I want to reset the password for this user"
+msgstr "我确定要重置这个用户的密码"
+
+msgid "I am sure I want to unregister this Software Stack from EDH"
+msgstr "我确定要从 EDH 注销这个软件堆栈"
+
+msgid "I am sure I want to unregister this Software Stack from SOCA"
+msgstr "我确定要从 SOCA 注销这个软件堆栈"
+
+msgid "I understand I will need to update my scripts with the new key to prevent any outage"
+msgstr "我知道我需要使用新密钥更新脚本以防止出现任何中断"
+
+msgid "I want to delete this Workflow Profile"
+msgstr "我想删除这个工作流程配置文件"
+
+msgid "IMPORTANT"
+msgstr "重要"
+
+msgid "IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)"
+msgstr "重要：节点数基于每台计算机的 vCPU（不是 CPU）的数量。（例如：一个 c6i.xlarge 有 2 个物理 CPU 但是 4 个 vCPU。如果您请求 8 个 vCPU，EDH 将配置 2 个实例。如果您需要 8 个逻辑内核，我们建议使用 ht_support=false 并请求一台具有 16 个 vCPU 的 EC2 计算机"
+
+msgid "Id"
+msgstr "身份证"
+
+#, python-format
+msgid "If %(it)s and %(vc)s parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the %(nd)s resource manually."
+msgstr "如果指定了 %(it)s 和 %(vc)s 参数，EDH 将自动计算要配置的节点数量。否则，必须手动定义 %(nd)s 资源。"
+
+msgid "If force_ri is True, the job must ONLY run on Reserved Instance. If there is not enough RI, job will stay in the queue. Parameter is ignored if you use Spot"
+msgstr "如果 force_ri 为 True，则该任务只能在预留实例上运行。如果没有足够的 RI，任务将留在队列中。如果您使用 Spot，则会忽略参数"
+
+msgid "If present, autofilled with the input file name"
+msgstr "如果存在，则自动填充输入文件名"
+
+msgid "If the page stays blank, the code-server service may not be running on this cluster."
+msgstr "如果页面保持空白，则代码服务器服务可能无法在此集群上运行。"
+
+#, python-format
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit %(cfg)s and add:"
+msgstr "如果您不希望会话在闲置几分钟后自动关闭，请编辑 %(cfg)s 并添加："
+
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, go to Connection and add \"3\" as \"Seconds between KeepAlive\\"
+msgstr "如果您不希望会话在闲置几分钟后自动关闭，请转到 \"连接\" 并将 \"3\" 添加为 \"KeepAlive 之间的秒数\""
+
+msgid "If you think your key has been compromised, reset it using the link available at the bottom of the page."
+msgstr "如果您认为自己的密钥已被盗用，请使用页面底部的链接将其重置。"
+
+msgid "Image"
+msgstr "图片"
+
+msgid "Image Digest"
+msgstr "图片摘要"
+
+msgid "Image ID (start with ami-xxx or) or AMI alias (/service/aws/...)"
+msgstr "图片 ID（以 ami-xxx 或开头）或 AMI 别名（/service/aws/...）"
+
+msgid "Image ID (start with ami-xxx)"
+msgstr "图片 ID（以 ami-xxx 开头）"
+
+msgid "Image ID (start with ami-xxx) or AMI alias (/aws/service/...)"
+msgstr "图片 ID（以 ami-xxx 开头）或 AMI 别名（/aws/service/...）"
+
+msgid "Image Tag"
+msgstr "图像标签"
+
+msgid "Image URI"
+msgstr "图片 URI"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "Import Workflow Profile"
+msgstr "导入工作流程配置文件"
+
+msgid "Import/Export"
+msgstr "导入/导出"
+
+msgid "Import/Export existing EDH Workflow Profile"
+msgstr "导入/导出现有 EDH 工作流程配置文件"
+
+msgid "Important"
+msgstr "重要"
+
+msgid "Important Info about your User Data"
+msgstr "有关您的用户数据的重要信息"
+
+msgid "Important:"
+msgstr "重要："
+
+msgid "Important: Active Directory"
+msgstr "重要：活动目录"
+
+#, python-format
+msgid "In the %(section)s section click %(action)s"
+msgstr "在 %(section)s 部分中，单击 %(action)s"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Input location"
+msgstr "输入位置"
+
+msgid "Instance Family"
+msgstr "实例系列"
+
+msgid "Instance ID of the target node"
+msgstr "目标节点的实例 ID"
+
+msgid "Instance Type"
+msgstr "实例类型"
+
+msgid "Instance Type:"
+msgstr "实例类型："
+
+msgid "Instance type (default: c5.large)"
+msgstr "实例类型（默认：c5.large）"
+
+msgid "Instance type of the target node"
+msgstr "目标节点的实例类型"
+
+msgid "Instructions for Linux/Mac"
+msgstr "Linux/Mac 使用说明"
+
+msgid "Instructions for Windows"
+msgstr "Windows 使用说明"
+
+msgid "Invalid feature flag configuration"
+msgstr "功能标志配置无效"
+
+msgid "Invalid file identifier"
+msgstr "文件标识符无效"
+
+msgid "Invalid graphical sessions"
+msgstr "图形会话无效"
+
+msgid "It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility"
+msgstr "由于驱动程序不兼容，不建议在非 GPU 和 GPU 实例之间进行升级/降级"
+
+msgid "JOB CANNOT START"
+msgstr "作业无法启动"
+
+msgid "Jinja templating"
+msgstr "神社模板"
+
+msgid "Job Definition"
+msgstr "工作定义"
+
+msgid "Job Dependencies"
+msgstr "作业依赖关系"
+
+msgid "Job Details"
+msgstr "职位详情"
+
+msgid "Job Directory"
+msgstr "工作名录"
+
+msgid "Job ID"
+msgstr "职位编号"
+
+msgid "Job ID is required to delete a Batch job."
+msgstr "删除批处理作业需要任务 ID。"
+
+msgid "Job Info"
+msgstr "工作信息"
+
+msgid "Job Name"
+msgstr "职位名称"
+
+msgid "Job Overrides"
+msgstr "作业覆盖"
+
+msgid "Job Queue"
+msgstr "作业队列"
+
+msgid "Job State"
+msgstr "工作状态"
+
+msgid "Job Status Legend"
+msgstr "任务状态图例"
+
+msgid "Job attempts"
+msgstr "工作尝试"
+
+msgid "Job completed are automatically removed after 1 hour."
+msgstr "已完成的任务将在 1 小时后自动删除。"
+
+msgid "Job is finished or in invalid state"
+msgstr "作业已完成或处于无效状态"
+
+msgid "Jump to live (End)"
+msgstr "跳转直播（结束）"
+
+msgid "Jump to start of file (Home)"
+msgstr "跳到文件开头（主页）"
+
+msgid "Jumping to start..."
+msgstr "跳跃开始..."
+
+msgid "KEY"
+msgstr "钥匙"
+
+msgid "Key"
+msgstr "钥匙"
+
+msgid "Key File"
+msgstr "密钥文件"
+
+msgid "Keyboard shortcuts"
+msgstr "键盘快捷键"
+
+msgid "Keyboard shortcuts (?)"
+msgstr "键盘快捷键 (?)"
+
+msgid "LSF"
+msgstr "LSF"
+
+msgid "Large (8 vCPUs, 32 GB RAM)"
+msgstr "大型（8 个 vCPU，32 GB 内存）"
+
+msgid "Last 12 hours"
+msgstr "最近 12 小时"
+
+msgid "Last 2 days"
+msgstr "最近 2 天"
+
+msgid "Last 24 hours"
+msgstr "最近 24 小时"
+
+msgid "Last 30 days"
+msgstr "最近 30 天"
+
+msgid "Last 6 hours"
+msgstr "最近 6 个小时"
+
+msgid "Last 7 days"
+msgstr "最近 7 天"
+
+msgid "Last Modified"
+msgstr "上次修改时间"
+
+msgid "Launch Batch Job"
+msgstr "启动批处理作业"
+
+msgid "Launch Container"
+msgstr "启动容器"
+
+msgid "Launch EKS Container"
+msgstr "启动 EKS 容器"
+
+msgid "Launch Host ID"
+msgstr "启动主机 ID"
+
+msgid "Launch Host if using Dedicated Host Tenancy"
+msgstr "如果使用专用主机租赁，请启动主机"
+
+msgid "Launch My Desktop"
+msgstr "启动我的桌面"
+
+msgid "Launch My Target Node"
+msgstr "启动我的目标节点"
+
+msgid "Launch Tenancy"
+msgstr "启动租约"
+
+msgid "Launch a New Container"
+msgstr "启动新容器"
+
+msgid "Launch a New Target Node"
+msgstr "启动新的目标节点"
+
+msgid "Launch a New Virtual Desktop"
+msgstr "启动新的虚拟桌面"
+
+msgid "Launch a new Job"
+msgstr "启动一项新工作"
+
+msgid "Launch new Target Node"
+msgstr "启动新的目标节点"
+
+msgid "Launch new Virtual Desktop"
+msgstr "启动新的虚拟桌面"
+
+msgid "Launch your virtual desktop in a specific subnet."
+msgstr "在特定子网中启动虚拟桌面。"
+
+msgid "Leave blank to remove access"
+msgstr "留空以移除访问权限"
+
+msgid "Leave everything else as default."
+msgstr "将其他所有内容保留为默认值。"
+
+msgid "Let us assume you want to submit a simple job on the default OpenPBS"
+msgstr "让我们假设你想在默认 OpenPBS 上提交一份简单的作业"
+
+msgid "Limitations"
+msgstr "局限性"
+
+msgid "Linux"
+msgstr "Linux的"
+
+msgid "List all Virtual Desktops"
+msgstr "列出所有虚拟桌面"
+
+msgid "List all active Virtual Desktops"
+msgstr "列出所有活跃的虚拟桌面"
+
+msgid "List all your AWS Batch jobs."
+msgstr "列出您的所有 AWS 批处理任务。"
+
+msgid "List all your container images stored on one or more Amazon Elastic Container Registry (ECR)."
+msgstr "列出存储在一个或多个亚马逊弹性容器注册表 (ECR) 中的所有容器镜像。"
+
+msgid "List all your containers running on one or more Amazon Elastic Kubernetes Services (EKS)."
+msgstr "列出您在一个或多个亚马逊弹性 Kubernetes 服务 (EKS) 上运行的所有容器。"
+
+msgid "List of allowed groups"
+msgstr "允许的群组列表"
+
+msgid "List of allowed instance type/family"
+msgstr "允许的实例类型/系列列表"
+
+msgid "List of allowed subnets"
+msgstr "允许的子网列表"
+
+msgid "List of allowed users"
+msgstr "允许的用户列表"
+
+msgid "List of allowed/denied users or group"
+msgstr "允许/拒绝的用户或群组列表"
+
+msgid "List of authorized Application Profiles"
+msgstr "授权应用程序配置文件列表"
+
+msgid "List of authorized Target node stacks"
+msgstr "授权的目标节点堆栈列表"
+
+msgid "List of authorized Virtual Desktop Software Stacks"
+msgstr "授权虚拟桌面软件堆栈列表"
+
+msgid "List of authorized subnets"
+msgstr "授权子网列表"
+
+msgid "List of denied groups"
+msgstr "被拒绝的群组列表"
+
+msgid "List of denied users"
+msgstr "被拒绝的用户列表"
+
+msgid "List of instance type or family allowed"
+msgstr "允许的实例类型或系列列表"
+
+msgid "List of users of "
+msgstr "的用户名单 "
+
+msgid "List your Windows or Linux Virtual Desktops. Provision machines connected to your EDH environment that can mount shared or local filers"
+msgstr "列出您的 Windows 或 Linux 虚拟桌面。配置连接到 EDH 环境的计算机，这些计算机可以装载共享或本地文件管理器"
+
+msgid "Live file tail"
+msgstr "直播文件尾巴"
+
+msgid "Load earlier content (PageUp)"
+msgstr "加载之前的内容 (PageUp)"
+
+msgid "Loading earlier content..."
+msgstr "正在加载之前的内容..."
+
+msgid "Login"
+msgstr "登录"
+
+msgid "Logon Type"
+msgstr "登录类型"
+
+msgid "Logout"
+msgstr "注销"
+
+msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+msgstr "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+
+msgid "MY_ENV"
+msgstr "MY_ENV"
+
+#, python-format
+msgid "Make sure to have established connectivity between AWS and your corporate network (e.g. via %(peering)s, %(direct)s, %(vpn)s or similar) if you are planning to access the analytic dashboard URL from your corporate machines."
+msgstr "如果您计划从公司计算机访问分析控制面板 URL，请确保已在 AWS 和您的公司网络之间建立连接（例如通过 %(peering)s、%(direct)s、%(vpn)s 或类似网络）。"
+
+msgid "Make sure to have uploaded your data to EDH first to prevent data loss"
+msgstr "确保先将您的数据上传到 EDH 以防止数据丢失"
+
+msgid "Make sure your Amazon Machine Images (AMI) are available in your current region:"
+msgstr "确保您的亚马逊系统映像 (AMI) 在您当前的地区可用："
+
+msgid "Malformed file identifier"
+msgstr "文件标识符格式不正确"
+
+msgid "Manage EDH Projects"
+msgstr "管理 EDH 项目"
+
+msgid "Manage Software Stacks"
+msgstr "管理软件堆栈"
+
+msgid "Manage Target Node Profiles"
+msgstr "管理目标节点配置文件"
+
+msgid "Manage User Data Templates"
+msgstr "管理用户数据模板"
+
+msgid "Manage User Data template"
+msgstr "管理用户数据模板"
+
+msgid "Manage Virtual Desktop Profiles"
+msgstr "管理虚拟桌面配置文件"
+
+msgid "Manage your Virtual Desktops"
+msgstr "管理您的虚拟桌面"
+
+msgid "Manage your Virtual Targets"
+msgstr "管理您的虚拟目标"
+
+msgid "Max runtime (default: 01:00:00)"
+msgstr "最大运行时间（默认值：01:00:00）"
+
+msgid "Maximum EBS Root Disk size (in GB)"
+msgstr "最大 EBS 根磁盘大小（以 GB 为单位）"
+
+msgid "Maximum EBS storage the user will be able to provision for their target node"
+msgstr "用户可以为其目标节点配置的最大 EBS 存储空间"
+
+msgid "Maximum EBS storage the user will be able to provision for their virtual desktop"
+msgstr "用户可以为其虚拟桌面配置的最大 EBS 存储空间"
+
+msgid "Maximum of 5 consumable resources allowed."
+msgstr "最多允许 5 个消耗资源。"
+
+msgid "Medium (4 vCPUs, 16 GB RAM)"
+msgstr "中型（4 个 vCPU，16 GB 内存）"
+
+msgid "Members: (choose all that apply)"
+msgstr "成员：（选择所有适用的选项）"
+
+msgid "Memory (GB)"
+msgstr "内存 (GB)"
+
+msgid "Memory in GB"
+msgstr "内存以 GB 为单位"
+
+msgid "Menu"
+msgstr "“菜单”"
+
+msgid "Missing file identifier"
+msgstr "缺少文件标识符"
+
+msgid "Missing files? Refresh folder cache"
+msgstr "文件丢失？刷新文件夹缓存"
+
+msgid "Missing profile_id"
+msgstr "缺少 profile_id"
+
+msgid "Missing project_id"
+msgstr "缺少 project_id"
+
+msgid "Missing required parameters (app and input_file)."
+msgstr "缺少必需的参数（应用程序和输入文件）。"
+
+msgid "Missing software_stack_id"
+msgstr "缺少软件堆栈_ID"
+
+msgid "Missing template_id"
+msgstr "缺少模板_id"
+
+msgid "Must be a valid EDH group"
+msgstr "必须是有效的 EDH 群组"
+
+msgid "Must be a valid EDH user"
+msgstr "必须是有效的 EDH 用户"
+
+msgid "My API Key"
+msgstr "我的 API 密钥"
+
+msgid "My API Key (Developer mode)"
+msgstr "我的 API 密钥（开发者模式）"
+
+msgid "My AWS Batch Job"
+msgstr "我的 AWS 批处理任务"
+
+msgid "My AWS Batch Jobs"
+msgstr "我的 AWS 批处理任务"
+
+msgid "My Account"
+msgstr "我的账户"
+
+msgid "My Amazon EKS Containers"
+msgstr "我的亚马逊 EKS 容器"
+
+msgid "My Amazon EKS Job"
+msgstr "我的亚马逊 EKS 工作"
+
+msgid "My Batch Jobs"
+msgstr "我的批量作业"
+
+msgid "My Container Images"
+msgstr "我的容器镜像"
+
+msgid "My EKS Containers"
+msgstr "我的 EKS 容器"
+
+msgid "My HPC Jobs"
+msgstr "我的 HPC 工作"
+
+msgid "My LDAP Group"
+msgstr "我的 LDAP 群组"
+
+msgid "My Profile"
+msgstr "我的个人资料"
+
+msgid "My SSH access"
+msgstr "我的 SSH 访问权限"
+
+msgid "My Target Nodes"
+msgstr "我的目标节点"
+
+msgid "My Virtual Desktops"
+msgstr "我的虚拟桌面"
+
+msgid "Name"
+msgstr "姓名"
+
+msgid "Name for your project"
+msgstr "你的项目的名称"
+
+msgid "Name for your template"
+msgstr "模板的名称"
+
+msgid "Name for your user data template"
+msgstr "您的用户数据模板的名称"
+
+msgid "Name of the AWS Batch Job Definition to use"
+msgstr "要使用的 AWS 批处理任务定义的名称"
+
+msgid "Name of the AWS Batch Job Queue to use"
+msgstr "要使用的 AWS 批处理任务队列的名称"
+
+msgid "Name of the EKS cluster to use"
+msgstr "要使用的 EKS 集群的名称"
+
+msgid "Name of the current EDH user requesting the target node"
+msgstr "请求目标节点的当前 EDH 用户的名称"
+
+msgid "Name of the current SOCA user requesting the target node"
+msgstr "请求目标节点的当前 SOCA 用户的名称"
+
+msgid "Name of your job"
+msgstr "你的工作名称"
+
+msgid "Name of your profile"
+msgstr "你的个人资料的名字"
+
+msgid "Namespace"
+msgstr "命名空间"
+
+msgid "Navigate file"
+msgstr "浏览文件"
+
+msgid "New Password"
+msgstr "新密码"
+
+msgid "New terminal tab (Ctrl+Shift+T)"
+msgstr "新的终端选项卡（Ctrl+Shift+T）"
+
+msgid "Next"
+msgstr "下一步"
+
+msgid "No"
+msgstr "没有"
+
+msgid "No AMI found"
+msgstr "未找到 AMI"
+
+msgid "No Budget"
+msgstr "没有预算"
+
+msgid "No Description Provided"
+msgstr "未提供描述"
+
+msgid "No Project found"
+msgstr "未找到项目"
+
+msgid "No Target Node Profiles found"
+msgstr "未找到目标节点配置文件"
+
+msgid "No User Data Template Found"
+msgstr "未找到用户数据模板"
+
+msgid "No Virtual Desktop Profiles found"
+msgstr "未找到虚拟桌面配置文件"
+
+msgid "No custom AMI found. Create one first"
+msgstr "未找到自定义 AMI。先创建一个"
+
+msgid "No files in this directory"
+msgstr "此目录中没有文件"
+
+msgid "No image"
+msgstr "没有图片"
+
+msgid "No links have been configured by your EDH Administrators"
+msgstr "您的 EDH 管理员尚未配置任何链接"
+
+msgid "No more than 1 day"
+msgstr "不超过 1 天"
+
+msgid "No more than 1 hour"
+msgstr "不超过 1 小时"
+
+msgid "No more than 1 month"
+msgstr "不超过 1 个月"
+
+msgid "No more than 5 hours"
+msgstr "不超过 5 小时"
+
+msgid "No open terminals."
+msgstr "没有开放的终端。"
+
+msgid "No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator."
+msgstr "未找到软件堆栈。请确认您已被添加到相应的 EDH 项目中。如果问题仍然存在，请联系您的 EDH 管理员。"
+
+msgid "Nodes Count"
+msgstr "节点数"
+
+msgid "None"
+msgstr "无"
+
+msgid "Not authorized"
+msgstr "未获得授权"
+
+msgid "Note:"
+msgstr "注意："
+
+#, python-format
+msgid "Note: AWS Batch Job Definitions clusters must have the tag %(tag)s and be %(status)s to be visible on EDH"
+msgstr "注意：AWS Batch Job Definitions 集群的标签必须为 %(tag)s 且为 %(status)s 才能在 EDH 上可见"
+
+#, python-format
+msgid "Note: AWS Batch Job Queues must have the tag %(tag)s, state must be %(state)s and status must be %(status)s to be visible on EDH"
+msgstr "注意：AWS 批处理任务队列的标签必须为 %(tag)s，状态必须为 %(state)s，状态必须为 %(status)s 才能在 EDH 上可见"
+
+#, python-format
+msgid "Note: EKS clusters must have the tag %(tag)s to be visible on EDH"
+msgstr "注意：EKS 集群必须带有 %(tag)s 标签才能在 EDH 上可见"
+
+msgid "Note: If not specified, EDH uses the following default parameters:"
+msgstr "注意：如果未指定，EDH 将使用以下默认参数："
+
+msgid "Note: Your Analytics Dashboard URL is"
+msgstr "注意：您的分析控制面板 URL 是"
+
+msgid "Notes:"
+msgstr "注意事项："
+
+msgid "Number of CPUs to request for your job"
+msgstr "为您的任务请求的 CPU 数量"
+
+msgid "Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count"
+msgstr "EC2 实例的数量将根据实例类型和 vCPU 数量自动计算"
+
+msgid "Number of GPU to allocate"
+msgstr "要分配的 GPU 数量"
+
+msgid "Number of vCPUs (default: 1)"
+msgstr "vCPU 数量（默认值：1）"
+
+msgid "Number of vCPUs to allocate to the simulation"
+msgstr "分配给仿真的 vCPU 数量"
+
+msgid "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision"
+msgstr "分配给仿真的 vCPU 数量。这将与 instance_type 一起用于计算要配置的节点数量"
+
+msgid "Once connected, simply drag & drop to upload/download files."
+msgstr "连接后，只需拖放即可上传/下载文件。"
+
+#, python-format
+msgid "Once you have created your Target Node Software Stack, please ensure that it is %(link)s"
+msgstr "创建目标节点软件堆栈后，请确保它是 %(link)s"
+
+#, python-format
+msgid "Once you have created your Virtual Desktop Software Stack, please ensure that it is %(link)s"
+msgstr "创建虚拟桌面软件堆栈后，请确保它是 %(link)s"
+
+#, python-format
+msgid "Once you have created your Workflow Profile, please ensure that it is %(link)s Failure to do so will result in your profile remaining hidden from users."
+msgstr "创建工作流程配置文件后，请确保是 %(link)s 不这样做将导致用户无法看到您的个人资料。"
+
+msgid "Only images that have tags are shown in the repository table. Untagged images are not displayed."
+msgstr "只有带有标签的图像才会显示在存储库表中。不显示未加标签的图像。"
+
+msgid "Only users with sudo permissions can access this page"
+msgstr "只有拥有 sudo 权限的用户才能访问此页面"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created and click %(btn)s and enter the following information."
+msgstr "打开 AWS 控制台并导航到名为 %(service)s 的服务，选择您创建的服务器，然后单击 %(btn)s 并输入以下信息。"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created, and retrieve the %(ep)s under %(details)s."
+msgstr "打开 AWS 控制台并导航到名为 %(service)s 的服务，选择您创建的服务器，然后在 %(details)s 下检索 %(ep)s。"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(action)s"
+msgstr "打开 AWS 控制台并导航到名为 %(service)s 的服务，然后单击 %(action)s"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(menu)s on the left sidebar and finally click %(btn)s"
+msgstr "打开 AWS 控制台并导航到名为 %(service)s 的服务，然后单击左侧边栏上的 %(menu)s，最后单击 %(btn)s"
+
+msgid "Open FileZilla and select File > Site Manager to create a new Site"
+msgstr "打开 FileZilla 并选择 “文件” > “站点管理器” 以创建新站点"
+
+msgid "Open a SSH Terminal"
+msgstr "打开 SSH 终端"
+
+msgid "Open in Browser"
+msgstr "在浏览器中打开"
+
+msgid "Open in a separate window"
+msgstr "在单独的窗口中打开"
+
+msgid "OpenPBS"
+msgstr "OpenPBS"
+
+msgid "Operating System"
+msgstr "操作系统"
+
+msgid "Option1: Browser access"
+msgstr "选项 1：浏览器访问"
+
+msgid "Option2: Native Application"
+msgstr "选项 2：本机应用程序"
+
+msgid "Optional"
+msgstr "可选"
+
+msgid "Optional: Enable KeepAlive"
+msgstr "可选：启用KeepAlive"
+
+msgid "Other Shells"
+msgstr "其他炮弹"
+
+msgid "Output connection information to user"
+msgstr "向用户输出连接信息"
+
+msgid "Override Entry Point"
+msgstr "覆盖入口点"
+
+msgid "Override your container entrypoint"
+msgstr "覆盖您的容器入口点"
+
+msgid "Override your container runtime arguments"
+msgstr "重写您的容器运行时参数"
+
+msgid "Owner"
+msgstr "所有者"
+
+msgid "PENDING"
+msgstr "待定"
+
+#, python-format
+msgid "Page %(current)s of %(total)s"
+msgstr "%(total)s 第 %(current)s 页"
+
+msgid "Parameters used to estimate the simulation cost:"
+msgstr "用于估算仿真成本的参数："
+
+msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
+msgstr "允许使用部分 CPU（例如 0.5 = 半个 CPU）"
+
+msgid "Partial GBs allowed (e.g. 2.5 = 2.5 GB RAM)"
+msgstr "允许使用部分 GB（例如 2.5 = 2.5 GB RAM）"
+
+msgid "Password"
+msgstr "密码"
+
+msgid "Password does not match"
+msgstr "密码不匹配"
+
+msgid "Password for "
+msgstr "的密码 "
+
+msgid "Password updated correctly"
+msgstr "密码已正确更新"
+
+msgid "Path to the solver executable/binary"
+msgstr "求解器可执行文件/二进制文件路径"
+
+msgid "Path to the solver executable/binary. It is usually located within the bin folder of your installation directory"
+msgstr "求解器可执行文件/二进制文件路径。它通常位于安装目录的 bin 文件夹中"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Pause Desktop"
+msgstr "暂停桌面"
+
+msgid "Pause Target Node"
+msgstr "暂停目标节点"
+
+msgid "Pause or resume (Space)"
+msgstr "暂停或恢复（空格）"
+
+msgid "People: OU=People,DC=soca,DC=local"
+msgstr "人物：OU=人物，dc=Soca，dc=本地人"
+
+msgid "Pick a simple name to identify your graphical session"
+msgstr "选择一个简单的名称来识别您的图形会话"
+
+msgid "Pick a simple name to identify your target node session"
+msgstr "选择一个简单的名称来识别您的目标节点会话"
+
+#, python-format
+msgid "Please %(warn)s when creating an issue."
+msgstr "创建问题时请 %(warn)s。"
+
+msgid "Please fill out the form first"
+msgstr "请先填写表格"
+
+msgid "Please select an image to run your job"
+msgstr "请选择一张图片来运行你的作业"
+
+msgid "Please wait ..."
+msgstr "请稍候..."
+
+msgid "Please wait to 15 minutes after launching a new login node before being able to spawn terminal session on it"
+msgstr "请在启动新登录节点后等待 15 分钟，然后才能在该节点上生成终端会话"
+
+msgid "Please wait while we estimate the price of this job ..."
+msgstr "请稍候，我们正在估算这份工作的价格..."
+
+msgid "Please wait, your session is starting and will be ready soon."
+msgstr "请稍候，您的会话已开始并将很快准备就绪。"
+
+msgid "Pod(s) IP(s)"
+msgstr "Pod (s) IP"
+
+msgid "Pop-out window was blocked by the browser. Please allow popups for this site."
+msgstr "弹出窗口已被浏览器屏蔽。请允许此站点弹出窗口。"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Prepare the input"
+msgstr "准备输入"
+
+msgid "Prepare the request"
+msgstr "准备请求"
+
+msgid "Previous"
+msgstr "以前"
+
+msgid "Private DNS of the target node"
+msgstr "目标节点的私有 DNS"
+
+msgid "Private IP of the target node"
+msgstr "目标节点的私有 IP"
+
+msgid "Profile associated to this stack"
+msgstr "与此堆栈相关的配置文件"
+
+#, python-format
+msgid "Profile associated with this stack (%(link)s)"
+msgstr "与此堆栈相关的配置文件 (%(link)s)"
+
+msgid "Profile name"
+msgstr "个人资料名称"
+
+msgid "Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ..."
+msgstr "控制允许的 EC2 实例类型、子网 ID、最大存储等列表的配置文件..."
+
+msgid "Profile updated successfully"
+msgstr "个人资料已成功更新"
+
+msgid "Project"
+msgstr "项目"
+
+msgid "Project Name"
+msgstr "项目名称"
+
+msgid "Project deleted successfully"
+msgstr "项目已成功删除"
+
+msgid "Project has been created successfully"
+msgstr "项目已成功创建"
+
+msgid "Project has been updated successfully"
+msgstr "项目已成功更新"
+
+msgid "Projects"
+msgstr "项目"
+
+msgid "Projects and Role Based ACLs"
+msgstr "项目和基于角色的 ACL"
+
+msgid "Protocol"
+msgstr "协议"
+
+msgid "Query a job"
+msgstr "查询作业"
+
+msgid "Queue"
+msgstr "队列"
+
+msgid "Queue 1 (Low Priority)"
+msgstr "队列 1（低优先级）"
+
+msgid "Queue 2 (High Priority)"
+msgstr "队列 2（高优先级）"
+
+msgid "Queue name"
+msgstr "队列名称"
+
+msgid "REMOVE"
+msgstr "移除"
+
+msgid "RUNNING"
+msgstr "正在运行"
+
+msgid "Recommended Parameters"
+msgstr "推荐参数"
+
+#, python-format
+msgid "Refer to %(link)s documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH."
+msgstr "请参阅 %(link)s 文档，了解如何在当前的文件管理器和 EDH 之间设置安全、可靠、高速的文件传输。"
+
+#, python-format
+msgid "Refer to %(link)s page for a list of EC2 instances"
+msgstr "有关 EC2 实例的列表，请参阅 %(link)s 页面"
+
+#, python-format
+msgid "Refresh (%(countdown)ss)"
+msgstr "Refresh (%(countdown)ss)"
+
+msgid "Regenerate new key"
+msgstr "重新生成新密钥"
+
+msgid "Register Software Stack"
+msgstr "注册软件堆栈"
+
+msgid "Register Software Stack in EDH"
+msgstr "在 EDH 中注册软件堆栈"
+
+msgid "Register a new Software Stack (AMI) to EDH"
+msgstr "向 EDH 注册新的软件堆栈 (AMI)"
+
+msgid "Register a new Target Node Software Stack (AMI) to EDH"
+msgstr "向 EDH 注册新的目标节点软件堆栈 (AMI)"
+
+msgid "Remove"
+msgstr "移除"
+
+msgid "Remove a user from your group"
+msgstr "从群组中移除用户"
+
+msgid "Remove from group"
+msgstr "从群组中移除"
+
+msgid "Remove user"
+msgstr "移除用户"
+
+msgid "Remove user to your group"
+msgstr "将用户移至您的群组"
+
+msgid "Removing a software stack will not impact existing virtual desktops"
+msgstr "移除软件堆栈不会影响现有的虚拟桌面"
+
+msgid "Removing the Software Stack from EDH will not remove the AMI from your AWS account"
+msgstr "从 EDH 中删除软件堆栈不会从您的 AWS 账户中删除 AMI"
+
+msgid "Report an issue"
+msgstr "报告问题"
+
+msgid "Repository Name"
+msgstr "存储库名称"
+
+msgid "Request to delete job was successful. The job will be removed from the queue shortly"
+msgstr "删除任务的请求成功。该任务将很快从队列中移除"
+
+msgid "Requested vCPUs:"
+msgstr "请求的 vCPU："
+
+msgid "Reset Password"
+msgstr "重置密码"
+
+msgid "Reset user password"
+msgstr "重置用户密码"
+
+msgid "Resize Desktop Instance"
+msgstr "调整桌面实例大小"
+
+msgid "Resize Target Node"
+msgstr "调整目标节点的大小"
+
+msgid "Resize Target Node Instance"
+msgstr "调整目标节点实例的大小"
+
+msgid "Resource Type (e.g., GPU, FPGA)"
+msgstr "资源类型（例如 GPU、FPGA）"
+
+msgid "Resources"
+msgstr "资源"
+
+msgid "Resume streaming"
+msgstr "恢复直播"
+
+msgid "Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...)."
+msgstr "返回一个列表，其中每个项目都是分配给用户的一个公钥的值（id_rsa.pub、id_edcsa.pub 等...）。"
+
+msgid "Review"
+msgstr "回顾"
+
+msgid "Review HPC parameters"
+msgstr "查看 HPC 参数"
+
+msgid "Revoke Admin permission"
+msgstr "撤消管理员权限"
+
+msgid "Revoke user Admin permission"
+msgstr "撤消用户管理员权限"
+
+msgid "Role"
+msgstr "角色"
+
+msgid "Root Disk Size (in GB)"
+msgstr "根磁盘大小（以 GB 为单位）"
+
+msgid "Root Partition (default 40GB if not set):"
+msgstr "根分区（如果未设置，则默认为 40GB）："
+
+msgid "Run"
+msgstr "跑"
+
+msgid "Run All Day"
+msgstr "跑一整天"
+
+msgid "Run, test, and emulate embedded ECUs and target hardware directly in the cloud."
+msgstr "直接在云端运行、测试和仿真嵌入式 ECU 和目标硬件。"
+
+msgid "Runtime Arguments"
+msgstr "运行时参数"
+
+msgid "SFTP"
+msgstr "SFTP"
+
+msgid "SFTP (SSH File Transfer Protocol) - file transfer over Secure Shell"
+msgstr "SFTP（SSH 文件传输协议）-通过安全外壳传输文件"
+
+msgid "SFTP (easiest)"
+msgstr "SFTP（最简单）"
+
+msgid "SOCA Logo"
+msgstr "SOCA 徽标"
+
+msgid "SOCA cannot access your home directory. Please ask an admin to set your folder ACLs to 750"
+msgstr "SOCA 无法访问您的主目录。请要求管理员将您的文件夹 ACL 设置为 750"
+
+msgid "SSH Client Access"
+msgstr "SSH 客户端访问权限"
+
+msgid "SSH Public Key"
+msgstr "SSH 公钥"
+
+msgid "Save Schedule"
+msgstr "保存日程安排"
+
+msgid "Save changes"
+msgstr "保存更改"
+
+msgid "Save the settings and click connect"
+msgstr "保存设置，然后单击 “连接”"
+
+msgid "Save your session"
+msgstr "保存您的会话"
+
+msgid "Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at"
+msgstr "AWS 上的横向扩展计算使用 OpenLDAP，您可以直接使用 LDIF 与您的目录进行交互。如果您不熟悉 LDIF，可以使用我们的自定义包装器，网址为"
+
+msgid "Schedule"
+msgstr "日程安排"
+
+msgid "Scheduler"
+msgstr "计划程序"
+
+msgid "Scheduler ID"
+msgstr "调度器 ID"
+
+#, python-format
+msgid "Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use %(normal)s queue). Refer to %(more_link)s"
+msgstr "调度器参数是可选的。如果未设置，则您的任务将使用为您的队列配置的默认设置（如果未指定队列，则作业将使用 %(normal)s 队列）。请参阅 %(more_link)s"
+
+msgid "Scheduling priority"
+msgstr "排程优先级"
+
+msgid "Scratch Partition:"
+msgstr "暂存分区："
+
+msgid "Search"
+msgstr "搜寻"
+
+msgid "Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..."
+msgstr "按 AMI ID、AMI 名称、操作系统、架构 (x86_64/arm64) 搜索..."
+
+msgid "Search for a file or a folder"
+msgstr "搜索文件或文件夹"
+
+msgid "Search for an image tag, digest ..."
+msgstr "搜索图像标签，摘要..."
+
+msgid "Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks."
+msgstr "安全、可扩展的基于云的工作站，专为工程工作负载和繁重的计算任务而设计。"
+
+msgid "See Documentation."
+msgstr "参见文档。"
+
+msgid "Select"
+msgstr "选择"
+
+#, python-format
+msgid "Select %(choice)s as identity provider"
+msgstr "选择 %(choice)s 作为身份提供商"
+
+#, python-format
+msgid "Select %(domain)s as Domain"
+msgstr "选择 %(domain)s 作为域名"
+
+#, python-format
+msgid "Select %(entity)s as Trusted Entity Type and select %(use_case)s as Use Case"
+msgstr "选择 %(entity)s 作为可信实体类型并选择 %(use_case)s 作为用例"
+
+#, python-format
+msgid "Select %(role)s and use the latest %(policy)s available"
+msgstr "选择 %(role)s 并使用最新的 %(policy)s"
+
+msgid "Select a Project to see details."
+msgstr "选择一个项目以查看详细信息。"
+
+#, python-format
+msgid "Select a Role name (for example %(name)s) and save it"
+msgstr "选择角色名称（例如 %(name)s）并将其保存"
+
+msgid "Select a User Data Template to see details."
+msgstr "选择用户数据模板以查看详细信息。"
+
+msgid "Select a profile to see details."
+msgstr "选择个人资料以查看详细信息。"
+
+msgid "Select a stack to see details."
+msgstr "选择堆栈以查看详细信息。"
+
+msgid "Select an EDH Project"
+msgstr "选择 EDH 项目"
+
+msgid "Select an image (jpg or png) to use as thumbnail"
+msgstr "选择要用作缩略图的图像（jpg 或 png）"
+
+msgid "Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail"
+msgstr "选择要用作缩略图的图像（jpg 或 png）。留空以使用现有缩略图"
+
+msgid "Select an image with pre-installed applications or use the default vanilla image"
+msgstr "选择带有预安装应用程序的镜像或使用默认的原始镜像"
+
+msgid "Select group:"
+msgstr "选择群组："
+
+msgid "Select image baseOS"
+msgstr "选择图片 BaseOS"
+
+msgid "Select the AWS managed policy named"
+msgstr "选择名为的 AWS 托管策略"
+
+msgid "Select the EDH Project and optional AWS Budget for this target node"
+msgstr "为该目标节点选择 EDH 项目和可选 AWS 预算"
+
+msgid "Select the EDH Projects and optional AWS Budget for this desktop"
+msgstr "为该桌面选择 EDH 项目和可选 AWS 预算"
+
+msgid "Select the Workflow Profile to delete"
+msgstr "选择要删除的工作流配置文件"
+
+msgid "Select the Workflow Profile to edit"
+msgstr "选择要编辑的工作流程配置文件"
+
+msgid "Select the instance type to deploy your job on"
+msgstr "选择要部署任务的实例类型"
+
+msgid "Select the instance type to provision"
+msgstr "选择要预置的实例类型"
+
+msgid "Select the operating system for your virtual desktop"
+msgstr "为您的虚拟桌面选择操作系统"
+
+msgid "Select this Stack"
+msgstr "选择这个堆栈"
+
+msgid "Select user:"
+msgstr "选择用户："
+
+msgid "Select your Workflow"
+msgstr "选择您的工作流程"
+
+msgid "ServerAliveCountMax 2"
+msgstr "ServerAliveCountMax 2"
+
+msgid "ServerAliveInterval 10"
+msgstr "服务器上线间隔 10"
+
+msgid "Session Name"
+msgstr "会话名称"
+
+msgid "Session Type"
+msgstr "会话类型"
+
+msgid "Setup your AWS Batch Job"
+msgstr "设置您的 AWS 批处理任务"
+
+msgid "Setup your Amazon EKS Job"
+msgstr "设置您的亚马逊 EKS 任务"
+
+msgid "Show"
+msgstr "显示"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Size (MB)"
+msgstr "大小 (MB)"
+
+msgid "Size of the memory to request for your job"
+msgstr "为你的任务请求的内存大小"
+
+msgid "Slurm"
+msgstr "Slurm"
+
+msgid "Small (2 vCPUs, 8GB RAM)"
+msgstr "小型（2 个 vCPU，8GB 内存）"
+
+msgid "Software Stack"
+msgstr "软件堆栈"
+
+msgid "Software Stack Description"
+msgstr "软件堆栈描述"
+
+msgid "Software Stack Name"
+msgstr "软件堆栈名称"
+
+msgid "Software Stack removed from SOCA"
+msgstr "已从 SOCA 中移除软件堆栈"
+
+msgid "Sorry this feature has been disabled by your Administrator."
+msgstr "抱歉，您的管理员已禁用此功能。"
+
+msgid "Sorry this page requires admin privileges."
+msgstr "抱歉，此页面需要管理员权限。"
+
+msgid "Sorry we could not access this location due to a permission error. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "抱歉，由于权限错误，我们无法访问此位置。如果您最近更改了权限，请等待最多 10 分钟的同步时间。"
+
+msgid "Sorry you cannot download more than 40 files in a single call"
+msgstr "抱歉，您无法在一次通话中下载超过 40 个文件"
+
+#, python-brace-format
+msgid "Sorry, the maximum archive size is {:.2f} MB. Your archive was {:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "抱歉，最大存档大小为 {: .2f} MB。您的档案是 {: .2f} MB。为避免此问题，您可以创建较小的存档、单独下载文件、使用 SFTP 或编辑授权的最大存档大小。"
+
+#, python-brace-format
+msgid "Sorry, the maximum archive size is {max_size:.2f} MB. Your archive was {actual_size:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "抱歉，最大存档大小为 {max_size: .2f} MB。您的档案是 {actual_size: .2f} MB。为避免此问题，您可以创建较小的存档、单独下载文件、使用 SFTP 或编辑授权的最大存档大小。"
+
+msgid "Source Code"
+msgstr "源代码"
+
+msgid "Specify whether or not your job requires GPUs"
+msgstr "指定您的任务是否需要 GPU"
+
+msgid "Stack Info"
+msgstr "堆栈信息"
+
+msgid "Stack Type"
+msgstr "堆栈类型"
+
+msgid "Standard Launch"
+msgstr "标准发布"
+
+msgid "Start Desktop"
+msgstr "启动桌面"
+
+msgid "Start Target Node"
+msgstr "启动目标节点"
+
+msgid "Start a new terminal on an EDH Login Node"
+msgstr "在 EDH 登录节点上启动新终端"
+
+msgid "Starting Code Editor..."
+msgstr "正在启动代码编辑器..."
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Step 1: Configure AWS Transfer"
+msgstr "第 1 步：配置 AWS 传输"
+
+msgid "Step 2: Create IAM role for your AWS Transfer Users"
+msgstr "第 2 步：为您的 AWS Transfer 用户创建 IAM 角色"
+
+msgid "Step 3: Download PEM Key File (Public)"
+msgstr "第 3 步：下载 PEM 密钥文件（公开）"
+
+msgid "Step 4: Download your PEM key File (Private)"
+msgstr "第 4 步：下载您的 PEM 密钥文件（私人）"
+
+msgid "Step 5: Register your AWS Transfer Users"
+msgstr "第 5 步：注册您的 AWS Transfer 用户"
+
+msgid "Step 6: Test"
+msgstr "第 6 步：测试"
+
+msgid "Step1:"
+msgstr "第 1 步："
+
+msgid "Step1: Design the form"
+msgstr "第 1 步：设计表单"
+
+msgid "Step2: Configure FileZilla"
+msgstr "第 2 步：配置 FileZilla"
+
+msgid "Step2: Convert your SSH key"
+msgstr "第 2 步：转换您的 SSH 密钥"
+
+msgid "Step2: Design the job script"
+msgstr "第 2 步：设计作业脚本"
+
+msgid "Step2: Modify key permission"
+msgstr "第 2 步：修改密钥权限"
+
+msgid "Step3: Configure PuTTY"
+msgstr "第 3 步：配置 PuTTY"
+
+msgid "Step3: Connect and transfer file to FileZilla"
+msgstr "第 3 步：连接文件并将其传输到 FileZilla"
+
+msgid "Step3: Connect to the cluster via the login node(s)"
+msgstr "第 3 步：通过登录节点连接到群集"
+
+msgid "Stick to bottom when new data arrives"
+msgstr "新数据到来时坚守底线"
+
+msgid "Stopped All Day"
+msgstr "一整天都停了"
+
+msgid "Stopping an instance will not cause any data loss"
+msgstr "停止实例不会导致任何数据丢失"
+
+msgid "Storage"
+msgstr "存储"
+
+#, python-format
+msgid "Storage Size for your main partition (%(linux_path)s for Linux, %(windows_path)s for Windows)"
+msgstr "主分区的存储大小（Linux 为 %(linux_path)s，Windows 为 %(windows_path)s）"
+
+msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
+msgstr "直播在空闲/最大持续时间后自动关闭。对于长表，使用 Pop out。"
+
+msgid "Submit AWS Batch Job"
+msgstr "提交 AWS 批处理任务"
+
+msgid "Submit Amazon EKS Job"
+msgstr "提交亚马逊 EKS 职位"
+
+msgid "Submit a New Batch Job"
+msgstr "提交新的批处理作业"
+
+msgid "Submit a job"
+msgstr "提交作业"
+
+msgid "Submit job"
+msgstr "提交作业"
+
+msgid "Subnets must be from the list of private subnets configured on EDH"
+msgstr "子网必须来自在 EDH 上配置的私有子网列表"
+
+msgid "Successfully deactivated"
+msgstr "已成功停用"
+
+#, python-format
+msgid "Support Exact Instance Type (%(example)s)"
+msgstr "支持精确的实例类型 (%(example)s)"
+
+#, python-format
+msgid "Support Instance Family (%(example)s)"
+msgstr "支持实例系列 (%(example)s)"
+
+msgid "Support for network license"
+msgstr "支持网络许可证"
+
+msgid "Supported Variables (case-sensitive)"
+msgstr "支持的变量（区分大小写）"
+
+msgid "Supported variables (case-sensitive)"
+msgstr "支持的变量（区分大小写）"
+
+msgid "Tail"
+msgstr "尾巴"
+
+msgid "Tail (live view)"
+msgstr "尾巴（实时取景）"
+
+msgid "Target Node"
+msgstr "目标节点"
+
+msgid "Target Node Profile removed from SOCA"
+msgstr "目标节点配置文件已从 SOCA 中移除"
+
+msgid "Target Node Software Stack"
+msgstr "目标节点软件堆栈"
+
+msgid "Target Node Stacks"
+msgstr "目标节点堆栈"
+
+msgid "Target Nodes"
+msgstr "目标节点"
+
+msgid "Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development."
+msgstr "目标节点是未经任何特定于 EDH 的修改的 EC2 亚马逊系统映像 (AMI)（例如：没有文件系统挂载、AD/OpenLDAP 加入、安装软件包...）。这些节点设计用于专门的操作系统或虚拟机管理程序，例如嵌入式开发中使用的操作系统或虚拟机管理程序。"
+
+msgid "Technical Details"
+msgstr "技术细节"
+
+msgid "Template Name"
+msgstr "模板名称"
+
+msgid "Tenancy defines how EC2 instances are distributed across physical hardware."
+msgstr "租赁定义了如何在物理硬件上分配 EC2 实例。"
+
+msgid "Terminate"
+msgstr "终止"
+
+msgid "Terminate Job"
+msgstr "终止作业"
+
+msgid "The IAM role you have created (ex: TransferEFSClient)"
+msgstr "您创建的 IAM 角色（例如：TransferefsClient）"
+
+msgid "The Posix GID of your user you have retrieved via `id` command"
+msgstr "你通过 `id` 命令检索到的用户的 Posix GID"
+
+msgid "The Posix UID of your user you have retrieved via `id` command"
+msgstr "你通过 `id` 命令检索到的用户的 Posix UID"
+
+msgid "The content of your SSH public key retrieved during Step 3"
+msgstr "在步骤 3 中检索到的 SSH 公钥的内容"
+
+msgid "The data remains available on the system without incurring compute charges. Storage fees continue to apply."
+msgstr "数据在系统上仍然可用，不会产生计算费用。继续收取存储费。"
+
+msgid "The maximum size (in GB) of the root disk a user can specify"
+msgstr "用户可以指定的根磁盘的最大大小（以 GB 为单位）"
+
+msgid "The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
+msgstr "此映像的根磁盘的最小大小（以 GB 为单位）。配置 EBS 大小较低的实例将引发错误"
+
+#, python-format
+msgid "The server is using %(tz)s timezone."
+msgstr "服务器使用的是 %(tz)s 时区。"
+
+msgid "Then run the following command to create your group"
+msgstr "然后运行以下命令来创建您的群组"
+
+msgid "These numbers are just an estimate:"
+msgstr "这些数字只是一个估计值："
+
+msgid "These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us."
+msgstr "这些翻译是在人工智能的帮助下生成的，可能包含不准确或不自然的措辞。如果你是母语人士，并且想帮助改进翻译，我们很乐意你的贡献！请联系我们。"
+
+msgid "This API has been disabled by your Administrator"
+msgstr "此 API 已被您的管理员禁用"
+
+msgid "This API key is only available to you. Do not share it externally as this key is used to authorize requests on your behalf."
+msgstr "此 API 密钥仅供您使用。请勿与外部共享，因为此密钥用于代表您授权请求。"
+
+msgid "This action cannot be reversed."
+msgstr "此操作无法撤消。"
+
+msgid "This estimate is based on a simulation time of"
+msgstr "该估计值基于的仿真时间为"
+
+#, python-format
+msgid "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+msgstr "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+
+msgid "This file is too big to be compressed via web. Download file separately or use SFTP."
+msgstr "此文件太大，无法通过 Web 压缩。单独下载文件或使用 SFTP。"
+
+msgid "This folder already exist, choose a different name"
+msgstr "此文件夹已存在，请选择其他名称"
+
+msgid "This is a Linux script (will use /bin/bash)"
+msgstr "这是一个 Linux 脚本（将使用 /bin/bash）"
+
+msgid "This is a Linux script (will use /bin/csh)"
+msgstr "这是一个 Linux 脚本（将使用 /bin/csh）"
+
+msgid "This is a Linux script (will use /bin/sh)"
+msgstr "这是一个 Linux 脚本（将使用 /bin/sh）"
+
+msgid "This is a Linux script (will use /bin/zsh)"
+msgstr "这是一个 Linux 脚本（将使用 /bin/zsh）"
+
+msgid "This is the last tab. Close the window?"
+msgstr "这是最后一个选项卡。关上窗户？"
+
+msgid "This location is not cached"
+msgstr "此位置未缓存"
+
+msgid "This page will automatically refresh when the state of your virtual desktops changes."
+msgstr "当您的虚拟桌面状态发生变化时，此页面将自动刷新。"
+
+#, python-format
+msgid "This session will automatically pause <strong>after %(n)s hour</strong> of inactivity.This session will automatically pause <strong>after %(n)s hours</strong> of inactivity."
+msgstr "此会话将<strong>在 %(n)s 处于非活动状态一小时后</strong>自动暂停。此会话将在闲置 <strong>%(n)s 小时后</strong>自动暂停。"
+
+msgid "This will generate a temporary password for a given user"
+msgstr "这将为给定用户生成临时密码"
+
+msgid "Thumbnail (150px * 150px)"
+msgstr "缩略图（150 像素 * 150 像素）"
+
+msgid "Thumbnail to use (150px * 150px)"
+msgstr "要使用的缩略图（150px * 150px）"
+
+msgid "Time in seconds"
+msgstr "时间（以秒为单位）"
+
+#, python-brace-format
+msgid "Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
+msgstr "管理员配置的时区 {config.config.TimeZone} 不存在。默认为 UTC。有关支持的时区的完整列表，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
+
+#, python-format
+msgid "Tip: You can use %(and_op)s / %(or_op)s operators (ex: %(ex1)s %(ex2)s %(ex3)s)"
+msgstr "提示：你可以使用 %(and_op)s/%(or_op)s 运算符（例如：%(ex1)s %(ex2)s %(ex3)s）"
+
+msgid "To prevent outage, you must update all your scripts (if any) with the new key"
+msgstr "为防止中断，必须使用新密钥更新所有脚本（如果有）"
+
+msgid "Toggle light/dark theme (T)"
+msgstr "切换浅色/深色主题 (T)"
+
+msgid "Token has expired. As a security measure we have refreshed your token. Please re-submit your request again."
+msgstr "代币已过期。作为安全措施，我们已经刷新了您的代币。请再次重新提交您的请求。"
+
+msgid "Too many active tail sessions. Close one and try again."
+msgstr "活跃的尾部会话太多。关闭一个，然后重试。"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Type to search an instance type..."
+msgstr "键入搜索实例类型..."
+
+msgid "Type:"
+msgstr "类型："
+
+msgid "URI of the Image to deploy on your pod"
+msgstr "要在你的 pod 上部署的镜像的 URI"
+
+msgid "Unable to access the file. Please try again:  "
+msgstr "无法访问该文件。请再试一次：  "
+
+msgid "Unable to create file. Check logs for additional info"
+msgstr "无法创建文件。查看日志以获取更多信息"
+
+msgid "Unable to create new user. API returned error: "
+msgstr "无法创建新用户。API 返回错误： "
+
+msgid "Unable to delete "
+msgstr "无法删除 "
+
+#, python-brace-format
+msgid "Unable to delete Batch job {job_id}."
+msgstr "无法删除批处理作业 {job_id}。"
+
+msgid "Unable to describe instance type. See logs for additional details."
+msgstr "无法描述实例类型。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to determine vCPU count for instance type. See logs for additional details."
+msgstr "无法确定实例类型的 vCPU 数量。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to download "
+msgstr "无法下载 "
+
+msgid "Unable to download file. Did you remove it?"
+msgstr "无法下载文件。你把它删除了吗？"
+
+msgid "Unable to edit application. See logs for additional details."
+msgstr "无法编辑应用程序。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to estimate cost"
+msgstr "无法估算成本"
+
+msgid "Unable to extract input file information. See logs for additional details"
+msgstr "无法提取输入文件信息。有关其他详细信息，请参见日志"
+
+msgid "Unable to extract profile information. See logs for additional details"
+msgstr "无法提取配置文件信息。有关其他详细信息，请参见日志"
+
+#, python-format
+msgid "Unable to find any %(link)s onboarded to this EDH environment."
+msgstr "找不到加载到此 EDH 环境的任何 %(link)s。"
+
+msgid "Unable to find any AWS Batch Job Definition onboarded to this EDH environment."
+msgstr "找不到加载到此 EDH 环境的任何 AWS 批处理任务定义。"
+
+msgid "Unable to find any AWS Batch Job Queues onboarded to this EDH environment."
+msgstr "找不到加载到此 EDH 环境的任何 AWS 批处理任务队列。"
+
+msgid "Unable to generate download link. Check the logs for more information"
+msgstr "无法生成下载链接。查看日志以获取更多信息"
+
+msgid "Unable to generate job script. See logs for additional details"
+msgstr "无法生成作业脚本。有关其他详细信息，请参见日志"
+
+#, python-brace-format
+msgid "Unable to list AWS Batch jobs due to {error}"
+msgstr "由于 {错误} 无法列出 AWS 批处理任务"
+
+msgid "Unable to list all_users: "
+msgstr "无法列出所有用户： "
+
+msgid "Unable to list applications. See logs for additional details"
+msgstr "无法列出应用程序。有关其他详细信息，请参见日志"
+
+msgid "Unable to list applications. See logs for additional details."
+msgstr "无法列出应用程序。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to list groups: "
+msgstr "无法列出群组： "
+
+msgid "Unable to list your clusters images"
+msgstr "无法列出您的集群映像"
+
+msgid "Unable to list your container images"
+msgstr "无法列出您的容器镜像"
+
+msgid "Unable to locate  the download archive, please try again"
+msgstr "找不到下载档案，请重试"
+
+msgid "Unable to locate the download archive, please try again"
+msgstr "找不到下载档案，请重试"
+
+msgid "Unable to preview this file via web"
+msgstr "无法通过 Web 预览此文件"
+
+msgid "Unable to read file"
+msgstr "无法读取文件"
+
+msgid "Unable to read the job script. See logs for additional details."
+msgstr "无法读取作业脚本。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to reset password. Error: "
+msgstr "无法重置密码。错误： "
+
+msgid "Unable to reset your password. Error: "
+msgstr "无法重置您的密码。错误： "
+
+msgid "Unable to retrieve API key for user. See logs for additional details."
+msgstr "无法为用户检索 API 密钥。有关其他详细信息，请参阅日志。"
+
+msgid "Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue parameters and check logs for more details"
+msgstr "无法在所有调度器上检索作业。验证用户/调度器/队列参数并查看日志以获取更多详细信息"
+
+msgid "Unable to retrieve this virtual desktop."
+msgstr "无法检索此虚拟桌面。"
+
+msgid "Unable to stat file"
+msgstr "无法统计文件"
+
+#, python-brace-format
+msgid "Unable to submit AWS Batch job due to {error}"
+msgstr "由于 {错误} 无法提交 AWS 批处理任务"
+
+msgid "Unable to update group: "
+msgstr "无法更新群组： "
+
+msgid "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+msgstr "无法使用此文件作为输入（可能该文件已被删除或者您没有访问权限）。"
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars"
+msgstr "您的亚马逊图片的唯一 ID。必须是有效的图片，以 ami-开头，介于 8 到 21 个字符之间"
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)"
+msgstr "您的亚马逊图片的唯一 ID。必须是有效的映像，以 ami 或 AMI 别名 (/aws/service/...) 开头"
+
+msgid "Unknown session state"
+msgstr "未知的会话状态"
+
+msgid "Unregister Software Stack from EDH"
+msgstr "从 EDH 取消注册软件堆栈"
+
+msgid "Unregister Software Stack from SOCA"
+msgstr "从 SOCA 取消注册软件堆栈"
+
+msgid "Update Password"
+msgstr "更新密码"
+
+msgid "Update Project"
+msgstr "更新项目"
+
+msgid "Update Software Stack"
+msgstr "更新软件堆栈"
+
+msgid "Update Target Node Profile"
+msgstr "更新目标节点配置文件"
+
+msgid "Update User Data Template"
+msgstr "更新用户数据模板"
+
+msgid "Update Virtual Desktop Profile"
+msgstr "更新虚拟桌面配置文件"
+
+msgid "Update this Workflow Profile"
+msgstr "更新此工作流程配置文件"
+
+msgid "Update your password"
+msgstr "更新你的密码"
+
+msgid "Upload file(s)"
+msgstr "上传文件"
+
+#, python-format
+msgid "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %(start_a)sEDH SFTP solution%(end_a)s for larger files or edit the configuration files."
+msgstr "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %(start_a)sEDH SFTP solution%(end_a)s for larger files or edit the configuration files."
+
+msgid "Upload your content to EDH"
+msgstr "将您的内容上传到 EDH"
+
+#, python-format
+msgid "Use %(hidden)s fields to hardcode values. Otherwise, defaults will be applied."
+msgstr "使用 %(hidden)s 字段对值进行硬编码。否则，将应用默认值。"
+
+#, python-format
+msgid "Use %(star)s to allow all users"
+msgstr "使用 %(star)s 允许所有用户"
+
+#, python-format
+msgid "Use %(star)s to deny all"
+msgstr "使用 %(star)s 拒绝全部"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds)"
+msgstr "使用 HH: MM: SS 格式（小时：分钟：秒）"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds). For example 90 minutes is 00:90:00 or 01:30:00"
+msgstr "使用 HH: MM: SS 格式（小时：分钟：秒）。例如 90 分钟是 00:90:00 或 01:30:00"
+
+msgid "Use as workflow input"
+msgstr "用作工作流程输入"
+
+#, python-format
+msgid "Use this link only to %(purpose)s regarding issues with the Engineering Development Hub (EDH) project."
+msgstr "仅使用此链接指向有关工程开发中心 (EDH) 项目问题的 %(purpose)s。"
+
+msgid "Used to calculate the number of node(s) to provision"
+msgstr "用于计算要配置的节点数量"
+
+msgid "Used to calculate the number of nodes to provision"
+msgstr "用于计算要配置的节点数量"
+
+msgid "Used to estimate cost"
+msgstr "用于估算成本"
+
+msgid "User"
+msgstr "用户"
+
+msgid "User "
+msgstr "用户 "
+
+msgid "User Data"
+msgstr "用户数据"
+
+msgid "User Data Template Description"
+msgstr "用户数据模板描述"
+
+msgid "User Data Template Name"
+msgstr "用户数据模板名称"
+
+msgid "User Data Template deleted successfully"
+msgstr "用户数据模板已成功删除"
+
+msgid "User Data Template has been updated successfully"
+msgstr "用户数据模板已成功更新"
+
+msgid "User Data Templates"
+msgstr "用户数据模板"
+
+msgid "User Data Variables"
+msgstr "用户数据变量"
+
+#, python-format
+msgid "User Data associated with this stack (%(link)s)"
+msgstr "与此堆栈相关的用户数据 (%(link)s)"
+
+msgid "User Data script runs during the instance initial boot"
+msgstr "用户数据脚本在实例初始启动期间运行"
+
+msgid "User Data template has been created successfully"
+msgstr "用户数据模板已成功创建"
+
+msgid "User Data to be executed on the EC2 host"
+msgstr "要在 EC2 主机上执行的用户数据"
+
+msgid "User ID"
+msgstr "用户 ID"
+
+msgid "User Membership"
+msgstr "用户会员"
+
+msgid "User code to be executed AFTER the solver command"
+msgstr "在解算器命令之后执行的用户代码"
+
+msgid "User code to be executed BEFORE the solver command"
+msgstr "要在求解器命令之前执行的用户代码"
+
+msgid "User created"
+msgstr "用户已创建"
+
+msgid "User created but unable to generate API token: "
+msgstr "用户已创建但无法生成 API 令牌： "
+
+msgid "User data is limited to 16 KB"
+msgstr "用户数据限制在 16 KB 以内"
+
+msgid "User data script is operating system-specific: Linux requires a Bash script, while Windows expects a PowerShell script."
+msgstr "用户数据脚本是特定于操作系统的：Linux需要Bash脚本，而Windows需要PowerShell脚本。"
+
+msgid "User data supports"
+msgstr "用户数据支持"
+
+msgid "User(s) in your group:"
+msgstr "您的群组中的用户："
+
+msgid "User-Data templates are assigned to EDH Target Nodes"
+msgstr "用户数据模板分配给 EDH 目标节点"
+
+msgid "User: "
+msgstr "用户： "
+
+msgid "Username"
+msgstr "用户名"
+
+msgid "Users Management"
+msgstr "用户管理"
+
+msgid "Users Permissions"
+msgstr "用户权限"
+
+msgid "Users in denied groups will be denied even if individually allowed"
+msgstr "即使单独允许，被拒绝的群组中的用户也将被拒绝"
+
+msgid "Users in your group can access (read-only) your $HOME directory by default."
+msgstr "默认情况下，您群组中的用户可以访问（只读）您的 $HOME 目录。"
+
+msgid "Users/Groups Permissions"
+msgstr "用户/群组权限"
+
+msgid "Using Bash"
+msgstr "使用 Bash"
+
+msgid "Using Python"
+msgstr "使用 Python"
+
+msgid "VALUE"
+msgstr "价值"
+
+msgid "VDI Profile"
+msgstr "VDI 简介"
+
+msgid "VDI Profile removed from SOCA"
+msgstr "VDI 配置文件已从 SOCA 中移除"
+
+msgid "Value"
+msgstr "价值"
+
+msgid "Value (e.g., 1, 2)"
+msgstr "值（例如，1、2）"
+
+msgid "Value:"
+msgstr "价值："
+
+msgid "Via EDH Web Portal"
+msgstr "通过 EDH 门户网站"
+
+msgid "Via command line (CLI)"
+msgstr "通过命令行 (CLI)"
+
+msgid "View Advanced Options"
+msgstr "查看高级选项"
+
+msgid "View Details"
+msgstr "查看详情"
+
+msgid "View HTTP API documentation"
+msgstr "查看 HTTP API 文档"
+
+msgid "View my jobs"
+msgstr "查看我的职位"
+
+msgid "View/Manage Authorized Application Profiles"
+msgstr "查看/管理授权的应用程序配置文件"
+
+msgid "View/Manage Authorized Target Nodes Stacks"
+msgstr "查看/管理授权的目标节点堆栈"
+
+msgid "View/Manage Authorized Virtual Desktops Stacks"
+msgstr "查看/管理授权的虚拟桌面堆栈"
+
+msgid "Virtual Desktop"
+msgstr "虚拟桌面"
+
+msgid "Virtual Desktop Software Stack"
+msgstr "虚拟桌面软件堆栈"
+
+msgid "Virtual Desktop Stacks"
+msgstr "虚拟桌面堆栈"
+
+msgid "Virtual Desktops"
+msgstr "虚拟桌面"
+
+msgid "We have generated a test template for you, customize it as needed or"
+msgstr "我们已经为您生成了一个测试模板，可以根据需要对其进行自定义，或者"
+
+msgid "Web Terminal"
+msgstr "网络终端"
+
+msgid "WebSocket connection failed. Check that the webshell service is running on Login Nodes."
+msgstr "WebSocket 连接失败。检查 webshell 服务是否在登录节点上运行。"
+
+msgid "WebSocket error"
+msgstr "WebSocket 错误"
+
+msgid "What input file do you want to use? Navigate to the folder where your input file is located then click 'Use as Simulation Input'"
+msgstr "你想使用什么输入文件？<hr>导航到输入文件所在的文件夹，然后单击 \"用作仿真输入\\"
+
+msgid "What queue do you want to use?"
+msgstr "你想使用什么队列？"
+
+msgid "What type of instance do you want to use?"
+msgstr "你想使用哪种类型的实例？"
+
+msgid "What version of the solver do you want to use?"
+msgstr "你想使用什么版本的求解器？"
+
+msgid "What workflow do you want to run?"
+msgstr "你想运行什么工作流程？"
+
+msgid "Windows"
+msgstr "Windows"
+
+msgid "Workflow Profile input file (JSON)"
+msgstr "工作流程配置文件输入文件 (JSON)"
+
+msgid "Workflow Profile name"
+msgstr "工作流程配置文件名称"
+
+msgid "Workflows Management"
+msgstr "工作流程管理"
+
+msgid "Wrap"
+msgstr "包装"
+
+msgid "Wrap long lines"
+msgstr "换长行"
+
+msgid "X-EDH-TOKEN and set the value to"
+msgstr "X-EDH-TOKEN 并将值设置为"
+
+msgid "X-EDH-USER and set the value to"
+msgstr "X-EDH-USER 并将值设置为"
+
+msgid "Yes"
+msgstr "是的"
+
+msgid "You are about to be redirected to"
+msgstr "你即将被重定向到"
+
+msgid "You are about to permanently delete"
+msgstr "你即将永久删除"
+
+msgid "You are about to permanently delete a target note. All data stored on the local partitions will be lost."
+msgstr "你即将永久删除目标笔记。存储在本地分区上的所有数据都将丢失。"
+
+msgid "You are about to remove this job from your EKS cluster."
+msgstr "您将要从 EKS 集群中移除此任务。"
+
+msgid "You are about to terminate this AWS Batch job:"
+msgstr "您即将终止此 AWS 批处理任务："
+
+msgid "You are currently using"
+msgstr "你目前正在使用"
+
+msgid "You are not authorized to access this file"
+msgstr "您无权访问此文件"
+
+msgid "You are not authorized to access this location and/or this path is restricted by the Administrator. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "您无权访问此位置和/或此路径受管理员限制。如果您最近更改了权限，请等待最多 10 分钟的同步时间。"
+
+msgid "You are not authorized to download some files (double check if your user own ALL files in this directory)."
+msgstr "您无权下载某些文件（仔细检查您的用户是否拥有此目录中的所有文件）。"
+
+msgid "You are not authorized to download this file or this file is no longer available on the filesystem"
+msgstr "您无权下载此文件，或者此文件在文件系统中不再可用"
+
+#, python-brace-format
+msgid "You are not authorized to upload in this location ({path}). If you recently changed the permissions, please allow up to 10 minutes for sync"
+msgstr "您无权在此位置 ({path}) 上传。如果您最近更改了权限，请等待最多 10 分钟的同步时间"
+
+msgid "You are not the job owner"
+msgstr "你不是工作所有者"
+
+#, python-format
+msgid "You can create %(link)s to provision your virtual desktop faster."
+msgstr "您可以创建 %(link)s 来更快地配置虚拟桌面。"
+
+msgid "You can have multiple Software Stacks using the same Target Node Profile."
+msgstr "您可以使用相同的目标节点配置文件来拥有多个软件堆栈。"
+
+msgid "You can have multiple Software Stacks using the same Virtual Desktop Profile."
+msgstr "您可以使用同一个虚拟桌面配置文件拥有多个软件堆栈。"
+
+msgid "You can interact with your EDH cluster (create users, groups, queue, submit jobs, view jobs etc.) via a simple REST interface."
+msgstr "您可以通过简单的 REST 界面与您的 EDH 集群进行交互（创建用户、群组、排队、提交作业、查看作业等）。"
+
+msgid "You can not manage your own Admin permissions."
+msgstr "您无法管理自己的管理员权限。"
+
+msgid "You can not reset your own password using this tool. Please visit 'My Account' section for that"
+msgstr "您无法使用此工具重置自己的密码。请访问 “我的账户” 部分了解相关信息"
+
+msgid "You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>"
+msgstr "您可以使用自己的变量名称，但是请注意，当您<strong>使用以下变量时，系统会为您预先配置一些自动化</strong>："
+
+msgid "You cannot change hardware if you have enabled Hibernation"
+msgstr "如果您启用了休眠，则无法更改硬件"
+
+msgid "You cannot delete a Target Node Profile if it's being associated to an existing target node."
+msgstr "如果目标节点配置文件与现有目标节点关联，则无法将其删除。"
+
+msgid "You cannot delete a Virtual Desktop Profile if it's being associated to an existing virtual desktop."
+msgstr "如果虚拟桌面配置文件与现有虚拟桌面关联，则无法将其删除。"
+
+msgid "You cannot delete default profile."
+msgstr "您无法删除默认配置文件。"
+
+msgid "You cannot delete your own account."
+msgstr "您无法删除自己的账户。"
+
+msgid "You cannot delete your own group."
+msgstr "您无法删除自己的群组。"
+
+msgid "You could save money by"
+msgstr "你可以通过以下方式省钱"
+
+msgid "You do not have a target node yet. Create one by clicking the button above."
+msgstr "你还没有目标节点。点击上面的按钮创建一个。"
+
+msgid "You do not have a virtual desktop yet. Create one by clicking the button above."
+msgstr "您还没有虚拟桌面。点击上面的按钮创建一个。"
+
+msgid "You do not have any running EDH Login Nodes. Please launch at least 1 login node before being able to use Web Terminal."
+msgstr "您没有任何正在运行的 EDH 登录节点。在能够使用 Web 终端之前，请启动至少 1 个登录节点。"
+
+msgid "You do not have permission to read this file"
+msgstr "你没有权限读取这个文件"
+
+msgid "You do not have the permission to delete this file. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "您没有权限删除此文件。如果您最近更改了权限，请等待最多 10 分钟的同步时间。"
+
+msgid "You do not have the permission to delete this folder. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "您无权删除此文件夹。如果您最近更改了权限，请等待最多 10 分钟的同步时间。"
+
+msgid "You do not have the permission to download this file"
+msgstr "你没有权限下载这个文件"
+
+msgid "You made it that far? Congrats from the SOCA team!"
+msgstr "你跑了那么远？恭喜 SOCA 团队！"
+
+msgid "You must first pause your target node"
+msgstr "你必须先暂停目标节点"
+
+msgid "You must first pause your virtual desktop"
+msgstr "你必须先暂停虚拟桌面"
+
+msgid "You must first stop your target node"
+msgstr "你必须先停止目标节点"
+
+msgid "You must specify cpus and instance_type parameters"
+msgstr "必须指定 cpu 和 instance_type 参数"
+
+msgid "You will also need to pass the Base64 encoded string as payload. See below for examples:"
+msgstr "您还需要将 Base64 编码字符串作为有效载荷传递。有关示例，请参见下文："
+
+msgid "You will need to specify three headers:"
+msgstr "你需要指定三个标题："
+
+#, python-format
+msgid "You will need to update %(pkg)s to add instances released after the date of your EDH installation"
+msgstr "您需要更新 %(pkg)s 才能添加在 EDH 安装之日之后发布的实例"
+
+#, python-format
+msgid "You will need your user UID/GID. You can retrieve this value by typing %(cmd)s on any EDH nodes (Linux). In the example below, the UID is 5001 and GID is also 5001"
+msgstr "您将需要您的用户 UID/GID。您可以通过在任何 EDH 节点 (Linux) 上键入 %(cmd)s 来检索此值。在下面的示例中，UID 是 5001，GID 也是 5001"
+
+msgid "You won't be charged for the compute time while your session is stopped"
+msgstr "会话停止后，您无需为计算时间付费"
+
+msgid "Your API key:"
+msgstr "你的 API 密钥："
+
+#, python-format
+msgid "Your Analytics endpoint %(emphasis)s. You can access it via your EDH Virtual Desktops (Linux or Windows)."
+msgstr "您的分析终端节点 %(emphasis)s。你可以通过 EDH 虚拟桌面（Linux 或 Windows）访问它。"
+
+msgid "Your EDH environment must be using Amazon EFS to use AWS Transfer"
+msgstr "您的 EDH 环境必须使用 Amazon EFS 才能使用 AWS Transfer"
+
+msgid "Your Software Stack has been updated successfully"
+msgstr "您的软件堆栈已成功更新"
+
+msgid "Your Target Node Profile has been updated successfully"
+msgstr "您的目标节点配置文件已成功更新"
+
+msgid "Your Target Node is about to be terminated"
+msgstr "你的目标节点即将终止"
+
+msgid "Your Target Node session has been initiated. It will be ready shortly"
+msgstr "您的目标节点会话已启动。很快就会准备好了"
+
+msgid "Your User Data Template has been removed  successfully"
+msgstr "您的用户数据模板已成功删除"
+
+msgid "Your Virtual Desktop Profile has been updated successfully"
+msgstr "您的虚拟桌面配置文件已成功更新"
+
+msgid "Your Virtual Desktop is about to be terminated"
+msgstr "您的虚拟桌面即将终止"
+
+msgid "Your Virtual Desktop session has been initiated. It will be ready within 20 minutes."
+msgstr "您的虚拟桌面会话已启动。它将在 20 分钟内准备就绪。"
+
+msgid "Your cluster administrator disabled this feature."
+msgstr "您的集群管理员禁用了此功能。"
+
+msgid "Your desktop is about to be stopped as requested"
+msgstr "您的桌面即将按要求停止"
+
+msgid "Your desktop is about to be terminated as requested"
+msgstr "您的桌面即将按要求终止"
+
+msgid "Your desktop is starting"
+msgstr "你的桌面正在启动"
+
+msgid "Your desktop will be stopped soon."
+msgstr "您的桌面将很快停止。"
+
+msgid "Your endpoint use the following syntax:"
+msgstr "您的终端节点使用以下语法："
+
+msgid "Your job was deleted successfully"
+msgstr "您的工作已成功删除"
+
+msgid "Your job was submitted successfully"
+msgstr "您的工作已成功提交"
+
+msgid "Your job will stay in the queue until the issue is fixed."
+msgstr "在问题得到解决之前，你的任务将保持在队列中。"
+
+msgid "Your password has been changed successfully."
+msgstr "您的密码已成功更改。"
+
+msgid "Your profile has been created successfully"
+msgstr "您的个人资料已成功创建"
+
+msgid "Your profile has been deleted successfully"
+msgstr "您的个人资料已成功删除"
+
+msgid "Your project has been created successfully"
+msgstr "您的项目已成功创建"
+
+msgid "Your project has been removed  successfully"
+msgstr "您的项目已成功移除"
+
+msgid "Your project has been updated successfully"
+msgstr "您的项目已成功更新"
+
+msgid "Your schedule has been updated successfully"
+msgstr "您的日程表已成功更新"
+
+#, python-format
+msgid "Your session will be automatically deleted <strong>after %(n)s hour</strong> if you do not restart it.Your session will be automatically deleted <strong>after %(n)s hours</strong> if you do not restart it."
+msgstr "如果您不重新启动会话，则会话将<strong>在 %(n)s 小时后</strong>自动删除。如果您不重启会话，则会话将<strong>在 %(n)s 小时后</strong>自动删除。"
+
+msgid "Your session will use new hardware as soon as you restart it"
+msgstr "重启会话后，会话将立即使用新硬件"
+
+msgid "Your software stack has been removed  successfully"
+msgstr "您的软件堆栈已成功删除"
+
+msgid "Your target node is about to be stopped as requested"
+msgstr "您的目标节点即将按要求停止"
+
+msgid "Your target node is already running"
+msgstr "你的目标节点已经在运行"
+
+msgid "Your target node is already stopped"
+msgstr "你的目标节点已经停止"
+
+msgid "Your target node is being created"
+msgstr "您的目标节点正在创建中"
+
+msgid "Your target node is not running yet"
+msgstr "你的目标节点尚未运行"
+
+msgid "Your target node is starting"
+msgstr "你的目标节点正在启动"
+
+msgid "Your target node is stopped."
+msgstr "您的目标节点已停止。"
+
+msgid "Your target node schedule has been updated"
+msgstr "您的目标节点计划已更新"
+
+msgid "Your target node will be stopped soon."
+msgstr "您的目标节点将很快停止。"
+
+msgid "Your target note is about to be terminated as requested"
+msgstr "您的目标票据即将按要求终止"
+
+msgid "Your user data template has been created successfully"
+msgstr "您的用户数据模板已成功创建"
+
+msgid "Your user data template has been updated successfully"
+msgstr "您的用户数据模板已成功更新"
+
+msgid "Your virtual desktop has been updated"
+msgstr "您的虚拟桌面已更新"
+
+msgid "Your virtual desktop is already running"
+msgstr "您的虚拟桌面已经在运行"
+
+msgid "Your virtual desktop is already stopped"
+msgstr "您的虚拟桌面已经停止"
+
+msgid "Your virtual desktop is being created"
+msgstr "正在创建您的虚拟桌面"
+
+msgid "Your virtual desktop is not running yet"
+msgstr "您的虚拟桌面尚未运行"
+
+msgid "Your virtual desktop is starting"
+msgstr "您的虚拟桌面正在启动"
+
+msgid "Your virtual desktop is stopped."
+msgstr "您的虚拟桌面已停止。"
+
+msgid "Your virtual desktop schedule has been updated"
+msgstr "您的虚拟桌面时间表已更新"
+
+msgid "Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed."
+msgstr "您的工作空间包含存储在 EDH 文件系统中的所有数据。默认情况下，/apps 和 /data 是共享的，并且可以从所有 EDH 节点访问。您可以根据需要装载其他文件系统。"
+
+msgid "__SOCA_CLUSTER__NAME__"
+msgstr "__SOCA_CLUSTER__NAME__"
+
+msgid "all"
+msgstr "所有"
+
+msgid "and close it with"
+msgstr "然后用它关闭"
+
+msgid "app_profile file is missing."
+msgstr "app_profile 文件丢失。"
+
+msgid "base64"
+msgstr "base64"
+
+msgid "breadcrumb"
+msgstr "面包屑"
+
+msgid "clear the buffer"
+msgstr "清除缓冲区"
+
+msgid "click here for manual reload"
+msgstr "点击这里手动重新加载"
+
+msgid "click here to start from scratch."
+msgstr "点击这里从头开始。"
+
+msgid "close the modal"
+msgstr "关闭模态"
+
+msgid "closed"
+msgstr "关闭"
+
+msgid "comma separated list of job ids e,g: 1,2,3"
+msgstr "以逗号分隔的任务 ID 列表 e, g: 1,2,3"
+
+msgid "connecting"
+msgstr "连接"
+
+msgid "cpus must be a valid integer"
+msgstr "cpus 必须是有效的整数"
+
+msgid "cr-123456abc"
+msgstr "cr-123456abc"
+
+msgid "create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags."
+msgstr "在一个地方创建、监控和管理虚拟目标、虚拟桌面和计算节点的预算。通过自动 AWS 成本分配标签获得全面可见性。"
+
+msgid "disconnected"
+msgstr "断开的"
+
+msgid "e.g. --epochs"
+msgstr "例如--epochs"
+
+msgid "e.g. /bin/bash"
+msgstr "例如 /bin/bash"
+
+msgid "e.g. argument"
+msgstr "例如争论"
+
+msgid "encode function:"
+msgstr "编码函数："
+
+msgid "error"
+msgstr "错误"
+
+msgid "example: c6g.metal"
+msgstr "示例：c6g.metal"
+
+msgid "file rotated, stream ending"
+msgstr "文件旋转，直播结束"
+
+msgid "file truncated, resuming"
+msgstr "文件被截断，正在恢复"
+
+msgid "file_path"
+msgstr "文件路径"
+
+msgid "from the filesystem."
+msgstr "来自文件系统。"
+
+msgid "fsx_capacity"
+msgstr "fsx_capacity"
+
+msgid "has been uploaded to EDH"
+msgstr "已上传到 EDH"
+
+msgid "hour"
+msgstr "小时"
+
+msgid "hour(s) with HyperThreading support set to True"
+msgstr "将超线程支持设置为 True 的小时"
+
+msgid "idle"
+msgstr "闲"
+
+msgid "input_file is a reserved name on EDH. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name"
+msgstr "input_file 是 EDH 上的保留名称。该值将自动替换为用户提供的输入位置。你必须有它而且参数名必须是 input_name"
+
+msgid "insert timestamp checkpoint"
+msgstr "插入时间戳检查点"
+
+msgid "instance_type"
+msgstr "实例类型"
+
+msgid "is HTML tag for new line"
+msgstr "是换行符的 HTML 标签"
+
+msgid "is running but EDG could not validate your session via"
+msgstr "正在运行但是 EDG 无法通过验证您的会话"
+
+msgid "jump to live"
+msgstr "活下去"
+
+msgid "jump to start"
+msgstr "从头开始"
+
+msgid "live"
+msgstr "生活"
+
+msgid "load earlier"
+msgstr "早点加载"
+
+msgid "loading"
+msgstr "加载中"
+
+msgid "no file specified"
+msgstr "未指定文件"
+
+msgid "pause or resume"
+msgstr "暂停或恢复"
+
+msgid "paused"
+msgstr "已暂停"
+
+msgid "pending"
+msgstr "待定"
+
+msgid "profile_name is missing."
+msgstr "profile_name 丢失。"
+
+msgid "purchasing Reserved Instances"
+msgstr "购买预留实例"
+
+msgid "root_size"
+msgstr "root_size"
+
+msgid "rotated"
+msgstr "旋转"
+
+msgid "running"
+msgstr "正在运行"
+
+#, python-brace-format
+msgid "s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com"
+msgstr "s-{UNIQUE_ID}-.server.transfer。{AWS_REGION} .amazonaws.com"
+
+msgid "scheduler_id and job_id must be specified"
+msgstr "必须指定 scheduler_id 和 job_id"
+
+msgid "scratch_size"
+msgstr "划痕大小"
+
+msgid "since last mark"
+msgstr "自上次大关以来"
+
+msgid "stopped"
+msgstr "停止的"
+
+msgid "stream ended"
+msgstr "直播已结束"
+
+msgid "this user from the group"
+msgstr "该群组中的这个用户"
+
+msgid "this user to my group"
+msgstr "这个用户加入我的群组"
+
+msgid "this user to the group"
+msgstr "此用户加入群组"
+
+msgid "toggle theme"
+msgstr "切换主题"
+
+msgid "toggle this help"
+msgstr "切换此帮助"
+
+msgid "toggle wrap"
+msgstr "切换换包装"
+
+msgid "upload because of"
+msgstr "上传是因为"
+
+msgid "upload was canceled"
+msgstr "上传已取消"
+
+msgid "vCPUs"
+msgstr "vCPU"
+
+msgid "vcpus"
+msgstr "vcpus"
+
+msgid "wall_time"
+msgstr "wall_time"
+
+msgid "wall_time must use HH:MM:SS format and only use valid numbers"
+msgstr "wall_time 必须使用 HH: MM: SS 格式并且只能使用有效的数字"
+
+#, python-brace-format
+msgid "{entry.name} returned an error and cannot be displayed: {err}"
+msgstr "{entry.name} 返回错误且无法显示：{err}"
+
+msgid "──── Schedulers ───────"
+msgstr "──── 调度器 ────────"
+
+msgid "──── System Interpreters ───────"
+msgstr "──── 系统解释器 ────────"
+
+msgid "🎉 SOCA YEAH 🌴"
+msgstr "🎉 SOCA 是的 🌴"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                    want to"
+#~ msgstr ""
+#~ "我敢肯定我\n"
+#~ " 想要"
+
+#~ msgid ""
+#~ "Upload your content to\n"
+#~ "                                                    EDH"
+#~ msgstr ""
+#~ "将您的内容上传到\n"
+#~ " EDH"
+
+#~ msgid ""
+#~ "for larger files or edit the\n"
+#~ "                                                configuration files."
+#~ msgstr ""
+#~ "对于较大的文件或编辑\n"
+#~ " 配置文件。"
+
+#~ msgid ""
+#~ "Entering the danger\n"
+#~ ""
+#~ "                                                                                "
+#~ "zone"
+#~ msgstr ""
+#~ "进入危险\n"
+#~ " 区域"
+
+#~ msgid ""
+#~ "from the\n"
+#~ ""
+#~ "                                                                                "
+#~ "filesystem."
+#~ msgstr ""
+#~ "来自\n"
+#~ " 文件系统。"
+
+#~ msgid ""
+#~ "This file is too big and cannot be previewed via the web\n"
+#~ "                                                            interface."
+#~ msgstr ""
+#~ "此文件太大，无法通过 Web 预览\n"
+#~ " 接口。"
+
+#~ msgid ""
+#~ "or\n"
+#~ "                                                            open it via"
+#~ msgstr ""
+#~ "要么\n"
+#~ " 通过以下方式将其打开"
+
+#~ msgid ""
+#~ "to\n"
+#~ "                                                        download"
+#~ " your Linux private key if needed)"
+#~ msgstr ""
+#~ "到\n"
+#~ " 如果需要，请下载你的 Linux 私钥）"
+
+#~ msgid ""
+#~ "on any EDH nodes (Linux).\n"
+#~ "                                           In the "
+#~ "example below, the UID is 5001 and"
+#~ " GID is also 5001"
+#~ msgstr ""
+#~ "在任何 EDH 节点 (Linux) 上。\n"
+#~ " 在下面的示例中，UID 是 5001，GID 也是 5001"
+
+#~ msgid ""
+#~ "Add user to your\n"
+#~ "                                                    group"
+#~ msgstr ""
+#~ "将用户添加到您的\n"
+#~ " 组"
+
+#~ msgid ""
+#~ ".\n"
+#~ "                                        You can "
+#~ "access it via your EDH Virtual "
+#~ "Desktops (Linux or Windows)."
+#~ msgstr ""
+#~ "。\n"
+#~ " 你可以通过 EDH 虚拟桌面（Linux 或 Windows）访问它。"
+
+#~ msgid ""
+#~ "Make sure to have established "
+#~ "connectivity between AWS and your "
+#~ "corporate\n"
+#~ "                                        network (e.g. via"
+#~ msgstr ""
+#~ "确保在 AWS 和您的公司之间建立了连接\n"
+#~ " 网络（例如，通过"
+
+#~ msgid ""
+#~ "AWS Direct\n"
+#~ "                                        Connect"
+#~ msgstr ""
+#~ "AWS 直销\n"
+#~ " 连接"
+
+#~ msgid ""
+#~ "or similar) if you are planning to"
+#~ " access the analytic dashboard URL "
+#~ "from your\n"
+#~ "                                        corporate machines."
+#~ msgstr ""
+#~ "或类似）如果您计划从您的网站访问分析仪表板网址\n"
+#~ " 公司机器。"
+
+#~ msgid ""
+#~ "Access\n"
+#~ "                                            my Analytics Dashboard"
+#~ msgstr ""
+#~ "访问\n"
+#~ " 我的分析仪表板"
+
+#~ msgid ""
+#~ "Contact your EDH administrator if you"
+#~ " want to add Analytics capability to"
+#~ " your\n"
+#~ "                                        cluster."
+#~ msgstr ""
+#~ "如果您想为您的添加分析功能，请联系您的 EDH 管理员\n"
+#~ " 集群。"
+
+#~ msgid ""
+#~ "This API key is only available to you.\n"
+#~ "                            Do not share it"
+#~ " externally as this key is used "
+#~ "to authorize requests on your behalf."
+#~ msgstr ""
+#~ "此 API 密钥仅供您使用。\n"
+#~ " 请勿与外部共享，因为此密钥用于代表您授权请求。"
+
+#~ msgid ""
+#~ "If you think your key has been "
+#~ "compromised, reset it using the link "
+#~ "available at the bottom\n"
+#~ "                            of the page."
+#~ msgstr ""
+#~ "如果您认为自己的密钥已被盗用，请使用底部提供的链接将其重置\n"
+#~ " 页面的。"
+
+#~ msgid ""
+#~ "You can interact with your EDH "
+#~ "cluster (create users, groups, queue, "
+#~ "submit jobs,\n"
+#~ "                                    view jobs etc.)"
+#~ " via a simple REST interface."
+#~ msgstr ""
+#~ "您可以与您的 EDH 集群进行交互（创建用户、群组、队列、提交作业、\n"
+#~ " 通过简单的 REST 界面查看作业（等）。"
+
+#~ msgid ""
+#~ "Generating a new API key will invalidate the previous key\n"
+#~ "                                    ("
+#~ msgstr ""
+#~ "生成新的 API 密钥将使先前的密钥失效\n"
+#~ " （"
+
+#~ msgid ""
+#~ "HTTP\n"
+#~ "                                        401/Unauthorized"
+#~ msgstr ""
+#~ "HTTP\n"
+#~ " 401/未经授权"
+
+#~ msgid ""
+#~ "To prevent outage, you must update "
+#~ "all your scripts (if any) with the"
+#~ " new\n"
+#~ "                                        key"
+#~ msgstr ""
+#~ "为防止中断，必须使用新的脚本更新所有脚本（如果有）\n"
+#~ " 钥匙"
+
+#~ msgid ""
+#~ "I understand I will need to\n"
+#~ "                                                update my"
+#~ " scripts with the new key to "
+#~ "prevent any outage"
+#~ msgstr ""
+#~ "我知道我需要\n"
+#~ " 使用新密钥更新我的脚本以防止任何中断"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of\n"
+#~ "                                inactivity, go to"
+#~ " Connection and add \"3\" as "
+#~ "\"Seconds between KeepAlive\\"
+#~ msgstr ""
+#~ "如果您不希望会话在几分钟后自动关闭\n"
+#~ " 不活动，转到 “连接” 并将 “3” 添加为 “KeepAlive 之间的秒数”"
+
+#~ msgid ""
+#~ "Submit\n"
+#~ "                                            job"
+#~ msgstr ""
+#~ "提交\n"
+#~ " 工作"
+
+#~ msgid ""
+#~ "Cost estimate is not available because this Workflow will generate a\n"
+#~ "                                            Linux command"
+#~ " and not a qsub file."
+#~ msgstr ""
+#~ "无法估算成本，因为此工作流程将生成一个\n"
+#~ " Linux 命令而不是 qsub 文件。"
+
+#~ msgid ""
+#~ "Does not reflect any additional charges such as network or\n"
+#~ "                                                        storage\n"
+#~ "                                                        transfer"
+#~ " or usage of io2 volume (default "
+#~ "to gp3)"
+#~ msgstr ""
+#~ "不反映任何额外费用，例如网络或\n"
+#~ " 存储\n"
+#~ " 传输或使用 io2 音量（默认为 gp3）"
+
+#~ msgid ""
+#~ "FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3\n"
+#~ "                                                        GB/s/TiB\n"
+#~ "                                                        burst)"
+#~ msgstr ""
+#~ "fsX 永久基准：（50 MB/s/TiB 基准，最高 1.3\n"
+#~ " gb/s/tiB\n"
+#~ " 爆裂）"
+
+#~ msgid ""
+#~ "FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB\n"
+#~ "                                                        burst)"
+#~ msgstr ""
+#~ "fsX 暂存基准：（200 MB/s/TiB 基准，最高 1.3 GB/s/TiB\n"
+#~ " 爆裂）"
+
+#~ msgid ""
+#~ "Create new\n"
+#~ "                                    Workflow Profile"
+#~ msgstr ""
+#~ "创建新的\n"
+#~ " 工作流程概况"
+
+#~ msgid ""
+#~ "click\n"
+#~ "                                                            here"
+#~ " to start from scratch."
+#~ msgstr ""
+#~ "点击\n"
+#~ " 在这里从头开始。"
+
+#~ msgid ""
+#~ "parameters are specified, EDH will automatically\n"
+#~ ""
+#~ "                                                                    "
+#~ "calculate the number of node(s) to "
+#~ "provision. Otherwise, you must define "
+#~ "the"
+#~ msgstr ""
+#~ "参数已指定，EDH 将自动\n"
+#~ " 计算要配置的节点数量。否则，你必须定义"
+
+#~ msgid ""
+#~ "Edit the test template below to match the variables you have created\n"
+#~ "                                                        on\n"
+#~ "                                                        your "
+#~ "form or simply write code that "
+#~ "cannot be changed by the user.\n"
+#~ "                                                        To "
+#~ "read values from your form, use"
+#~ msgstr ""
+#~ "编辑下面的测试模板以匹配您创建的变量\n"
+#~ " 上\n"
+#~ " 你的表单或者干脆写用户无法更改的代码。\n"
+#~ " 要读取表单中的值，请使用"
+
+#~ msgid ""
+#~ "syntax\n"
+#~ "                                                        (e.g."
+#~ " if your form input name is"
+#~ msgstr ""
+#~ "句法\n"
+#~ " （例如，如果您的表单输入名称是"
+
+#~ msgid ""
+#~ ",\n"
+#~ "                                                        retrieve"
+#~ " the value via"
+#~ msgstr ""
+#~ "，\n"
+#~ " 通过以下方式检索值"
+
+#~ msgid ""
+#~ "Scheduler parameters are optional. If not set, your job will use the\n"
+#~ "                                                        default\n"
+#~ "                                                        settings"
+#~ " configured for your queue (if no "
+#~ "queue is specified, the\n"
+#~ "                                                        job\n"
+#~ "                                                        will use"
+#~ msgstr ""
+#~ "调度器参数是可选的。如果未设置，您的作业将使用\n"
+#~ " 默认\n"
+#~ " 为您的队列配置的设置（如果未指定队列，\n"
+#~ " 工作\n"
+#~ " 会使用"
+
+#~ msgid ""
+#~ "this link for\n"
+#~ "                                                            more."
+#~ msgstr ""
+#~ "这个链接用于\n"
+#~ " 更多。"
+
+#~ msgid ""
+#~ "How do you want to name this\n"
+#~ "                                                                "
+#~ "Workflow Profile?"
+#~ msgstr ""
+#~ "你想怎么命名这个\n"
+#~ " 工作流程配置文件？"
+
+#~ msgid ""
+#~ "Select an\n"
+#~ ""
+#~ "                                                                    "
+#~ "image (jpg or png) to use as "
+#~ "thumbnail. Leave blank to\n"
+#~ ""
+#~ "                                                                    "
+#~ "use the existing thumbnail"
+#~ msgstr ""
+#~ "选择一个\n"
+#~ " 图像（jpg 或 png）用作缩略图。将空白留给\n"
+#~ " 使用现有的缩略图"
+
+#~ msgid ""
+#~ "Update this\n"
+#~ "                                                                "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "更新这个\n"
+#~ " 工作流程概况"
+
+#~ msgid ""
+#~ "Do you want to specify a thumbnail\n"
+#~ "                                                                "
+#~ "(this will be scaled to 150*150px)?"
+#~ msgstr ""
+#~ "你想指定缩略图吗\n"
+#~ " （这将缩放到 150*150 像素）？"
+
+#~ msgid ""
+#~ "Select\n"
+#~ ""
+#~ "                                                                        "
+#~ "an image (jpg or png) to use "
+#~ "as thumbnail"
+#~ msgstr ""
+#~ "选择\n"
+#~ " 用作缩略图的图像（jpg 或 png）"
+
+#~ msgid ""
+#~ "Create this\n"
+#~ "                                                                "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "创建这个\n"
+#~ " 工作流程概况"
+
+#~ msgid ""
+#~ "I want to delete\n"
+#~ "                                                    this "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "我想删除\n"
+#~ " 此工作流程配置文件"
+
+#~ msgid ""
+#~ "Import/Export existing EDH\n"
+#~ "                                            Workflow Profile"
+#~ msgstr ""
+#~ "导入/导出现有 EDH\n"
+#~ " 工作流程概况"
+
+#~ msgid ""
+#~ "Click\n"
+#~ "                                                here to"
+#~ " learn how to Import/Export your "
+#~ "Workflow Profiles"
+#~ msgstr ""
+#~ "点击\n"
+#~ " 此处了解如何导入/导出您的工作流程配置文件"
+
+#~ msgid ""
+#~ "Create\n"
+#~ "                                    a group"
+#~ msgstr ""
+#~ "创建\n"
+#~ " 一组"
+
+#~ msgid ""
+#~ "Delete\n"
+#~ "                                    a group"
+#~ msgstr ""
+#~ "删除\n"
+#~ " 一组"
+
+#~ msgid ""
+#~ "Check\n"
+#~ "                                    group membership"
+#~ msgstr ""
+#~ "检查\n"
+#~ " 群组成员资格"
+
+#~ msgid ""
+#~ "Change\n"
+#~ "                                    group membership"
+#~ msgstr ""
+#~ "改变\n"
+#~ " 群组成员资格"
+
+#~ msgid ""
+#~ "Deleting group may cause access issue."
+#~ " Make sure your group is no "
+#~ "longer in\n"
+#~ "                                            use before deleting it"
+#~ msgstr ""
+#~ "删除群组可能会导致访问问题。确保您的群组已不在群组中\n"
+#~ " 在删除之前使用"
+
+#~ msgid ""
+#~ "I am sure I want to delete\n"
+#~ "                                                    this group"
+#~ msgstr ""
+#~ "我确定要删除\n"
+#~ " 这个小组"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                                            want to"
+#~ msgstr ""
+#~ "我敢肯定我\n"
+#~ " 想要"
+
+#~ msgid ""
+#~ "I am\n"
+#~ "                                                            sure"
+#~ " I want to"
+#~ msgstr ""
+#~ "我是\n"
+#~ " 我当然想要"
+
+#~ msgid ""
+#~ "this user from the\n"
+#~ "                                                            group"
+#~ msgstr ""
+#~ "这个用户来自\n"
+#~ " 组"
+
+#~ msgid ""
+#~ "Remove\n"
+#~ "                                                            user"
+#~ msgstr ""
+#~ "移除\n"
+#~ " 用户"
+
+#~ msgid ""
+#~ "Create\n"
+#~ "                                a queue"
+#~ msgstr ""
+#~ "创建\n"
+#~ " 一个队列"
+
+#~ msgid ""
+#~ "Delete\n"
+#~ "                                a queue"
+#~ msgstr ""
+#~ "删除\n"
+#~ " 一个队列"
+
+#~ msgid ""
+#~ "Hosts in this queue will be "
+#~ "provisioned automatically based on the "
+#~ "number of\n"
+#~ "                                        queued jobs. "
+#~ "Hosts are restricted to a given "
+#~ "job ID and are automatically\n"
+#~ "                                        terminated as "
+#~ "soon as the job complete."
+#~ msgstr ""
+#~ "该队列中的主机将根据数量自动配置\n"
+#~ " 排队的作业。主机仅限于给定的任务 ID，并且会自动获得\n"
+#~ " 任务完成后立即终止。"
+
+#~ msgid ""
+#~ "Host in this queue will stay "
+#~ "online until an admin decide to "
+#~ "manually turn them\n"
+#~ "                                        off"
+#~ msgstr ""
+#~ "该队列中的房东将保持在线状态，直到管理员决定手动将其关闭\n"
+#~ " 关闭"
+
+#~ msgid ""
+#~ "I am sure I want to delete this\n"
+#~ "                                                queue"
+#~ msgstr ""
+#~ "我确定要删除这个\n"
+#~ " 排队"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                reset the"
+#~ " password for this user"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 重置该用户的密码"
+
+#~ msgid ""
+#~ "Generate temporary\n"
+#~ "                                                password"
+#~ msgstr ""
+#~ "生成临时的\n"
+#~ " 密码"
+
+#~ msgid ""
+#~ "Grant user Admin\n"
+#~ "                                                permission"
+#~ msgstr ""
+#~ "授予用户管理员权限\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "I am sure I want\n"
+#~ "                                                        to"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 到"
+
+#~ msgid ""
+#~ "Grant Admin\n"
+#~ "                                                        permission"
+#~ msgstr ""
+#~ "拨款管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "Revoke user Admin\n"
+#~ "                                                permission"
+#~ msgstr ""
+#~ "撤销用户管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                                        want to"
+#~ msgstr ""
+#~ "我敢肯定我\n"
+#~ " 想要"
+
+#~ msgid ""
+#~ "Admin permission to this\n"
+#~ "                                                        user"
+#~ msgstr ""
+#~ "管理员对此的权限\n"
+#~ " 用户"
+
+#~ msgid ""
+#~ "Revoke Admin\n"
+#~ "                                                        permission"
+#~ msgstr ""
+#~ "撤销管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "Scale-Out Computing on AWS uses "
+#~ "OpenLDAP and you can interact with "
+#~ "your directory\n"
+#~ "                                    using LDIF "
+#~ "directly. If you are not familiar "
+#~ "with LDIF, you can use our custom"
+#~ "\n"
+#~ "                                    wrapper available at"
+#~ msgstr ""
+#~ "AWS 上的横向扩展计算使用 OpenLDAP，您可以与您的目录进行交互\n"
+#~ " 直接使用 LDIF。如果你不熟悉 LDIF，你可以使用我们的自定义\n"
+#~ " 包装纸可在以下网址获得"
+
+#~ msgid ""
+#~ "Add\n"
+#~ "                                    new user"
+#~ msgstr ""
+#~ "添加\n"
+#~ " 新用户"
+
+#~ msgid ""
+#~ "Creating a user on Active Directory can take up to 1 minute. Do not\n"
+#~ "                                                refresh "
+#~ "the page while EDH is creating a"
+#~ " new account."
+#~ msgstr ""
+#~ "在 Active Directory 上创建用户最多可能需要 1 分钟。不要\n"
+#~ " 在 EDH 创建新账户时刷新页面。"
+
+#~ msgid ""
+#~ ". If using a\n"
+#~ "                                                    new/custom"
+#~ " shell, make sure your shell is "
+#~ "installed on all compute\n"
+#~ "                                                    nodes"
+#~ msgstr ""
+#~ "。如果使用\n"
+#~ " 全新/自定义 shell，确保您的外壳已安装在所有计算机上\n"
+#~ " 节点"
+
+#~ msgid ""
+#~ "Deleting user will prevent user to "
+#~ "access the cluster but does not "
+#~ "remove\n"
+#~ "                                            associated "
+#~ "$HOME directory and data"
+#~ msgstr ""
+#~ "删除用户将阻止用户访问集群，但不会移除\n"
+#~ " 关联的 $HOME 目录和数据"
+
+#~ msgid ""
+#~ "I am sure I want to delete\n"
+#~ "                                                    this user"
+#~ msgstr ""
+#~ "我确定要删除\n"
+#~ " 这个用户"
+
+#~ msgid ""
+#~ "I am sure I want\n"
+#~ "                                                    to "
+#~ "reset the password for this user"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 重置该用户的密码"
+
+#~ msgid ""
+#~ "Generate temporary\n"
+#~ "                                                    password"
+#~ msgstr ""
+#~ "生成临时的\n"
+#~ " 密码"
+
+#~ msgid ""
+#~ "Grant user Admin\n"
+#~ "                                                    permission"
+#~ msgstr ""
+#~ "授予用户管理员权限\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "Grant Admin\n"
+#~ "                                                            permission"
+#~ msgstr ""
+#~ "拨款管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "Revoke user Admin\n"
+#~ "                                                    permission"
+#~ msgstr ""
+#~ "撤销用户管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "Admin permission to\n"
+#~ "                                                            this user"
+#~ msgstr ""
+#~ "管理员权限\n"
+#~ " 这个用户"
+
+#~ msgid ""
+#~ "Revoke Admin\n"
+#~ "                                                            permission"
+#~ msgstr ""
+#~ "撤销管理员\n"
+#~ " 许可"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this project from EDH"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 从 EDH 中删除此项目"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this Target Node Profile"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 删除此目标节点配置文件"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this Virtual Desktop Profile"
+#~ msgstr ""
+#~ "我确定我想要\n"
+#~ " 删除此虚拟桌面配置文件"
+
+#~ msgid ""
+#~ "Click\n"
+#~ "                            here to learn how to create custom images"
+#~ msgstr ""
+#~ "点击\n"
+#~ " 在这里学习如何创建自定义镜像"
+
+#~ msgid ""
+#~ "AMI\n"
+#~ "                                                    ID"
+#~ msgstr ""
+#~ "阿米\n"
+#~ " 身份证"
+
+#~ msgid ""
+#~ "Launch Host\n"
+#~ "                                                    ID"
+#~ msgstr ""
+#~ "启动主机\n"
+#~ " 身份证"
+
+#~ msgid ""
+#~ "Select an\n"
+#~ "                                                        image"
+#~ " (jpg or png) to use as "
+#~ "thumbnail. Leave blank to\n"
+#~ "                                                        use "
+#~ "the existing thumbnail"
+#~ msgstr ""
+#~ "选择一个\n"
+#~ " 图像（jpg 或 png）用作缩略图。将空白留给\n"
+#~ " 使用现有的缩略图"
+
+#~ msgid ""
+#~ "What input file do you want to "
+#~ "use? <hr> Navigate to the folder "
+#~ "where your input file is located "
+#~ "then click 'Use as Simulation Input' "
+#~ "icon: <i class='fas fa-microchip fa-"
+#~ "lg'  style='color: grey'></i>"
+#~ msgstr ""
+#~ "你想使用什么输入文件？<hr>导航到输入文件所在的文件夹，然后单击 “用作仿真输入” 图标：<i "
+#~ "class='fas fa-microchip fa-lg' "
+#~ "style='color: grey'></i>"
+
+#~ msgid "You are not authorized to tail this file"
+#~ msgstr "你无权删除这个文件"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of inactivity, go"
+#~ " to Connection and add \"3\" as "
+#~ "\"Seconds between KeepAlive\\"
+#~ msgstr "如果您不希望会话在闲置几分钟后自动关闭，请转到 \"连接\" 并将 \"3\" 添加为 \"KeepAlive 之间的秒数\""
+
+#~ msgid ", retrieve the value via"
+#~ msgstr "，通过以下方式检索值"
+
+#~ msgid ", state must be"
+#~ msgstr "，状态必须是"
+
+#~ msgid ", then convert the key you have downloaded on step1 to"
+#~ msgstr "，然后将您在步骤 1 中下载的密钥转换为"
+
+#~ msgid "--Other Shells --"
+#~ msgstr "--其他炮弹--"
+
+#~ msgid "--epochs"
+#~ msgstr "--时代"
+
+#~ msgid "-c"
+#~ msgstr "-c"
+
+#~ msgid ""
+#~ ". If using a new/custom shell, "
+#~ "make sure your shell is installed "
+#~ "on all compute nodes"
+#~ msgstr "。如果使用新的/自定义 shell，请确保您的 shell 已安装在所有计算节点上"
+
+#~ msgid ". Leave everything else as default."
+#~ msgstr "。将其他所有内容保留为默认值。"
+
+#~ msgid ". You can access it via your EDH Virtual Desktops (Linux or Windows)."
+#~ msgstr "。你可以通过 EDH 虚拟桌面（Linux 或 Windows）访问它。"
+
+#~ msgid "/bin/bash"
+#~ msgstr "/bin/bash"
+
+#~ msgid "/bin/bash is the preferred shell"
+#~ msgstr "/bin/bash 是首选 shell"
+
+#~ msgid ": 0 GB"
+#~ msgstr ": 0 GB"
+
+#~ msgid ": 10 GB"
+#~ msgstr ": 10 GB"
+
+#~ msgid ": c5.large"
+#~ msgstr ": c5.large"
+
+#~ msgid "AWS Direct Connect"
+#~ msgstr "AWS 直接连接"
+
+#~ msgid "AWS Service"
+#~ msgstr "AWS 服务"
+
+#~ msgid "AWS Transfer Family"
+#~ msgstr "AWS 传输系列"
+
+#~ msgid "AWS VPC Peering"
+#~ msgstr "AWS VPC 对等互连"
+
+#~ msgid "AWS VPN"
+#~ msgstr "AWS VPN"
+
+#~ msgid "Add User"
+#~ msgstr "添加用户"
+
+#~ msgid "Add the following tag"
+#~ msgstr "添加以下标签"
+
+#~ msgid "Add the following tag to onboard your"
+#~ msgstr "将以下标签添加到您的登机手中"
+
+#~ msgid "Additional variables can be defined on the"
+#~ msgstr "可以在上定义其他变量"
+
+#~ msgid "Admin permission to this user"
+#~ msgstr "此用户的管理员权限"
+
+#~ msgid "Admin username and password can be found on"
+#~ msgstr "管理员用户名和密码可以在上找到"
+
+#~ msgid "Amazon EC2 Instance types"
+#~ msgstr "亚马逊 EC2 实例类型"
+
+#~ msgid "Amazon EFS"
+#~ msgstr "亚马逊 EFS"
+
+#~ msgid "Amazon Elastic Kubernetes Service cluster (EKS)"
+#~ msgstr "亚马逊弹性 Kubernetes 服务集群 (EKS)"
+
+#~ msgid "C:"
+#~ msgstr "C:"
+
+#~ msgid "Choose"
+#~ msgstr "选择"
+
+#~ msgid "Click"
+#~ msgstr "点击"
+
+#~ msgid "Create Role"
+#~ msgstr "创建角色"
+
+#~ msgid "Create Server"
+#~ msgstr "创建服务器"
+
+#~ msgid "Create a new role"
+#~ msgstr "创建新角色"
+
+#~ msgid "Create server"
+#~ msgstr "创建服务器"
+
+#~ msgid "Deleting a virtual desktop will NOT delete content from"
+#~ msgstr "删除虚拟桌面不会从中删除内容"
+
+#~ msgid "Download PuttyGEN from"
+#~ msgstr "从这里下载 PuTTYGen"
+
+#~ msgid "Download your"
+#~ msgstr "下载你的"
+
+#~ msgid "EDH Optimized image"
+#~ msgstr "EDH 优化的图像"
+
+#~ msgid "EDH SFTP solution"
+#~ msgstr "EDH SFTP 解决方案"
+
+#~ msgid ""
+#~ "Edit the test template below to "
+#~ "match the variables you have created "
+#~ "on your form or simply write code"
+#~ " that cannot be changed by the "
+#~ "user. To read values from your "
+#~ "form, use"
+#~ msgstr "编辑下面的测试模板以匹配您在表单上创建的变量，或者干脆编写用户无法更改的代码。要读取表单中的值，请使用"
+
+#~ msgid "Endpoint"
+#~ msgstr "端点"
+
+#~ msgid "Endpoint Details"
+#~ msgstr "终端节点详情"
+
+#~ msgid "Endpoint type"
+#~ msgstr "终端节点类型"
+
+#~ msgid "For example,"
+#~ msgstr "例如，"
+
+#~ msgid "Generating a new API key will invalidate the previous key ("
+#~ msgstr "生成新的 API 密钥将使先前的密钥失效 ("
+
+#~ msgid "IAM"
+#~ msgstr "IAM"
+
+#~ msgid "If"
+#~ msgstr "如果"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of inactivity, "
+#~ "edit"
+#~ msgstr "如果您不希望会话在闲置几分钟后自动关闭，请编辑"
+
+#~ msgid "In the"
+#~ msgstr "在"
+
+#~ msgid "Jinja2 templating"
+#~ msgstr "Jinja2 模板"
+
+#~ msgid ""
+#~ "Make sure to have established "
+#~ "connectivity between AWS and your "
+#~ "corporate network (e.g. via"
+#~ msgstr "确保在 AWS 和您的公司网络之间建立了连接（例如，通过"
+
+#~ msgid "Note: AWS Batch Job Definitions clusters must have the tag"
+#~ msgstr "注意：AWS 批处理任务定义集群必须具有标签"
+
+#~ msgid "Note: AWS Batch Job Queues must have the tag"
+#~ msgstr "注意：AWS 批处理任务队列必须有标签"
+
+#~ msgid "Note: EKS clusters must have the tag"
+#~ msgstr "注意：EKS 集群必须有标签"
+
+#~ msgid ""
+#~ "Once you have created your Target "
+#~ "Node Software Stack, please ensure that"
+#~ " it is"
+#~ msgstr "创建目标节点软件堆栈后，请确保它是"
+
+#~ msgid ""
+#~ "Once you have created your Virtual "
+#~ "Desktop Software Stack, please ensure "
+#~ "that it is"
+#~ msgstr "创建虚拟桌面软件堆栈后，请确保它是"
+
+#~ msgid "Once you have created your Workflow Profile, please ensure that it is"
+#~ msgstr "创建工作流程配置文件后，请确保它是"
+
+#~ msgid "Open AWS Console and navigate to the service named"
+#~ msgstr "打开 AWS 控制台并导航到名为的服务"
+
+#~ msgid "Page"
+#~ msgstr "页面"
+
+#~ msgid "Please"
+#~ msgstr "请"
+
+#~ msgid "Profile associated with this stack"
+#~ msgstr "与此堆栈相关的配置文件"
+
+#~ msgid "Profile associated with this stack ("
+#~ msgstr "与此堆栈相关的配置文件 ("
+
+#~ msgid "Publicly accessible"
+#~ msgstr "可公开访问"
+
+#~ msgid "Refer to"
+#~ msgstr "请参阅"
+
+#~ msgid "Refresh ("
+#~ msgstr "刷新 ("
+
+#~ msgid "Review and create"
+#~ msgstr "查看并创建"
+
+#~ msgid "Roles"
+#~ msgstr "角色"
+
+#~ msgid "SSH key"
+#~ msgstr "SSH 密钥"
+
+#~ msgid ""
+#~ "Scheduler parameters are optional. If "
+#~ "not set, your job will use the "
+#~ "default settings configured for your "
+#~ "queue (if no queue is specified, "
+#~ "the job will use"
+#~ msgstr "调度器参数是可选的。如果未设置，则您的任务将使用为队列配置的默认设置（如果未指定队列，则任务将使用"
+
+#~ msgid "Select a Role name (for example"
+#~ msgstr "选择角色名称（例如"
+
+#~ msgid "Service Managed"
+#~ msgstr "服务管理"
+
+#~ msgid "Storage Size for your main partition ("
+#~ msgstr "主分区的存储大小 ("
+
+#~ msgid "Support Exact Instance Type ("
+#~ msgstr "支持精确的实例类型 ("
+
+#~ msgid "Support Instance Family ("
+#~ msgstr "支持实例系列 ("
+
+#~ msgid "Target Nodes Software stacks"
+#~ msgstr "目标节点软件堆栈"
+
+#~ msgid "The server is using"
+#~ msgstr "服务器正在使用"
+
+#~ msgid "This file is too big and cannot be previewed via the web interface."
+#~ msgstr "此文件太大，无法通过 Web 界面预览。"
+
+#~ msgid "This session will automatically pause"
+#~ msgstr "此会话将自动暂停"
+
+#~ msgid "Tip: You can use"
+#~ msgstr "提示：你可以使用"
+
+#~ msgid "Transfer"
+#~ msgstr "转移"
+
+#~ msgid "TransferEFSClient"
+#~ msgstr "TransfereFSClient"
+
+#~ msgid "TransferSecurityPolicy"
+#~ msgstr "传输安全政策"
+
+#~ msgid "Unable to find any"
+#~ msgstr "找不到任何"
+
+#~ msgid "Unable to find any and"
+#~ msgstr "找不到任何而且"
+
+#~ msgid "Use"
+#~ msgstr "使用"
+
+#~ msgid "Use this link only to"
+#~ msgstr "仅将此链接用于"
+
+#~ msgid "User Data associated with this stack"
+#~ msgstr "与此堆栈相关的用户数据"
+
+#~ msgid "VPC hosted"
+#~ msgstr "VPC 托管"
+
+#~ msgid "Virtual Desktop Software stacks"
+#~ msgstr "虚拟桌面软件堆栈"
+
+#~ msgid "You can create"
+#~ msgstr "你可以创建"
+
+#~ msgid "You can use your own variable names, however note"
+#~ msgstr "你可以使用自己的变量名，但请注意"
+
+#~ msgid "You will need to update"
+#~ msgstr "你需要更新"
+
+#~ msgid "You will need your user UID/GID. You can retrieve this value by typing"
+#~ msgstr "您将需要您的用户 UID/GID。您可以通过键入来检索此值"
+
+#~ msgid "Your Analytics endpoint"
+#~ msgstr "您的分析终端节点"
+
+#~ msgid "Your session will be automatically deleted"
+#~ msgstr "您的会话将被自动删除"
+
+#~ msgid "after"
+#~ msgstr "之后"
+
+#~ msgid "and"
+#~ msgstr "和"
+
+#~ msgid "and add:"
+#~ msgstr "并添加："
+
+#~ msgid "and be"
+#~ msgstr "然后成为"
+
+#~ msgid "and enter the following information."
+#~ msgstr "并输入以下信息。"
+
+#~ msgid "and save it"
+#~ msgstr "然后保存"
+
+#~ msgid "and status must be"
+#~ msgstr "并且状态必须是"
+
+#~ msgid "and use the latest"
+#~ msgstr "并使用最新的"
+
+#~ msgid "as Domain"
+#~ msgstr "作为域名"
+
+#~ msgid "as Trusted Entity Type and select"
+#~ msgstr "作为 “可信实体类型”，然后选择"
+
+#~ msgid "as Use Case"
+#~ msgstr "作为用例"
+
+#~ msgid "as identity provider"
+#~ msgstr "作为身份提供商"
+
+#~ msgid "assigned to at least one EDH Project."
+#~ msgstr "分配给至少一个 EDH 项目。"
+
+#~ msgid "associated to this user data template. Variables can be retrieved via"
+#~ msgstr "与此用户数据模板相关联。变量可以通过以下方式检索"
+
+#~ msgid "available"
+#~ msgstr "可用"
+
+#~ msgid "boto3"
+#~ msgstr "boto3"
+
+#~ msgid "c6i.*"
+#~ msgstr "c6i。*"
+
+#~ msgid "c6i.xlarge"
+#~ msgstr "c6i.xlarge"
+
+#~ msgid "cli (via SSH)"
+#~ msgstr "cli（通过 SSH）"
+
+#~ msgid "contact the AWS maintainers"
+#~ msgstr "联系 AWS 维护人员"
+
+#~ msgid "depending on your setup. Its recommended to use"
+#~ msgstr "取决于您的设置。建议使用"
+
+#~ msgid ""
+#~ "do not include any confidential, "
+#~ "sensitive, or customer-specific information"
+#~ msgstr "不包含任何机密、敏感或客户特定的信息"
+
+#~ msgid ""
+#~ "documentation to learn how to setup "
+#~ "a secure, reliable, high‐speed file "
+#~ "transfer between your current filers and"
+#~ " EDH."
+#~ msgstr "用于学习如何在当前文件管理器与 EDH 之间设置安全、可靠、高速文件传输的文档。"
+
+#~ msgid "download a copy"
+#~ msgstr "下载副本"
+
+#~ msgid "echo Hello"
+#~ msgstr "echo 你好"
+
+#~ msgid ""
+#~ "enables fully managed support for SFTP,"
+#~ " FTPS and FTP to move large "
+#~ "amounts of data into AWS."
+#~ msgstr "为 SFTP、FTPS 和 FTP 提供完全托管的支持，以将大量数据迁移到 AWS。"
+
+#~ msgid "fields to hardcode values. Otherwise, defaults will be applied."
+#~ msgstr "用于对值进行硬编码的字段。否则，将应用默认值。"
+
+#~ msgid "for IP restrictions via your security groups."
+#~ msgstr "通过您的安全组获取 IP 限制。"
+
+#~ msgid "for Linux,"
+#~ msgstr "对于 Linux，"
+
+#~ msgid "for Windows)"
+#~ msgstr "适用于 Windows）"
+
+#~ msgid "for larger files or edit the configuration files."
+#~ msgstr "用于更大的文件或编辑配置文件。"
+
+#~ msgid "format"
+#~ msgstr "格式"
+
+#~ msgid "grant"
+#~ msgstr "授予"
+
+#~ msgid "here"
+#~ msgstr "这里"
+
+#~ msgid "hidden"
+#~ msgstr "隐藏"
+
+#~ msgid "https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"
+#~ msgstr "https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"
+
+#~ msgid "id {user}"
+#~ msgstr "id {用户}"
+
+#~ msgid "if you do not restart it."
+#~ msgstr "如果你不重启它。"
+
+#~ msgid ""
+#~ "is a secure, online service that "
+#~ "automates and accelerates moving data "
+#~ "between on-premises and AWS storage "
+#~ "services."
+#~ msgstr "是一项安全的在线服务，可自动并加速本地和 AWS 存储服务之间的数据移动。"
+
+#~ msgid "is only accessible from within your VPC"
+#~ msgstr "只能从您的 VPC 内访问"
+
+#~ msgid "linux AND x86_64"
+#~ msgstr "linux 和 x86_64"
+
+#~ msgid "means your AWS Transfer endpoint wont be protected by IP safelist."
+#~ msgstr "意味着您的 AWS 传输终端节点不会受到 IP 安全列表的保护。"
+
+#~ msgid "my_param"
+#~ msgstr "my_param"
+
+#~ msgid "nodes"
+#~ msgstr "节点"
+
+#~ msgid "normal"
+#~ msgstr "正常的"
+
+#~ msgid "of"
+#~ msgstr "的"
+
+#~ msgid "of inactivity."
+#~ msgstr "不活跃的。"
+
+#~ msgid ""
+#~ "on any EDH nodes (Linux). In the"
+#~ " example below, the UID is 5001 "
+#~ "and GID is also 5001"
+#~ msgstr "在任何 EDH 节点 (Linux) 上。在下面的示例中，UID 是 5001，GID 也是 5001"
+
+#~ msgid "on the Software Stack associated to this User Data."
+#~ msgstr "在与此用户数据关联的软件堆栈上。"
+
+#~ msgid "on the left sidebar and finally click"
+#~ msgstr "在左侧边栏上，最后单击"
+
+#~ msgid "onboarded to this EDH environment."
+#~ msgstr "已加入这个 EDH 环境。"
+
+#~ msgid "operators (ex:"
+#~ msgstr "运算符（例如："
+
+#~ msgid "or"
+#~ msgstr "要么"
+
+#~ msgid "or open it via"
+#~ msgstr "或者通过以下方式打开"
+
+#~ msgid ""
+#~ "or similar) if you are planning to"
+#~ " access the analytic dashboard URL "
+#~ "from your corporate machines."
+#~ msgstr "或类似），如果您计划从公司计算机访问分析仪表板网址。"
+
+#~ msgid "page for a list of EC2 instances"
+#~ msgstr "EC2 实例列表页面"
+
+#~ msgid ""
+#~ "parameters are specified, EDH will "
+#~ "automatically calculate the number of "
+#~ "node(s) to provision. Otherwise, you "
+#~ "must define the"
+#~ msgstr "参数已指定，EDH 将自动计算要配置的节点数量。否则，你必须定义"
+
+#~ msgid "partition"
+#~ msgstr "分割"
+
+#~ msgid "ppk"
+#~ msgstr "ppk"
+
+#~ msgid "public"
+#~ msgstr "公众"
+
+#~ msgid "queue). Refer to"
+#~ msgstr "队列）。请参阅"
+
+#~ msgid "regarding issues with the Engineering Development Hub (EDH) project."
+#~ msgstr "关于工程开发中心（EDH）项目的问题。"
+
+#~ msgid "remote desktop (DCV)"
+#~ msgstr "远程桌面 (DCV)"
+
+#~ msgid "resource manually."
+#~ msgstr "手动资源。"
+
+#~ msgid "revoke"
+#~ msgstr "撤销"
+
+#~ msgid "s"
+#~ msgstr "s"
+
+#~ msgid "s)"
+#~ msgstr "s)"
+
+#~ msgid "section click"
+#~ msgstr "分区点击"
+
+#~ msgid "see Target Nodes Profiles"
+#~ msgstr "参见目标节点配置文件"
+
+#~ msgid "see User Data Templates"
+#~ msgstr "参见用户数据模板"
+
+#~ msgid "see Virtual Desktop Profiles"
+#~ msgstr "参见虚拟桌面配置文件"
+
+#~ msgid "select the server you have created and click"
+#~ msgstr "选择您创建的服务器，然后单击"
+
+#~ msgid "select the server you have created, and retrieve the"
+#~ msgstr "选择您创建的服务器，然后检索"
+
+#~ msgid ""
+#~ "some automation are pre-configured for"
+#~ " you when you use the following "
+#~ "variables:"
+#~ msgstr "当您使用以下变量时，系统会为您预先配置一些自动化："
+
+#~ msgid "syntax (e.g. if your form input name is"
+#~ msgstr "语法（例如，如果你的表单输入名称是"
+
+#~ msgid "syntax."
+#~ msgstr "语法。"
+
+#~ msgid "then click"
+#~ msgstr "然后点击"
+
+#~ msgid "this link for more."
+#~ msgstr "此链接了解更多。"
+
+#~ msgid "this user from my group"
+#~ msgstr "我群组中的这个用户"
+
+#~ msgid "timezone."
+#~ msgstr "时区。"
+
+#~ msgid "to"
+#~ msgstr "到"
+
+#~ msgid "to EDH:"
+#~ msgstr "到 EDH："
+
+#~ msgid "to add instances released after the date of your EDH installation"
+#~ msgstr "添加在 EDH 安装之日之后发布的实例"
+
+#~ msgid "to allow all users"
+#~ msgstr "允许所有用户"
+
+#~ msgid "to be visible on EDH"
+#~ msgstr "在 EDH 上可见"
+
+#~ msgid "to deny all"
+#~ msgstr "否认一切"
+
+#~ msgid "to download it"
+#~ msgstr "去下载它"
+
+#~ msgid "to download your Linux private key if needed)"
+#~ msgstr "如果需要，可以下载你的 Linux 私钥）"
+
+#~ msgid "to provision your virtual desktop faster."
+#~ msgstr "更快地配置您的虚拟桌面。"
+
+#~ msgid "to the AWS Batch job definition(s) you want to onboard."
+#~ msgstr "转到您想要加入的 AWS 批处理任务定义。"
+
+#~ msgid "to the AWS Batch job queue(s) you want to onboard."
+#~ msgstr "到您要加入的 AWS 批处理任务队列。"
+
+#~ msgid "to the EKS cluster(s) you want to onboard."
+#~ msgstr "到您要加入的 EKS 集群。"
+
+#~ msgid "ubuntu AND graviton"
+#~ msgstr "ubuntu 和引力子"
+
+#~ msgid "under"
+#~ msgstr "下"
+
+#~ msgid "when creating an issue."
+#~ msgstr "创建问题时。"
+
+#~ msgid "will automatically be replaced with \"test123\" if you configure"
+#~ msgstr "如果您配置，将自动替换为 “test123”"
+
+#~ msgid "windows 11 OR amazon linux"
+#~ msgstr "Windows 11 或亚马逊 Linux"
+
+#~ msgid "~/.ssh/config"
+#~ msgstr "~/.ssh/config"
+
+#~ msgid ""
+#~ "This session will automatically pause "
+#~ "<strong>after %(n)s hour</strong> of "
+#~ "inactivity.This session will automatically "
+#~ "pause <strong>after %(n)s hours</strong> of"
+#~ " inactivity."
+#~ msgstr ""
+#~ "此会话将<strong>在 %(n)s 处于非活动状态一小时后</strong>自动暂停。此会话将在闲置 "
+#~ "<strong>%(n)s 小时后</strong>自动暂停。"
+
+#~ msgid ""
+#~ "Your session will be automatically "
+#~ "deleted <strong>after %(n)s hour</strong> if"
+#~ " you do not restart it.Your session"
+#~ " will be automatically deleted "
+#~ "<strong>after %(n)s hours</strong> if you "
+#~ "do not restart it."
+#~ msgstr ""
+#~ "如果您不重新启动会话，则会话将<strong>在 %(n)s "
+#~ "小时后</strong>自动删除。如果您不重启会话，则会话将<strong>在 %(n)s "
+#~ "小时后</strong>自动删除。"
+
+#~ msgid "Close tab (session keeps running)"
+#~ msgstr "关闭选项卡（会话继续运行）"
+
+#~ msgid "Pop Out"
+#~ msgstr "弹出"
+
+#~ msgid "Start a new terminal"
+#~ msgstr "启动新终端"
+
+#~ msgid "Toggle sidebar"
+#~ msgstr "切换侧边栏"
+
+#~ msgid "You are connected to a login node as user"
+#~ msgstr "您以用户身份连接到登录节点"
+
+#~ msgid ""
+#~ "Your sessions use tmux - closing "
+#~ "tabs or this window leaves them "
+#~ "running so you can resume later."
+#~ msgstr "您的会话使用 tmux-关闭选项卡或此窗口使它们保持运行状态，以便稍后可以恢复。"
+
+

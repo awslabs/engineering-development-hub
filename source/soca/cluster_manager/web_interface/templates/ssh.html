@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -22,80 +22,83 @@
                     <div class="col-md-12">
                         <div class="card shadow mb-4">
                             <div class="card-body">
-                                    <h3>Access the cluster via Secure Shell (SSH)</h3>
+                                <h3>{{ _("Access the cluster via Secure Shell (SSH)") }}</h3>
                                 <ul class="nav nav-tabs" id="myTab" role="tablist">
-                                  <li class="nav-item">
-                                    <a class="nav-link active" id="home-tab" data-bs-toggle="tab" href="#linux" role="tab" aria-controls="linux" aria-selected="true"><i class="fab fa-linux"></i> Instructions for Linux/Mac</a>
+                                   <li class="nav-item">
+                                    <a class="nav-link" href="/web_terminal"><i class="fas fa-terminal"></i> {{ _("Web Terminal") }}</a>
                                   </li>
+                                    <li class="nav-item">
+                                    <a class="nav-link active" id="home-tab" data-bs-toggle="tab" href="#linux" role="tab" aria-controls="linux" aria-selected="true"><i class="fab fa-linux"></i> {{ _("Instructions for Linux/Mac") }}</a>
+                                  </li>
+                 
                                   <li class="nav-item">
-                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#windows" role="tab" aria-controls="windows" aria-selected="false"><i class="fab fa-windows"></i> Instructions for Windows</a>
+                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#windows" role="tab" aria-controls="windows" aria-selected="false"><i class="fab fa-windows"></i> {{ _("Instructions for Windows") }}</a>
                                   </li>
 
                                 </ul>
                                 <div class="tab-content" id="myTabContent">
+                                  
                                   <div class="tab-pane fade show active" id="linux" role="tabpanel" aria-labelledby="linux-tab">
                                        <br>
-                                      <h5>Step1:
+                                      <h5>{{ _("Step1:") }}
                                           <a href="/ssh/get_key"
                                              class="btn btn-primary btn-icon-split">
                                               <span class="icon text-white-50">
                                                   <i class="fas fa-info-circle"></i>
                                               </span>
-                                              <span class="text">Download my private key</span></a>
+                                              <span class="text">{{ _("Download my private key") }}</span></a>
                                           </h5>
                                       <hr>
 
-                                      <h5>Step2: Modify key permission</h5>
-                                      Run <code>chmod 600 {{ user }}_soca_privatekey.pem</code>
+                                      <h5>{{ _("Step2: Modify key permission") }}</h5>
+                                      {{ _("Run") }} <code>chmod 600 {{ user }}_soca_privatekey.pem</code>
 
                                       <hr>
 
-                                      <h5>Step3: Connect to the cluster via the login node(s)</h5>
+                                      <h5>{{ _("Step3: Connect to the cluster via the login node(s)") }}</h5>
 
                                       <code>ssh -i {{ user }}_soca_privatekey.pem {{ user }}@{{ login_nodes_endpoint }}</code>
                                       <hr>
 
-                                      <h5>Optional: Enable KeepAlive</h5>
-                                        If you don't want your session to be automatically closed after a couple of minutes of
-                                        inactivity, edit <code>~/.ssh/config</code> and add:<br>
+                                      <h5>{{ _("Optional: Enable KeepAlive") }}</h5>
+                                        {% trans cfg='<code>~/.ssh/config</code>'|safe %}If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit {{ cfg }} and add:{% endtrans %}<br>
                                         <code>
                                             Host {{ login_nodes_endpoint }}<br>
-                                            ServerAliveInterval 10<br>
-                                            ServerAliveCountMax 2
+                                            {{ _("ServerAliveInterval 10") }}<br>
+                                            {{ _("ServerAliveCountMax 2") }}
                                         </code>
                                   </div>
 
                                   <div class="tab-pane fade" id="windows" role="tabpanel" aria-labelledby="windows-tab">
                                        <br>
-                                      <h5>Step1:
+                                      <h5>{{ _("Step1:") }}
                                           <a href="/ssh/get_key"
                                              class="btn btn-primary btn-icon-split">
                                               <span class="icon text-white-50">
                                                   <i class="fas fa-info-circle"></i>
                                               </span>
-                                              <span class="text">Download my private key</span></a>
+                                              <span class="text">{{ _("Download my private key") }}</span></a>
                                       </h5>
                                       <hr>
-                                      <h5>Step2: Convert your SSH key</h5>
-                                      Download PuttyGEN from <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"  target="_blank" rel="noopener noreferrer">https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html</a>, then convert the key you have downloaded on step1 to <code>ppk</code> format
+                                      <h5>{{ _("Step2: Convert your SSH key") }}</h5>
+                                      {% trans puttygen_link='<a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener noreferrer">https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html</a>'|safe, fmt='<code>ppk</code>'|safe %}Download PuttyGEN from {{ puttygen_link }}, then convert the key you have downloaded on step1 to {{ fmt }} format{% endtrans %}
                                       <hr>
-                                      <h5>Step3: Configure PuTTY</h5>
+                                      <h5>{{ _("Step3: Configure PuTTY") }}</h5>
                                 <ul>
                                     <li><a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"
-                                           target="_blank" rel="noopener,noreferrer">Download PuTTY</a></li>
-                                    <li>As hostname, enter the following for the Login Node load balancer endpoint:
+                                           target="_blank" rel="noopener,noreferrer">{{ _("Download PuTTY") }}</a></li>
+                                    <li>{{ _("As hostname, enter the following for the Login Node load balancer endpoint:") }}
                                         <code>{{ login_nodes_endpoint }}</code></li>
                                     <li>Navigate to Connection > SSH > Auth and enter the path of your key ({{ user }}_soca_privatekey.ppk)
                                         under your "Private Key used for Authentication"
                                     </li>
-                                    <li>Save your session</li>
-                                    <li>Click connect/open to access the cluster</li>
+                                    <li>{{ _("Save your session") }}</li>
+                                    <li>{{ _("Click connect/open to access the cluster") }}</li>
                                 </ul>
 
                                 <hr>
-                                <h5>Optional: Enable KeepAlive</h5>
-                                If you don't want your session to be automatically closed after a couple of minutes of
-                                inactivity, go to Connection and add "3" as "Seconds between KeepAlive"
+                                <h5>{{ _("Optional: Enable KeepAlive") }}</h5>
+                                {{ _("If you do not want your session to be automatically closed after a couple of minutes of inactivity, go to Connection and add \"3\" as \"Seconds between KeepAlive\"") }}
                                   </div>
                                 </div>
                             </div>

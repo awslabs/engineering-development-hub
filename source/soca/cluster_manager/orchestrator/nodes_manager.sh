@@ -5,7 +5,9 @@
 
 # Load environments
 # shellcheck source=/dev/null
+set -a  # auto-export vars (bare /etc/environment KEY=value lines are not exported on source)
 source /etc/environment
+set +a
 
 # shellcheck source=/dev/null
 source "/opt/edh/${EDH_CLUSTER_ID}/python/latest/edh_python.env"

@@ -52,9 +52,16 @@ EOF
         fi
     {% else %}
         log_info "Copying MUNGE key ..."
-        if [[ ! -f "${MUNGE_KEY_DIR}/munge.key" ]]; then
-            exit_fail "MUNGE key (${MUNGE_KEY_DIR}/munge.key) not found, exiting ..."
-        fi
+        MUNGE_ATTEMPT=0
+        MUNGE_MAKE_ATTEMPTs=40
+        while [[ ! -f "${MUNGE_KEY_DIR}/munge.key" ]]; do
+            (( MUNGE_ATTEMPT++ ))
+            if [[ ${MUNGE_ATTEMPT} -ge ${MUNGE_MAKE_ATTEMPTs} ]]; then
+                exit_fail "MUNGE key (${MUNGE_KEY_DIR}/munge.key) not found after ${MUNGE_MAKE_ATTEMPTs} attempts, exiting ..."
+            fi
+            log_info "Waiting for MUNGE key (${MUNGE_KEY_DIR}/munge.key) ... attempt ${MUNGE_ATTEMPT}/${MUNGE_MAKE_ATTEMPTs}"
+            sleep 30
+        done
         cp $MUNGE_KEY_DIR/munge.key /etc/munge/munge.key
         
     {% endif %}

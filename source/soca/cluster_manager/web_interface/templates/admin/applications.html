@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -47,19 +47,18 @@
                         <nav>
                             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                 <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab"
-                                    href="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">Create new
-                                    Workflow Profile
+                                    href="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Create new Workflow Profile") }}
                                     </a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab" href="#nav-edit"
-                                    role="tab" aria-controls="nav-contact" aria-selected="false">Edit Workflow Profile
+                                    role="tab" aria-controls="nav-contact" aria-selected="false">{{ _("Edit Workflow Profile") }}
                                     </a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                     href="#nav-delete" role="tab" aria-controls="nav-delete"
-                                    aria-selected="false">Delete Workflow Profile
+                                    aria-selected="false">{{ _("Delete Workflow Profile") }}
                                     </a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                     href="#nav-importexport" role="tab" aria-controls="nav-delete"
-                                    aria-selected="false">Import/Export</a>
+                                    aria-selected="false">{{ _("Import/Export") }}</a>
 
                             </div>
                         </nav>
@@ -71,17 +70,16 @@
                                 <div class="card shadow mb-4">
                               
                                     <div class="card-body">
-                                         <h3>Create a new Workflow Profile
+                                         <h3>{{ _("Create a new Workflow Profile") }}
                                         </h3>
                                         <nav>
                                             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                                 <a class="nav-item nav-link active" id="nav-home-tab"
                                                     data-bs-toggle="tab" href="#nav-designform" role="tab"
-                                                    aria-controls="nav-designform" aria-selected="true">Step1: Design
-                                                    the form</a>
+                                                    aria-controls="nav-designform" aria-selected="true">{{ _("Step1: Design the form") }}</a>
                                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                                     href="#nav-designscript" role="tab" aria-controls="nav-designscript"
-                                                    aria-selected="false">Step2: Design the job script</a>
+                                                    aria-selected="false">{{ _("Step2: Design the job script") }}</a>
                                                 
                                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                                     href="#nav-save" role="tab" aria-controls="nav-sav"
@@ -92,7 +90,7 @@
                                         </nav>
                                         <br>
                                           <div class="alert alert-warning">
-                                              <strong>Once you have created your Workflow Profile, please ensure that it is <a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a></strong> Failure to do so will result in your profile remaining hidden from users.</strong>
+                                              <strong>{% trans link='<a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a>'|safe %}Once you have created your Workflow Profile, please ensure that it is {{ link }} Failure to do so will result in your profile remaining hidden from users.{% endtrans %}</strong>
                                           </div>
 
                                         <div class="tab-content" id="nav-tabContent2">
@@ -101,33 +99,32 @@
                                                 <br>
                                                 <div class="alert alert-primary alert-dismissible fade show" role="alert">
                                                     <button type="button" class="close" data-bs-dismiss="alert"
-                                                        aria-label="Close">
-                                                        <span aria-hidden="true">&times;</span>
+                                                        aria-label="{{ _("Close") }}">
+                                                        <span aria-hidden="true">{{ _("&times;") }}</span>
                                                     </button>
-                                                    Drag & Drop form components based on your own requirements. <br>
-                                                    We have generated a test template for you, customize it as needed or
+                                                    {{ _("Drag & Drop form components based on your own requirements.") }} <br>
+                                                    {{ _("We have generated a test template for you, customize it as needed or") }}
                                                     <strong><a style="cursor:pointer;color: #ff5252"
-                                                            id="clear-all-fields">click
-                                                            here to start from scratch.</a></strong>
+                                                            id="clear-all-fields">{{ _("click here to start from scratch.") }}</a></strong>
                                                     <hr>                                         
                                                     
                                                     <!-- Toggle: EDH Reserved Variables -->
                                                     <div>
                                                             <h3 class="mb-0">
                                                                 <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProtectedVariable" aria-expanded="true" aria-controls="collapseProtectedVariable">
-                                                                    EDH reserved variables
+                                                                    {{ _("EDH reserved variables") }}
                                                                 </button>
                                                             </h3>
                                                             <div id="collapseProtectedVariable" class="collapse show">
                                                                 <div class="card card-body">
-                                                                    <p>You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>
+                                                                    <p>{% trans %}You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>{% endtrans %}
                                                                     </p>
                                                                         <ul>
-                                                                        <li><code>job_name</code>: If present, autofilled with the input file name</li>
-                                                                        <li><code>input_name</code>: Auto-filled with the input file path</li>
-                                                                        <li><code>instance_type</code>: Used to calculate the number of nodes to provision</li>
-                                                                        <li><code>vcpus</code>: Used to calculate the number of node(s) to provision</li>
-                                                                        <li><code>scratch_size</code>, <code>root_size</code>, <code>fsx_size</code>, <code>wall_time</code>: Used to estimate cost</li>
+                                                                        <li><code>job_name</code>: {{ _("If present, autofilled with the input file name") }}</li>
+                                                                        <li><code>input_name</code>: {{ _("Auto-filled with the input file path") }}</li>
+                                                                        <li><code>instance_type</code>: {{ _("Used to calculate the number of nodes to provision") }}</li>
+                                                                        <li><code>vcpus</code>: {{ _("Used to calculate the number of node(s) to provision") }}</li>
+                                                                        <li><code>scratch_size</code>, <code>root_size</code>, <code>fsx_size</code>, <code>wall_time</code>: {{ _("Used to estimate cost") }}</li>
                                                                     </ul>
                                                                 </div>
                                                             </div>
@@ -137,14 +134,13 @@
                                                         <div class="mt-3">
                                                             <h3 class="mb-0">
                                                                 <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNodes" aria-expanded="false" aria-controls="collapseNodes">
-                                                                    Calculate number of nodes to provision automatically
+                                                                    {{ _("Calculate number of nodes to provision automatically") }}
                                                                 </button>
                                                             </h3>
                                                             <div id="collapseNodes" class="collapse">
                                                                 <div class="card card-body">
                                                                     <p>
-                                                                    If <code>instance_type</code> and <code>vcpus</code> parameters are specified, EDH will automatically
-                                                                    calculate the number of node(s) to provision. Otherwise, you must define the <code>nodes</code> resource manually.
+                                                                    {% trans it='<code>instance_type</code>'|safe, vc='<code>vcpus</code>'|safe, nd='<code>nodes</code>'|safe %}If {{ it }} and {{ vc }} parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the {{ nd }} resource manually.{% endtrans %}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -154,22 +150,22 @@
                                                         <div class="mt-3">
                                                             <h3 class="mb-0">
                                                                 <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCost" aria-expanded="false" aria-controls="collapseCost">
-                                                                    Configure Job Cost Estimate automatically
+                                                                    {{ _("Configure Job Cost Estimate automatically") }}
                                                                 </button>
                                                             </h3>
                                                             <div id="collapseCost" class="collapse">
                                                                 <div class="card card-body">
-                                                                    Parameters used to estimate the simulation cost:
+                                                                    {{ _("Parameters used to estimate the simulation cost:") }}
                                                                     <ul>
-                                                                        <li><code>instance_type</code>: Instance type (default: c5.large)</li>
-                                                                        <li><code>vcpus</code>: Number of vCPUs (default: 1)</li>
-                                                                        <li><code>scratch_size</code>: /scratch size in GB (default: 0)</li>
-                                                                        <li><code>root_size</code>: /root size in GB (default: 10)</li>
-                                                                        <li><code>fsx_size</code>: FSx for Lustre size in GB (default: 0)</li>
-                                                                        <li><code>wall_time</code>: Max runtime (default: 01:00:00)</li>
+                                                                        <li><code>instance_type</code>: {{ _("Instance type (default: c5.large)") }}</li>
+                                                                        <li><code>vcpus</code>: {{ _("Number of vCPUs (default: 1)") }}</li>
+                                                                        <li><code>scratch_size</code>: {{ _("/scratch size in GB (default: 0)") }}</li>
+                                                                        <li><code>root_size</code>: {{ _("/root size in GB (default: 10)") }}</li>
+                                                                        <li><code>fsx_size</code>: {{ _("FSx for Lustre size in GB (default: 0)") }}</li>
+                                                                        <li><code>wall_time</code>: {{ _("Max runtime (default: 01:00:00)") }}</li>
                                                                     </ul>
                                                                     <p>
-                                                                    Use <code>hidden</code> fields to hardcode values. Otherwise, defaults will be applied.</p>
+                                                                    {% trans hidden='<code>hidden</code>'|safe %}Use {{ hidden }} fields to hardcode values. Otherwise, defaults will be applied.{% endtrans %}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -188,35 +184,26 @@
                                                     aria-labelledby="nav-designscript">
                                                     <br>
                                                     <div class="alert alert-primary">
-                                                        Edit the test template below to match the variables you have created
-                                                        on
-                                                        your form or simply write code that cannot be changed by the user.
-                                                        To read values from your form, use <a href="https://jinja.palletsprojects.com/en/stable/" target="_blank">Jinja2 templating</a> syntax
-                                                        (e.g. if your form input name is <code>my_param</code>,
-                                                        retrieve the value via <kbd>{% raw %}{{my_param}}{% endraw %}</kbd>)
+                                                        {% trans jinja_link='<a href="https://jinja.palletsprojects.com/en/stable/" target="_blank">Jinja2 templating</a>'|safe, my_param='<code>my_param</code>'|safe, my_param_ref='<kbd>{{my_param}}</kbd>'|safe %}Edit the test template below to match the variables you have created on your form or simply write code that cannot be changed by the user. To read values from your form, use {{ jinja_link }} syntax (e.g. if your form input name is {{ my_param }}, retrieve the value via {{ my_param_ref }}){% endtrans %}
                                                     </div>
-                                                    Choose what interpreter you want to use to execute the code below:
+                                                    {{ _("Choose what interpreter you want to use to execute the code below:") }}
                                                     <div class="form-group">
                                                         <select class="form-control" name="interpreter" id="interpreter">
-                                                            <option disabled>──── Schedulers ───────</option>
+                                                            <option disabled>{{ _("──── Schedulers ───────") }}</option>
                                                             {% for scheduler in schedulers %}
                                                             <option value="{{scheduler.identifier}}" {% if profile_interpreter == scheduler.identifier %} selected {% endif %}> {{scheduler.identifier}} ({{scheduler.provider}})</option>
                                                             {% endfor %}
-                                                            <option disabled>──── System Interpreters ───────</option>
-                                                            <option value="/bin/bash" {% if profile_interpreter == "/bin/bash" %} selected {% endif %}>This is a Linux script (will use /bin/bash)</option>
-                                                            <option value="/bin/zsh" {% if profile_interpreter == "/bin/zsh" %} selected {% endif %}>This is a Linux script (will use /bin/zsh)</option>
-                                                            <option value="/bin/csh" {% if profile_interpreter == "/bin/csh" %} selected {% endif %}>This is a Linux script (will use /bin/csh)</option>
-                                                            <option value="/bin/sh" {% if profile_interpreter == "/bin/sh" %} selected {% endif %}>This is a Linux script (will use /bin/sh)</option>
+                                                            <option disabled>{{ _("──── System Interpreters ───────") }}</option>
+                                                            <option value="/bin/bash" {% if profile_interpreter == "/bin/bash" %} selected {% endif %}>{{ _("This is a Linux script (will use /bin/bash)") }}</option>
+                                                            <option value="/bin/zsh" {% if profile_interpreter == "/bin/zsh" %} selected {% endif %}>{{ _("This is a Linux script (will use /bin/zsh)") }}</option>
+                                                            <option value="/bin/csh" {% if profile_interpreter == "/bin/csh" %} selected {% endif %}>{{ _("This is a Linux script (will use /bin/csh)") }}</option>
+                                                            <option value="/bin/sh" {% if profile_interpreter == "/bin/sh" %} selected {% endif %}>{{ _("This is a Linux script (will use /bin/sh)") }}</option>
                                                         </select>
                                                     </div>
                                                     <div id="text-editor"
                                                         style="width:100%;height:600px;padding-bottom: 50px;"></div>
                                                     <div class="alert alert-primary">
-                                                        Scheduler parameters are optional. If not set, your job will use the
-                                                        default
-                                                        settings configured for your queue (if no queue is specified, the
-                                                        job
-                                                        will use <code>normal</code> queue).
+                                                        {% trans normal='<code>normal</code>'|safe, more_link='<a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/create-your-own-queue/#option1-i-want-to-use-the-same-settings-as-an-existing-queue" target="_blank" rel="noopener,noreferrer">this link for more.</a>'|safe %}Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use {{ normal }} queue). Refer to {{ more_link }}{% endtrans %}
                                                     </div>
                                                 </div> <!-- nav script -->
 
@@ -227,8 +214,7 @@
                                                     <form name="manageprofile_edit" id="manageprofile_edit" method="post"
                                                         action="/admin/applications/edit">
                                                         <div class="form-group">
-                                                            <label for="profile_name">How do you want to name this
-                                                                Workflow Profile?</label>
+                                                            <label for="profile_name">{{ _("How do you want to name this Workflow Profile?") }}</label>
                                                             <input type="text" class="form-control" name="profile_name"
                                                                 required value="{{ profile_name }}">
                                                         </div>
@@ -236,9 +222,7 @@
                                                             <div class="custom-file">
                                                                 <input type="file" class="custom-file-input" id="thumbnail"
                                                                     accept="image/png, image/jpeg, image/jpg">
-                                                                <label class="custom-file-label" for="thumbnail">Select an
-                                                                    image (jpg or png) to use as thumbnail. Leave blank to
-                                                                    use the existing thumbnail</label>
+                                                                <label class="custom-file-label" for="thumbnail">{{ _("Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail") }}</label>
                                                             </div>
                                                             <script>
                                                                 $(".custom-file-input").on("change", function () {
@@ -261,8 +245,7 @@
 
                                                         <div>
                                                             <br>
-                                                            <button type="submit" class="btn btn-success">Update this
-                                                                Workflow Profile
+                                                            <button type="submit" class="btn btn-success">{{ _("Update this Workflow Profile") }}
                                                             </button>
                                                         </div>
                                                     </form>
@@ -272,21 +255,18 @@
                                                     <form id="manageprofile_new" name="manageprofile_new" method="post"
                                                         action="/admin/applications/create" enctype="multipart/form-data">
                                                         <div class="form-group">
-                                                            <label for="profile_name">How do you want to name this
-                                                                Workflow Profile?</label>
+                                                            <label for="profile_name">{{ _("How do you want to name this Workflow Profile?") }}</label>
                                                             <input type="text" class="form-control" name="profile_name"
                                                                 required>
                                                         </div>
                                                         <div class="form-group">
-                                                            <label for="profile_name">Do you want to specify a thumbnail
-                                                                (this will be scaled to 150*150px)?</label>
+                                                            <label for="profile_name">{{ _("Do you want to specify a thumbnail (this will be scaled to 150*150px)?") }}</label>
                                                             <div class="input-group">
                                                                 <div class="custom-file">
                                                                     <input type="file" class="custom-file-input"
                                                                         id="thumbnail"
                                                                         accept="image/png, image/jpeg, image/jpg">
-                                                                    <label class="custom-file-label" for="thumbnail">Select
-                                                                        an image (jpg or png) to use as thumbnail</label>
+                                                                    <label class="custom-file-label" for="thumbnail">{{ _("Select an image (jpg or png) to use as thumbnail") }}</label>
                                                                 </div>
                                                                 <script>
                                                                     $(".custom-file-input").on("change", function () {
@@ -309,8 +289,7 @@
 
 
                                                         <div>
-                                                            <button type="submit" class="btn btn-success">Create this
-                                                                Workflow Profile
+                                                            <button type="submit" class="btn btn-success">{{ _("Create this Workflow Profile") }}
                                                             </button>
                                                         </div>
                                                     </form>
@@ -328,11 +307,11 @@
                                 <div class="card shadow mb-4">
                                 
                                     <div class="card-body">
-                                        <h3>Edit an existing Workflow Profile</h3>
+                                        <h3>{{ _("Edit an existing Workflow Profile") }}</h3>
 
                                         <form action="/admin/applications/edit" method="get">
                                             <div class="form-group col-md-6">
-                                                <label for="walltime"> Select the Workflow Profile to edit</label>
+                                                <label for="walltime"> {{ _("Select the Workflow Profile to edit") }}</label>
                                                 <select class="form-control" name='app' id="app">
                                                     {% for app in application_profiles %}
                                                     <option value="{{ app.id }}">{{ app.profile_name }}</option>
@@ -341,7 +320,7 @@
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Edit</button>
+                                                <button type="submit" class="btn btn-primary">{{ _("Edit") }}</button>
                                             </div>
                                         </form>
                                     </div>
@@ -354,12 +333,12 @@
                                 <div class="card shadow mb-4">
                                         
                                     <div class="card-body">
-                                        <h3>Delete an existing Workflow Profile
+                                        <h3>{{ _("Delete an existing Workflow Profile") }}
                                         </h3>
                                         {% if application_profiles %}
                                         <form action="/admin/applications/delete" method="post">
                                             <div class="form-group col-md-6">
-                                                <label for="walltime"> Select the Workflow Profile to delete</label>
+                                                <label for="walltime"> {{ _("Select the Workflow Profile to delete") }}</label>
                                                 <select class="form-control" name='application_id' id="application_id">
                                                     {% for app in application_profiles %}
                                                     <option value="{{ app.id }}">{{ app.profile_name }}</option>
@@ -368,12 +347,11 @@
                                             </div>
                                             <div class="form-check">
                                                 <input type="checkbox" class="form-check-input" required>
-                                                <label class="form-check-label" for="checkValidation">I want to delete
-                                                    this Workflow Profile</label>
+                                                <label class="form-check-label" for="checkValidation">{{ _("I want to delete this Workflow Profile") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                                <button type="submit" class="btn btn-danger">{{ _("Delete") }}</button>
                                             </div>
                                         </form>
                                         {% else %}
@@ -389,16 +367,14 @@
                                 <div class="card shadow mb-4">
                                 
                                     <div class="card-body">
-                                        <h3>Import/Export existing EDH
-                                            Workflow Profile</h3>
+                                        <h3>{{ _("Import/Export existing EDH Workflow Profile") }}</h3>
                                         <div class="alert alert-warning">
                                             <a target="_blank" rel="noopener,noreferrer"
-                                                href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/import-export-application-profiles">Click
-                                                here to learn how to Import/Export your Workflow Profiles</a>
+                                                href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/import-export-application-profiles">{{ _("Click here to learn how to Import/Export your Workflow Profiles") }}</a>
                                         </div>
                                         <div class="row">
                                             <div class="col-md-6">
-                                                <h5>Export existing Workflow Profile</h5>
+                                                <h5>{{ _("Export existing Workflow Profile") }}</h5>
                                                 {% if application_profiles %}
                                                 <form action="/admin/applications/export" method="get">
                                                     <div class="form-group">
@@ -412,7 +388,7 @@
                                                     <div>
                                                         <input type="hidden" name="csrf_token"
                                                             value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-primary">Export</button>
+                                                        <button type="submit" class="btn btn-primary">{{ _("Export") }}</button>
                                                     </div>
                                                 </form>
                                                 {% else %}
@@ -421,16 +397,16 @@
                                             </div>
 
                                             <div class="col-md-6">
-                                                <h5>Import Workflow Profile</h5>
+                                                <h5>{{ _("Import Workflow Profile") }}</h5>
 
                                                 <form action="/admin/applications/import" method="post"
                                                     enctype="multipart/form-data">
                                                     <div class="form-group">
                                                         <input type="text" class="form-control" name="profile_name" id="profile_name"
-                                                            placeholder="Workflow Profile name" required>
+                                                            placeholder="{{ _("Workflow Profile name") }}" required>
                                                     </div>
                                                     <div class="form-group">
-                                                        <label>Workflow Profile input file (JSON)</label>
+                                                        <label>{{ _("Workflow Profile input file (JSON)") }}</label>
                                                         <input type="file" class="form-control-file" name="app_profile"
                                                             id="app_profile" required>
                                                     </div>
@@ -439,7 +415,7 @@
                                                         <br>
                                                         <input type="hidden" name="csrf_token"
                                                             value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-primary">Import</button>
+                                                        <button type="submit" class="btn btn-primary">{{ _("Import") }}</button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -455,6 +431,8 @@
 
 
                             {% include 'common/footer.html' %}
+    {% include 'common/js_i18n.html' %}
+
 
                             <script>
                                 function ConvertImageToB64() {
@@ -487,28 +465,28 @@
                                         {
                                             "type": "header",
                                             "subtype": "h4",
-                                            "label": "Recommended Parameters"
+                                            "label": i18n.recommended_params
                                         },
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "What type of instance do you want to use? (instance_type)",
+                                            "label": i18n.instance_type_label + " (instance_type)",
                                             "className": "form-control",
-                                            "description": "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision",
+                                            "description": i18n.instance_type_provision_desc,
 
                                             "name": "instance_type",
                                             "multiple": false,
                                             "values": [
                                                 {
-                                                    "label": "Small (2 vCPUs, 8GB RAM)",
+                                                    "label": i18n.small_instance,
                                                     "value": "m6i.large"
                                                 },
                                                 {
-                                                    "label": "Medium (4 vCPUs, 16 GB RAM)",
+                                                    "label": i18n.medium_instance,
                                                     "value": "m6i.xlarge"
                                                 },
                                                 {
-                                                    "label": "Large (8 vCPUs, 32 GB RAM)",
+                                                    "label": i18n.large_instance,
                                                     "value": "m6i.2xlarge"
                                                 }
                                             ]
@@ -516,10 +494,10 @@
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "Do you want to limit your job to Reserved Instance only? (force_ri)",
+                                            "label": i18n.force_ri_label + " (force_ri)",
                                             "className": "form-control",
                                             "name": "force_ri",
-                                            "description": "If force_ri is True, the job must ONLY run on Reserved Instance. If there is not enough RI, job will stay in the queue. Parameter is ignored if you use Spot",
+                                            "description": i18n.force_ri_desc,
                                             "multiple": false,
                                             "values": [
                                                 {
@@ -535,10 +513,10 @@
                                         {
                                             "type": "text",
                                             "required": true,
-                                            "label": "How many Virtual CPUs do you want ? (vcpus)",
-                                            "placeholder": "Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count",
+                                            "label": i18n.vcpus_label + " (vcpus)",
+                                            "placeholder": i18n.vcpus_placeholder,
                                             "className": "form-control",
-                                            "description": "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision",
+                                            "description": i18n.vcpus_provision_desc,
 
                                             "name": "vcpus",
                                             "subtype": "text",
@@ -551,17 +529,17 @@
                                             "className": "form-control",
                                             "name": "job_name",
                                             "subtype": "text",
-                                            "placeholder": "Do not use spaces",
+                                            "placeholder": i18n.no_spaces,
                                             "maxlength": 255
                                         },
                                         {
                                             "type": "text",
                                             "required": true,
-                                            "label": "Input location (input_file)",
-                                            "placeholder": "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file.",
+                                            "label": i18n.input_file_label + " (input_file)",
+                                            "placeholder": i18n.input_file_placeholder,
                                             "className": "form-control",
                                             "name": "input_file",
-                                            "description": "input_file is a reserved name on EDH. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name",
+                                            "description": i18n.input_file_desc,
                                             "subtype": "text",
                                             "maxlength": 255
                                         },
@@ -569,27 +547,27 @@
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "Do you want to limit how long the job will be running? (wall_time)",
+                                            "label": i18n.wall_time_label + " (wall_time)",
                                             "className": "form-control",
                                             "name": "wall_time",
-                                            "description": "Use HH:MM:SS format (hours:minutes:seconds). For example 90 minutes is 00:90:00 or 01:30:00",
+                                            "description": i18n.wall_time_format_desc,
                                             "multiple": false,
                                             "values": [
                                                 {
-                                                    "label": "No more than 1 hour",
+                                                    "label": i18n.no_more_1h,
                                                     "value": "01:00:00",
                                                     "selected": true
                                                 },
                                                 {
-                                                    "label": "No more than 5 hours",
+                                                    "label": i18n.no_more_5h,
                                                     "value": "05:00:00"
                                                 },
                                                 {
-                                                    "label": "No more than 1 day",
+                                                    "label": i18n.no_more_1d,
                                                     "value": "24:00:00"
                                                 },
                                                 {
-                                                    "label": "No more than 1 month",
+                                                    "label": i18n.no_more_1m,
                                                     "value": "740:00:00"
                                                 }
                                             ]
@@ -597,7 +575,7 @@
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "How much storage do you want (SSD under /scratch)",
+                                            "label": i18n.storage_label,
                                             "className": "form-control",
                                             "name": "scratch_size",
                                             "multiple": false,
@@ -619,18 +597,18 @@
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "What queue do you want to use? (queue_name)",
+                                            "label": i18n.queue_label + " (queue_name)",
                                             "className": "form-control",
                                             "name": "queue_name",
                                             "multiple": false,
                                             "values": [
                                                 {
-                                                    "label": "Queue 1 (Low Priority)",
+                                                    "label": i18n.queue_low,
                                                     "value": "low",
                                                     "selected": true
                                                 },
                                                 {
-                                                    "label": "Queue 2 (High Priority)",
+                                                    "label": i18n.queue_high,
                                                     "value": "high"
                                                 }
                                             ]
@@ -638,13 +616,13 @@
                                         {
                                             "type": "header",
                                             "subtype": "h4",
-                                            "label": "Application parameters"
+                                            "label": i18n.app_params
                                         },
                                         {
                                             "type": "select",
                                             "required": true,
-                                            "label": "What version of the solver do you want to use ? (binary_location)",
-                                            "description": "Path to the solver executable/binary. It's usually located within the \"bin\" folder of your installation directory",
+                                            "label": i18n.solver_label + " (binary_location)",
+                                            "description": i18n.solver_bin_desc,
                                             "className": "form-control",
                                             "name": "binary_location",
                                             "multiple": false,
@@ -698,8 +676,8 @@
                                         {
                                             "type": "textarea",
                                             "required": false,
-                                            "label": "User code to be executed BEFORE the solver command (user_pre_exec)",
-                                            "placeholder": "Enter shell code here",
+                                            "label": i18n.pre_exec_label + " (user_pre_exec)",
+                                            "placeholder": i18n.enter_shell_code,
                                             "className": "form-control",
                                             "name": "user_pre_exec",
                                             "subtype": "textarea",
@@ -708,8 +686,8 @@
                                         {
                                             "type": "textarea",
                                             "required": false,
-                                            "label": "User code to be executed AFTER the solver command (user_post_exec)",
-                                            "placeholder": "enter shell code here",
+                                            "label": i18n.post_exec_label + " (user_post_exec)",
+                                            "placeholder": i18n.enter_shell_code,
                                             "className": "form-control",
                                             "name": "user_post_exec",
                                             "subtype": "textarea",

@@ -15,19 +15,86 @@ function Join-ActiveDirectory {
         Write-Error "Failed to retrieve the secret."
     }
 
+    $JoinPassword = ConvertTo-SecureString "$serviceAccountPassword" -AsPlainText -Force
+    $JoinCredentials = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$serviceAccountUsername",$JoinPassword
+
+    # --- Compute the deterministic, unique-per-instance AD computer name --------------
+    $UniqueName = Get-SocaAdHostname -ClusterId "{{ context.get('/configuration/ClusterId') }}"
+    Log-Info -Message "Computed unique AD computer name: $UniqueName (current name: $env:COMPUTERNAME)"
+
+    # Best-effort self-tag so ADComputerCleaner can correlate the EC2 instance to the AD object
+    # on termination (mirrors the Linux bootstrap). The Lambda recomputes the hash as a fallback,
+    # so a failed tag is non-fatal. $instanceId + $IMDSToken come from common/imds.ps.j2.
+    try {
+        $Region = Invoke-RestMethod -Headers @{ 'X-aws-ec2-metadata-token' = $IMDSToken } -Uri 'http://169.254.169.254/latest/meta-data/placement/region'
+        aws ec2 create-tags --region $Region --resources $instanceId --tags "Key=edh:ADComputerName,Value=$UniqueName" | Out-Null
+    } catch {
+        Log-Warning -Message "Failed to self-tag edh:ADComputerName -- AD cleanup will fall back to hash recompute"
+    }
+
+    $rescueMarker = Join-Path $env:EDHBootstrapAssetsFolder 'ad_rescue_pending.flag'
     $ServerInAD = (Get-WmiObject -Class Win32_ComputerSystem).PartOfDomain
     if ($ServerInAD)
     {
-        Log-Info -Message "Host already part of AD domain"
+        # PartOfDomain=True at boot is almost always a STALE binding inherited from an AMI that
+        # was sysprepped but never unjoined (sysprep /generalize does NOT leave the domain). The
+        # baked object + secret is SHARED across every clone, so reusing or repairing it
+        # perpetuates a shared-identity collision. Per design we NEVER reuse the inherited object
+        # -- we abandon it and rejoin CLEAN as a new unique object.
+        #
+        # The ONLY skip case is a legitimate reboot of an instance that already joined under ITS
+        # OWN unique name with a healthy secure channel (idempotent re-run).
+        $secureChannelOk = $false
+        try { $secureChannelOk = Test-ComputerSecureChannel } catch { $secureChannelOk = $false }
+        if (($env:COMPUTERNAME -ieq $UniqueName) -and $secureChannelOk)
+        {
+            Log-Info -Message "Already joined to AD under this instance's own unique name $UniqueName with a healthy secure channel; nothing to do"
+        }
+        else
+        {
+            # SELF-HEAL RESCUE (dirty AMI: booted joined under a foreign/shared name, or broken
+            # channel). Windows cannot rename-rejoin from an already-joined state in one boot (the
+            # same-domain guard blocks Add-Computer -NewName), so the rescue spans two reboots:
+            #   here  : unjoin to WORKGROUP (deletes the inherited object) + drop a marker -> $requireReboot
+            #   reboot: the framework's post-reboot task runs 03_setup_post_reboot.ps1
+            #   in 03 : marker present + now in WORKGROUP -> clean rejoin as $UniqueName -> reboot again
+            # The clean rejoin lives in 03 because the framework's post-reboot pass runs 03 (NOT
+            # this script); 02/join is not re-invoked after the reboot. The box always comes up
+            # working under its own unique object -- no orphaned VDI tile.
+            Log-Warning -Message "Host booted domain-joined as '$env:COMPUTERNAME' (expected unique name '$UniqueName') or its secure channel is broken -- this indicates a DIRTY AMI (captured while domain-joined; EC2Launch sysprep was skipped). Re-bake the AMI with EC2Launch 'Shutdown with Sysprep' to avoid this extra reboot. Abandoning the inherited AD object and rejoining clean as a new unique object."
+            # Marker tells 03_setup_post_reboot to finish the clean rejoin after the reboot.
+            # AD-auth unjoin (also deletes the shared object); fall back to a local WORKGROUP drop if the channel is broken.
+            $dropped = $false
+            try {
+                Remove-Computer -UnjoinDomainCredential $JoinCredentials -WorkgroupName "WORKGROUP" -Force -ErrorAction Stop
+                $dropped = $true
+            } catch {
+                Log-Warning -Message "AD-auth unjoin failed ($($_.Exception.Message)); forcing local WORKGROUP drop (orphan reaped by ADComputerCleaner)"
+                $cs = Get-WmiObject -Class Win32_ComputerSystem
+                $r = $cs.UnjoinDomainOrWorkgroup($null, $null, 0)
+                if ($r.ReturnValue -eq 0) { $cs.JoinDomainOrWorkgroup("WORKGROUP") | Out-Null; $dropped = $true }
+                else { Log-Warning -Message "Local force-drop failed (WMI $($r.ReturnValue))" }
+            }
+            if ($dropped) {
+                Set-Content -Path $rescueMarker -Value $UniqueName -Force
+                Log-Info -Message "Dropped to WORKGROUP; 03_setup_post_reboot will rejoin as $UniqueName after the reboot"
+                $script:requireReboot=$true
+            } else {
+                Log-Warning -Message "Could not leave inherited domain membership; will retry rescue on next boot"
+            }
+        }
     }
     else
     {
-        Log-Info -Message "Joining Computer to AD domain"
-        $JoinPassword = ConvertTo-SecureString "$serviceAccountPassword" -AsPlainText -Force
-        $JoinCredentials = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$serviceAccountUsername",$JoinPassword
-        Add-Computer -ComputerName $env:COMPUTERNAME -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $JoinCredentials
-        Log-Info -Message "Domain Join completed, setting up requireReboot to true"
-        $requireReboot=$true
+        # Not joined (clean AMI): join CLEAN as a brand-new unique object, with the retry-hardened
+        # helper (handles the intermittent 'directory service is busy' rename transient).
+        if (Test-Path $rescueMarker) { Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue }
+        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $JoinCredentials -UniqueName $UniqueName) {
+            Log-Info -Message "Domain join staged as $UniqueName, setting requireReboot to true"
+            $script:requireReboot=$true
+        } else {
+            Write-Error "Failed to join the domain as $UniqueName"
+        }
     }
 }
 Join-ActiveDirectory

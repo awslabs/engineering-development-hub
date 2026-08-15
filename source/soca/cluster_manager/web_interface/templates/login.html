@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
      {% include 'common/header.html' %}
@@ -27,16 +27,16 @@
                   <div class="text-center">
                      <img class="img-fluid" height="150px" width="150px" src="{{ url_for('static', filename='img/soca_logo.png') }}">
                      <hr>
-                       <h5>Engineering Development Hub</h5>
+                       <h5>{{ _("Engineering Development Hub") }}</h5>
                       <br>
 
                   </div>
                   <form class="user" method="post" action="/auth">
                     <div class="form-group">
-                      <input type="text" required class="form-control form-control-user" id="user" name="user" aria-describedby="user" placeholder="Username">
+                      <input type="text" required class="form-control form-control-user" id="user" name="user" aria-describedby="user" placeholder="{{ _("Username") }}">
                     </div>
                     <div class="form-group">
-                      <input type="password" required class="form-control form-control-user" id="password" name="password" placeholder="Password">
+                      <input type="password" required class="form-control form-control-user" id="password" name="password" placeholder="{{ _("Password") }}">
                     </div>
 
                     <div align="center">
@@ -44,7 +44,7 @@
                         {% if redirect != false %}
                             <input type="hidden" name="redirect" value={{ redirect }}>
                         {% endif %}
-                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <button type="submit" class="btn btn-primary btn-block">{{ _("Login") }}</button>
                     </div>
                   </form>
                   {% if custom_links %}
@@ -58,6 +58,20 @@
                   <br>
 
                 {% include 'common/flashed_messages.html' %}
+
+                  <hr>
+                  <div class="text-center">
+                    <div class="dropdown">
+                      <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-label="Select language">
+                        {{ languages[current_lang].flag }} {{ languages[current_lang].name }}
+                      </button>
+                      <ul class="dropdown-menu">
+                        {% for code, lang in languages.items() %}
+                        <li><a class="dropdown-item {{ 'active' if code == current_lang }}" href="/lang/{{ code }}">{{ lang.flag }} {{ lang.name }}</a></li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
 
                 </div>
               </div>

@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -26,13 +26,13 @@
                             <br>
                             <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Edit SOCA User Data Template</h3>
+                                        <h3>{{ _("Edit SOCA User Data Template") }}</h3>
 
                                         <form id="edit-template" action="/admin/target_nodes/user_data/edit/update" method="post">
                                             <div class="form-group">
                                                 <label for="template_name" data-toggle="tooltip" data-placement="top"
-                                                       title="Name for your template">Template Name</label>
-                                                <input id="template_name" placeholder="Friendly Name for your template"
+                                                       title="{{ _("Name for your template") }}">{{ _("Template Name") }}</label>
+                                                <input id="template_name" placeholder="{{ _("Friendly Name for your template") }}"
                                                        class="form-control"
                                                        type="text"
                                                        disabled value="{{template_info.template_name}}" name="template_name">
@@ -40,43 +40,43 @@
 
                                             <div class="form-group">
                                                 <label for="description" data-toggle="tooltip" data-placement="top"
-                                                       title="Description of your User Data Template">User Data Template Description
+                                                       title="{{ _("Description of your User Data Template") }}">{{ _("User Data Template Description") }}
                                                 </label>
-                                                <textarea id="description" class="form-control" rows="3" name="description">{{template_info.description}}</textarea>
+                                                <textarea id="description" class="form-control" rows="3" name="description" required>{{template_info.description}}</textarea>
                                             </div>
 
                                             <div class="alert alert-warning">
-                                                    <h5> Important Info about your User Data</h5>
+                                                    <h5>{{ _("Important Info about your User Data") }}</h5>
 
                                                     <ul>
-                                                        <li>User data script is operating system-specific: Linux requires a Bash script, while Windows expects a PowerShell script. </li>
-                                                        <li>For Linux user data, we recommend starting the script with: <code>#!/bin/bash</code></li>
-                                                        <li>For Windows user data, we recommend starting the script with: <code>&lt;powershell&gt;</code> and close it with <code>&lt;/powershell&gt;</code></li>
-                                                        <li><a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html" target="_blank">User data is limited to 16 KB</a></li>
-                                                        <li>User data supports <a href="https://jinja.palletsprojects.com/en/stable/" target="_blank">Jinja templating</a></li>
+                                                        <li>{{ _("User data script is operating system-specific: Linux requires a Bash script, while Windows expects a PowerShell script.") }} </li>
+                                                        <li>{{ _("For Linux user data, we recommend starting the script with:") }} <code>#!/bin/bash</code></li>
+                                                        <li>{{ _("For Windows user data, we recommend starting the script with:") }} <code>&lt;powershell&gt;</code> {{ _("and close it with") }} <code>&lt;/powershell&gt;</code></li>
+                                                        <li><a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html" target="_blank">{{ _("User data is limited to 16 KB") }}</a></li>
+                                                        <li>{{ _("User data supports") }} <a href="https://jinja.palletsprojects.com/en/stable/" target="_blank">{{ _("Jinja templating") }}</a></li>
                                                     </ul>
 
 
-                                                    <h5>Supported variables (case-sensitive)</h5>
+                                                    <h5>{{ _("Supported variables (case-sensitive)") }}</h5>
                                                     <ul>
                                                         <li>
-                                                        <kbd>{%raw%}{{ EDH_USER }}{%endraw%}</kbd> Name of the current EDH user requesting the target node
+                                                        <kbd>{%raw%}{{ EDH_USER }}{%endraw%}</kbd> {{ _("Name of the current EDH user requesting the target node") }}
                                                         </li>
                                                         <li>
-                                                        <kbd>{%raw%}{{ EDH_USER_PUBLIC_KEYS }}{%endraw%}</kbd> Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...).
+                                                        <kbd>{%raw%}{{ EDH_USER_PUBLIC_KEYS }}{%endraw%}</kbd> {{ _("Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...).") }}
                                                         </li>
                                                     </ul>
                                                     <h5>
-                                                        Additional variables (case-sensitive)
+                                                        {{ _("Additional variables (case-sensitive)") }}
                                                     </h5>
-                                                    Additional variables can be defined on the <a href="/admin/target_nodes/software_stacks" target="_blank"> Software Stack</a> associated to this user data template. Variables can be retrieved via <kbd>{%raw%}{{ VARIABLE_NAME }}{%endraw%}</kbd> syntax. <br>
-                                                    For example, {%raw%} <code>{{ MY_TEST_VARIABLE }}</code> on your user data {%endraw%} will automatically be replaced with "test123" if you configure <code>MY_TEST_VARIABLE=test123</code> on the Software Stack associated to this User Data.
+                                                    {% trans stack_link='<a href="/admin/target_nodes/software_stacks" target="_blank">Software Stack</a>'|safe, var_syntax='<kbd>{{ VARIABLE_NAME }}</kbd>'|safe %}Additional variables can be defined on the {{ stack_link }} associated to this user data template. Variables can be retrieved via {{ var_syntax }} syntax.{% endtrans %} <br>
+                                                    {% trans ex_var='<code>{{ MY_TEST_VARIABLE }}</code>'|safe, ex_assign='<code>MY_TEST_VARIABLE=test123</code>'|safe %}For example, {{ ex_var }} on your user data will automatically be replaced with "test123" if you configure {{ ex_assign }} on the Software Stack associated to this User Data.{% endtrans %}
 
                                                 </div>
 
                                             <div class="form-group">
                                                 <label for="text-editor" data-toggle="tooltip" data-placement="top"
-                                                       title="User Data to be executed on the EC2 host"> User Data
+                                                       title="{{ _("User Data to be executed on the EC2 host") }}"> {{ _("User Data") }}
                                                 </label>
                                                 <div id="text-editor" style="width:100%;height:500px;border:1px solid">
 
@@ -90,7 +90,7 @@
                                                 <input type="hidden" name="template_id" value="{{template_info.id}}">
                                                 <input type="hidden" name="csrf_token"
                                                        value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Update User Data Template
+                                                <button type="submit" class="btn btn-primary">{{ _("Update User Data Template") }}
                                                 </button>
                                             </div>
                                         </form>

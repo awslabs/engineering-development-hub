@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -24,8 +24,8 @@
 
                 {% if sudoers == false %}
                     <div class="alert alert-danger" role="alert">
-                        <strong>Access denied </strong>
-                        Only users with sudo permissions can access this page
+                        <strong>{{ _("Access denied") }} </strong>
+                        {{ _("Only users with sudo permissions can access this page") }}
                         <br>
                     </div>
                 {% else %}
@@ -36,11 +36,9 @@
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab"
-                               data-bs-target="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">Create
-                                a queue</a>
+                               data-bs-target="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Create a queue") }}</a>
                             <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab"
-                               data-bs-target="#nav-delete" role="tab" aria-controls="nav-delete" aria-selected="false">Delete
-                                a queue</a>
+                               data-bs-target="#nav-delete" role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Delete a queue") }}</a>
                         </div>
                     </nav>
                     <div class="tab-content" id="nav-tabContent">
@@ -49,34 +47,31 @@
                             <br>
                             <div class="card shadow mb-4">
                                 <div class="card-body">
-                                    <h3>Create a new queue</h3>
+                                    <h3>{{ _("Create a new queue") }}</h3>
 
                                     <form action="/admin/queues/create" method="post">
                                         <div class="form-group">
-                                            <input id="queue_name" placeholder="Queue name" class="form-control"
+                                            <input id="queue_name" placeholder="{{ _("Queue name") }}" class="form-control"
                                                    type="text" required name="queue_name">
                                         </div>
                                         <select class="form-control" id="queue_type" name="queue_type">
-                                            <option value="ondemand">Automatic Provisioning (Default)</option>
-                                            <option value="alwayson">AlwaysOn</option>
+                                            <option value="ondemand">{{ _("Automatic Provisioning (Default)") }}</option>
+                                            <option value="alwayson">{{ _("AlwaysOn") }}</option>
                                         </select>
                                         <br>
                                         <div>
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn btn-primary">Create new Queue
+                                            <button type="submit" class="btn btn-primary">{{ _("Create new Queue") }}
                                             </button>
                                         </div>
                                     </form>
                                     <br>
                                     <div class="alert alert-primary">
-                                        <strong>Automatic Provisioning</strong><br>
-                                        Hosts in this queue will be provisioned automatically based on the number of
-                                        queued jobs. Hosts are restricted to a given job ID and are automatically
-                                        terminated as soon as the job complete.
+                                        <strong>{{ _("Automatic Provisioning") }}</strong><br>
+                                        {{ _("Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete.") }}
                                         <hr>
-                                        <strong>Always On</strong><br>
-                                        Host in this queue will stay online until an admin decide to manually turn them
-                                        off
+                                        <strong>{{ _("Always On") }}</strong><br>
+                                        {{ _("Host in this queue will stay online until an admin decide to manually turn them off") }}
                                     </div>
                                 </div>
                             </div>
@@ -86,9 +81,9 @@
                             <br>
                             <div class="card shadow mb-4">
                                 <div class="card-body">
-                                    <h3>Delete a queue</h3>
+                                    <h3>{{ _("Delete a queue") }}</h3>
                                     <div class="alert alert-primary" role="alert">
-                                        <strong>Important </strong>
+                                        <strong>{{ _("Important") }} </strong>
                                         It's not recommended to delete the default queues: low,normal,high,test,desktop
                                         and alwayson.
                                     </div>
@@ -105,12 +100,11 @@
                                         <div class="form-group form-check">
                                             <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                    required>
-                                            <label class="form-check-label" for="verif">I am sure I want to delete this
-                                                queue</label>
+                                            <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this queue") }}</label>
                                         </div>
                                         <div>
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn btn-danger">Delete Queue</button>
+                                            <button type="submit" class="btn btn-danger">{{ _("Delete Queue") }}</button>
                                         </div>
                                     </form>
                                 </div>
@@ -120,11 +114,11 @@
                             <br>
                             <div class="card shadow mb-4">
                                 <div class="card-body">
-                                    <h3>Reset Password</h3>
+                                    <h3>{{ _("Reset Password") }}</h3>
 
                                     <div class="alert alert-primary" role="alert">
-                                        <strong>Important </strong>
-                                        This will generate a temporary password for a given user
+                                        <strong>{{ _("Important") }} </strong>
+                                        {{ _("This will generate a temporary password for a given user") }}
                                     </div>
                                     <form action="/admin/reset_password" method="post"
                                           oninput='password_verif.setCustomValidity(password_verif.value != password.value ? "Passwords do not match." : "")'>
@@ -139,14 +133,12 @@
                                         <div class="form-group form-check">
                                             <input type="checkbox" class="form-check-input" name="admin_reset_verif"
                                                    id="admin_reset_verif" required>
-                                            <label class="form-check-label" for="admin_reset_verif">I am sure I want to
-                                                reset the password for this user</label>
+                                            <label class="form-check-label" for="admin_reset_verif">{{ _("I am sure I want to reset the password for this user") }}</label>
                                         </div>
                                         <div>
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="admin_reset" value="yes">
-                                            <button type="submit" class="btn btn-danger">Generate temporary
-                                                password
+                                            <button type="submit" class="btn btn-danger">{{ _("Generate temporary password") }}
                                             </button>
                                         </div>
                                     </form>
@@ -160,8 +152,7 @@
                                     <div class="card shadow mb-4">
                                            
                                         <div class="card-body">
-                                             <h3>Grant user Admin
-                                                permission</h3>
+                                             <h3>{{ _("Grant user Admin permission") }}</h3>
                                             <form action="/admin/manage_sudo" method="post">
                                                 <div class="form-group">
                                                     <select class="form-control" id="username" name="username">
@@ -173,15 +164,13 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input" name="admin_verif"
                                                            id="admin_reset_verif" required>
-                                                    <label class="form-check-label" for="admin_verif">I am sure I want
-                                                        to <strong>grant</strong> Admin permission to this user</label>
+                                                    <label class="form-check-label" for="admin_verif">{% trans action='<strong>grant</strong>'|safe %}I am sure I want to {{ action }} Admin permission to this user{% endtrans %}</label>
                                                 </div>
                                                 <div>
                                                     <input type="hidden" name="action" value="grant">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                                                    <button type="submit" class="btn btn-success">Grant Admin
-                                                        permission
+                                                    <button type="submit" class="btn btn-success">{{ _("Grant Admin permission") }}
                                                     </button>
                                                 </div>
                                             </form>
@@ -192,8 +181,7 @@
                                     <div class="card shadow mb-4">
                                      
                                         <div class="card-body">
-                                              <h3>Revoke user Admin
-                                                permission</h3>
+                                              <h3>{{ _("Revoke user Admin permission") }}</h3>
                                             <form action="/admin/manage_sudo" method="post">
                                                 <div class="form-group">
                                                     <select class="form-control" id="username" name="username">
@@ -205,16 +193,13 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input"
                                                            name="sudo_revoke_verif" id="sudo_revoke_verif" required>
-                                                    <label class="form-check-label" for="sudo_revoke_verif">I am sure I
-                                                        want to <strong>revoke</strong> Admin permission to this
-                                                        user</label>
+                                                    <label class="form-check-label" for="sudo_revoke_verif">{% trans action='<strong>revoke</strong>'|safe %}I am sure I want to {{ action }} Admin permission to this user{% endtrans %}</label>
                                                 </div>
                                                 <div>
                                                     <input type="hidden" name="action" value="revoke">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                                                    <button type="submit" class="btn btn-danger">Revoke Admin
-                                                        permission
+                                                    <button type="submit" class="btn btn-danger">{{ _("Revoke Admin permission") }}
                                                     </button>
                                                 </div>
                                             </form>
@@ -227,27 +212,24 @@
                             <br>
                             <div class="card shadow mb-4">
                                 <div class="card-body">
-                                                                        <h3>Technical Details</h3>
+                                                                        <h3>{{ _("Technical Details") }}</h3>
 
-                                    Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory
-                                    using LDIF directly. If you are not familiar with LDIF, you can use our custom
-                                    wrapper available at <code>/opt/edh/cluster_manager/ldap_manager.py</code>
+                                    {{ _("Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at") }} <code>/opt/edh/cluster_manager/ldap_manager.py</code>
                                     <br><br>
                                     <ul>
-                                        <li>People: OU=People,DC=soca,DC=local</li>
-                                        <li>Groups: OU=Group,DC=soca,DC=local</li>
+                                        <li>{{ _("People: OU=People,DC=soca,DC=local") }}</li>
+                                        <li>{{ _("Groups: OU=Group,DC=soca,DC=local") }}</li>
                                         <li>Sudoers: OU=Sudoers,DC=soca,DC=local (This OU manages sudo permission on the
                                             cluster)
                                         </li>
                                     </ul>
                                     <br>
                                     <div class="alert alert-warning" role="alert">
-                                        Admin username and password can be found on <code>/root/OpenLdapAdminUsername.txt</code>
-                                        and <code>/root/OpenLdapAdminPassword.txt</code>.
+                                        {% trans u='<code>/root/OpenLdapAdminUsername.txt</code>'|safe, pw='<code>/root/OpenLdapAdminPassword.txt</code>'|safe %}Admin username and password can be found on {{ u }} and {{ pw }}.{% endtrans %}
                                     </div>
                                     <hr>
-                                    <h3> Example: Create a new LDAP group</h3>
-                                    Create a "mynewgroup.ldif" text file.
+                                    <h3> {{ _("Example: Create a new LDAP group") }}</h3>
+                                    {{ _("Create a \"mynewgroup.ldif\" text file.") }}
                                     <pre>
                                        <code class="language-bash">
         dn: cn=mynewgroup,ou=Group,dc=soca,dc=local
@@ -255,13 +237,13 @@
         objectClass: posixGroup
         cn: mynewgroup
         gidNumber: 6000
-        memberUid: mytestuser</code></pre>
-                                    Then run the following command to create your group
+        memberUid: mytestuser') }}</code></pre>
+                                    {{ _("Then run the following command to create your group") }}
                                     <pre>
                                         <code class="language-bash">
         ~ ldapadd -x -D cn=admin,dc=soca,dc=local -y /root/OpenLdapAdminPassword.txt -f mynewgroup.ldif
         adding new entry "cn=mynewgroup,ou=Group,dc=soca,dc=local"</code></pre>
-                                    Finally valid your group has been created correctly using <code>ldapsearch</code>
+                                    {{ _("Finally valid your group has been created correctly using") }} <code>ldapsearch</code>
                                     <pre>
                                         <code class="language-bash">
         # Validate with Ldapsearch
@@ -282,7 +264,7 @@
         gidNumber: 6000
         memberUid: mytestuser</code></pre>
                                     <hr>
-                                    <h3> Example: Modify Operation</h3>
+                                    <h3> {{ _("Example: Modify Operation") }}</h3>
                                     <pre>
                                         <code class="language-bash">
         dn: cn=mynewgroup,ou=Group,dc=soca,dc=local
@@ -290,13 +272,13 @@
         add: memberUid
         memberUid: anotheruser</code></pre>
                                     <hr>
-                                    <h3> Example: Delete Operation</h3>
+                                    <h3> {{ _("Example: Delete Operation") }}</h3>
                                     <pre>
                                         <code class="language-bash">
         dn: cn=mynewgroup,ou=Group,dc=soca,dc=local
         changetype: modify
         delete: memberUid
-        memberUid:: anotheruser # you get the memberUid by running a simple ldapsearch first</code></pre>
+        memberUid:: anotheruser # you get the memberUid by running a simple ldapsearch first') }}</code></pre>
 
                                 </div>
                             </div>

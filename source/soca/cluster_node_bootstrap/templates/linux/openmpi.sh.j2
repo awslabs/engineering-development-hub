@@ -9,20 +9,21 @@ function install_openmpi () {
   local OPENMPI_VERSION="{{ context.get("/system/openmpi/version") }}"
   local OPENMPI_URL="{{ context.get("/system/openmpi/url") }}"
   local OPENMPI_SHA256="{{ context.get("/system/openmpi/sha256") }}"
+  local EDH_CLUSTER_ID="{{ context.get('/configuration/ClusterId') }}"
 
-  if [[ ! -d "/apps/openmpi/${OPENMPI_VERSION}" ]]; then
-    log_info "/apps/openmpi/${OPENMPI_VERSION} does not exist, installing OpenMPI ..."
+  if [[ ! -d "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}" ]]; then
+    log_info "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION} does not exist, installing OpenMPI ..."
     mkdir -p "${EDH_BOOTSTRAP_ASSETS_FOLDER}/openmpi/installer"
-    mkdir -p "/apps/openmpi/${OPENMPI_VERSION}"
+    mkdir -p "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}"
     pushd "${EDH_BOOTSTRAP_ASSETS_FOLDER}/openmpi/installer"
     file_download --download-url="${OPENMPI_URL}" --save-as="openmpi_installer_${OPENMPI_VERSION}.tgz" --sha256-checksum="${OPENMPI_SHA256}"
     tar xzf "openmpi_installer_${OPENMPI_VERSION}.tgz" --strip-components=1 -C .
-    ./configure --prefix="/apps/openmpi/${OPENMPI_VERSION}"
+    ./configure --prefix="/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}"
     make -j $(nproc)
     make install
     popd
   else
-    log_info "/apps/openmpi/${OPENMPI_VERSION} already exist, skipping OpenMPI install"
+    log_info "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION} already exist, skipping OpenMPI install"
   fi
 }
 install_openmpi

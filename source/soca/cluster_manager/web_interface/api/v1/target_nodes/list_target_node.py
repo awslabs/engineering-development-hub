@@ -24,6 +24,7 @@ from models import (
     TargetNodeSoftwareStacks,
     TargetNodeProfiles,
     TargetNodeUserData,
+    SessionState,
 )
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.config import SocaConfig
@@ -82,7 +83,7 @@ class ListTargetNode(Resource):
             schema:
               type: string
               format: uuid
-              pattern: f'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
             required: false
             description: Filter by specific session UUID
             example: 550e8400-e29b-41d4-a716-446655440000
@@ -183,6 +184,11 @@ class ListTargetNode(Resource):
         )
 
         if args.get("state", ""):
+            if args["state"] not in SessionState.enums:
+                return SocaError.CLIENT_INVALID_PARAMETER(
+                    parameter="state",
+                    helper=f"state must be one of {SessionState.enums}",
+                ).as_flask()
             logger.debug(f"Adding filter for session_state to {args['state']}")
             _all_dcv_sessions = _user_target_nodes_sessions.filter(
                 TargetNodeSessions.session_state == args["state"]
@@ -246,7 +252,7 @@ class ListTargetNode(Resource):
                     "session_owner": session_info.session_owner,
                     "session_project": session_info.session_project,
                     "session_state": session_info.session_state,
-                    "session_state_latest_change_time": session_info.session_state_latest_change_time,
+                    "session_state_latest_change_time": session_info.session_state_latest_change_time.isoformat() + "Z" if session_info.session_state_latest_change_time else None,
                     "schedule": session_info.schedule,
                     "session_thumbnail": session_info.session_thumbnail,
                     "instance_private_dns": session_info.instance_private_dns,

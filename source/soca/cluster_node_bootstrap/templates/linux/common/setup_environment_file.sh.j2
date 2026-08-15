@@ -26,12 +26,15 @@ function set_environment_variable () {
   fi
 
   log_info "Adding ${VARIABLE_NAME}=${QUOTED_VALUE} to /etc/environment"
+  # /etc/environment is read by pam_env as plain KEY=value lines; it does NOT
+  # support the 'export' keyword (pam_env would treat "export FOO" as the name).
+  # Write a bare assignment so pam_env parses it cleanly.
   {
-    printf "%s\nexport %s=%s\n" "$SOCA_IDENTIFIER" "$VARIABLE_NAME" "$QUOTED_VALUE"
+    printf "%s\n%s=%s\n" "$SOCA_IDENTIFIER" "$VARIABLE_NAME" "$QUOTED_VALUE"
   } >> /etc/environment
 
-  # Reload your env
-  source /etc/environment
+  # Bare lines are not auto-exported when sourced, so export into the running shell
+  export "${VARIABLE_NAME}=${VARIABLE_VALUE}"
 }
 
 function set_environment_command () {

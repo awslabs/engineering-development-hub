@@ -45,11 +45,11 @@ mkdir -p ${EDH_HOME}
 {% endif %}
 
 # Retrieve the region of the bucket specified at install time
-{% if context.get("/configuration/Region") in ["us-gov-east-1', 'us-gov-west-1"]  %}
+{% if context.get("/configuration/Region").startswith("us-gov-")  %}
     S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-{% elif context.get("/configuration/Region") in ["cn-north-1", "cn-northwest-1"]  %}
+{% elif context.get("/configuration/Region").startswith("cn-")  %}
     S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-{% elif context.get("/configuration/Region") in ["eusc-de-east-1"] %}
+{% elif context.get("/configuration/Region").startswith("eusc-") %}
     S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
 {% else %}
     S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
@@ -70,7 +70,7 @@ mkdir -p /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/
 chmod -R 600 /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/
 
 # Set up executable flag
-chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/orchestrator/socaqstat.py
+chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/orchestrator/legacy/socaqstat.py
 chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh
 chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/socactl
 chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/edhctl
@@ -89,11 +89,15 @@ chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/
 # Install SOCA Cache
 {% include "templates/linux/cache_client.sh.j2" %}
 
-# Wait until all parameters have been added to CDK
-while ! aws_cli ssm get-parameter --name "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed" > /dev/null 2>&1; do
-    log_info "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed not found on SSM, CDK & CloudFormation are probably still in creation, waiting a little longer"
-    sleep 120
-done
+# Block until the BulkSSMWriter CustomResources have flipped cdk_completed
+# to "true". Without this, any later read from the SSM tree (including
+# the j2generator renders further down) may see a half-populated tree
+# and fail with misleading `Detected None` errors.
+# wait_for_ssm_sentinel is defined in templates/linux/common/wait_for_ssm_sentinel.sh.j2
+# (included transitively via common.sh.j2 near the top of this script).
+# It uses aws_cli --no-cache to bypass the ElastiCache response cache --
+# a cached empty value here would starve the wait indefinitely.
+wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
 
 # Mount Filesystems - Reboot may be needed for Lustre Client
 /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh" >> "${EDH_BOOTSTRAP_LOGS_FOLDER}/filesystems_mount.log" 2>&1
@@ -114,6 +118,7 @@ chmod -R 600 /apps/edh/{{ context.get("/configuration/ClusterId") }}/
 ln -sf /apps/edh /apps/soca
 
 log_info "Generating ${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup.sh from ${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup.sh.j2"
+
 /bin/bash /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh --get-template "03_setup.sh.j2" \
     --output-file "${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup.sh" \
     --ssm-key "/" \
@@ -126,6 +131,14 @@ log_info "Generating ${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup.sh from ${EDH_BOOTS
 log_info "Generate the final setup scripts for Login Node, this cannot be done during CDK deployment as not all variables are known"
 /bin/bash /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh --get-template "compute_node/02_setup.sh.j2" \
     --output-file "s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/config/do_not_delete/bootstrap/login_node/02_setup.sh" \
+    --ssm-key "/" \
+    --add-value "KEY=/job/NodeType VALUE=login_node TYPE=str" \
+    --add-value "KEY=/job/BaseOS VALUE={{ context.get("/job/BaseOS") }} TYPE=str" \
+    --add-value "KEY=/job/BoostrapPath VALUE=/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/login_node TYPE=str" \
+    --template-dirs "/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/"
+
+/bin/bash /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh --get-template "compute_node/03_setup_post_reboot.sh.j2" \
+    --output-file "s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/config/do_not_delete/bootstrap/login_node/03_setup_post_reboot.sh" \
     --ssm-key "/" \
     --add-value "KEY=/job/NodeType VALUE=login_node TYPE=str" \
     --add-value "KEY=/job/BaseOS VALUE={{ context.get("/job/BaseOS") }} TYPE=str" \

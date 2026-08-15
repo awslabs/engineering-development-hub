@@ -25,6 +25,7 @@ from models import (
 from extensions import db
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.error import SocaError
+from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 from utils.http_client import SocaHttpClient
 from flask import request
@@ -63,11 +64,16 @@ def get_authorized_target_node_software_stacks(
             f"Retrieving associated TargetNodeSoftwareStacks for {allowed_project_ids} with {excluded_columns=}"
         )
         if stack_ids:
+            _int_stack_ids = []
+            for _s in stack_ids:
+                _c = SocaCastEngine(data=_s).cast_as(int)
+                if _c.get("success") is True:
+                    _int_stack_ids.append(_c.get("message"))
             target_node_software_stacks = (
                 TargetNodeSoftwareStacks.query.join(TargetNodeSoftwareStacks.projects)
                 .filter(
                     Projects.id.in_(allowed_project_ids),
-                    TargetNodeSoftwareStacks.id.in_(stack_ids),
+                    TargetNodeSoftwareStacks.id.in_(_int_stack_ids),
                     TargetNodeSoftwareStacks.is_active.is_(True),
                 )
                 .distinct()
@@ -109,11 +115,16 @@ def get_authorized_virtual_desktops_software_stacks(
         )
 
         if stack_ids:
+            _int_stack_ids = []
+            for _s in stack_ids:
+                _c = SocaCastEngine(data=_s).cast_as(int)
+                if _c.get("success") is True:
+                    _int_stack_ids.append(_c.get("message"))
             software_stacks_report = (
                 SoftwareStacks.query.join(SoftwareStacks.projects)
                 .filter(
                     Projects.id.in_(allowed_project_ids),
-                    SoftwareStacks.id.in_(stack_ids),
+                    SoftwareStacks.id.in_(_int_stack_ids),
                     SoftwareStacks.is_active.is_(True),
                 )
                 .distinct()
@@ -470,7 +481,7 @@ class GetUserResourcesPermissions(Resource):
         openapi: 3.1.0
         operationId: getUserResourcePermissionsAdmin
         tags:
-          - User
+          - User Permissions
         summary: Get resource permissions for a specific user
         description: Retrieves resource permissions for a specified user (admin access required)
         parameters:

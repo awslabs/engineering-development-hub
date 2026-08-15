@@ -1,0 +1,100 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# USB remotization allowlist boot hook (Linux DCV server).
+#
+# Installs a systemd oneshot ordered BEFORE dcvserver.service that fetches this
+# instance's effective USB device allowlist from the resolver HTTP API route and
+# writes /etc/dcv/usb-devices.conf, so the DCV server reads a fresh list on
+# every boot. Running before dcvserver on every boot is what gives the
+# "admin adds a device -> user reboots -> device appears" behavior without a
+# full re-provision.
+#
+# Auth: curl's native SigV4 (--aws-sigv4) using the instance role creds from
+# IMDSv2. The resolver reads the caller's instance-id from the attested SigV4
+# caller ARN, so a guest cannot fetch another instance's list. If the resolver
+# is not deployed (SSM URL absent) the hook is a silent no-op.
+#
+# USB remotization is a DCV device compatibility filter, NOT a security
+# boundary (AWS documents this).
+begin_usb_remotization_allowlist_hook() {
+  log_info "# Begin: USB remotization allowlist boot hook"
+
+  local FETCH_SCRIPT="/usr/local/sbin/edh_usb_allowlist_fetch.sh"
+  local UNIT_FILE="/etc/systemd/system/edh-usb-allowlist.service"
+
+  # --- fetch script (self-contained; runs from systemd on every boot) ---
+  cat > "${FETCH_SCRIPT}" <<'USBFETCH'
+#!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Fetch this instance's USB allowlist and write /etc/dcv/usb-devices.conf.
+# Best-effort: any failure leaves the existing file untouched and exits 0 so
+# it never blocks dcvserver startup.
+set -uo pipefail
+CONF="/etc/dcv/usb-devices.conf"
+IMDS="http://169.254.169.254/latest"
+
+TOKEN=$(curl -sS -X PUT "${IMDS}/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300" 2>/dev/null) || exit 0
+[ -n "${TOKEN}" ] || exit 0
+imds() { curl -sS -H "X-aws-ec2-metadata-token: ${TOKEN}" "${IMDS}/$1" 2>/dev/null; }
+
+REGION=$(imds "meta-data/placement/region"); [ -n "${REGION}" ] || exit 0
+
+# Resolver HTTP API route URL from SSM (AWS CLI signs with the instance role natively).
+URL=$(aws ssm get-parameter --region "${REGION}" \
+        --name "/edh/__CLUSTER_ID__/configuration/UsbAllowlistResolverUrl" \
+        --query "Parameter.Value" --output text 2>/dev/null || true)
+# Feature not deployed on this cluster -> no-op (do not touch the file).
+[ -n "${URL}" ] && [ "${URL}" != "None" ] || exit 0
+
+ROLE=$(imds "meta-data/iam/security-credentials/"); [ -n "${ROLE}" ] || exit 0
+CREDS=$(imds "meta-data/iam/security-credentials/${ROLE}"); [ -n "${CREDS}" ] || exit 0
+AKID=$(printf '%s' "${CREDS}" | grep -o '"AccessKeyId" : "[^"]*"' | cut -d'"' -f4)
+SECRET=$(printf '%s' "${CREDS}" | grep -o '"SecretAccessKey" : "[^"]*"' | cut -d'"' -f4)
+STOKEN=$(printf '%s' "${CREDS}" | grep -o '"Token" : "[^"]*"' | cut -d'"' -f4)
+[ -n "${AKID}" ] && [ -n "${SECRET}" ] && [ -n "${STOKEN}" ] || exit 0
+
+# SigV4-signed GET (service name "execute-api"). curl >= 7.75 has --aws-sigv4.
+BODY=$(curl -sS --fail --aws-sigv4 "aws:amz:${REGION}:execute-api" \
+         --user "${AKID}:${SECRET}" \
+         -H "x-amz-security-token: ${STOKEN}" \
+         "${URL}" 2>/dev/null) || exit 0
+
+# Write atomically (root-owned). Empty body == empty allowlist (DCV defaults).
+TMP=$(mktemp) || exit 0
+printf '%s' "${BODY}" > "${TMP}"
+install -m 0644 -o root -g root "${TMP}" "${CONF}" 2>/dev/null || true
+rm -f "${TMP}"
+exit 0
+USBFETCH
+
+  # Bake the cluster id into the fetch script (kept out of the raw heredoc).
+  sed -i "s|__CLUSTER_ID__|{{ context.get('/configuration/ClusterId') }}|g" "${FETCH_SCRIPT}"
+  chmod 0755 "${FETCH_SCRIPT}"
+  chown root:root "${FETCH_SCRIPT}"
+
+  # --- systemd unit ordered before dcvserver, run on every boot ---
+  cat > "${UNIT_FILE}" <<'USBUNIT'
+[Unit]
+Description=EDH USB remotization allowlist fetch (writes /etc/dcv/usb-devices.conf)
+Wants=network-online.target
+After=network-online.target
+Before=dcvserver.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/edh_usb_allowlist_fetch.sh
+RemainAfterExit=yes
+TimeoutStartSec=30
+[Install]
+WantedBy=multi-user.target
+USBUNIT
+
+  systemctl daemon-reload
+  systemctl enable edh-usb-allowlist.service 2>/dev/null || true
+  # Run once now so the file exists before dcvserver is started later in bootstrap.
+  systemctl start edh-usb-allowlist.service 2>/dev/null || true
+
+  log_info "# End: USB remotization allowlist boot hook"
+}
+begin_usb_remotization_allowlist_hook

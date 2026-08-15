@@ -1,0 +1,169 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <style>
+                    #bia-rows .bia-ami { white-space: nowrap; }
+                    #bia-rows .bia-ami code { font-size: 0.85em; }
+                    #bia-rows td { vertical-align: middle; }
+                    .bia-copy { cursor: pointer; opacity: 0.55; }
+                    .bia-copy:hover { opacity: 1; }
+                </style>
+
+                <div class="col-md-12">
+                    <div id="bia-banner" class="alert alert-secondary">
+                        {{ _("Loading Local Acceleration Mirror status...") }}
+                    </div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                {{ _("Local Acceleration Mirror -- Owned Base AMIs") }}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted">
+                                {{ _("Base AMIs copied into this account so snapshot capture is incremental and image ids survive AWS retiring the public bases. Copies run in the background; rows show the current state per base OS and architecture.") }}
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-bordered" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ _("Base OS") }}</th>
+                                            <th>{{ _("Arch") }}</th>
+                                            <th>{{ _("Status") }}</th>
+                                            <th>{{ _("Source AMI") }}</th>
+                                            <th>{{ _("Owned AMI") }}</th>
+                                            <th>{{ _("Source Owner") }}</th>
+                                            <th>{{ _("Source Deprecates") }}</th>
+                                            <th>{{ _("Copied At") }}</th>
+                                            <th>{{ _("Refs") }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bia-rows">
+                                        <tr><td colspan="9" class="text-center text-muted">{{ _("Loading...") }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    // Status -> Bootstrap badge. Mirrors the design's Accelerated/Copying/Fallback semantics.
+                    function biaBadge(status) {
+                        var map = {
+                            active: ["Accelerated", "bg-success"],
+                            copying: ["Copying", "bg-info"],
+                            pending: ["Pending", "bg-secondary"],
+                            failed: ["Fallback (failed)", "bg-danger"]
+                        };
+                        var v = map[status] || [status || "-", "bg-secondary"];
+                        return '<span class="badge ' + v[1] + '">' + v[0] + '</span>';
+                    }
+
+                    function biaEsc(s) {
+                        if (s === null || s === undefined) return "-";
+                        return String(s).replace(/[&<>"']/g, function (c) {
+                            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+                        });
+                    }
+
+                    // Copied At: drop fractional seconds; normalize the T separator.
+                    function biaTime(s) {
+                        if (!s) return "-";
+                        return biaEsc(String(s).replace(/\.\d+.*$/, "").replace("T", " "));
+                    }
+
+                    function biaCopy(text, el) {
+                        if (navigator.clipboard) { navigator.clipboard.writeText(text); }
+                        if (el) {
+                            var prev = el.className;
+                            el.className = "fa-solid fa-check bia-copy";
+                            setTimeout(function () { el.className = prev; }, 1200);
+                        }
+                    }
+
+                    // AMI cell: copy icon BEFORE the id, id itself links to the EC2 console. Single line.
+                    function biaAmi(id, region) {
+                        if (id === null || id === undefined) return "-";
+                        var safe = biaEsc(id);
+                        var url = "https://" + encodeURIComponent(region) +
+                            ".console.aws.amazon.com/ec2/home?region=" + encodeURIComponent(region) +
+                            "#ImageDetails:imageId=" + encodeURIComponent(id);
+                        return '<span class="bia-ami">' +
+                            '<i class="fa-regular fa-copy bia-copy" title="Copy" onclick="biaCopy(\'' + safe + '\', this)"></i> ' +
+                            '<a href="' + biaEsc(url) + '" target="_blank" rel="noopener noreferrer" title="Open in AWS console"><code>' + safe + '</code></a>' +
+                            '</span>';
+                    }
+
+                    function biaRender(data) {
+                        var banner = document.getElementById("bia-banner");
+                        if (data.enabled) {
+                            banner.className = "alert alert-success";
+                            banner.innerHTML = "{{ _('Acceleration ENABLED') }} &mdash; " +
+                                "{{ _('region') }} <strong>" + biaEsc(data.region) + "</strong>";
+                        } else {
+                            banner.className = "alert alert-warning";
+                            banner.innerHTML = "{{ _('Acceleration DISABLED (fallback to AWS base AMIs)') }} &mdash; " +
+                                "{{ _('region') }} <strong>" + biaEsc(data.region) + "</strong>. " +
+                                "{{ _('Enable via edhctl config set /edh/&lt;cluster&gt;/configuration/BaseImageAcceleration/Enabled true') }}";
+                        }
+                        var body = document.getElementById("bia-rows");
+                        var rows = data.rows || [];
+                        if (!rows.length) {
+                            body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">' +
+                                "{{ _('No base images tracked yet.') }}" + '</td></tr>';
+                            return;
+                        }
+                        body.innerHTML = rows.map(function (r) {
+                            return "<tr>" +
+                                "<td>" + biaEsc(r.base_os) + "</td>" +
+                                "<td>" + biaEsc(r.arch) + "</td>" +
+                                "<td>" + biaBadge(r.status) + (r.last_error ? ' <i class="fa-solid fa-circle-info" title="' + biaEsc(r.last_error) + '"></i>' : "") + "</td>" +
+                                "<td>" + biaAmi(r.source_ami_id, data.region) + "</td>" +
+                                "<td>" + biaAmi(r.owned_ami_id, data.region) + "</td>" +
+                                "<td>" + biaEsc(r.source_owner) + "</td>" +
+                                "<td>" + biaEsc(r.source_deprecation_time) + "</td>" +
+                                "<td>" + biaTime(r.copied_at) + "</td>" +
+                                "<td>" + biaEsc(r.ref_count) + "</td>" +
+                                "</tr>";
+                        }).join("");
+                    }
+
+                    function biaLoad() {
+                        fetch("/admin/virtual_desktops/base_image_acceleration/data", {credentials: "same-origin"})
+                            .then(function (r) { return r.json(); })
+                            .then(function (j) { biaRender(j.message || {}); })
+                            .catch(function () {
+                                document.getElementById("bia-banner").className = "alert alert-danger";
+                                document.getElementById("bia-banner").textContent = "{{ _('Failed to load acceleration status.') }}";
+                            });
+                    }
+
+                    document.addEventListener("DOMContentLoaded", function () {
+                        biaLoad();
+                        setInterval(biaLoad, 30000); // live-ish refresh while copies progress
+                    });
+                </script>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

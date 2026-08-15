@@ -102,10 +102,10 @@ def stop_instances(
             )
 
         try:
-            session.session_state = "stopped"
+            session.session_state = "stopping"
             session.session_state_latest_change_time = datetime.now(timezone.utc)
             db.session.commit()
-            logger.info(f"{session} stopped successfully")
+            logger.info(f"{session} stopping")
 
         except Exception as err:
             logger.error(

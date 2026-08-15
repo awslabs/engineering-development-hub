@@ -16,11 +16,14 @@ from flask_restful import Resource, reqparse
 import logging
 from models import db, TargetNodeSessions
 from utils.response import SocaResponse
+from utils.error import SocaError
+from decorators import private_api
 
 logger = logging.getLogger("soca_logger")
 
 
 class GetTargetNodeSessionState(Resource):
+    @private_api
     def get(self):
         """
         Get target node session states
@@ -32,22 +35,6 @@ class GetTargetNodeSessionState(Resource):
         summary: Retrieve the current state of target node sessions
         description: Returns the current state (pending, running, stopped, etc.) for one or more target node sessions
         parameters:
-          - name: X-EDH-USER
-            in: header
-            schema:
-              type: string
-              minLength: 1
-            required: true
-            description: SOCA username for authentication
-            example: john.doe
-          - name: X-EDH-TOKEN
-            in: header
-            schema:
-              type: string
-              minLength: 1
-            required: true
-            description: SOCA authentication token
-            example: abc123token
           - name: session_uuid
             in: query
             schema:
@@ -79,8 +66,6 @@ class GetTargetNodeSessionState(Resource):
                         660e8400-e29b-41d4-a716-446655440001: stopped
           '400':
             description: Bad request - missing or invalid parameters
-          '401':
-            description: Authentication required
         """
         parser = reqparse.RequestParser()
         parser.add_argument("session_uuid", type=str, location="args")
@@ -89,6 +74,11 @@ class GetTargetNodeSessionState(Resource):
             f"Received parameter for listing target node session state: {args}"
         )
 
+        if not args.get("session_uuid"):
+            return SocaError.CLIENT_MISSING_PARAMETER(
+                parameter="session_uuid"
+            ).as_flask()
+        
         _sessions_uuid = args["session_uuid"].split(",")
         _session_results = {}
         for _session in _sessions_uuid:

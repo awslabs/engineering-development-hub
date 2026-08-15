@@ -4,10 +4,25 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
+    <style>
+        #jobsTable th.sortable { cursor: pointer; white-space: nowrap; }
+        #jobsTable th.sortable .fa-sort, #jobsTable th.sortable .fa-sort-up, #jobsTable th.sortable .fa-sort-down { opacity: .6; margin-left: .25rem; }
+        .gantt-wrap { overflow-x: auto; border: 1px solid #e3e6f0; border-radius: .35rem; padding: .5rem; }
+        .gantt-row { display: flex; align-items: center; height: 26px; }
+        .gantt-label { flex: 0 0 220px; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: .5rem; }
+        .gantt-track { position: relative; flex: 1 1 auto; height: 16px; background: #f8f9fc; border-radius: 3px; }
+        .gantt-bar { position: absolute; height: 14px; top: 1px; border-radius: 3px; min-width: 2px; }
+        .gantt-axis { display: flex; justify-content: space-between; font-size: .7rem; color: #858796; margin: .25rem 0 .25rem 220px; }
+        .state-RUNNING { background-color: #1cc88a; }
+        .state-QUEUED { background-color: #f6c23e; }
+        .state-FINISHED { background-color: #4e73df; }
+        .state-STOPPED { background-color: #e74a3b; }
+        .state-OTHER, .state-EXITING, .state-UNKNOWN { background-color: #858796; }
+    </style>
 </head>
 
 <body id="page-top">
@@ -21,411 +36,566 @@
                 <main role="main">
                     <div class="col-md-12">
                         <div class="card shadow mb-4">
-
                             <div class="card-body">
+
                                 <div class="py-3 d-flex justify-content-between align-items-center">
                                     <h3 class="mb-0" data-toggle="tooltip" data-placement="top"
-                                        title="List or submit your LSF, Slurm and/or OpenPBS/PBSPro jobs submitted. You can have multiple schedulers configured on the same EDH environment.">
-                                        My HPC Jobs <i class="fas fa-question-circle"></i></h3>
-
-
+                                        title="List or submit your LSF, Slurm and/or OpenPBS/PBSPro jobs. You can have multiple schedulers configured on the same EDH environment.">
+                                        {{ _("My HPC Jobs") }} <i class="fas fa-question-circle"></i></h3>
                                     <div class="d-flex ms-auto align-items-center">
-                                        <!-- Dropdown Button -->
+                                        <div class="btn-group btn-group-sm me-2" role="group">
+                                            <button type="button" class="btn btn-outline-primary active" id="view_table"><i class="fas fa-table"></i> {{ _("Table") }}</button>
+                                            <button type="button" class="btn btn-outline-primary" id="view_timeline"><i class="fas fa-stream"></i> {{ _("Timeline") }}</button>&nbsp;
+                                        </div>
                                         <div class="dropdown">
                                             <button class="btn btn-success dropdown-toggle" type="button"
-                                                    id="launchJobDropdown" data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                Launch a new Job
+                                                    id="launchJobDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                {{ _("Launch a new Job") }}
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end"
-                                                aria-labelledby="launchJobDropdown">
-                                                <li>
-                                                    <a class="dropdown-item" href="/submit_job">Via EDH Web Portal</a>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item" target="_blank"
+                                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="launchJobDropdown">
+                                                <li><a class="dropdown-item" href="/submit_job">{{ _("Via EDH Web Portal") }}</a></li>
+                                                <li><a class="dropdown-item" target="_blank"
                                                        href="https://awslabs.github.io/engineering-development-hub-documentation/tutorials/launch-your-first-job/">
-                                                        Via command line (CLI)
-                                                    </a>
-                                                </li>
+                                                    {{ _("Via command line (CLI)") }}</a></li>
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
-                                <form method="get" action="">
-                                    <div class="row g-3 align-items-end">
 
-                                        <div class="col-auto">
-                                            <label for="schedulerId" class="form-label">Scheduler ID</label>
-                                            <select class="form-control" id="scheduler_id" name="scheduler_id"
-                                                    style="width: 200px;">
-                                                <option value="all" selected>all</option>
-                                                {% for scheduler in scheduler_list %}
-                                                    <option value="{{ scheduler }}">{{ scheduler }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-
-                                        <div class="col-auto">
-                                            <label for="jobQueue" class="form-label">Job Queue</label>
-                                            <input class="form-control" type="text" id="queue" name="queue" size="10"
-                                                   value="">
-                                        </div>
-
-                                        <div class="col-auto">
-                                            <label for="username" class="form-label">User</label>
-                                            <input class="form-control" type="text" id="user" size="10" name="user">
-                                        </div>
-
-                                        <div class="col-auto">
-                                            <button type="submit" class="btn btn-primary"><i
-                                                    class="fas fa-filter me-1"></i> Filter
-                                            </button>
-                                            <a href="/my_jobs?scheduler_id=all&queue=&user={{ user }}">
-                                                <button class="btn btn-warning"><i class="fa-solid fa-user-tag"></i>
-                                                    View my jobs
-                                                </button>
-                                            </a>
-                                        </div>
-
+                                <!-- Toolbar: quick search + filter button + refresh -->
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-md-5">
+                                        <input type="text" id="quickSearch" class="form-control"
+                                               placeholder="{{ _('Search for a job (e.g. name, owner:alice, state:running, queue:normal)') }}" aria-controls="jobsTable">
                                     </div>
-                                    <br>
-                                </form>
-                                {% if not jobs %}
-                                    No jobs found.
-                                {% else %}
+                                    <div class="col-auto">
+                                        <button class="btn btn-sm btn-outline-primary position-relative" type="button" id="filterBtn" data-bs-toggle="modal" data-bs-target="#filterModal">
+                                            <i class="fas fa-sliders-h me-1"></i> {{ _("Filters") }}
+                                            <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle d-none text-white" id="filterBadge">0</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <br>
 
+                                <div id="schedErrors" class="alert alert-warning d-none"></div>
+                                <div id="cappedBanner" class="alert alert-info d-none"></div>
 
-
-                                    <table class="table align-middle">
+                                <!-- Table view -->
+                                <div id="tableView">
+                                    <table class="table align-middle" id="jobsTable">
                                         <thead class="table-dark">
                                         <tr>
-                                            <th> Scheduler</th>
-                                            <th>Id</th>
-                                            <th>Owner</th>
-                                            <th>Name</th>
-                                            <th>Queue</th>
-                                            <th>Status</th>
-                                            <th>Resources</th>
-                                            <th>Actions</th>
+                                            <th>{{ _("Scheduler") }}</th>
+                                            <th class="sortable" data-key="job_id">{{ _("Id") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_owner">{{ _("Owner") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_name">{{ _("Name") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_queue">{{ _("Queue") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_state">{{ _("Status") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_queue_time">{{ _("Submitted") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_start_time">{{ _("Started") }} <i class="fas fa-sort"></i></th>
+                                            <th class="sortable" data-key="job_end_time">{{ _("Ended") }} <i class="fas fa-sort"></i></th>
+                                            <th>{{ _("Duration") }}</th>
+                                            <th>{{ _("Resources") }}</th>
+                                            <th>{{ _("Actions") }}</th>
                                         </tr>
                                         </thead>
-                                        <tbody>
-                                        {% for job in jobs %}
-                                            <tr>
-                                                <td>
-                                                    {% if job.job_scheduler_info.provider == "lsf" %}
-                                                        {{ job.job_scheduler_info.identifier }}
-                                                        <span class="badge badge-dark">LSF</span>
-                                                    {% elif job.job_scheduler_info.provider == "slurm" %}
-                                                        {{ job.job_scheduler_info.identifier }}
-                                                        <span class="badge badge-primary">Slurm</span>
-                                                    {% elif job.job_scheduler_info.provider == "openpbs" %}
-                                                        {{ job.job_scheduler_info.identifier }}
-                                                        <span class="badge badge-info">OpenPBS</span>
-                                                    {% endif %}
-
-                                                </td>
-                                                <td> {{ job.job_id }} </td>
-                                                <td> {{ job.job_owner }} </td>
-                                                <td> {{ job.job_name }} </td>
-                                                <td> {{ job.job_queue }} </td>
-                                                <td>
-                                                    {% if job.job_state == "PENDING" %}
-                                                        <span class="badge badge-warning">PENDING</span>
-                                                    {% elif job.job_state == "RUNNING" %}
-                                                        <span class="badge badge-success">RUNNING</span>
-                                                    {% else %}
-                                                        <span class="badge badge-primary">{{ job.job_state }}</span>
-                                                    {% endif %}
-
-                                                    {% if job.job_state == "QUEUED" %}
-                                                        {% if job.job_provisioning_state in ["COMPUTE_PROVISIONING_IN_PROGRESS", "COMPUTE_PROVISIONING_COMPLETE"] %}
-                                                            <span class="badge badge-info">Capacity being provisioned</span>
-                                                        {% endif %}
-
-                                                        {% if job.job_provisioning_state in ["COMPUTE_PROVISIONING_BLOCKED", "COMPUTE_PROVISIONING_ERROR", "MAX_RETRY_ATTEMPTS_REACHED"] %}
-                                                            <span class="badge badge-danger">Capacity provisioning blocked</span>
-                                                        {% endif %}
-
-
-                                                        {% if job.error_message %}
-                                                            <span class="badge badge-warning" style="cursor: pointer;"
-                                                                  data-bs-toggle="modal"
-                                                                  data-bs-target="#error-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}">
-                                                                    <i class="fas fa-exclamation-triangle"></i> JOB CANNOT START
-                                                                </span>
-
-                                                            <div class="modal fade"
-                                                                 id="error-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}"
-                                                                 tabindex="-1" role="dialog"
-                                                                 aria-labelledby="exampleModalLabel" aria-hidden="true">
-                                                                <div class="modal-dialog" role="document">
-                                                                    <div class="modal-content">
-                                                                        <div class="modal-body">
-                                                                            <div class="alert alert-danger">
-                                                                                <strong>Attention: Your job cannot
-                                                                                    run</strong>
-                                                                            </div>
-
-                                                                            {{ job.error_message | replace("_"," ") }}
-                                                                            <hr>
-                                                                            Your job will stay in the queue until the
-                                                                            issue
-                                                                            is fixed.
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        {% endif %}
-
-                                                    {% endif %}
-
-                                                </td>
-                                                <td>
-                                                    {% if job.cpus is not none and job.nodes is not none %}
-                                                        {{ job.cpus }} vCPU{{ 's' if job.cpus > 1 else '' }} (
-                                                        {{ job.nodes }} node{{ 's' if job.nodes > 1 else '' }})
-                                                    {% else %}
-                                                        N/A
-                                                    {% endif %} </td>
-                                                <td>
-
-                                                    <div class="dropdown">
-                                                        <button class="btn dropdown-toggle" type="button"
-                                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                                            <i class="fa-solid fa-bars"></i>
-                                                        </button>
-                                                        <ul class="dropdown-menu">
-                                                            <li>
-                                                                <a onclick="setAutoRefreshState(false);" class="dropdown-item" style="cursor: pointer"
-                                                                   data-bs-toggle="modal"
-                                                                   data-bs-target="#job-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}"><i
-                                                                        class="fa-solid fa-magnifying-glass"></i> Job
-                                                                    Info</a>
-                                                                <a class="dropdown-item"
-                                                                   style="cursor: pointer; color:#858796"
-                                                                   target="_blank" rel="noopener,noreferrer"
-                                                                   href="/file_explorer?path={{ job.job_working_directory }}"><i
-                                                                        class="fa-solid fa-up-right-from-square"></i>
-                                                                    Job Directory</a>
-                                                                {% if job.job_owner == user %}
-                                                                    {% if job.job_state not in ["FINISHED"] %}
-
-                                                                        <a class="dropdown-item" style="cursor: pointer"
-                                                                           data-bs-toggle="modal"
-                                                                           data-bs-target="#delete-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}"><i
-                                                                                class="fa-solid fa-trash-can"></i>
-                                                                            Delete Job </a>
-
-                                                                    {% else %}
-                                                                        <a class="dropdown-item"
-                                                                           style="color: #b3bcc5 !important;"
-                                                                           data-toggle="tooltip" data-placement="top"
-                                                                           title="Job is finished or in invalid state"><i
-                                                                                class="fa-solid fa-trash-can"></i>
-                                                                            Delete Job </a>
-                                                                    {% endif %}
-                                                                {% else %}
-                                                                    <a class="dropdown-item"
-                                                                       style="color: #b3bcc5 !important;"
-                                                                       data-toggle="tooltip" data-placement="top"
-                                                                       title="You are not the job owner"><i
-                                                                            class="fa-solid fa-trash-can"></i> Delete
-                                                                        Job </a>
-                                                                {% endif %}
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-
-                                                    {% if job.job_owner == user and  job.job_state not in ["FINISHED"] %}
-                                                        <!-- Modal Delete -->
-                                                        <div class="modal fade"
-                                                             id="delete-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}"
-                                                             tabindex="-1" role="dialog"
-                                                             aria-labelledby="exampleModalLabel" aria-hidden="true">
-                                                            <div class="modal-dialog" role="document">
-                                                                <div class="modal-content">
-                                                                    <div class="modal-header">
-                                                                        <h5 class="modal-title">Entering the Danger
-                                                                            Zone</h5>
-                                                                        <button type="button" class="close"
-                                                                                data-bs-dismiss="modal"
-                                                                                aria-label="Close">
-                                                                            <span aria-hidden="true">&times;</span>
-                                                                        </button>
-                                                                    </div>
-                                                                    <div class="modal-body container">
-                                                                        <div class="alert alert-danger">
-                                                                            <strong>Attention</strong> <br>
-                                                                            You are about to remove this job from the
-                                                                            queue. Any
-                                                                            logs/output created by this job may be lost
-                                                                            if not
-                                                                            copied to a persistent storage.
-                                                                            This action cannot be reversed.
-                                                                        </div>
-                                                                        <a href="/my_jobs/delete?job_id={{ job.job_id }}&scheduler_id={{ job.job_scheduler_info.identifier }}">
-                                                                            <button type="button"
-                                                                                    class="btn btn-danger form-control">
-                                                                                Delete
-                                                                                job {{ job.job_id }}</button>
-                                                                        </a>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <!-- End -->
-                                                    {% endif %}
-
-                                                    <!-- Modal Info -->
-                                                    <div class="modal fade"
-                                                         id="job-{{ job.job_scheduler_info.identifier }}-{{ job.job_id }}"
-                                                         tabindex="-1"
-                                                         role="dialog" aria-labelledby="exampleModalLabel"
-                                                         aria-hidden="true">
-                                                        <div class="modal-dialog modal-fullscreen" role="document">
-                                                            <div class="modal-content modal-fullscreen">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title">Job {{ job.job_id }}</h5>
-                                                                    <button type="button" class="close"
-                                                                            data-bs-dismiss="modal"
-                                                                            aria-label="Close">
-                                                                        <span aria-hidden="true">&times;</span>
-                                                                    </button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    <div class="table-responsive"></div>
-                                                                    <table class="table table-striped">
-                                                                        <tbody>
-                                                                        {% for k,v in job.items() %}
-                                                                            <tr>
-                                                                                <th>{{ k }}</th>
-                                                                                <td>{{ v }}</td>
-                                                                            </tr>
-                                                                        {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-
-                                                                <div class="modal-footer">
-                                                                    <button type="button"
-                                                                            onclick="setAutoRefreshState(true);"
-                                                                            class="btn btn-secondary"
-                                                                            data-bs-dismiss="modal">Close
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <!-- End -->
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-
-                                        </tbody>
+                                        <tbody id="jobsBody"></tbody>
                                     </table>
-                                {% endif %}
+                                </div>
 
-                                <div class="card-footer py-3 d-flex justify-content-end align-items-center">
-                                    <div class="d-flex ms-auto align-items-center">
-                                        <div class="col-auto">
-                                            <button type="button" id="refreshButton" class="btn btn-sm btn-secondary"
-                                                    onclick="manualRefresh()">
-                                                <i class="fas fa-sync-alt me-1"></i> Refresh (<span
-                                                    id="countdown">120</span>s)
-                                            </button>
-                                            <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger"
-                                                    onclick="toggleAutoRefresh()">Disable Auto-Refresh
-                                            </button>
-                                        </div>
-                                    </div>
+                                <!-- Timeline (Gantt) view -->
+                                <div id="timelineView" class="d-none">
+                                    <div class="gantt-axis"><span id="ganttStart"></span><span id="ganttEnd"></span></div>
+                                    <div class="gantt-wrap" id="ganttWrap"></div>
+                                </div>
 
+                                <div class="d-flex justify-content-end mt-2">
+                                    <button type="button" id="refreshButton" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-sync-alt me-1"></i> {{ _("Refresh") }} (<span id="countdown">120</span>s)</button>&nbsp;
+                                    <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger ms-1">{{ _("Disable Auto-Refresh") }}</button>
                                 </div>
 
                             </div>
                         </div>
                     </div>
-
                 </main>
             </div>
         </div>
     </div>
-
 </div>
 
-<a class="scroll-to-top rounded" href="#page-top">
-    <i class="fas fa-angle-up"></i>
-</a>
-{% include 'common/footer.html' %}
-<script>
-    $(document).ready(function () {
-        // enable tooltip
-        $(function () {
-            $('[data-toggle="tooltip"]').tooltip()
-        })
-    })
-</script>
-<script>
-    let refreshInterval = 120; // seconds
-    let counter = refreshInterval;
-    let autoRefreshEnabled = true;
-    let countdownElement = document.getElementById('countdown');
-    let toggleButton = document.getElementById('toggleAuto');
-    let timer;
+<!-- Filters modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ _("Filters") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{{ _("Time range") }}</label>
+                    <select class="form-control form-control-sm" id="f_range">
+                        <option value="24h">{{ _("Last 24h") }}</option>
+                        <option value="72h">{{ _("Last 72h") }}</option>
+                        <option value="7d">{{ _("Last 7d") }}</option>
+                        <option value="30d">{{ _("Last 30d") }}</option>
+                        <option value="custom">{{ _("Custom") }}</option>
+                    </select>
+                </div>
+                <div class="mb-3 d-none" id="custom_range">
+                    <label class="form-label">{{ _("From / To") }}</label>
+                    <div class="d-flex">
+                        <input class="form-control form-control-sm" type="datetime-local" id="f_since">
+                        <input class="form-control form-control-sm ms-1" type="datetime-local" id="f_until">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="f_finished"
+                               {% if include_finished_default %}checked{% endif %}>
+                        <label class="form-check-label" for="f_finished">{{ _("Include finished") }}</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _("Scheduler") }}</label>
+                    <select class="form-control form-control-sm" id="f_scheduler">
+                        <option value="all" selected>{{ _("all") }}</option>
+                        {% for scheduler in scheduler_list %}
+                            <option value="{{ scheduler }}">{{ scheduler }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _("Queue") }}</label>
+                    <select class="form-control form-control-sm" id="f_queue">
+                        <option value="">{{ _("any") }}</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _("Owner") }}</label>
+                    <div class="d-flex align-items-center">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="scope">
+                            <button type="button" class="btn btn-outline-primary active" id="scope_mine">{{ _("Mine") }}</button>
+                            <button type="button" class="btn btn-outline-primary" id="scope_all">{{ _("All") }}</button>
+                        </div>
+                        <input class="form-control form-control-sm ms-2" type="text" id="f_user"
+                               placeholder="{{ _('user') }}" style="width: 140px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                <button type="button" class="btn btn-primary btn-sm" id="applyFilters" data-bs-dismiss="modal">
+                    <i class="fas fa-filter me-1"></i> {{ _("Apply") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- Job Info modal -->
+<div class="modal fade" id="jobInfoModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="jobInfoTitle">Job</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-striped"><tbody id="jobInfoBody"></tbody></table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="setAutoRefreshState(true);">{{ _("Close") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="errorModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ _("Job Cannot Start") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body" id="errorModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ _("Close") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ _("Delete Job") }}</h5>
+                <button type="button" class="close btn-close-white" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>{{ _("You are about to delete job") }} <strong id="deleteJobId"></strong>.</p>
+                <div class="alert alert-danger">
+                    {{ _("This action cannot be undone.") }}
+                    <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="deleteConfirmCheck"
+                           onchange="document.getElementById('deleteConfirmBtn').disabled = !this.checked;">
+                    <label class="form-check-label" for="deleteConfirmCheck">{{ _("I confirm I want to delete this job") }}</label>
+                </div>
+            </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                <button type="button" class="btn btn-danger" id="deleteConfirmBtn" disabled>
+                    <i class="fas fa-trash-can me-1"></i>{{ _("Delete Job") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+{% include 'common/footer.html' %}
+
+<script>
+    const CURRENT_USER = {{ current_user | tojson }};
+    const DEFAULT_WINDOW = {{ default_window | tojson }};
+    const INCLUDE_FINISHED_DEFAULT = {{ include_finished_default | tojson }};
+
+    let JOBS = [];            // last loaded, scope-enforced job set
+    let scopeMode = "mine";   // mine | all
+    let sortKey = "job_queue_time";
+    let sortDir = -1;         // -1 desc, 1 asc
+    let currentView = "table";
+    let refreshInterval = 120, counter = 120, autoRefreshEnabled = true, timer = null;
+    let fetchInFlight = false;
+
+    function windowToSince(range) {
+        const now = Math.floor(Date.now() / 1000);
+        const map = { "24h": 86400, "72h": 259200, "7d": 604800, "30d": 2592000 };
+        return map[range] ? now - map[range] : null;
+    }
+
+    function buildQuery() {
+        const p = new URLSearchParams();
+        p.set("scheduler_id", document.getElementById("f_scheduler").value || "all");
+        // queue is filtered client-side (see visibleJobs); not sent to the server
+
+        // scope -> user param. mine=self, all=empty (subject to server-side ceiling), or explicit user text
+        const userText = document.getElementById("f_user").value.trim();
+        if (userText) p.set("user", userText);
+        else if (scopeMode === "mine") p.set("user", CURRENT_USER);
+        else p.set("user", "");  // all (server enforces the ceiling)
+
+        if (document.getElementById("f_finished").checked) p.set("include_finished", "true");
+
+        const range = document.getElementById("f_range").value;
+        if (range === "custom") {
+            const s = document.getElementById("f_since").value;
+            const u = document.getElementById("f_until").value;
+            if (s) p.set("since", Math.floor(new Date(s).getTime() / 1000));
+            if (u) p.set("until", Math.floor(new Date(u).getTime() / 1000));
+        } else {
+            const since = windowToSince(range);
+            if (since !== null) p.set("since", since);
+        }
+        return p.toString();
+    }
+
+    async function fetchData() {
+        if (fetchInFlight) return;
+        fetchInFlight = true;
+        counter = refreshInterval;
+        try {
+            const resp = await fetch(`/my_jobs/data?${buildQuery()}`, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            const body = await resp.json();
+            const msg = (body && body.message) ? body.message : {};
+            JOBS = (msg && msg.jobs) ? msg.jobs : [];
+            renderSchedErrors(msg.scheduler_errors || []);
+            renderCapped(msg);
+            rebuildQueueOptions();
+            render();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            fetchInFlight = false;
+        }
+    }
+
+    function renderSchedErrors(errs) {
+        const el = document.getElementById("schedErrors");
+        if (errs && errs.length) {
+            el.textContent = "{{ _('Unable to retrieve jobs for scheduler(s):') }} " + errs.join(", ");
+            el.classList.remove("d-none");
+        } else { el.classList.add("d-none"); }
+    }
+
+    function renderCapped(body) {
+        const el = document.getElementById("cappedBanner");
+        if (body && body.capped) {
+            el.textContent = `{{ _('Showing the most recent') }} ${body.max_rows} {{ _('finished jobs - narrow the time range to see older ones.') }}`;
+            el.classList.remove("d-none");
+        } else { el.classList.add("d-none"); }
+    }
+
+    // ---- quick search (free text + owner:/state:/queue: tokens) ----
+    function rebuildQueueOptions() {
+        const sel = document.getElementById("f_queue");
+        const cur = sel.value;
+        const queues = Array.from(new Set(JOBS.map(j => j.job_queue).filter(Boolean))).sort();
+        sel.innerHTML = `<option value="">{{ _('any') }}</option>` +
+            queues.map(q => `<option value="${esc(q)}">${esc(q)}</option>`).join("");
+        sel.value = (cur && queues.includes(cur)) ? cur : "";
+    }
+    function parseSearch(raw) {
+        const tokens = { text: [], owner: null, state: null, queue: null };
+        raw.trim().split(/\s+/).forEach(part => {
+            if (!part) return;
+            const m = part.match(/^(owner|state|queue):(.+)$/i);
+            if (m) tokens[m[1].toLowerCase()] = m[2].toLowerCase();
+            else tokens.text.push(part.toLowerCase());
+        });
+        return tokens;
+    }
+
+    function matchesSearch(job, t) {
+        if (t.owner && !(job.job_owner || "").toLowerCase().includes(t.owner)) return false;
+        if (t.state && !(job.job_state || "").toLowerCase().includes(t.state)) return false;
+        if (t.queue && !(job.job_queue || "").toLowerCase().includes(t.queue)) return false;
+        if (t.text.length) {
+            const hay = [job.job_id, job.job_owner, job.job_name, job.job_queue, job.job_state,
+                (job.job_scheduler_info || {}).identifier].join(" ").toLowerCase();
+            return t.text.every(w => hay.includes(w));
+        }
+        return true;
+    }
+
+    function visibleJobs() {
+        const t = parseSearch(document.getElementById("quickSearch").value || "");
+        const qFilter = document.getElementById("f_queue").value;
+        let rows = JOBS.filter(j => matchesSearch(j, t) && (!qFilter || j.job_queue === qFilter));
+        rows.sort((a, b) => {
+            let av = a[sortKey], bv = b[sortKey];
+            const aN = (av === null || av === undefined || av === "");
+            const bN = (bv === null || bv === undefined || bv === "");
+            if (aN && bN) return 0;
+            if (aN) return 1;   // nulls always sort last, regardless of direction
+            if (bN) return -1;
+            if (typeof av === "number" || typeof bv === "number") return (Number(av) - Number(bv)) * sortDir;
+            return String(av).localeCompare(String(bv)) * sortDir;
+        });
+        return rows;
+    }
+
+    // ---- formatting ----
+    function fmtTime(epoch) {
+        if (!epoch) return "-";
+        try { return new Date(epoch * 1000).toLocaleString(); } catch (e) { return "-"; }
+    }
+    function fmtDuration(job) {
+        const s = job.job_start_time, e = job.job_end_time || Math.floor(Date.now() / 1000);
+        if (!s) return "-";
+        let d = Math.max(0, e - s);
+        const h = Math.floor(d / 3600); d -= h * 3600;
+        const m = Math.floor(d / 60); const sec = d - m * 60;
+        return `${h}h ${m}m ${sec}s`;
+    }
+    function stateBadge(state, job) {
+        const s = (state || "").toUpperCase().replace(/[^A-Z_]/g, "");
+        const cls = { RUNNING: "bg-success text-white", QUEUED: "bg-warning text-dark", FINISHED: "bg-primary text-white", STOPPED: "bg-danger text-white" }[s] || "bg-primary text-white";
+        let html = `<span class="badge ${cls}">${s || "?"}</span>`;
+        if (s === "QUEUED" && job.job_compute_node && job.job_compute_node !== "tbd") {
+            html += ` <span class="badge bg-info text-white"><i class="fas fa-spinner fa-spin me-1"></i> Capacity being provisioned</span>`;
+        }
+        const errMsg = job.error_message;
+        if (errMsg && String(errMsg).trim()) {
+            const errText = String(errMsg).replace(/_/g, " ");
+            html += ` <span class="badge bg-danger text-white" style="cursor:pointer" onclick="showErrorModal(this)" data-errors="${esc(errText)}"><i class="fas fa-exclamation-triangle me-1"></i> Job Cannot Start</span>`;
+        }
+        return html;
+    }
+    function providerBadge(provider) {
+        const p = (provider || "").toLowerCase();
+        const map = { lsf: ["LSF", "badge-dark"], slurm: ["Slurm", "badge-primary"], openpbs: ["OpenPBS", "badge-info"], pbspro: ["PBS Pro", "badge-info"] };
+        const info = map[p] || [p.toUpperCase().replace(/[^A-Z0-9]/g, ""), "badge-primary"];
+        return `<span class="badge ${info[1]}">${esc(info[0])}</span>`;
+    }
+    function esc(v) { return (v === null || v === undefined) ? "" : String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+    // ---- table render ----
+    function render() { currentView === "timeline" ? renderGantt() : renderTable(); }
+
+    function renderTable() {
+        const rows = visibleJobs();
+        const body = document.getElementById("jobsBody");
+        if (!rows.length) { body.innerHTML = `<tr><td colspan="12">{{ _('No jobs found.') }}</td></tr>`; return; }
+        body.innerHTML = rows.map((j, i) => {
+            const sched = (j.job_scheduler_info || {});
+            const canDelete = (j.job_owner === CURRENT_USER) && ((j.job_state || "").toUpperCase() !== "FINISHED");
+            const res = (j.cpus != null && j.nodes != null)
+                ? `${j.cpus} vCPU${j.cpus > 1 ? "s" : ""} (${j.nodes} node${j.nodes > 1 ? "s" : ""})` : "N/A";
+            const del = canDelete
+                ? `<a class="dropdown-item text-body" style="cursor:pointer" onclick="confirmDelete(${i})"><i class="fa-solid fa-trash-can"></i> {{ _('Delete Job') }}</a>`
+                : `<a class="dropdown-item disabled text-muted"><i class="fa-solid fa-trash-can"></i> {{ _('Delete Job') }}</a>`;
+            return `<tr>
+                <td>${esc(sched.identifier || "")} ${providerBadge(sched.provider)}</td>
+                <td>${esc(j.job_id)}</td>
+                <td>${esc(j.job_owner)}</td>
+                <td>${esc(j.job_name)}</td>
+                <td>${esc(j.job_queue)}</td>
+                <td>${stateBadge(j.job_state, j)}</td>
+                <td>${fmtTime(j.job_queue_time)}</td>
+                <td>${fmtTime(j.job_start_time)}</td>
+                <td>${fmtTime(j.job_end_time)}</td>
+                <td>${fmtDuration(j)}</td>
+                <td>${esc(res)}</td>
+                <td>
+                    <div class="dropdown">
+                        <button class="btn btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="fa-solid fa-bars"></i></button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item text-body" style="cursor:pointer" onclick="showJobInfo(${i})"><i class="fa-solid fa-magnifying-glass"></i> {{ _('Job Info') }}</a></li>
+                            <li><a class="dropdown-item text-body" target="_blank" rel="noopener,noreferrer" href="/file_explorer?path=${encodeURIComponent(j.job_working_directory || '')}"><i class="fa-solid fa-up-right-from-square"></i> {{ _('Job Directory') }}</a></li>
+                            <li>${del}</li>
+                        </ul>
+                    </div>
+                </td></tr>`;
+        }).join("");
+    }
+
+    function showJobInfo(visibleIndex) {
+        setAutoRefreshState(false);
+        const rows = visibleJobs();
+        const j = rows[visibleIndex];
+        if (!j) return;
+        document.getElementById("jobInfoTitle").textContent = "Job " + (j.job_id || "");
+        document.getElementById("jobInfoBody").innerHTML = Object.keys(j).sort().map(k =>
+            `<tr><th style="width:280px">${esc(k)}</th><td>${esc(typeof j[k] === "object" ? JSON.stringify(j[k]) : j[k])}</td></tr>`).join("");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("jobInfoModal")).show();
+    }
+
+    function showErrorModal(btn) {
+        const errText = btn.getAttribute("data-errors") || "";
+        document.getElementById("errorModalBody").innerHTML =
+            `<div class="alert alert-danger"><strong>{{ _("Attention: Your job cannot run") }}</strong></div>
+             <p>${esc(errText)}</p>
+             <hr>
+             <p class="text-muted mb-0">{{ _("Your job will stay in the queue until the issue is fixed.") }}</p>`;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("errorModal")).show();
+    }
+
+    // ---- gantt render ----
+    function confirmDelete(visibleIndex) {
+        const rows = visibleJobs();
+        const j = rows[visibleIndex];
+        if (!j) return;
+        const sched = j.job_scheduler_info || {};
+        document.getElementById("deleteJobId").textContent = j.job_id;
+        const confirmCheck = document.getElementById("deleteConfirmCheck");
+        const confirmBtn = document.getElementById("deleteConfirmBtn");
+        confirmCheck.checked = false;
+        confirmBtn.disabled = true;
+        confirmBtn.onclick = function () {
+            window.location.href = "/my_jobs/delete?job_id=" + encodeURIComponent(j.job_id)
+                + "&scheduler_id=" + encodeURIComponent(sched.identifier);
+        };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("deleteModal")).show();
+    }
+    function renderGantt() {
+        const rows = visibleJobs().filter(j => j.job_queue_time || j.job_start_time);
+        const wrap = document.getElementById("ganttWrap");
+        if (!rows.length) { wrap.innerHTML = `<div class="text-muted p-2">{{ _('No jobs to plot.') }}</div>`; return; }
+        const now = Math.floor(Date.now() / 1000);
+        let tmin = Infinity, tmax = -Infinity;
+        rows.forEach(j => {
+            const s = j.job_start_time || j.job_queue_time;
+            const e = j.job_end_time || now;
+            tmin = Math.min(tmin, s); tmax = Math.max(tmax, e);
+        });
+        const span = Math.max(1, tmax - tmin);
+        document.getElementById("ganttStart").textContent = fmtTime(tmin);
+        document.getElementById("ganttEnd").textContent = fmtTime(tmax);
+        wrap.innerHTML = rows.map(j => {
+            const s = j.job_start_time || j.job_queue_time;
+            const e = j.job_end_time || now;
+            const left = ((s - tmin) / span) * 100;
+            const width = Math.max(0.5, ((e - s) / span) * 100);
+            const st = (j.job_state || "OTHER").toUpperCase().replace(/[^A-Z_]/g, "");
+            const label = `${esc(j.job_id)} · ${esc(j.job_name || "")}`;
+            return `<div class="gantt-row" title="${esc(j.job_name || j.job_id)} [${st}] ${fmtTime(s)} → ${fmtTime(e)}">
+                <div class="gantt-label">${label}</div>
+                <div class="gantt-track"><div class="gantt-bar state-${st}" style="left:${left}%;width:${width}%"></div></div>
+            </div>`;
+        }).join("");
+    }
+
+    // ---- refresh loop (in-place, preserves controls/scroll/search) ----
+    function updateAutoRefreshButton() {
+        const b = document.getElementById("toggleAuto");
+        if (autoRefreshEnabled) { b.textContent = "{{ _('Disable Auto-Refresh') }}"; b.classList.remove("btn-outline-success"); b.classList.add("btn-outline-danger"); counter = refreshInterval; }
+        else { b.textContent = "{{ _('Enable Auto-Refresh') }}"; b.classList.remove("btn-outline-danger"); b.classList.add("btn-outline-success"); }
+    }
+    function setAutoRefreshState(s) { autoRefreshEnabled = s; updateAutoRefreshButton(); }
     function startCountdown() {
         timer = setInterval(() => {
-            if (!autoRefreshEnabled) return; // stop counting if disabled
+            if (!autoRefreshEnabled) return;
             counter--;
-            countdownElement.textContent = counter;
-            if (counter <= 0) {
-                window.location.reload();
-            }
+            document.getElementById("countdown").textContent = counter;
+            if (counter <= 0) { fetchData(); }
         }, 1000);
     }
 
-    function manualRefresh() {
-        window.location.reload();
+    function updateFilterBadge() {
+        let count = 0;
+        if (document.getElementById("f_range").value !== DEFAULT_WINDOW) count++;
+        if (document.getElementById("f_finished").checked !== INCLUDE_FINISHED_DEFAULT) count++;
+        if (document.getElementById("f_scheduler").value !== "all") count++;
+        if (document.getElementById("f_queue").value !== "") count++;
+        if (scopeMode !== "mine" || document.getElementById("f_user").value.trim()) count++;
+        const badge = document.getElementById("filterBadge");
+        if (count > 0) { badge.textContent = count; badge.classList.remove("d-none"); }
+        else { badge.classList.add("d-none"); }
     }
 
-
-    // Update various button attributes based on the currentState of the autoRefresh
-    function updateAutoRefreshButton(currentState) {
-        console.log(`updateAutoRefreshButton - Setting button params for state of ${currentState}`);
-        if (autoRefreshEnabled) {
-            toggleButton.textContent = 'Disable Auto-Refresh';
-            toggleButton.classList.remove('btn-outline-success');
-            toggleButton.classList.add('btn-outline-danger');
-            counter = refreshInterval; // reset counter
-        } else {
-            toggleButton.textContent = 'Enable Auto-Refresh';
-            toggleButton.classList.remove('btn-outline-danger');
-            toggleButton.classList.add('btn-outline-success');
+    document.addEventListener("DOMContentLoaded", function () {
+        $('[data-toggle="tooltip"]').tooltip && $('[data-toggle="tooltip"]').tooltip();
+        // range picker default from config
+        const rangeSel = document.getElementById("f_range");
+        if ([...rangeSel.options].some(o => o.value === DEFAULT_WINDOW)) rangeSel.value = DEFAULT_WINDOW;
+        rangeSel.addEventListener("change", () => {
+            document.getElementById("custom_range").classList.toggle("d-none", rangeSel.value !== "custom");
+        });
+        // scope toggle (inside filter modal - no auto-fetch, Apply button triggers fetch)
+        document.getElementById("scope_mine").addEventListener("click", () => { scopeMode = "mine"; document.getElementById("f_user").value = ""; setScopeActive(); });
+        document.getElementById("scope_all").addEventListener("click", () => { scopeMode = "all"; document.getElementById("f_user").value = ""; setScopeActive(); });
+        function setScopeActive() {
+            document.getElementById("scope_mine").classList.toggle("active", scopeMode === "mine");
+            document.getElementById("scope_all").classList.toggle("active", scopeMode === "all");
         }
-        console.log(`updateAutoRefreshButton - Button params for state of ${currentState} updated`);
-    }
-
-    // Set a specific state/status of the autoRefresh
-    function setAutoRefreshState(desiredState) {
-        console.log(`Setting autoRefreshState to ${desiredState}`);
-        autoRefreshEnabled = desiredState;
-        updateAutoRefreshButton(autoRefreshEnabled);
-
-    }
-
-    // Toggle the state to be inverse from the currentState
-    function toggleAutoRefresh() {
-        console.log(`Setting autoRefreshState - Currently ${autoRefreshEnabled}`);
-        autoRefreshEnabled = !autoRefreshEnabled;
-        console.log(`Setting autoRefreshState - Now ${autoRefreshEnabled}`);
-        updateAutoRefreshButton(autoRefreshEnabled);
-    }
-
-    // Start the countdown when the page loads
-    startCountdown();
+        document.getElementById("applyFilters").addEventListener("click", () => { fetchData(); updateFilterBadge(); });
+        document.getElementById("refreshButton").addEventListener("click", fetchData);
+        document.getElementById("toggleAuto").addEventListener("click", () => setAutoRefreshState(!autoRefreshEnabled));
+        document.getElementById("quickSearch").addEventListener("input", render);
+        // sort headers
+        document.querySelectorAll("#jobsTable th.sortable").forEach(th => th.addEventListener("click", () => {
+            const k = th.dataset.key;
+            if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; }
+            render();
+        }));
+        // view toggle
+        document.getElementById("view_table").addEventListener("click", () => { currentView = "table"; toggleView(); });
+        document.getElementById("view_timeline").addEventListener("click", () => { currentView = "timeline"; toggleView(); });
+        function toggleView() {
+            document.getElementById("tableView").classList.toggle("d-none", currentView !== "table");
+            document.getElementById("timelineView").classList.toggle("d-none", currentView !== "timeline");
+            document.getElementById("view_table").classList.toggle("active", currentView === "table");
+            document.getElementById("view_timeline").classList.toggle("active", currentView === "timeline");
+            render();
+        }
+        updateAutoRefreshButton();
+        startCountdown();
+        fetchData();
+    });
 </script>
 
 </body>
-
 </html>

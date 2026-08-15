@@ -1,0 +1,794 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    <link href="{{ url_for('static', filename='vendor/use-bootstrap-tag/use-bootstrap-tag.css') }}" rel="stylesheet" />
+    <style>
+    .status-success { color: #28a745; }
+    .status-denied { color: #dc3545; }
+    .status-error { color: #fd7e14; }
+    .filter-bar { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+    .audit-path { font-family: monospace; font-size: 0.85rem; }
+    .badge-method-GET { background-color: #28a745; }
+    .badge-method-POST { background-color: #007bff; }
+    .badge-method-PUT { background-color: #fd7e14; }
+    .badge-method-DELETE { background-color: #dc3545; }
+    </style>
+</head>
+
+<body id="page-top">
+{% include 'common/horizontal_menu_bar.html' %}
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                <!-- Active Tokens Management Card -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">{{ _("Active Tokens") }}</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-end mb-3">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control form-control-sm" id="tokenFilterUser" placeholder="{{ _('Enter username...') }}">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary btn-sm" onclick="loadActiveTokens()">
+                                    <i class="fas fa-search"></i> {{ _("Search") }}
+                                </button>
+                            </div>
+                        </div>
+                        <div id="activeTokensPrompt" class="text-center py-3 text-muted">
+                            <i class="fas fa-user fa-2x mb-2"></i>
+                            <p class="mb-0">{{ _("Enter a username above to view and manage their tokens.") }}</p>
+                        </div>
+                        <div id="activeTokensLoading" class="text-center py-3" style="display:none;">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        </div>
+                        <div id="activeTokensEmpty" class="text-center py-3 text-muted" style="display:none;">
+                            <p class="mb-0">{{ _("No active tokens found for this user.") }}</p>
+                        </div>
+                        <div class="table-responsive" id="activeTokensTableWrapper" style="display:none;">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{{ _("User") }}</th>
+                                        <th>{{ _("Name") }}</th>
+                                        <th>{{ _("Hint") }}</th>
+                                        <th>{{ _("Permissions") }}</th>
+                                        <th>{{ _("Expires") }}</th>
+                                        <th>{{ _("Last Used") }}</th>
+                                        <th>{{ _("Created") }}</th>
+                                        <th>{{ _("Actions") }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activeTokensBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">{{ _("Token Audit Log") }}</h3>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportCsv()">
+                            <i class="fas fa-download"></i> {{ _("Export CSV") }}
+                        </button>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- Filters -->
+                        <div class="filter-bar">
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("User") }}</label>
+                                    <input type="text" class="form-control form-control-sm soca-tagsearch" id="filterUser" data-endpoint="/api/ldap/users" data-value-field="username" data-label-field="display_name" placeholder="{{ _('Any user (type to search)') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("Path") }}</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterPath" placeholder="{{ _('substring, e.g. /dcv/') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small d-block">{{ _("Method") }}</label>
+                                    <div class="d-flex flex-wrap" style="gap:4px 6px;">
+                                        <span class="tri" data-group="method" data-value="GET" data-state="0">GET</span>
+                                        <span class="tri" data-group="method" data-value="POST" data-state="0">POST</span>
+                                        <span class="tri" data-group="method" data-value="PUT" data-state="0">PUT</span>
+                                        <span class="tri" data-group="method" data-value="DELETE" data-state="0">DELETE</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small d-block">{{ _("Status") }}</label>
+                                    <div class="d-flex flex-wrap" style="gap:4px 6px;">
+                                        <span class="tri" data-group="status" data-value="success" data-state="0">{{ _("Success") }}</span>
+                                        <span class="tri" data-group="status" data-value="denied" data-state="0">{{ _("Denied") }}</span>
+                                        <span class="tri" data-group="status" data-value="error" data-state="0">{{ _("Error") }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("From") }}</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" id="filterFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("To") }}</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" id="filterTo">
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("Token ID") }}</label>
+                                    <input type="number" class="form-control form-control-sm" id="filterTokenId" placeholder="{{ _('Any') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">{{ _("Results per page") }}</label>
+                                    <select class="form-control form-control-sm" id="filterLimit">
+                                        <option value="50">50</option>
+                                        <option value="100" selected>100</option>
+                                        <option value="250">250</option>
+                                        <option value="500">500</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <a class="small" data-bs-toggle="collapse" href="#advancedFilters" role="button" aria-expanded="false">
+                                    <i class="fas fa-sliders-h"></i> {{ _("Advanced filters") }}
+                                </a>
+                            </div>
+                            <div class="collapse" id="advancedFilters">
+                                <div class="row mt-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label small d-block">{{ _("Actor") }}</label>
+                                        <div class="filter-check-grid">
+                                            <span class="tri" data-group="actor" data-value="user" data-state="0">user</span>
+                                            <span class="tri" data-group="actor" data-value="service" data-state="0">service</span>
+                                            <span class="tri" data-group="actor" data-value="dcv-agent" data-state="0">dcv-agent</span>
+                                            <span class="tri" data-group="actor" data-value="rotation-probe" data-state="0">rotation-probe</span>
+                                            <span class="tri" data-group="actor" data-value="control-plane" data-state="0">control-plane</span>
+                                            <span class="tri" data-group="actor" data-value="anonymous" data-state="0">anonymous</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">{{ _("Source") }}</label>
+                                        <input type="text" class="form-control form-control-sm" id="filterSource" placeholder="{{ _('e.g. webui, !api, i-0abc') }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">{{ _("IP") }}</label>
+                                        <input type="text" class="form-control form-control-sm" id="filterIp" placeholder="{{ _('substring, e.g. 10.0') }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">{{ _("Reason") }}</label>
+                                        <input type="text" class="form-control form-control-sm" id="filterReason" placeholder="{{ _('e.g. not_sudoer, !path') }}">
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-12">
+                                        <label class="small text-muted mb-0" style="cursor:pointer;"><input type="checkbox" id="filterIncludeObo" checked> {{ _("Include on-behalf-of in User match (show internal/root calls made for the user)") }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-12 d-flex align-items-center">
+                                    <button class="btn btn-primary btn-sm" onclick="searchAuditLog()">
+                                        <i class="fas fa-filter"></i> {{ _("Apply Filters") }}
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" style="margin-left: 8px;">
+                                        <i class="fas fa-times"></i> {{ _("Reset") }}
+                                    </button>
+                                    <small class="text-muted" style="margin-left:14px;">{{ _("User/Path/Source/IP/Reason: multi-tag, prefix ! to exclude. Method/Status/Actor: click to cycle ✓ include → ✗ exclude → off.") }}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <style>
+                        .filter-bar .form-label { font-weight: 600; }
+                        .filter-check-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 10px; }
+                        .tri { cursor: pointer; user-select: none; display: inline-flex; align-items: center; font-size: 0.8125rem; line-height: 1.5; padding: 1px 7px; border: 1px solid #ced4da; border-radius: 4px; background: #fff; color: #212529; }
+                        .tri[data-state="1"] { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+                        .tri[data-state="2"] { background: #dc3545; border-color: #dc3545; color: #fff; }
+                        .tri[data-state="1"]::before { content: "\2713"; margin-right: 4px; }
+                        .tri[data-state="2"]::before { content: "\2717"; margin-right: 4px; }
+                        @keyframes auditFlashNew { 0% { background-color: rgba(40,167,69,0.35); } 100% { background-color: transparent; } }
+                        tr.audit-row-new { animation: auditFlashNew 1.6s ease-out; }
+                        tr.audit-row-denied > td { background-color: rgba(111,66,193,0.08); }
+                        tr.audit-row-4xx > td { background-color: rgba(255,193,7,0.10); }
+                        tr.audit-row-5xx > td { background-color: rgba(220,53,69,0.09); }
+                        @keyframes liveDotPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        #liveToggleBtn.btn-success i { animation: liveDotPulse 1.2s ease-in-out infinite; }
+                        </style>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" id="liveToggleBtn" onclick="toggleLive()">
+                                    <i class="far fa-circle"></i> {{ _("Live") }}
+                                </button>
+                                <small class="text-muted ml-4" id="auditSummary"></small>
+                                <label class="small text-muted mb-0 ml-4" style="cursor:pointer;"><input type="checkbox" id="maskIpToggle" checked onchange="renderAuditTable(currentEntries)"> {{ _("Mask Public IPs") }}</label>
+                            </div>
+                            <div id="paginationControls">
+                                <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn" onclick="prevPage()" disabled>
+                                    <i class="fas fa-chevron-left"></i> {{ _("Prev") }}
+                                </button>
+                                <span id="pageNumbers" class="mx-1"></span>
+                                <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn" onclick="nextPage()" disabled>
+                                    {{ _("Next") }} <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Loading -->
+                        <div id="auditLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="table-responsive" id="auditTableWrapper" style="display:none;">
+                            <table class="table table-sm table-hover align-middle" id="auditTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{{ _("Timestamp") }}</th>
+                                        <th>{{ _("User") }}</th>
+                                        <th>{{ _("Actor") }}</th>
+                                        <th>{{ _("Source") }}</th>
+                                        <th>{{ _("On behalf of") }}</th>
+                                        <th>{{ _("Token") }}</th>
+                                        <th>{{ _("Method") }}</th>
+                                        <th>{{ _("Path") }}</th>
+                                        <th>{{ _("Status") }}</th>
+                                        <th>{{ _("IP") }}</th>
+                                        <th>{{ _("Duration") }}</th>
+                                        <th>{{ _("Reason") }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditBody">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Empty state -->
+                        <div id="auditEmpty" class="text-center py-4 text-muted" style="display:none;">
+                            <i class="fas fa-clipboard-list fa-2x mb-2"></i>
+                            <p>{{ _("No audit log entries match your filters.") }}</p>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <a class="scroll-to-top rounded" href="#page-top">
+        <i class="fas fa-angle-up"></i>
+    </a>
+</div>
+
+<script>
+var currentOffset = 0;
+var currentTotal = 0;
+var currentEntries = [];
+var liveTimer = null;
+var liveMaxId = 0;
+var isLive = false;
+
+$(document).ready(function() {
+    if (typeof UseBootstrapTag === "function") {
+        ["filterPath", "filterSource", "filterIp", "filterReason"].forEach(function(id) {
+            var _el = document.getElementById(id);
+            if (_el && !_el._ubTagInstance) { _el._ubTagInstance = UseBootstrapTag(_el); }
+        });
+    }
+    loadAuditLog();
+    document.addEventListener("click", function(e) {
+        var t = e.target.closest ? e.target.closest(".tri") : null;
+        if (!t) return;
+        var s = (parseInt(t.getAttribute("data-state"), 10) + 1) % 3;
+        t.setAttribute("data-state", String(s));
+    });
+    $("#tokenFilterUser").on("keypress", function(e) {
+        if (e.which === 13) loadActiveTokens();
+    });
+});
+
+function maskIp(ip) {
+    if (!ip || ip === "-" || ip === "unknown") return ip || "-";
+    if (ip === "::1" || ip.indexOf("127.") === 0) return ip;
+    if (ip.indexOf(":") >= 0) {
+        var halves = ip.split("::");
+        var head = halves[0] ? halves[0].split(":") : [];
+        var tail = halves.length > 1 && halves[1] ? halves[1].split(":") : [];
+        while (head.length + tail.length < 8) head.push("0");
+        var h = head.concat(tail);
+        var h4 = ((parseInt(h[3], 16) || 0) & 0xff00).toString(16);
+        return h.slice(0, 3).join(":") + ":" + h4 + "::/56";
+    }
+    var o = ip.split(".");
+    if (o.length === 4) return o[0] + "." + o[1] + "." + o[2] + ".0/24";
+    return ip;
+}
+
+function triGroupValues(group) {
+    var out = [];
+    document.querySelectorAll('.tri[data-group="' + group + '"]').forEach(function(el) {
+        var s = el.getAttribute("data-state");
+        if (s === "1") out.push(el.getAttribute("data-value"));
+        else if (s === "2") out.push("!" + el.getAttribute("data-value"));
+    });
+    return out.join(",");
+}
+
+function tagFieldValue(id) {
+    var el = document.getElementById(id);
+    if (!el) return "";
+    if (el._ubTagInstance && el._ubTagInstance.getValues) {
+        return el._ubTagInstance.getValues().join(",");
+    }
+    return (el.value || "").trim();
+}
+
+function clearTagField(id) {
+    var el = document.getElementById(id);
+    if (el && el._ubTagInstance && el._ubTagInstance.getValues) {
+        var vs = el._ubTagInstance.getValues();
+        if (vs && vs.length) { el._ubTagInstance.removeValue(vs); }
+    } else if (el) {
+        el.value = "";
+    }
+}
+
+function getFilters() {
+    var params = {};
+    var user = tagFieldValue("filterUser");
+    var path = tagFieldValue("filterPath");
+    var method = triGroupValues("method");
+    var status = triGroupValues("status");
+    var actor = triGroupValues("actor");
+    var source = tagFieldValue("filterSource");
+    var ip = tagFieldValue("filterIp");
+    var reason = tagFieldValue("filterReason");
+    var from = $("#filterFrom").val();
+    var to = $("#filterTo").val();
+    var tokenId = $("#filterTokenId").val();
+    var limit = parseInt($("#filterLimit").val());
+
+    if (user) params.user = user;
+    if (path) params.path = path;
+    if (method) params.method = method;
+    if (status) params.status = status;
+    if (actor) params.actor = actor;
+    if (source) params.source = source;
+    if (ip) params.ip = ip;
+    if (reason) params.reason = reason;
+    if (from) params.from = new Date(from).toISOString();
+    if (to) params.to = new Date(to).toISOString();
+    if (tokenId) params.token_id = parseInt(tokenId);
+    if (!$("#filterIncludeObo").prop("checked")) params.include_obo = "false";
+    params.limit = limit;
+    params.offset = currentOffset;
+
+    return params;
+}
+
+function loadAuditLog() {
+    $("#auditLoading").show();
+    $("#auditTableWrapper").hide();
+    $("#auditEmpty").hide();
+
+    var params = getFilters();
+
+    $.ajax({
+        url: "/api/admin/audit",
+        type: "GET",
+        data: params,
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            $("#auditLoading").hide();
+            var result = data.message || {};
+            currentTotal = result.total || 0;
+            currentEntries = result.entries || [];
+
+            var limit = parseInt($("#filterLimit").val());
+            var showing = currentEntries.length;
+            var fromIdx = currentOffset + 1;
+            var toIdx = currentOffset + showing;
+
+            if (currentTotal === 0) {
+                $("#auditEmpty").show();
+                $("#auditSummary").text("No entries found.");
+                $("#pageNumbers").empty();
+            } else {
+                renderAuditTable(currentEntries);
+                $("#auditTableWrapper").show();
+                var totalPages = Math.max(1, Math.ceil(currentTotal / limit));
+                var pageNum = Math.floor(currentOffset / limit) + 1;
+                $("#auditSummary").text("Showing " + fromIdx + "-" + toIdx + " of " + currentTotal + " entries (Page " + pageNum + " of " + totalPages + ")");
+                renderPager(pageNum, totalPages);
+            }
+
+            $("#prevPageBtn").prop("disabled", currentOffset === 0);
+            $("#nextPageBtn").prop("disabled", (currentOffset + limit) >= currentTotal);
+        },
+        error: function(xhr) {
+            $("#auditLoading").hide();
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to load audit log") : "Failed to load audit log";
+            $("#auditEmpty").show().find("p").text(msg);
+        }
+    });
+}
+
+function auditRowHtml(e, isNew) {
+    var ts = new Date(e.timestamp);
+    var tsDisplay = ts.toLocaleDateString() + " " + ts.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'});
+
+    var methodBadge = '<span class="badge badge-method-' + escapeHtml(e.method) + ' text-white">' + escapeHtml(e.method) + '</span>';
+
+    var statusClass = "";
+    if (e.status_code < 400) statusClass = "status-success";
+    else if (e.status_code === 403) statusClass = "status-denied";
+    else if (e.status_code >= 500) statusClass = "status-error";
+
+    var tokenDisplay = escapeHtml(e.token_name || "-");
+    if (e.token_type && e.token_type !== "root") {
+        tokenDisplay += ' <span class="badge bg-secondary text-white">' + escapeHtml(e.token_type) + '</span>';
+    } else if (e.token_type === "root") {
+        tokenDisplay = '<span class="badge bg-dark">root</span>';
+    }
+
+    var durationDisplay = e.duration_ms != null ? e.duration_ms + "ms" : "-";
+    var durationTooltip = "";
+    var durationBar = "";
+    if (e.duration_ms != null && e.path_p99 != null) {
+        durationTooltip = ' data-toggle="tooltip" data-placement="top" title="P95: ' + e.path_p95 + 'ms / P99: ' + e.path_p99 + 'ms"';
+        var pct = Math.min(100, Math.round((e.duration_ms / e.path_p99) * 100));
+        var barColor = pct > 100 ? '#dc3545' : pct > 70 ? '#ffc107' : '#28a745';
+        durationBar = '<div style="height:3px;border-radius:2px;background:#e9ecef;margin-top:2px;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:2px;"></div></div>';
+    }
+    if (e.duration_ms != null && e.path_p99 != null && e.duration_ms > e.path_p99) {
+        durationDisplay = '<span class="text-danger fw-bold" data-toggle="tooltip" data-placement="top" title="Above P99 (' + e.path_p99 + 'ms)">⬤</span> ' + durationDisplay;
+    } else if (e.duration_ms != null && e.path_p95 != null && e.duration_ms > e.path_p95) {
+        durationDisplay = '<span class="text-warning" data-toggle="tooltip" data-placement="top" title="Above P95 (' + e.path_p95 + 'ms)">⬤</span> ' + durationDisplay;
+    }
+    var deniedDisplay = e.denied_reason || "";
+
+    var rowClass = "";
+    if (e.status_code === 403) rowClass = "audit-row-denied";
+    else if (e.status_code >= 500) rowClass = "audit-row-5xx";
+    else if (e.status_code >= 400) rowClass = "audit-row-4xx";
+    if (isNew) rowClass = (rowClass + " audit-row-new").trim();
+    var _maskIps = document.getElementById("maskIpToggle") ? document.getElementById("maskIpToggle").checked : true;
+    var _fromXff = e.via_ip && e.ip && e.ip !== e.via_ip;
+    var _ipShown = (_maskIps && _fromXff) ? maskIp(e.ip) : (e.ip || "-");
+    var _ipCell = '<td class="small" title="via ' + escapeHtml(e.via_ip || "-") + '">' + escapeHtml(_ipShown) + '</td>';
+    return '<tr' + (rowClass ? ' class="' + rowClass + '"' : '') + ' data-audit-id="' + (e.id || 0) + '">' +
+        '<td class="small">' + escapeHtml(tsDisplay) + '</td>' +
+        '<td>' + escapeHtml(e.user) + '</td>' +
+        '<td class="small">' + escapeHtml(e.actor_type || "-") + '</td>' +
+        '<td class="small">' + escapeHtml(e.source_ref || "-") + '</td>' +
+        '<td class="small">' + escapeHtml(e.on_behalf_of || "-") + '</td>' +
+        '<td>' + tokenDisplay + '</td>' +
+        '<td>' + methodBadge + '</td>' +
+        '<td class="audit-path">' + escapeHtml(e.path) + '</td>' +
+        '<td class="' + statusClass + '"><strong>' + e.status_code + '</strong></td>' +
+        _ipCell +
+        '<td class="small"' + durationTooltip + '>' + durationDisplay + durationBar + '</td>' +
+        '<td class="small text-danger">' + escapeHtml(deniedDisplay) + '</td>' +
+        '</tr>';
+}
+
+function updateLiveMaxId(entries) {
+    entries.forEach(function(e) { if ((e.id || 0) > liveMaxId) liveMaxId = e.id; });
+}
+
+function renderAuditTable(entries) {
+    var tbody = $("#auditBody");
+    tbody.empty();
+    entries.forEach(function(e) { tbody.append(auditRowHtml(e, false)); });
+    tbody.find('[data-toggle="tooltip"]').tooltip({delay: {show: 0, hide: 100}});
+    updateLiveMaxId(entries);
+}
+
+function gotoPage(n) {
+    var limit = parseInt($("#filterLimit").val());
+    currentOffset = Math.max(0, (n - 1) * limit);
+    loadAuditLog();
+}
+
+function renderPager(pageNum, totalPages) {
+    var $c = $("#pageNumbers");
+    $c.empty();
+    if (totalPages <= 1) return;
+    var win = 2;
+    var start = Math.max(1, pageNum - win);
+    var end = Math.min(totalPages, pageNum + win);
+    var pages = [];
+    if (start > 1) { pages.push(1); if (start > 2) pages.push("..."); }
+    for (var p = start; p <= end; p++) pages.push(p);
+    if (end < totalPages) { if (end < totalPages - 1) pages.push("..."); pages.push(totalPages); }
+    pages.forEach(function(p) {
+        if (p === "...") {
+            $c.append('<span class="mx-1 text-muted">&hellip;</span>');
+        } else {
+            var active = (p === pageNum);
+            var btn = $('<button type="button" class="btn btn-sm mx-1 ' + (active ? "btn-primary" : "btn-outline-secondary") + '"></button>').text(p);
+            if (active) { btn.prop("disabled", true); }
+            else { btn.on("click", (function(pp) { return function() { gotoPage(pp); }; })(p)); }
+            $c.append(btn);
+        }
+    });
+}
+
+function toggleLive() {
+    isLive = !isLive;
+    var $btn = $("#liveToggleBtn");
+    if (isLive) {
+        $btn.removeClass("btn-outline-secondary").addClass("btn-success");
+        $btn.html('<i class="fas fa-circle"></i> {{ _("Live") }}');
+        $("#paginationControls").hide();
+        pollLive();
+        liveTimer = setInterval(pollLive, 3000);
+    } else {
+        $btn.removeClass("btn-success").addClass("btn-outline-secondary");
+        $btn.html('<i class="far fa-circle"></i> {{ _("Live") }}');
+        if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+        $("#paginationControls").show();
+        loadAuditLog();
+    }
+}
+
+function pollLive() {
+    var params = getFilters();
+    params.offset = 0;
+    params.limit = 200;
+    params.since_id = liveMaxId;
+    $.ajax({
+        url: "/api/admin/audit",
+        type: "GET",
+        data: params,
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            var result = data.message || {};
+            var entries = (result.entries || []).slice().sort(function(a, b) { return (a.id || 0) - (b.id || 0); });
+            var tbody = $("#auditBody");
+            if (entries.length) {
+                $("#auditEmpty").hide();
+                $("#auditTableWrapper").show();
+                currentEntries = entries.slice().reverse().concat(currentEntries).slice(0, 500);
+                entries.forEach(function(e) {
+                    tbody.prepend(auditRowHtml(e, true));
+                    if ((e.id || 0) > liveMaxId) liveMaxId = e.id;
+                });
+                tbody.find('[data-toggle="tooltip"]').tooltip({delay: {show: 0, hide: 100}});
+                var $rows = tbody.find("tr");
+                if ($rows.length > 500) $rows.slice(500).remove();
+            }
+            $("#auditSummary").text("Live \u2014 tailing new entries (" + tbody.find("tr").length + " shown, newest on top)");
+        },
+        error: function(xhr) {
+            if ((xhr.status === 401 || xhr.status === 403) && isLive) { toggleLive(); }
+        }
+    });
+}
+
+function searchAuditLog() {
+    currentOffset = 0;
+    loadAuditLog();
+}
+
+function nextPage() {
+    var limit = parseInt($("#filterLimit").val());
+    currentOffset += limit;
+    loadAuditLog();
+}
+
+function prevPage() {
+    var limit = parseInt($("#filterLimit").val());
+    currentOffset = Math.max(0, currentOffset - limit);
+    loadAuditLog();
+}
+
+function resetFilters() {
+    clearTagField("filterUser");
+    clearTagField("filterPath");
+    clearTagField("filterSource");
+    clearTagField("filterIp");
+    clearTagField("filterReason");
+    $("#filterIncludeObo").prop("checked", true);
+    $(".filter-method, .filter-status, .filter-actor").prop("checked", false);
+    document.querySelectorAll(".tri").forEach(function(el) { el.setAttribute("data-state", "0"); });
+    $("#filterFrom").val("");
+    $("#filterTo").val("");
+    $("#filterTokenId").val("");
+    $("#filterLimit").val("100");
+    currentOffset = 0;
+    loadAuditLog();
+}
+
+function exportCsv() {
+    if (!currentEntries.length) return;
+
+    var headers = ["Timestamp", "User", "Actor", "Source", "On behalf of", "Token Name", "Token Type", "Method", "Path", "Status", "IP", "Via IP", "Duration (ms)", "Path P95 (ms)", "Path P99 (ms)", "Denied Reason"];
+    var _csvMask = document.getElementById("maskIpToggle") ? document.getElementById("maskIpToggle").checked : true;
+    var rows = currentEntries.map(function(e) {
+        return [
+            e.timestamp,
+            e.user,
+            e.actor_type || "",
+            e.source_ref || "",
+            e.on_behalf_of || "",
+            e.token_name || "",
+            e.token_type || "",
+            e.method,
+            e.path,
+            e.status_code,
+            (_csvMask && e.via_ip && e.ip && e.ip !== e.via_ip) ? maskIp(e.ip) : e.ip,
+            e.via_ip || "",
+            e.duration_ms != null ? e.duration_ms : "",
+            e.path_p95 != null ? e.path_p95 : "",
+            e.path_p99 != null ? e.path_p99 : "",
+            e.denied_reason || ""
+        ].map(function(val) {
+            return '"' + String(val).replace(/"/g, '""') + '"';
+        }).join(",");
+    });
+
+    var csv = headers.join(",") + "\n" + rows.join("\n");
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "token_audit_log.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+// --- Active Tokens Management ---
+
+function loadActiveTokens() {
+    var filterUser = $("#tokenFilterUser").val().trim();
+    if (!filterUser) {
+        $("#activeTokensTableWrapper").hide();
+        $("#activeTokensEmpty").hide();
+        $("#activeTokensPrompt").show();
+        return;
+    }
+
+    $("#activeTokensPrompt").hide();
+    $("#activeTokensLoading").show();
+    $("#activeTokensTableWrapper").hide();
+    $("#activeTokensEmpty").hide();
+
+    var params = { user: filterUser };
+
+    $.ajax({
+        url: "/api/admin/tokens",
+        type: "GET",
+        data: params,
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            $("#activeTokensLoading").hide();
+            var tokens = data.message || [];
+            if (!Array.isArray(tokens)) tokens = [];
+            if (tokens.length === 0) {
+                $("#activeTokensEmpty").show();
+            } else {
+                renderActiveTokens(tokens);
+                $("#activeTokensTableWrapper").show();
+            }
+        },
+        error: function() {
+            $("#activeTokensLoading").hide();
+            $("#activeTokensEmpty").show().find("p").text("Failed to load tokens.");
+        }
+    });
+}
+
+function renderActiveTokens(tokens) {
+    var tbody = $("#activeTokensBody");
+    tbody.empty();
+
+    tokens.forEach(function(token) {
+        var expiresDisplay = token.expires_at ? relativeTime(token.expires_at) : "Never";
+        var lastUsedDisplay = token.last_used_at ? relativeTime(token.last_used_at) : "Never";
+        var createdDisplay = token.created_at ? formatDate(token.created_at) : "-";
+        var permSummary = getPermissionsSummary(token.permissions);
+
+        var row = '<tr>' +
+            '<td><strong>' + escapeHtml(token.user) + '</strong></td>' +
+            '<td>' + escapeHtml(token.name) + '</td>' +
+            '<td><code>' + escapeHtml(token.hint || "***") + '</code></td>' +
+            '<td><span class="badge bg-info text-white">' + escapeHtml(permSummary) + '</span></td>' +
+            '<td>' + escapeHtml(expiresDisplay) + '</td>' +
+            '<td>' + escapeHtml(lastUsedDisplay) + '</td>' +
+            '<td class="small">' + escapeHtml(createdDisplay) + '</td>' +
+            '<td><button class="btn btn-sm btn-outline-danger" onclick="adminRevokeToken(\'' + escapeHtml(token.user) + '\', ' + token.id + ', \'' + escapeHtml(token.name) + '\')">' +
+            '<i class="fas fa-ban"></i> {{ _("Revoke") }}</button></td>' +
+            '</tr>';
+
+        tbody.append(row);
+    });
+}
+
+function adminRevokeToken(user, tokenId, tokenName) {
+    if (!confirm('Revoke token "' + tokenName + '" for user "' + user + '"? This cannot be undone.')) return;
+
+    $.ajax({
+        url: "/api/admin/tokens/" + encodeURIComponent(user) + "/" + encodeURIComponent(tokenId),
+        type: "DELETE",
+        xhrFields: { withCredentials: true },
+        success: function() { loadActiveTokens(); },
+        error: function(xhr) {
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to revoke token") : "Failed to revoke token";
+            alert(msg);
+        }
+    });
+}
+
+function getPermissionsSummary(permissions) {
+    if (!permissions) return "No restrictions";
+    var allow = permissions.allow || permissions;
+    if (typeof allow === "object") {
+        var pathCount = Object.keys(allow).length;
+        return pathCount + " path" + (pathCount !== 1 ? "s" : "") + " allowed";
+    }
+    return "Custom";
+}
+
+function relativeTime(dateStr) {
+    var date = new Date(dateStr);
+    var now = new Date();
+    var diffMs = date - now;
+    var diffSec = Math.round(diffMs / 1000);
+    var diffMin = Math.round(diffSec / 60);
+    var diffHr = Math.round(diffMin / 60);
+    var diffDay = Math.round(diffHr / 24);
+
+    if (diffMs < 0) {
+        var absSec = Math.abs(diffSec);
+        var absMin = Math.abs(diffMin);
+        var absHr = Math.abs(diffHr);
+        var absDay = Math.abs(diffDay);
+        if (absSec < 60) return absSec + "s ago";
+        if (absMin < 60) return absMin + "m ago";
+        if (absHr < 24) return absHr + "h ago";
+        return absDay + "d ago";
+    } else {
+        if (diffSec < 60) return "in " + diffSec + "s";
+        if (diffMin < 60) return "in " + diffMin + "m";
+        if (diffHr < 24) return "in " + diffHr + "h";
+        return "in " + diffDay + "d";
+    }
+}
+
+function formatDate(dateStr) {
+    var d = new Date(dateStr);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+</script>
+
+{% include 'common/footer.html' %}
+<script src="{{ url_for('static', filename='vendor/use-bootstrap-tag/use-bootstrap-tag.js') }}"></script>
+<script src="{{ url_for('static', filename='js/soca_typeahead.js') }}"></script>
+
+</body>
+
+</html>

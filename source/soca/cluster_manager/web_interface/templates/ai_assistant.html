@@ -1,0 +1,779 @@
+<!--
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    <style>
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+        .chat-message.user {
+            background: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+        .chat-message.assistant {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+        }
+        .chat-message.assistant pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 0.75rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .chat-message.assistant code {
+            background: #e9ecef;
+            padding: 0.15rem 0.3rem;
+            border-radius: 3px;
+        }
+        .chat-message.assistant pre code {
+            background: none;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body id="page-top" class="sidebar-toggled">
+{% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                <main role="main">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card shadow mb-4">
+                                <div class="card-header py-3 d-flex align-items-center">
+                                    <h4 class="m-0">{{ _("AI Assistant") }} <span class="badge bg-warning text-dark ms-2" style="font-size:0.6em;vertical-align:middle;">PREVIEW</span></h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-primary mb-3" role="alert">
+                                        {{ _("Need help analyzing a specific file? Use the") }} <a href="/file_explorer" class="alert-link">{{ _("File Explorer") }}</a> {{ _("to get detailed troubleshooting and recommendations with file context.") }}
+                                    </div>
+
+                                    <!-- Tabs -->
+                                    <ul class="nav nav-tabs mb-3" role="tablist">
+                                        <li class="nav-item">
+                                            <a class="nav-link active" id="step-tab-3" data-bs-toggle="tab" href="#step-3" role="tab">
+                                                {{ _("Conversation") }}
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" id="step-tab-4" data-bs-toggle="tab" href="#step-4" role="tab">
+                                                <i class="fas fa-history"></i> {{ _("Previous Conversations") }}
+                                            </a>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content">
+                                    <!-- Conversation -->
+                                    <div class="tab-pane fade show active" id="step-3" role="tabpanel">
+                                        <div id="ai-error" style="display:none" class="alert alert-danger"></div>
+
+                                        <div id="ai-cost" style="display:none" class="alert alert-light border mb-2 py-2 px-3">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span><i class="fas fa-coins text-warning"></i> <strong>{{ _("Estimated cost:") }}</strong> <span id="ai-cost-value"></span></span>
+                                                <span id="ai-cost-usage" class="text-muted small"></span>
+                                            </div>
+                                        </div>
+
+                                        <div id="chat-container" style="min-height:400px;overflow-y:auto;border:1px solid #dee2e6;border-radius:4px;padding:1rem;background:#f8f9fa;margin-bottom:1rem;">
+                                        </div>
+
+                                        <div id="ai-loading" style="display:none" class="text-center py-2">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <span class="ms-2">{{ _("Thinking...") }}</span>
+                                        </div>
+
+                                        <div class="input-group">
+                                            <input type="text" id="chat-input" class="form-control" placeholder="{{ _('Type your message...') }}" onkeydown="if(event.key==='Enter')sendFollowUp()">
+                                            &nbsp;<button class="btn btn-primary" id="chat-send-btn" onclick="sendFollowUp()">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="mt-3 d-flex justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="btn btn-outline-secondary btn-sm" onclick="startNewConversation()">
+                                                    <i class="fas fa-plus"></i> {{ _("New conversation") }}
+                                                </button> &nbsp;
+                                                <button class="btn btn-outline-secondary btn-sm" onclick="downloadChat(_conversationId)">
+                                                    <i class="fas fa-download"></i> {{ _("Download") }}
+                                                </button> &nbsp;
+                                                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                                                    <i class="fas fa-cog"></i> {{ _("Settings") }}
+                                                </button> &nbsp;
+                                                <span id="active-backend-label" class="text-muted small ms-2"></span>
+                                            </div>
+                                            <div id="ai-usage" style="display:none" class="text-muted small align-self-center"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Previous Conversations -->
+                                    <div class="tab-pane fade" id="step-4" role="tabpanel">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h5 class="m-0">{{ _("Saved Conversations") }}</h5>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="clearAllConversations()">
+                                                <i class="fas fa-trash"></i> {{ _("Clear all") }}
+                                            </button>
+                                        </div>
+                                        <div class="alert alert-primary mb-0">
+                                            {{ _("Conversations are stored locally in your browser and automatically deleted after 30 days.") }}
+                                        </div>
+                                        <br>
+                                        <div id="conversation-list-empty" style="display:none" class="text-center text-muted py-4">
+                                            <i class="fas fa-comments fa-2x mb-2"></i>
+                                            <p>{{ _("No saved conversations yet. Start a conversation to create one.") }}</p>
+                                        </div>
+                                        <div id="conversation-list" class="list-group mb-3">
+                                        </div>
+                                    </div>
+
+                                    </div><!-- end tab-content -->
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel"><i class="fas fa-cog"></i> {{ _("Settings") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="mb-3">
+                            <label for="ai-system-prompt"><strong>{{ _("System prompt") }}</strong></label>
+                            <textarea id="ai-system-prompt" class="form-control" rows="8">{{ _("You are an AI assistant for Engineering Development Hub (EDH) specialized in Computed Aided Engineering workloads. Help the user with their questions.") }}</textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="mb-3">
+                            <label><strong>{{ _("Mode") }}</strong></label>
+                            <select id="ai-mode" class="form-control form-select-sm" onchange="toggleAiMode()">
+                                <option value="model" selected>{{ _("Model (Converse)") }}</option>
+                                <option value="agent">{{ _("Agent (Invoke Agent)") }}</option>
+                                <option value="mcp">{{ _("MCP (Tool Use)") }}</option>
+                            </select>
+                        </div>
+                        <div id="model-config">
+                            <div class="mb-3">
+                                <label><strong>{{ _("Model") }}</strong></label>
+                                <select id="model-select" class="form-control form-select-sm">
+                                    {% for model in allowed_models %}
+                                    <option value="{{ model }}" {% if loop.first %}selected{% endif %}>{{ model }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div id="agent-config" style="display:none">
+                            <div class="mb-3">
+                                <label><strong>{{ _("Agent") }}</strong></label>
+                                {% if agents %}
+                                <select id="agent-select" class="form-control form-select-sm">
+                                    <option value="" disabled selected>{{ _("Select an agent") }}</option>
+                                    {% for agent in agents %}
+                                    <option value="{{ agent.id }}">{{ agent.name }}{% if agent.description %} — {{ agent.description }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                <div class="alert alert-warning mb-0 small">
+                                    {% trans link='<a href="https://aws.amazon.com/bedrock/agentcore/" target="_blank">Bedrock AgentCore</a>'|safe %}Unable to find any {{ link }} agent onboarded to this EDH environment.{% endtrans %}<br>
+                                    {{ _("Add the following tag") }} <kbd>edh:visibility:{{cluster_id}} = true</kbd> {{ _("to the AgentCore runtimes you want to use.") }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div id="mcp-config" style="display:none">
+                            <div class="mb-3">
+                                <label><strong>{{ _("MCP Servers") }}</strong></label>
+                                {% if mcp_servers %}
+                                <div id="mcp-servers-list">
+                                    {% for srv in mcp_servers %}
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input mcp-server-checkbox" type="checkbox" value="{{ srv.name }}" id="mcp-srv-{{ loop.index0 }}" checked>
+                                        <label class="form-check-label small" for="mcp-srv-{{ loop.index0 }}">
+                                            <strong>{{ srv.name }}</strong>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-warning mb-0 small">
+                                    {{ _("No MCP servers configured. Add MCP server definitions to SSM parameter") }} <kbd>/configuration/AIAssistant/mcp_servers</kbd>.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label><strong>{{ _("Response mode") }}</strong></label>
+                            <select id="response-mode" class="form-control form-select-sm">
+                                <option value="stream" selected>{{ _("Streaming") }}</option>
+                                <option value="sync">{{ _("Standard") }}</option>
+                            </select>
+                        </div>
+                        <hr>
+                        <div class="mb-2">
+                            <label><strong>{{ _("Daily usage") }}</strong></label>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span id="daily-usage-text">{{ _("Loading...") }}</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div id="daily-usage-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ _("Done") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var _chatMessages = [];
+var _systemPrompt = '';
+var _modelId = '';
+var _conversationId = null;
+var _STORAGE_KEY = 'edh_ai_conversations_{{ cluster_id }}_{{ user }}';
+var _CONVERSATION_TTL_DAYS = 30;
+
+function toggleAiMode() {
+    var mode = document.getElementById('ai-mode').value;
+    document.getElementById('model-config').style.display = (mode === 'model' || mode === 'mcp') ? 'block' : 'none';
+    document.getElementById('agent-config').style.display = mode === 'agent' ? 'block' : 'none';
+    document.getElementById('mcp-config').style.display = mode === 'mcp' ? 'block' : 'none';
+    updateBackendLabel();
+}
+
+function getSelectedMcpServers() {
+    var checkboxes = document.querySelectorAll('.mcp-server-checkbox:checked');
+    var names = [];
+    for (var i = 0; i < checkboxes.length; i++) {
+        names.push(checkboxes[i].value);
+    }
+    return names;
+}
+
+function updateBackendLabel() {
+    var mode = document.getElementById('ai-mode').value;
+    var label = '';
+    if (mode === 'agent') {
+        var agentSelect = document.getElementById('agent-select');
+        if (agentSelect && agentSelect.selectedIndex > 0) {
+            label = agentSelect.options[agentSelect.selectedIndex].text;
+        } else {
+            label = '{{ _("Agent (not selected)") }}';
+        }
+    } else if (mode === 'mcp') {
+        label = document.getElementById('model-select').value + ' + MCP';
+    } else {
+        label = document.getElementById('model-select').value;
+    }
+    document.getElementById('active-backend-label').textContent = label;
+}
+
+function formatTimestamp(ts) {
+    var d = ts ? new Date(ts) : new Date();
+    var year = d.getFullYear();
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    var hours = String(d.getHours()).padStart(2, '0');
+    var minutes = String(d.getMinutes()).padStart(2, '0');
+    return year + '/' + month + '/' + day + ' ' + hours + ':' + minutes;
+}
+
+function appendChatBubble(role, html, timestamp) {
+    var container = document.getElementById('chat-container');
+    var div = document.createElement('div');
+    div.className = 'chat-message ' + role;
+
+    var contentDiv = document.createElement('div');
+    contentDiv.className = 'chat-content';
+    contentDiv.innerHTML = html;
+    div.appendChild(contentDiv);
+
+    var timeStr = formatTimestamp(timestamp);
+    var timeDiv = document.createElement('div');
+    timeDiv.className = 'chat-timestamp text-muted';
+    timeDiv.style.cssText = 'font-size:0.7em;margin-top:0.25rem;';
+    timeDiv.textContent = timeStr;
+    div.appendChild(timeDiv);
+
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return contentDiv;
+}
+
+function setInputEnabled(enabled) {
+    document.getElementById('chat-input').disabled = !enabled;
+    document.getElementById('chat-send-btn').disabled = !enabled;
+    document.getElementById('ai-loading').style.display = enabled ? 'none' : 'block';
+}
+
+function showUsageInfo(usage) {
+    if (!usage) return;
+    var inputTokens = usage.inputTokens || 0;
+    var outputTokens = usage.outputTokens || 0;
+    var inputCost = (inputTokens / 1000000) * 5;
+    var outputCost = (outputTokens / 1000000) * 25;
+    var totalCost = inputCost + outputCost;
+
+    document.getElementById('ai-cost').style.display = 'block';
+    document.getElementById('ai-cost-value').textContent = '$' + totalCost.toFixed(4);
+    document.getElementById('ai-cost-usage').textContent = inputTokens.toLocaleString() + ' input + ' + outputTokens.toLocaleString() + ' output tokens';
+
+    document.getElementById('ai-usage').style.display = 'block';
+    document.getElementById('ai-usage').textContent = 'Tokens: ' + inputTokens.toLocaleString() + ' in + ' + outputTokens.toLocaleString() + ' out';
+    loadDailyUsage();
+}
+
+function showError(msg) {
+    document.getElementById('ai-error').style.display = 'block';
+    document.getElementById('ai-error').textContent = msg;
+}
+
+function sendMessage(userText, silent) {
+    document.getElementById('ai-error').style.display = 'none';
+    var ts = Date.now();
+    _chatMessages.push({ role: 'user', content: userText, timestamp: ts });
+    if (!silent) {
+        appendChatBubble('user', '<p>' + userText.replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</p>', ts);
+    }
+    setInputEnabled(false);
+
+    var mode = document.getElementById('response-mode').value;
+    if (mode === 'stream') {
+        sendStreaming();
+    } else {
+        sendSync();
+    }
+}
+
+function sendStreaming() {
+    var assistantDiv = appendChatBubble('assistant', '');
+    var rawText = '';
+
+    var payload = {
+        prompt: _chatMessages[_chatMessages.length - 1].content,
+        system_prompt: _systemPrompt,
+        model_id: _modelId,
+        messages: _chatMessages,
+        conversation_id: _conversationId
+    };
+
+    var aiMode = document.getElementById('ai-mode').value;
+    if (aiMode === 'agent') {
+        payload.agent_runtime_id = document.getElementById('agent-select').value;
+        payload.session_id = _conversationId;
+    } else if (aiMode === 'mcp') {
+        payload.mcp_server_names = getSelectedMcpServers();
+    }
+
+    fetch('/api/ai_assistant/converse/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(body) {
+                var detail = '';
+                try { detail = JSON.parse(body).message || body; } catch(e) { detail = body; }
+                showStreamError(assistantDiv, response.status, detail);
+            });
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var sseBuffer = '';
+
+        function read() {
+            return reader.read().then(function(result) {
+                if (result.done) return;
+
+                sseBuffer += decoder.decode(result.value, { stream: true });
+                var lines = sseBuffer.split('\n');
+                sseBuffer = lines.pop();
+
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line.startsWith('data: ')) continue;
+
+                    try {
+                        var data = JSON.parse(line.substring(6));
+
+                        if (data.error) {
+                            showStreamError(assistantDiv, null, data.error);
+                            return;
+                        }
+
+                        if (data.text) {
+                            rawText += data.text;
+                            assistantDiv.innerHTML = DOMPurify.sanitize(marked.parse(rawText));
+                            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+                        }
+
+                        if (data.done) {
+                            _chatMessages.push({ role: 'assistant', content: rawText, timestamp: Date.now() });
+                            saveConversation();
+                            setInputEnabled(true);
+                            showUsageInfo(data.usage);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+
+                return read();
+            });
+        }
+
+        return read();
+    }).catch(function(err) {
+        showStreamError(assistantDiv, null, err.message);
+    });
+}
+
+function showStreamError(assistantDiv, statusCode, detail) {
+    var msg = statusCode ? 'HTTP ' + statusCode : '{{ _("Error") }}';
+    if (detail) msg += ' — ' + detail;
+    assistantDiv.innerHTML =
+        '<div class="text-danger"><i class="fas fa-exclamation-circle"></i> ' + msg + '</div>' +
+        '<button class="btn btn-outline-primary btn-sm mt-2" onclick="retryLastMessage(this)"><i class="fas fa-redo"></i> {{ _("Try again") }}</button>';
+    setInputEnabled(true);
+}
+
+function retryLastMessage(btn) {
+    var bubble = btn.closest('.chat-message');
+    if (bubble) bubble.remove();
+    sendStreaming();
+}
+
+function sendSync() {
+    var payload = {
+        prompt: _chatMessages[_chatMessages.length - 1].content,
+        system_prompt: _systemPrompt,
+        model_id: _modelId,
+        messages: _chatMessages,
+        conversation_id: _conversationId
+    };
+
+    var aiMode = document.getElementById('ai-mode').value;
+    if (aiMode === 'agent') {
+        payload.agent_runtime_id = document.getElementById('agent-select').value;
+        payload.session_id = _conversationId;
+    } else if (aiMode === 'mcp') {
+        payload.mcp_server_names = getSelectedMcpServers();
+    }
+
+    $.ajax({
+        url: '/api/ai_assistant/converse',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(payload),
+        success: function(resp) {
+            setInputEnabled(true);
+            if (resp.success && resp.message) {
+                var text = resp.message.message || '';
+                var ts = Date.now();
+                _chatMessages.push({ role: 'assistant', content: text, timestamp: ts });
+                saveConversation();
+                appendChatBubble('assistant', DOMPurify.sanitize(marked.parse(text)), ts);
+                showUsageInfo(resp.message.usage);
+            } else {
+                showError('AI request failed: ' + (resp.message || 'Unknown error'));
+            }
+        },
+        error: function(xhr) {
+            setInputEnabled(true);
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || xhr.statusText) : xhr.statusText;
+            showError('AI Assistant request failed: ' + msg);
+        }
+    });
+}
+
+function sendFollowUp() {
+    var input = document.getElementById('chat-input');
+    var text = input.value.trim();
+    if (!text) return;
+
+    if (!_conversationId) {
+        var aiMode = document.getElementById('ai-mode').value;
+        if (aiMode === 'agent') {
+            var agentSelect = document.getElementById('agent-select');
+            if (!agentSelect || !agentSelect.value) {
+                showError('{{ _("Please select an agent in Settings before sending a message.") }}');
+                return;
+            }
+        } else if (aiMode === 'mcp') {
+            var selectedMcp = getSelectedMcpServers();
+            if (selectedMcp.length === 0) {
+                showError('{{ _("No MCP servers available. Configure MCP servers in Settings before using this mode.") }}');
+                return;
+            }
+        }
+
+        _systemPrompt = document.getElementById('ai-system-prompt').value.trim() || "You are an AI assistant for Engineering Development Hub (EDH). Help the user with their questions. Be concise and helpful.";
+        _modelId = document.getElementById('model-select').value;
+        _conversationId = generateConversationId();
+    }
+
+    document.getElementById('ai-error').style.display = 'none';
+    input.value = '';
+    sendMessage(text);
+}
+
+function downloadChat(convId) {
+    var messages;
+    if (convId && convId !== _conversationId) {
+        var convs = getStoredConversations();
+        var conv = convs.find(function(c) { return c.id === convId; });
+        messages = conv ? conv.messages : [];
+    } else {
+        messages = _chatMessages;
+    }
+    var md = '';
+    for (var i = 0; i < messages.length; i++) {
+        var m = messages[i];
+        if (m.role === 'user') {
+            md += '## User\n\n' + m.content + '\n\n';
+        } else {
+            md += '## Assistant\n\n' + m.content + '\n\n';
+        }
+    }
+    var blob = new Blob([md], { type: 'text/markdown' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'edh-ai-assistant-chat.md';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function generateConversationId() {
+    return 'conv_' + Date.now() + '_' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+}
+
+function getStoredConversations() {
+    try {
+        var raw = localStorage.getItem(_STORAGE_KEY);
+        if (!raw) return [];
+        var convs = JSON.parse(raw);
+        var cutoff = Date.now() - (_CONVERSATION_TTL_DAYS * 86400 * 1000);
+        return convs.filter(function(c) { return c.timestamp > cutoff; });
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveConversation() {
+    if (!_conversationId || _chatMessages.length === 0) return;
+    var convs = getStoredConversations();
+    var existing = convs.findIndex(function(c) { return c.id === _conversationId; });
+
+    var firstUserMsg = _chatMessages.find(function(m) { return m.role === 'user'; });
+    var title = firstUserMsg ? firstUserMsg.content.substring(0, 80) : 'Conversation';
+
+    var aiMode = document.getElementById('ai-mode').value;
+    var backendLabel = '';
+    if (aiMode === 'agent') {
+        var agentSelect = document.getElementById('agent-select');
+        backendLabel = agentSelect.options[agentSelect.selectedIndex] ? agentSelect.options[agentSelect.selectedIndex].text : 'Agent';
+    } else if (aiMode === 'mcp') {
+        var mcpNames = getSelectedMcpServers();
+        backendLabel = (_modelId || 'Model') + ' + MCP (' + mcpNames.join(', ') + ')';
+    } else {
+        backendLabel = _modelId || 'Model';
+    }
+
+    var entry = {
+        id: _conversationId,
+        title: title,
+        timestamp: Date.now(),
+        systemPrompt: _systemPrompt,
+        modelId: _modelId,
+        mode: aiMode,
+        backendLabel: backendLabel,
+        messages: _chatMessages
+    };
+
+    if (existing >= 0) {
+        convs[existing] = entry;
+    } else {
+        convs.unshift(entry);
+    }
+
+    localStorage.setItem(_STORAGE_KEY, JSON.stringify(convs));
+    refreshConversationList();
+}
+
+function refreshConversationList() {
+    var listEl = document.getElementById('conversation-list');
+    var emptyEl = document.getElementById('conversation-list-empty');
+    if (!listEl || !emptyEl) return;
+
+    var convs = getStoredConversations();
+    listEl.innerHTML = '';
+
+    if (convs.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+    }
+    emptyEl.style.display = 'none';
+
+    for (var i = 0; i < convs.length; i++) {
+        var c = convs[i];
+        var date = new Date(c.timestamp);
+        var dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        var msgCount = c.messages ? c.messages.length : 0;
+
+        var item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-start';
+        item.innerHTML =
+            '<div class="ms-2 me-auto">' +
+                '<div class="fw-bold small">' + c.title.replace(/</g, '&lt;') + '</div>' +
+                '<small class="text-muted">' + dateStr + ' &middot; ' + msgCount + ' messages &middot; ' + (c.backendLabel || c.modelId || 'Unknown') + '</small>' +
+            '</div>' +
+            '<div class="d-flex gap-1">' +
+                '<button class="btn btn-outline-primary btn-sm" onclick="loadConversation(\'' + c.id + '\')" title="{{ _("Resume") }}">' +
+                    '<i class="fas fa-comments"></i>' +
+                '</button> &nbsp;' +
+                '<button class="btn btn-outline-secondary btn-sm" onclick="downloadChat(\'' + c.id + '\')" title="{{ _("Download") }}">' +
+                    '<i class="fas fa-download"></i>' +
+                '</button> &nbsp;' +
+                '<button class="btn btn-outline-danger btn-sm" onclick="deleteConversation(\'' + c.id + '\')" title="{{ _("Delete") }}">' +
+                    '<i class="fas fa-trash"></i>' +
+                '</button>' +
+            '</div>';
+        listEl.appendChild(item);
+    }
+}
+
+function loadConversation(id) {
+    var convs = getStoredConversations();
+    var conv = convs.find(function(c) { return c.id === id; });
+    if (!conv) return;
+
+    _conversationId = conv.id;
+    _chatMessages = conv.messages;
+    _systemPrompt = conv.systemPrompt || '';
+    _modelId = conv.modelId || '';
+
+    document.getElementById('chat-container').innerHTML = '';
+    for (var i = 0; i < _chatMessages.length; i++) {
+        var m = _chatMessages[i];
+        if (m.role === 'user') {
+            appendChatBubble('user', '<p>' + m.content.replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</p>', m.timestamp);
+        } else {
+            appendChatBubble('assistant', DOMPurify.sanitize(marked.parse(m.content)), m.timestamp);
+        }
+    }
+
+    if (document.getElementById('ai-system-prompt')) {
+        document.getElementById('ai-system-prompt').value = _systemPrompt;
+    }
+    goToStep(3);
+}
+
+function goToStep(step) {
+    var tab = document.getElementById('step-tab-' + step);
+    if (tab) {
+        new bootstrap.Tab(tab).show();
+    }
+    if (step === 4) {
+        refreshConversationList();
+    }
+}
+
+function startNewConversation() {
+    _conversationId = null;
+    _chatMessages = [];
+    document.getElementById('chat-container').innerHTML = '';
+    document.getElementById('ai-error').style.display = 'none';
+    document.getElementById('ai-cost').style.display = 'none';
+    document.getElementById('ai-usage').style.display = 'none';
+    document.getElementById('chat-input').focus();
+}
+
+function deleteConversation(id) {
+    var convs = getStoredConversations();
+    convs = convs.filter(function(c) { return c.id !== id; });
+    localStorage.setItem(_STORAGE_KEY, JSON.stringify(convs));
+    if (_conversationId === id) {
+        _conversationId = null;
+        _chatMessages = [];
+    }
+    refreshConversationList();
+}
+
+function clearAllConversations() {
+    if (!confirm('{{ _("Delete all saved conversations?") }}')) return;
+    localStorage.removeItem(_STORAGE_KEY);
+    _conversationId = null;
+    _chatMessages = [];
+    refreshConversationList();
+}
+
+function loadDailyUsage() {
+    $.ajax({
+        url: '/api/ai_assistant/usage',
+        type: 'GET',
+        success: function(resp) {
+            if (resp.success && resp.message) {
+                var used = resp.message.used;
+                var limit = resp.message.limit;
+                var pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                document.getElementById('daily-usage-text').textContent =
+                    used.toLocaleString() + ' / ' + limit.toLocaleString() + ' tokens (' + pct + '%)';
+                var bar = document.getElementById('daily-usage-bar');
+                bar.style.width = pct + '%';
+                bar.className = 'progress-bar' + (pct >= 90 ? ' bg-danger' : pct >= 70 ? ' bg-warning' : ' bg-success');
+            }
+        },
+        error: function() {
+            document.getElementById('daily-usage-text').textContent = 'Unable to load usage';
+        }
+    });
+}
+
+$(document).ready(function() {
+    loadDailyUsage();
+    refreshConversationList();
+    updateBackendLabel();
+    document.getElementById('chat-input').focus();
+
+    document.getElementById('ai-mode').addEventListener('change', updateBackendLabel);
+    document.getElementById('model-select').addEventListener('change', updateBackendLabel);
+    var agentSelect = document.getElementById('agent-select');
+    if (agentSelect) agentSelect.addEventListener('change', updateBackendLabel);
+});
+</script>
+
+{% include 'common/footer.html' %}
+
+</body>
+</html>

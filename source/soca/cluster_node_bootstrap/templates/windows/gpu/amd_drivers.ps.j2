@@ -26,17 +26,15 @@ function Install-AMDGpuDrivers {
         }
         else {
             Log-Info -Message "About to install AMD drivers"
-            $bucketUrl = "{{ context.get('/system/gpu/gpu_settings/amd/windows/s3_bucket_url') }}"
-            $bucketRegion = (Invoke-WebRequest -Method Head -Uri $bucketUrl -UseBasicParsing).Headers["x-amz-bucket-region"]
             $installerFolderPrefix = "amd_driver"
             Log-Info -Message "Downloading AMD Drivers"
-            Invoke-SOCAAwsCli s3 cp --region $bucketRegion --quiet {{ context.get("/system/gpu/gpu_settings/amd/windows/s3_bucket_path") }} "${EDHBootstrapAssetsFolder}\" --recursive --exclude "*" --include "$keyPrefix*"
+            Invoke-SOCAAwsCli s3 cp --quiet {{ context.get("/system/gpu/gpu_settings/amd/windows/s3_bucket_path") }} "${EDHBootstrapAssetsFolder}\" --recursive --exclude "*" --include "$keyPrefix*"
             $localFile = (Get-ChildItem "${EDHBootstrapAssetsFolder}\$keyPrefix*").Name
             Log-Info -Message "Extracting AMD drivers"
             Expand-Archive "${EDHBootstrapAssetsFolder}\${localFile}" -DestinationPath "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}\$keyPrefix" -Verbose
             pnputil /add-driver ${EDHBootstrapAssetsFolder}\${installerFolderPrefix}\*.inf /install /subdirs
             Log-Info -Message "AMD Grid driver installed, reboot will be done at the end of the bootstrap sequence"
-            $requireReboot=$true
+            $script:requireReboot=$true
         }
     }
 }

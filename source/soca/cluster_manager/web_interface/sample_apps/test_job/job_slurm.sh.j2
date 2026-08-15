@@ -1,0 +1,15 @@
+#!/bin/bash
+ 
+#SBATCH --job-name={{job_name}}
+#SBATCH --partition=normal
+
+{{user_pre_exec}}
+
+echo "Test Job submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]
+                                          

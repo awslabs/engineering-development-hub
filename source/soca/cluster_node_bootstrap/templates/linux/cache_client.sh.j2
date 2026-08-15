@@ -46,40 +46,49 @@
     install_cache_cli
 
     # WRAPPER FUNCTIONS BELOW
-    function get_cache_credentials() {
-      local CREDENTIAL_KEY="${1}"
-      local CACHE_USERNAME_PATH="${EDH_BOOTSTRAP_ASSETS_FOLDER}/.cache_user_username_{{ context.get('/configuration/ClusterId') }}.cache"
-      local CACHE_PASSWORD_PATH="${EDH_BOOTSTRAP_ASSETS_FOLDER}/.cache_user_password_{{ context.get('/configuration/ClusterId') }}.cache"
-      local CACHE_USER_CREDENTIALS_SECRETMANAGER_ID
-      local CACHE_USERNAME
-      local CACHE_PASSWORD
-      if [[ ! -f ${CACHE_USERNAME_PATH} ]] || [[ ! -f ${CACHE_PASSWORD_PATH} ]]; then
-        log_info "${CACHE_USERNAME_PATH} or ${CACHE_PASSWORD_PATH} does not exist, querying SecretsManager API to retrieve Cache user"
+    # IAM auth: mint a short-lived SigV4 ElastiCache "connect" token in place of a
+    # static password. The token is disk-cached and refreshed when older than
+    # ~600s (AWS caps validity at 900s; it is only consumed at connect). Signing
+    # is a local operation off the instance-role credentials -- no secret is read.
+    function get_cache_iam_token() {
+      local CACHE_NAME="{{ context.get("/configuration/ClusterId") }}-cache"
+      local CACHE_USER_ID="{{ context.get("/configuration/ClusterId") }}-controller"
+      local CACHE_REGION="{{ context.get("/configuration/Region") }}"
+      local SOCA_PYTHON_BIN="/opt/edh/{{ context.get("/configuration/ClusterId") }}/python/latest/bin/python3"
+      local TOKEN_PATH="${EDH_BOOTSTRAP_ASSETS_FOLDER}/.cache_iam_token_{{ context.get('/configuration/ClusterId') }}.cache"
 
-        {% if context.get("/job/NodeType") == "controller" %}
-          # Controller Host is the only host that can query Cache Admin User
-          CACHE_USER_CREDENTIALS_SECRETMANAGER_ID=$(get_secret "/edh/{{ context.get("/configuration/ClusterId") }}/CacheAdminUser")
-        {% else %}
-          # Retrieve ReadOnly user for non-controller machines (dcv_node / login_node / compute_node ...)
-          CACHE_USER_CREDENTIALS_SECRETMANAGER_ID=$(get_secret "/edh/{{ context.get("/configuration/ClusterId") }}/CacheReadOnlyUser")
-        {% endif %}
-
-        CACHE_USERNAME=$(echo ${CACHE_USER_CREDENTIALS_SECRETMANAGER_ID} | jq -r ". | fromjson.username")
-        CACHE_PASSWORD=$(echo ${CACHE_USER_CREDENTIALS_SECRETMANAGER_ID} | jq -r ". | fromjson.password")
-        echo -n "${CACHE_USERNAME}" > "${CACHE_USERNAME_PATH}"
-        echo -n "${CACHE_PASSWORD}" > "${CACHE_PASSWORD_PATH}"
-        log_info "Cache user credentials temporarily cached on the system"
-      else
-        log_info "${CREDENTIALS_CACHE_PATH} and ${CACHE_PASSWORD_PATH} exists, retrieving cache user on filesystem"
+      # Reuse a cached token unless it is missing or older than 600s.
+      if [[ -f "${TOKEN_PATH}" ]]; then
+        local NOW TOKEN_MTIME AGE
+        NOW=$(date +%s)
+        TOKEN_MTIME=$(stat -c %Y "${TOKEN_PATH}" 2>/dev/null || echo 0)
+        AGE=$((NOW - TOKEN_MTIME))
+        if [[ ${AGE} -lt 600 ]]; then
+          cat "${TOKEN_PATH}"
+          return 0
+        fi
       fi
 
-      if [[ ${CREDENTIAL_KEY} == "username" ]]; then
-        echo -n $(cat "${CACHE_USERNAME_PATH}")
-      elif [[ ${CREDENTIAL_KEY} == "password" ]]; then
-        echo -n $(cat "${CACHE_PASSWORD_PATH}")
-      else
-        exit_fail "First argument for get_cache_credentials via wrapper_cache.sh.j2 must be username or password"
+      local CACHE_IAM_TOKEN
+      CACHE_IAM_TOKEN=$("${SOCA_PYTHON_BIN}" - "${CACHE_NAME}" "${CACHE_USER_ID}" "${CACHE_REGION}" <<'PYEOF'
+import sys
+from botocore.session import get_session
+from botocore.auth import SigV4QueryAuth
+from botocore.awsrequest import AWSRequest
+cache_name, user_id, region = sys.argv[1], sys.argv[2], sys.argv[3]
+creds = get_session().get_credentials()
+req = AWSRequest(method="GET", url="https://%s/" % cache_name,
+                 params={"Action": "connect", "User": user_id})
+SigV4QueryAuth(creds, "elasticache", region, expires=900).add_auth(req)
+sys.stdout.write(req.prepare().url[len("https://"):])
+PYEOF
+)
+      if [[ -z "${CACHE_IAM_TOKEN}" ]]; then
+        log_error "Failed to mint ElastiCache IAM token for ${CACHE_USER_ID}"
+        return 1
       fi
+      ( umask 077; echo -n "${CACHE_IAM_TOKEN}" > "${TOKEN_PATH}" )
+      echo -n "${CACHE_IAM_TOKEN}"
     }
 
     function cache_get_key () {
@@ -92,8 +101,12 @@
       local CACHE_PASSWORD
       local CACHE_ENDPOINT
       local CACHE_PORT
-      CACHE_USERNAME=$(get_cache_credentials "username")
-      CACHE_PASSWORD=$(get_cache_credentials "password")
+      CACHE_USERNAME="{{ context.get("/configuration/ClusterId") }}-controller"
+      CACHE_PASSWORD=$(get_cache_iam_token)
+      if [[ $? -ne 0 || -z "${CACHE_PASSWORD}" ]]; then
+        log_error "unable to mint ElastiCache IAM token; aborting cache_get_key"
+        return 1
+      fi
       CACHE_ENDPOINT="{{ context.get("/configuration/Cache/endpoint") }}"
       CACHE_PORT="{{ context.get("/configuration/Cache/port") }}"
 

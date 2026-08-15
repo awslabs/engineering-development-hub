@@ -1,13 +1,34 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# Note: Modifying this file post-EDH installation will require you to re-generate the bootstrap script from the EDH controller  and upload them to S3
+
+#/bin/bash /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh --get-template "compute_node/02_setup.sh.j2" \
+#    --output-file "s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/config/do_not_delete/bootstrap/login_node/02_setup.sh" \
+#    --ssm-key "/" \
+#    --add-value "KEY=/job/NodeType VALUE=login_node TYPE=str" \
+#    --add-value "KEY=/job/BaseOS VALUE={{ context.get("/job/BaseOS") }} TYPE=str" \
+#    --add-value "KEY=/job/BoostrapPath VALUE=/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/login_node TYPE=str" \
+#    --template-dirs "/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/"
+
+#/bin/bash /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/j2generator/j2generator.sh --get-template "compute_node/03_setup_post_reboot.sh.j2" \
+#    --output-file "s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/config/do_not_delete/bootstrap/login_node/03_setup_post_reboot.sh" \
+#    --ssm-key "/" \
+#    --add-value "KEY=/job/NodeType VALUE=login_node TYPE=str" \
+#    --add-value "KEY=/job/BaseOS VALUE={{ context.get("/job/BaseOS") }} TYPE=str" \
+#    --add-value "KEY=/job/BoostrapPath VALUE=/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/login_node TYPE=str" \
+#    --template-dirs "/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/"
+
 log_info "Checking if host is a Login Node machine"
 {% if context.get("/job/NodeType") == "login_node" %}
-  log_info "Login Node Detected, performing additional actions ... "
+    log_info "Login Node Detected, performing additional actions ... "
 
-  # Create Static Host Key for sshd to avoid SSH fingerprint error as Login Nodes can be replaced via AutoScaling
-  {% include "templates/linux/create_ssh_static_hostkey.sh.j2" %}
+    # Create Static Host Key for sshd to avoid SSH fingerprint error as Login Nodes can be replaced via AutoScaling
+    {% include "templates/linux/create_ssh_static_hostkey.sh.j2" %}
+
+    # Configure EDH Web Terminal
+    {% include "templates/linux/webshell/configure_webshell.sh.j2" %}
 
 {% else %}
-  log_info "This host is not a login node."
+    log_info "This host is not a login node."
 {% endif %}

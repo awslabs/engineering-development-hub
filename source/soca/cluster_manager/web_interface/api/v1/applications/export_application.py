@@ -5,6 +5,7 @@ from flask_restful import Resource, reqparse
 import logging
 from utils.response import SocaResponse
 from utils.error import SocaError
+from utils.cast import SocaCastEngine
 from decorators import admin_api, feature_flag
 from models import ApplicationProfiles
 
@@ -66,7 +67,7 @@ class ExportApplication(Resource):
                     message:
                       type: object
                       properties:
-                        Instructions:
+                        "Instructions:":
                           type: string
                           example: "https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/import-export-application-profiles"
                         profile_form:
@@ -113,8 +114,8 @@ class ExportApplication(Resource):
                     message:
                       type: string
                       example: "Admin access required"
-          '404':
-            description: Application profile not found
+          '500':
+            description: Server error (includes application not found or invalid application_id)
             content:
               application/json:
                 schema:
@@ -126,19 +127,6 @@ class ExportApplication(Resource):
                     message:
                       type: string
                       example: "Application does not exist"
-          '500':
-            description: Server error
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    success:
-                      type: boolean
-                      example: false
-                    message:
-                      type: string
-                      example: "Database error occurred"
         """
         parser = reqparse.RequestParser()
         parser.add_argument("application_id", type=str, location="args")
@@ -150,7 +138,14 @@ class ExportApplication(Resource):
                 parameter_name="application_id"
             ).as_flask()
 
-        _profile = ApplicationProfiles.query.filter_by(id=_application_id).first()
+        _app_id_cast = SocaCastEngine(data=_application_id).cast_as(int)
+        if _app_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper="application_id is not a valid integer"
+            ).as_flask()
+        _profile = ApplicationProfiles.query.filter_by(
+            id=_app_id_cast.get("message")
+        ).first()
         if _profile:
             output = {
                 "Instructions:": "https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/import-export-application-profiles",

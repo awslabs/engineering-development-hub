@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from models import db, TargetNodeSessions
@@ -30,7 +31,7 @@ class UpdateTargetNodeSchedule(Resource):
     @private_api
     @feature_flag(flag_name="TARGET_NODES", mode="api")
     def put(self):
-        """
+        r"""
         Modify schedule of a Target Node session
         ---
         openapi: 3.1.0
@@ -114,7 +115,7 @@ class UpdateTargetNodeSchedule(Resource):
                       type: string
                       example: "Missing required parameter: session_uuid"
           '401':
-            description: Unauthorized or session not found
+            description: Missing authentication header
             content:
               application/json:
                 schema:
@@ -128,7 +129,39 @@ class UpdateTargetNodeSchedule(Resource):
                       example: false
                     message:
                       type: string
-                      example: "Unable to find this session"
+                      example: "Missing X-EDH-USER header"
+          '403':
+            description: Schedule update disabled by administrator
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - success
+                    - message
+                  properties:
+                    success:
+                      type: boolean
+                      example: false
+                    message:
+                      type: string
+                      example: "Your administrator has disabled target node schedule update"
+          '404':
+            description: Session not found
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - success
+                    - message
+                  properties:
+                    success:
+                      type: boolean
+                      example: false
+                    message:
+                      type: string
+                      example: "Unable to find this session. Please refresh your browser and try again."
           '500':
             description: Database error during update
             content:
@@ -212,9 +245,16 @@ class UpdateTargetNodeSchedule(Resource):
                                     return SocaError.CLIENT_MISSING_PARAMETER(
                                         parameter=f"schedule.{_day}.{_time_check} must be between 0 and 1440"
                                     ).as_flask()
-                            except:
+                            except (ValueError, TypeError):
                                 return SocaError.CLIENT_MISSING_PARAMETER(
                                     parameter=f"schedule.{_day}.{_time_check} must be between 0 and 1440 and a valid int"
+                                ).as_flask()
+                            except Exception as e:
+                                logger.warning(
+                                    f"schedule.{_day}.{_time_check} validation failed unexpectedly: {e}"
+                                )
+                                return SocaError.CLIENT_MISSING_PARAMETER(
+                                    parameter=f"schedule.{_day}.{_time_check} validation failed"
                                 ).as_flask()
 
             else:
@@ -233,7 +273,7 @@ class UpdateTargetNodeSchedule(Resource):
                 db.session.commit()
                 return SocaResponse(
                     success=True,
-                    message=f"Your target node schedule has been updated",
+                    message=_(f"Your target node schedule has been updated"),
                 ).as_flask()
             except Exception as err:
                 db.session.rollback()

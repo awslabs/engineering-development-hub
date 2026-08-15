@@ -21,8 +21,7 @@ function install_amd_gpu_drivers() {
   {% endif %}
 
   {% if context.get("/job/BaseOS") in ('rhel7', 'centos7', 'amazonlinux2') %}
-    local DRIVER_BUCKET_REGION=$(curl -s --head "{{ context.get("/system/gpu/gpu_settings/amd/linux/s3_bucket_url") }}" | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    aws_cli s3 cp --region ${DRIVER_BUCKET_REGION} --quiet --recursive {{ context.get("/system/gpu/gpu_settings/amd/linux/s3_bucket_path") }} .
+    aws_cli s3 cp --quiet --recursive {{ context.get("/system/gpu/gpu_settings/amd/linux/s3_bucket_path") }} .
     tar -xf amdgpu-pro-*rhel*.tar.xz
     cd $(find . -maxdepth 1 -mindepth 1 -type d -name "amdgpu-pro*rhel*")
     /bin/bash ./amdgpu-pro-install -y --opencl=pal,legacy

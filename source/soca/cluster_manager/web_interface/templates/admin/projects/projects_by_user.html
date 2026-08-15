@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -25,20 +25,24 @@
                             <br>
                             <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Check project membership for a given user</h3>
+                                        <h3>{{ _("Check project membership for a given user") }}</h3>
                                         <div class="row">
                                             <div class="col-md-4">
                                                 <form action="/admin/projects/by_user" method="POST">
-                                                    <div class="form-group">
-                                                        <select class="form-control"  id="user" name="user">
-                                                            {% for user in all_soca_users %}
-                                                            <option value="{{user}}"> {{user}} </option>
-                                                            {% endfor %}
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/users" data-results="pbu_user_results"
+                                                               data-sink="pbu_user_hidden" data-value-field="username"
+                                                               data-label-field="display_name" data-require="true"
+                                                               value="{{ user_to_check or '' }}"
+                                                               placeholder="{{ _('Type 2+ characters to search users') }}">
+                                                        <input type="hidden" id="pbu_user_hidden" name="user" value="{{ user_to_check or '' }}">
+                                                        <div id="pbu_user_results" class="list-group soca-th-results"></div>
                                                     </div>
+                                                    <script src="/static/js/soca_typeahead.js"></script>
                                                     <div>
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-primary">Check Project Membership</button>
+                                                        <button type="submit" class="btn btn-primary">{{ _("Check Project Membership") }}</button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -51,17 +55,17 @@
                                             <table id="PermissionInfo" class="display" style="width:100%">
                                             <thead>
                                                 <tr>
-                                                    <th>Stack Type</th>
-                                                    <th>Stack Info</th>
-                                                    <th>Associated Profile</th>
-                                                    <th>Associated Budgets</th>
-                                                    <th>Associated Projects</th>
+                                                    <th>{{ _("Stack Type") }}</th>
+                                                    <th>{{ _("Stack Info") }}</th>
+                                                    <th>{{ _("Associated Profile") }}</th>
+                                                    <th>{{ _("Associated Budgets") }}</th>
+                                                    <th>{{ _("Associated Projects") }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                             {% for entry in projects.software_stacks %}
                                             <tr>
-                                                <td>Virtual Desktop</td>
+                                                <td>{{ _("Virtual Desktop") }}</td>
                                                 <td>{{ entry.stack_name }} (ID: {{ entry.id }})</td>
                                                 <td> {{ entry.profile.profile_name }} (ID: {{ entry.profile.id }})</td>
                                                 <td>
@@ -83,7 +87,7 @@
 
                                             {% for entry in projects.target_node_software_stacks %}
                                             <tr>
-                                                <td>Target Nodes</td>
+                                                <td>{{ _("Target Nodes") }}</td>
                                                 <td>{{ entry.stack_name }} (ID: {{ entry.id }})</td>
                                                 <td> {{ entry.profile.profile_name }} (ID: {{ entry.profile.id }})</td>
                                                 <td>

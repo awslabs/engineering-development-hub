@@ -7,9 +7,19 @@ function Configure-Logon {
         {% if context.get('/dcv/WindowsAutoLogon') == "true" %}
             Log-Info -Message "Configuring AutoLogon"
             New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -PropertyType "DWord" -Value 1 -Force
-            New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName" -PropertyType "String" -Value "{{ context.get('/dcv/SessionOwner') }}" -Force
+            New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName" -PropertyType "String" -Value "$env:EDH_DCV_SESSION_OWNER" -Force
             New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultPassword" -PropertyType "String" -Value "{{ context.get('/dcv/LocalAdminPassword') }}" -Force
         {% endif %}
+    {% elif context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
+        $ShortName = "$env:EDH_AD_SHORT_NAME"
+        Log-Info -Message "Pre-filling AD login fields: DefaultUserName=$env:EDH_DCV_SESSION_OWNER (no auto-logon for AD)"
+        New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName" -PropertyType "String" -Value "$env:EDH_DCV_SESSION_OWNER" -Force
+        if (-not [string]::IsNullOrEmpty($ShortName)) {
+            Log-Info -Message "Pre-filling Windows login DefaultDomainName=$ShortName"
+            New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultDomainName" -PropertyType "String" -Value $ShortName -Force
+        } else {
+            Log-Info -Message "EDH_AD_SHORT_NAME not set in per-session env; skipping DefaultDomainName pre-fill"
+        }
     {% endif %}
 }
 Configure-Logon

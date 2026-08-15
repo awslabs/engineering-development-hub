@@ -2,6 +2,7 @@
   "app": "python3 cdk_construct.py",
   "context": {
     "@aws-cdk/core:stackRelativeExports": "true",
-    "@aws-cdk/aws-ecs-patterns:removeDefaultDesiredCount": true
+    "@aws-cdk/aws-ecs-patterns:removeDefaultDesiredCount": true,
+    "@aws-cdk/aws-autoscaling:desiredCapacitySet": true
   }
 }

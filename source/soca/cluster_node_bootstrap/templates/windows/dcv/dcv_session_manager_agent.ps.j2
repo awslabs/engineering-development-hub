@@ -1,0 +1,81 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Install & Configure DCV Session Manager Agent on Windows VDI hosts
+# When high_scale mode is enabled, each DCV host runs the SM Agent which
+# registers with the broker so the gateway can route sessions.
+
+Log-Info -Message "Installing DCV Session Manager Agent for high-scale mode"
+
+$SmAgentUrl  = "{{ context.get('/system/dcv/session_manager_agent/windows/url') }}"
+$SmAgentSha  = "{{ context.get('/system/dcv/session_manager_agent/windows/sha256') }}"
+$BrokerHost  = "{{ context.get('/dcv/BrokerHost') }}"
+$BrokerPort  = "{{ context.get('/dcv/BrokerAgentPort', '8445') }}"
+$ClusterId   = "{{ context.get('/configuration/ClusterId') }}"
+$SessionUser = "$env:EDH_DCV_SESSION_OWNER"
+
+$AlreadyInstalled = (Get-Service -Name "DcvSessionManagerAgentService" -ErrorAction SilentlyContinue) -ne $null
+if (-not $AlreadyInstalled) {
+    $MsiPath = "$env:TEMP\nice-dcv-session-manager-agent.msi"
+    Log-Info -Message "Downloading SM Agent from $SmAgentUrl"
+    # $SmAgentUrl may be a pipe-delimited "s3://mirror|https://fallback" value
+    # when resources_mirroring is enabled; the shared helper parses it and
+    # verifies the sha256.
+    Invoke-SOCAFileDownload -DownloadUrl $SmAgentUrl -SaveAs $MsiPath -Sha256Checksum $SmAgentSha
+    Log-Info -Message "SM Agent SHA verified, installing"
+    $proc = Start-Process msiexec.exe -ArgumentList "/i `"$MsiPath`" /qn /norestart" -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        throw "msiexec failed with exit code $($proc.ExitCode)"
+    }
+} else {
+    Log-Info -Message "SM Agent already installed, skipping download"
+}
+
+# Configure agent (DCV 2025.0 SM Agent expects TOML 0.1 schema with quoted
+# strings; tags are read from per-key files in the tags subdirectory).
+$ConfDir  = "C:\Program Files\NICE\DCVSessionManagerAgent\conf"
+$ConfPath = "$ConfDir\agent.conf"
+$TagsDir  = "$ConfDir\tags"
+
+if (-not (Test-Path $ConfDir))  { New-Item -ItemType Directory -Force -Path $ConfDir  | Out-Null }
+if (-not (Test-Path $TagsDir))  { New-Item -ItemType Directory -Force -Path $TagsDir  | Out-Null }
+
+$AgentConf = @"
+version = '0.1'
+
+[agent]
+broker_host = '$BrokerHost'
+broker_port = $BrokerPort
+tls_strict = false
+
+[log]
+level = 'info'
+"@
+Set-Content -Path $ConfPath -Value $AgentConf -Encoding ASCII
+
+# Look up instance id from IMDS
+$MetadataToken = Invoke-RestMethod -Method PUT `
+    -Uri "http://169.254.169.254/latest/api/token" `
+    -Headers @{ "X-aws-ec2-metadata-token-ttl-seconds" = "60" }
+$InstanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" `
+    -Headers @{ "X-aws-ec2-metadata-token" = $MetadataToken }
+
+"cluster = '$ClusterId'"   | Set-Content "$TagsDir\cluster"  -Encoding ASCII
+"owner = '$SessionUser'"   | Set-Content "$TagsDir\owner"    -Encoding ASCII
+"instance = '$InstanceId'" | Set-Content "$TagsDir\instance" -Encoding ASCII
+
+# Do NOT start the agent here. 02_setup runs PRE-rename (the host still carries its EC2 sysprep
+# name); if the agent registered with the broker now, the subsequent rename + reboot would
+# orphan that registration -- the broker keeps the stale EC2-named DcvServer until its 15-min
+# unreachable sweep, while the reconnecting agent resumes as "already registered" and never
+# re-publishes a DcvServer -> the controller's create_session loops "No DCV server found for
+# the given criteria". 03_setup_post_reboot enables (Automatic) + starts the agent AFTER the
+# rename + AD convergence, so it registers exactly once under the final unique (EDH-<hash>)
+# identity. The MSI may auto-start the service on install, so stop it and hold it at Manual
+# until 03 takes over.
+Log-Info -Message "SM Agent installed/configured; deferring start to 03 (post-rename) to avoid a pre-rename broker registration"
+Stop-Service -Name DcvSessionManagerAgentService -Force -ErrorAction Continue
+Set-Service -Name DcvSessionManagerAgentService -StartupType Manual
+
+Log-Info -Message "DCV Session Manager Agent installed (start deferred to 03_setup_post_reboot)"
+# End: Install & Configure DCV Session Manager Agent on Windows VDI hosts

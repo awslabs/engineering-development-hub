@@ -12,10 +12,12 @@
 ######################################################################################################################
 
 from flask import request
+from flask_babel import gettext as _
 from flask_restful import Resource, reqparse
 import logging
 from decorators import admin_api, restricted_api, private_api, feature_flag
 import os
+import stat
 import sys
 import base64
 import binascii
@@ -32,7 +34,7 @@ class Files(Resource):
     @private_api
     @feature_flag(flag_name="FILE_BROWSER", mode="api")
     def get(self):
-        """
+        r"""
         Retrieve content of a file
         ---
         openapi: 3.1.0
@@ -101,14 +103,9 @@ class Files(Resource):
                 logger.error(f"{file_to_read} is not a file")
                 return SocaError.GENERIC_ERROR(helper=_generic_error_message).as_flask()
 
-            if not file_to_read.is_file():
-                return SocaError.GENERIC_ERROR(helper=_generic_error_message).as_flask()
-
-            folder_location = Path(file_to_read).parent
-            if folder_location.resolve in config.Config.PATH_TO_RESTRICT:
-                logger.error(
-                    f"{file_to_read=} is in restricted path {config.Config.PATH_TO_RESTRICT}"
-                )
+            _folder = file_to_read.parent.resolve()
+            if any(_folder.is_relative_to(Path(_p).resolve()) for _p in config.Config.PATH_TO_RESTRICT):
+                logger.error(f"{file_to_read=} is in a restricted path")
                 return SocaError.GENERIC_ERROR(helper=_generic_error_message).as_flask()
 
             if (
@@ -121,7 +118,12 @@ class Files(Resource):
                 is True
             ):
                 try:
-                    with open(file_to_read) as file:
+                    # Atomic open; O_NOFOLLOW refuses a symlink swapped in after the permission check, O_NONBLOCK avoids a FIFO block (uwsgi runs as root).
+                    _fd = os.open(file_to_read, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                    if not stat.S_ISREG(os.fstat(_fd).st_mode):
+                        os.close(_fd)
+                        return SocaError.GENERIC_ERROR(helper=_generic_error_message).as_flask()
+                    with os.fdopen(_fd, "r", closefd=True) as file:
                         return SocaResponse(
                             success=True, message=file.read()
                         ).as_flask()
@@ -219,7 +221,7 @@ class Files(Resource):
         parser.add_argument("file_name", type=str, location="form")
         parser.add_argument("file_content", type=str, location="form")
         args = parser.parse_args()
-        _generic_error_message = "Unable to create file. Check logs for additional info"
+        _generic_error_message = _("Unable to create file. Check logs for additional info")
         if not args.get("file_name", ""):
             return SocaError.CLIENT_MISSING_PARAMETER(parameter="file_name").as_flask()
         if not args.get("file_content", ""):
@@ -256,10 +258,15 @@ class Files(Resource):
                 is True
             ):
                 try:
-                    with open(file_name, "w") as file:
+                    # O_NOFOLLOW refuses a symlink swapped in after the parent-dir permission check, O_NONBLOCK avoids a FIFO block (uwsgi runs as root).
+                    _fd = os.open(file_name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_NONBLOCK, 0o644)
+                    if not stat.S_ISREG(os.fstat(_fd).st_mode):
+                        os.close(_fd)
+                        return SocaError.GENERIC_ERROR(helper=_generic_error_message).as_flask()
+                    with os.fdopen(_fd, "w", closefd=True) as file:
                         file.write(file_content)
                     return SocaResponse(
-                        success=True, message="File Updated."
+                        success=True, message=_("File Updated.")
                     ).as_flask()
                 except Exception as err:
                     logger.error(f"Unable to create {file_name} due to {err}")

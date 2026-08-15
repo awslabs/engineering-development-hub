@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -28,17 +28,13 @@
                         <nav>
                             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                 <a class="nav-item nav-link active" id="nav-home-tab" data-bs-target="#nav-add"
-                                   data-bs-toggle="tab" role="tab" aria-controls="nav-home" aria-selected="true">Create
-                                    a group</a>
+                                   data-bs-toggle="tab" role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Create a group") }}</a>
                                 <a class="nav-item nav-link" id="nav-profile-tab" data-bs-target="#nav-delete"
-                                   data-bs-toggle="tab" role="tab" aria-controls="nav-delete" aria-selected="false">Delete
-                                    a group</a>
+                                   data-bs-toggle="tab" role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Delete a group") }}</a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-target="#nav-check"
-                                   data-bs-toggle="tab" role="tab" aria-controls="nav-contact" aria-selected="false">Check
-                                    group membership</a>
+                                   data-bs-toggle="tab" role="tab" aria-controls="nav-contact" aria-selected="false">{{ _("Check group membership") }}</a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-target="#nav-update"
-                                   data-bs-toggle="tab" role="tab" aria-controls="nav-contact" aria-selected="false">Change
-                                    group membership</a>
+                                   data-bs-toggle="tab" role="tab" aria-controls="nav-contact" aria-selected="false">{{ _("Change group membership") }}</a>
                             </div>
                         </nav>
                         <div class="tab-content" id="nav-tabContent">
@@ -47,24 +43,22 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Create a new group</h3>
+                                        <h3>{{ _("Create a new group") }}</h3>
 
                                         <form action="/admin/create_group" method="post">
                                             <div class="form-group">
-                                                <input id="group_name" placeholder="Group name" class="form-control"
+                                                <input id="group_name" placeholder="{{ _("Group name") }}" class="form-control"
                                                        type="text" required name="group_name">
                                             </div>
-                                            Members: (choose all that apply) <br>
-                                            <select class="form-control" id="members" size="15" name="members" multiple>
-                                                {% for user in all_users %}
-                                                    <option value="{{ user }}">{{ user }}</option>
-                                                {% endfor %}
-
-                                            </select>
+                                            {{ _("Members:") }} <br>
+                                            <input type="text" id="members" class="form-control soca-tagsearch" name="members"
+                                                   data-ub-tag-variant="primary"
+                                                   data-endpoint="/api/ldap/users"
+                                                   placeholder="{{ _('Type 2+ characters to search and add users (optional)') }}">
                                             <br>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Create Group
+                                                <button type="submit" class="btn btn-primary">{{ _("Create Group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -77,33 +71,31 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Delete Group</h3>
+                                        <h3>{{ _("Delete Group") }}</h3>
 
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important </strong>
-                                            Deleting group may cause access issue. Make sure your group is no longer in
-                                            use before deleting it
+                                            <strong>{{ _("Important") }} </strong>
+                                            {{ _("Deleting group may cause access issue. Make sure your group is no longer in use before deleting it") }}
                                         </div>
 
                                         <form action="/admin/delete_group" method="post">
-                                            <div class="form-group">
-                                                <select class="form-control" id="group_to_delete"
-                                                        name="group_to_delete">
-                                                    {% for group in all_groups %}
-                                                        <option value="{{ group }}">{{ group }}</option>
-                                                    {% endfor %}
-
-                                                </select>
+                                            <div class="form-group position-relative">
+                                                <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                       data-endpoint="/api/ldap/groups" data-results="del_group_results"
+                                                       data-sink="del_group_hidden" data-value-field="group"
+                                                       data-label-field="group" data-require="true"
+                                                       placeholder="{{ _('Type 2+ characters to search groups') }}">
+                                                <input type="hidden" id="del_group_hidden" name="group_to_delete">
+                                                <div id="del_group_results" class="list-group soca-th-results"></div>
                                             </div>
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                        required>
-                                                <label class="form-check-label" for="verif">I am sure I want to delete
-                                                    this group</label>
+                                                <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this group") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">Delete group
+                                                <button type="submit" class="btn btn-danger">{{ _("Delete group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -115,19 +107,20 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Check group membership</h3>
+                                        <h3>{{ _("Check group membership") }}</h3>
                                         <form action="/admin/check_group" method="post">
-                                            <div class="form-group">
-                                                <select class="form-control" id="group" name="group">
-                                                    {% for group in all_groups %}
-                                                        <option value="{{ group }}">{{ group }}</option>
-                                                    {% endfor %}
-
-                                                </select>
+                                            <div class="form-group position-relative">
+                                                <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                       data-endpoint="/api/ldap/groups" data-results="chk_group_results"
+                                                       data-sink="chk_group_hidden" data-value-field="group"
+                                                       data-label-field="group" data-require="true"
+                                                       placeholder="{{ _('Type 2+ characters to search groups') }}">
+                                                <input type="hidden" id="chk_group_hidden" name="group">
+                                                <div id="chk_group_results" class="list-group soca-th-results"></div>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Check group
+                                                <button type="submit" class="btn btn-primary">{{ _("Check group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -141,37 +134,39 @@
                                     <div class="col-md-6">
                                         <div class="card shadow mb-4">
                                             <div class="card-body">
-                                                <h3>Add to group</h3>
+                                                <h3>{{ _("Add to group") }}</h3>
                                                 <form action="/admin/manage_group" method="post">
-                                                    <div class="form-group">
-                                                        Select user:
-                                                        <select class="form-control" id="user" name="user">
-                                                            {% for user in all_users %}
-                                                                <option value="{{ user }}">{{ user }}</option>
-                                                            {% endfor %}
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        {{ _("Select user:") }}
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/users" data-results="addg_user_results"
+                                                               data-sink="addg_user_hidden" data-value-field="username"
+                                                               data-label-field="display_name" data-require="true"
+                                                               placeholder="{{ _('Type 2+ characters to search users') }}">
+                                                        <input type="hidden" id="addg_user_hidden" name="user">
+                                                        <div id="addg_user_results" class="list-group soca-th-results"></div>
                                                     </div>
-                                                    <div class="form-group">
-                                                        Select group:
-                                                        <select class="form-control" id="group" name="group">
-                                                            {% for group in all_groups %}
-                                                                <option value="{{ group }}">{{ group }}</option>
-                                                            {% endfor %}
-
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        {{ _("Select group:") }}
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/groups" data-results="addg_group_results"
+                                                               data-sink="addg_group_hidden" data-value-field="group"
+                                                               data-label-field="group" data-require="true"
+                                                               placeholder="{{ _('Type 2+ characters to search groups') }}">
+                                                        <input type="hidden" id="addg_group_hidden" name="group">
+                                                        <div id="addg_group_results" class="list-group soca-th-results"></div>
                                                     </div>
                                                     <div class="form-group form-check">
                                                         <input type="checkbox" class="form-check-input"
                                                                name="admin_verif" id="admin_reset_verif" required>
-                                                        <label class="form-check-label" for="admin_verif">I am sure I
-                                                            want to <strong>ADD</strong> this user to the group</label>
+                                                        <label class="form-check-label" for="admin_verif">{{ _("I am sure I want to") }} <strong>{{ _("ADD") }}</strong> {{ _("this user to the group") }}</label>
                                                     </div>
                                                     <div>
                                                         <input type="hidden" name="action" value="add">
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-success">Add user
+                                                        <button type="submit" class="btn btn-success">{{ _("Add user") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -181,40 +176,40 @@
                                     <div class="col-md-6">
                                         <div class="card shadow mb-4">
                                             <div class="card-body">
-                                                <h3>Remove from group</h3>
+                                                <h3>{{ _("Remove from group") }}</h3>
                                                 <form action="/admin/manage_group" method="post">
-                                                    <div class="form-group">
-                                                        Select user:
-                                                        <select class="form-control" id="user" name="user">
-                                                            {% for user in all_users %}
-                                                                <option value="{{ user }}">{{ user }}</option>
-                                                            {% endfor %}
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        {{ _("Select user:") }}
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/users" data-results="rmg_user_results"
+                                                               data-sink="rmg_user_hidden" data-value-field="username"
+                                                               data-label-field="display_name" data-require="true"
+                                                               placeholder="{{ _('Type 2+ characters to search users') }}">
+                                                        <input type="hidden" id="rmg_user_hidden" name="user">
+                                                        <div id="rmg_user_results" class="list-group soca-th-results"></div>
                                                     </div>
-                                                    <div class="form-group">
-                                                        Select group:
-                                                        <select class="form-control" id="group" name="group">
-                                                            {% for group in all_groups %}
-                                                                <option value="{{ group }}">{{ group }}</option>
-                                                            {% endfor %}
-
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        {{ _("Select group:") }}
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/groups" data-results="rmg_group_results"
+                                                               data-sink="rmg_group_hidden" data-value-field="group"
+                                                               data-label-field="group" data-require="true"
+                                                               placeholder="{{ _('Type 2+ characters to search groups') }}">
+                                                        <input type="hidden" id="rmg_group_hidden" name="group">
+                                                        <div id="rmg_group_results" class="list-group soca-th-results"></div>
                                                     </div>
 
                                                     <div class="form-group form-check">
                                                         <input type="checkbox" class="form-check-input"
                                                                name="sudo_revoke_verif" id="sudo_revoke_verif" required>
-                                                        <label class="form-check-label" for="sudo_revoke_verif">I am
-                                                            sure I want to <strong>REMOVE</strong> this user from the
-                                                            group</label>
+                                                        <label class="form-check-label" for="sudo_revoke_verif">{{ _("I am sure I want to") }} <strong>{{ _("REMOVE") }}</strong> {{ _("this user from the group") }}</label>
                                                     </div>
                                                     <div>
                                                         <input type="hidden" name="action" value="remove">
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-danger">Remove
-                                                            user
+                                                        <button type="submit" class="btn btn-danger">{{ _("Remove user") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -232,6 +227,7 @@
 
 
                         {% include 'common/footer.html' %}
+                        <script src="/static/js/soca_typeahead.js"></script>
 
                     </nav>
                 </div>

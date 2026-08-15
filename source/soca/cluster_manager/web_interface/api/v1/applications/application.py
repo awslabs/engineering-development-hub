@@ -4,9 +4,11 @@
 from flask_restful import Resource, reqparse
 import logging
 from flask import request
+from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError
 from utils.response import SocaResponse
 from utils.error import SocaError
+from utils.cast import SocaCastEngine
 from decorators import admin_api, feature_flag
 import base64
 import re 
@@ -225,7 +227,7 @@ class Application(Resource):
             db.session.add(new_app_profile)
             db.session.commit()
             return SocaResponse(
-                success=True, message=f"{_profile_name} created successfully"
+                success=True, message=_(f"{_profile_name} created successfully")
             ).as_flask()
         except IntegrityError:
             db.session.rollback()
@@ -355,21 +357,8 @@ class Application(Resource):
                     message:
                       type: string
                       example: "Admin access required"
-          '404':
-            description: Application profile not found
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    success:
-                      type: boolean
-                      example: false
-                    message:
-                      type: string
-                      example: "Application not found"
           '500':
-            description: Server error during update
+            description: Server error (application not found, invalid parameters, or database error)
             content:
               application/json:
                 schema:
@@ -417,6 +406,13 @@ class Application(Resource):
         if _user is None:
             return SocaError.CLIENT_MISSING_HEADER(header="X-EDH-USER").as_flask()
 
+        _application_id_cast = SocaCastEngine(data=_application_id).cast_as(int)
+        if _application_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"application_id does not seems to be a valid integer {_application_id}"
+            ).as_flask()
+        _application_id = _application_id_cast.get("message")
+
         try:
             _edit_application_profile = ApplicationProfiles.query.filter_by(
                 id=_application_id
@@ -460,7 +456,7 @@ class Application(Resource):
                     _edit_application_profile.profile_name = _profile_name
                 db.session.commit()
                 return SocaResponse(
-                    success=True, message="Application updated successfully"
+                    success=True, message=_("Application updated successfully")
                 ).as_flask()
 
             else:
@@ -591,13 +587,20 @@ class Application(Resource):
                 parameter="application_id"
             ).as_flask()
 
+        _application_id_cast = SocaCastEngine(data=_application_id).cast_as(int)
+        if _application_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"application_id does not seems to be a valid integer {_application_id}"
+            ).as_flask()
+        _application_id = _application_id_cast.get("message")
+
         try:
             _delete_application = ApplicationProfiles.query.filter_by(
                 id=_application_id
             ).delete()
             db.session.commit()
             return SocaResponse(
-                success=True, message="Application deleted successfully"
+                success=True, message=_("Application deleted successfully")
             ).as_flask()
         except Exception as err:
             db.session.rollback()

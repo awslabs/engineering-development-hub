@@ -11,7 +11,9 @@ else
   ANALYTICS_MODE=${1}
 fi
 
+set -a  # auto-export vars (bare /etc/environment KEY=value lines are not exported on source)
 source /etc/environment
+set +a
 
 if [[ -z "${EDH_CLUSTER_ID}" ]]; then
   echo "EDH_CLUSTER_ID environment variable not found."

@@ -3,8 +3,8 @@ APScheduler==3.11.0
 asn1crypto==1.5.1
 bleach==6.2.0
 blinker==1.9.0
-boto3==1.40.16
-botocore==1.40.16
+boto3==1.43.29
+botocore==1.43.29
 cachelib==0.13.0
 cachetools==5.5.2
 certifi==2025.1.31
@@ -18,6 +18,7 @@ docutils==0.21.2
 ecdsa==0.19.1
 Events==0.5
 Flask==3.1.0
+flask_babel==4.0.0
 flask-cors==5.0.1
 Flask-DebugToolbar==0.16.0
 Flask-RESTful==0.3.10
@@ -25,6 +26,7 @@ flask-restful-swagger-3==0.5.1
 Flask-Session==0.8.0
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.2
+gevent==25.4.2
 gunicorn==23.0.0
 hiredis==3.1.0
 idna==3.10
@@ -34,18 +36,21 @@ jmespath==1.0.1
 kubernetes==33.1.0
 ldif==4.2.5
 MarkupSafe==3.0.2
+markdown==3.10.2
 msgspec==0.19.0
+mypy-boto3-dynamodb==1.43.0  # runtime import in Flask-Session dynamodb backend, not just a type stub
 natsort==8.4.0
 opensearch-py==2.8.0
 packaging==24.2
 prettytable==3.16.0
+psycopg[binary]==3.3.4
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.22
 pydantic==2.11.3
 pyOpenSSL==25.0.0
 python-dateutil==2.9.0.post0
-python-jose==3.3.0
+python-jose==3.5.0
 python-ldap==3.4.4
 python-pam==2.0.2
 pytz==2025.2
@@ -55,13 +60,14 @@ redis==5.2.1
 requests==2.32.4
 requests-aws4auth==1.3.1
 rsa==4.9
-s3transfer==0.13.1
+s3transfer==0.18.0
 six==1.17.0
 SQLAlchemy==2.0.40
-troposphere==4.9.0
+troposphere==4.10.2
 typing_extensions==4.13.0
 tzlocal==5.3.1
 urllib3==1.26.20
+python-ulid==3.0.0
 uWSGI==2.0.28
 uwsgitop==0.12
 validators==0.34.0

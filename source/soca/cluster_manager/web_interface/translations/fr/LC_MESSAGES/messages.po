@@ -1,0 +1,3822 @@
+# French translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-06-02 14:33+0200\nPO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: fr\nLanguage-Team: fr <LL@li.org>\nPlural-Forms: nplurals=2; plural=(n > 1);\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.16.0\n"
+
+msgid " Download file is disabled. Please contact your SOCA cluster administrator"
+msgstr " Le téléchargement du fichier est désactivé. Veuillez contacter l'administrateur de votre cluster SOCA"
+
+#, python-format
+msgid "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
+msgstr "%(em_prefix)s. Si vous utilisez un shell nouveau ou personnalisé, assurez-vous que celui-ci est installé sur tous les nœuds de calcul"
+
+#, python-format
+msgid "%(link)s enables fully managed support for SFTP, FTPS and FTP to move large amounts of data into AWS."
+msgstr "%(link)s permet un support entièrement géré pour SFTP, FTPS et FTP afin de transférer de grandes quantités de données vers AWS."
+
+#, python-format
+msgid "%(link)s is a secure, online service that automates and accelerates moving data between on-premises and AWS storage services."
+msgstr "%(link)s est un service en ligne sécurisé qui automatise et accélère le transfert de données entre les services de stockage sur site et AWS."
+
+msgid "&times;"
+msgstr "×"
+
+msgid "(Default Shell) /bin/bash"
+msgstr "(Shell par défaut) /bin/bash"
+
+msgid "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file."
+msgstr "(Ne pas supprimer) Cette entrée sera automatiquement préremplie avec le chemin absolu du fichier d'entrée."
+
+msgid "(EDH version 26.8.0)"
+msgstr "(Version EDH 26.8.0)"
+
+msgid "(EDH)"
+msgstr ""
+
+msgid "(Next Day)"
+msgstr "(Le jour suivant)"
+
+msgid "(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+msgstr "(Facultatif si vous n'utilisez pas Host Tenancy) Lancez l'ID d'hôte (h-xxx)"
+
+msgid "(Optional) Advanced Customizations"
+msgstr "Personnalisations avancées (Facultatif)"
+
+msgid "(Optional) Description for your Target Node Profile (maximum 500 characters)."
+msgstr "(Facultatif) Description de votre profil de Target Node (500 caractères maximum)."
+
+msgid "(Optional) Description for your Virtual Desktop Profile (maximum 500 characters)."
+msgstr "(Facultatif) Description de votre profil de bureau virtuel (500 caractères maximum)."
+
+msgid "(Optional) Description for your project (maximum 500 characters)."
+msgstr "(Facultatif) Description de votre projet (500 caractères maximum)."
+
+msgid "(Optional) Description for your project maximum 500 characters."
+msgstr "(Facultatif) La description de votre projet ne doit pas dépasser 500 caractères."
+
+msgid "(Optional) Description for your software stack (maximum 500 characters)."
+msgstr "(Facultatif) Description de votre pile logicielle (500 caractères maximum)."
+
+msgid "(Optional) Description for your software stack, maximum 500 characters."
+msgstr "(Facultatif) Description de votre pile logicielle, 500 caractères maximum."
+
+msgid "(Optional) Description for your template, maximum 500 characters."
+msgstr "(Facultatif) Description de votre modèle, 500 caractères maximum."
+
+msgid "(Optional) User GID"
+msgstr "GID utilisateur (facultatif)"
+
+msgid "(Optional) User UID"
+msgstr "UID utilisateur (Facultatif)"
+
+msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
+msgstr "(Facultatif) myvar1=myvalue1, myvar2=myvalue2"
+
+#, python-format
+msgid "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+msgstr "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+
+msgid ", "
+msgstr ", "
+
+msgid "/root size in GB (default: 10)"
+msgstr "taille /root en Go (par défaut : 10)"
+
+msgid "/scratch size in GB (default: 0)"
+msgstr "/scratch taille en Go (par défaut : 0)"
+
+msgid "0-9999"
+msgstr "0 à 9999"
+
+msgid "1-10"
+msgstr "1 à 10"
+
+msgid "100 Customizable"
+msgstr "100  personnalisable"
+
+msgid "24H"
+msgstr "24 HEURES"
+
+msgid "A Target Node Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "Un profil de Target Node contrôle la liste des types d'instances EC2, la taille de stockage maximale ainsi que les identifiants de sous-réseau approuvés pour votre"
+
+msgid "A Virtual Desktop Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "Un profil de bureau virtuel contrôle la liste des types d'instances EC2, la taille de stockage maximale ainsi que les identifiants de sous-réseau approuvés pour votre"
+
+msgid "A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows."
+msgstr "Une plateforme unifiée pour les postes de travail cloud, les simulations cloud et les Workflow d'ingénierie assistés par l'IA."
+
+msgid "ADD"
+msgstr "AJOUTER"
+
+msgid "AM/PM"
+msgstr "MATIN ET APRÈS-MIDI"
+
+msgid "AMI ID"
+msgstr "IDENTIFIANT AMI"
+
+msgid "API Documentation"
+msgstr "Documentation de l'API"
+
+msgid "AWS Batch Containers"
+msgstr "Conteneurs par lots AWS"
+
+msgid "AWS DataSync"
+msgstr "AWS DataSync"
+
+msgid "AWS Region of the target node"
+msgstr "Région AWS du Target Node"
+
+msgid "AWS Transfer"
+msgstr "Transfert AWS"
+
+msgid "Access denied"
+msgstr "Accès refusé"
+
+msgid "Access my Analytics Dashboard"
+msgstr "Accéder à mon tableau de bord Analytics"
+
+msgid "Access the cluster via Secure Shell (SSH)"
+msgstr "Accédez au cluster via Secure Shell (SSH)"
+
+msgid "Access the cluster via a Web Terminal"
+msgstr "Accédez au cluster via un terminal Web"
+
+msgid "Access your cluster via SSH"
+msgstr "Accédez à votre cluster via SSH"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Add"
+msgstr "Ajouter"
+
+msgid "Add Argument"
+msgstr "Ajouter un argument"
+
+msgid "Add New User"
+msgstr "Ajouter un nouvel utilisateur"
+
+msgid "Add Resource"
+msgstr "Ajouter une ressource"
+
+msgid "Add Variable"
+msgstr "Ajouter une variable"
+
+msgid "Add a user to your group"
+msgstr "Ajoutez un utilisateur à votre groupe"
+
+msgid "Add environment variables for your job"
+msgstr "Ajoutez des variables d'environnement pour votre travail"
+
+msgid "Add new user"
+msgstr "Ajouter un nouvel utilisateur"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job definition(s) you want to onboard."
+msgstr "Ajoutez la balise %(tag)s suivante à la ou aux définitions de jobs AWS Batch que vous souhaitez intégrer."
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job queue(s) you want to onboard."
+msgstr "Ajoutez la balise %(tag)s suivante à la ou aux files d'attente de jobs AWS Batch que vous souhaitez intégrer."
+
+#, python-format
+msgid "Add the following tag %(tag)s to the EKS cluster(s) you want to onboard."
+msgstr "Ajoutez la balise %(tag)s suivante au ou aux clusters EKS que vous souhaitez intégrer."
+
+#, python-format
+msgid "Add the following tag to onboard your %(link)s to EDH:"
+msgstr "Ajoutez le tag suivant pour intégrer votre %(link)s à EDH :"
+
+msgid "Add to group"
+msgstr "Ajouter au groupe"
+
+msgid "Add user"
+msgstr "Ajouter un utilisateur"
+
+msgid "Add user to your group"
+msgstr "Ajouter un utilisateur à votre groupe"
+
+msgid "Additional documentation and examples can be found here:"
+msgstr "Vous trouverez de la documentation et des exemples supplémentaires ici :"
+
+msgid "Additional variables (case-sensitive)"
+msgstr "Variables supplémentaires (sensibles aux majuscules et minuscules)"
+
+#, python-format
+msgid "Additional variables can be defined on the %(stack_link)s associated to this user data template. Variables can be retrieved via %(var_syntax)s syntax."
+msgstr "Des variables supplémentaires peuvent être définies sur le %(stack_link)s associé à ce modèle de données utilisateur. Les variables peuvent être récupérées via la syntaxe %(var_syntax)s."
+
+msgid "Additionally, your job definition status must be ACTIVE."
+msgstr "De plus, le statut de votre définition de poste doit être ACTIF."
+
+msgid "Additionally, your job queue state must be ENABLED and status must be VALID."
+msgstr "En outre, l'état de votre file d'attente de jobs doit être ACTIVÉ et le statut doit être VALIDE."
+
+msgid "Admin Section"
+msgstr "Section d'administration"
+
+msgid "Admin permissions granted"
+msgstr "Autorisations d'administrateur accordées"
+
+msgid "Admin permissions revoked"
+msgstr "Autorisations d'administrateur révoquées"
+
+#, python-format
+msgid "Admin username and password can be found on %(u)s and %(pw)s."
+msgstr "Le nom d'utilisateur et le mot de passe de l'administrateur se trouvent sur %(u)s et %(pw)s."
+
+msgid "Advanced Settings"
+msgstr "Réglages avancés"
+
+msgid "All"
+msgstr "Tous"
+
+msgid "All operations have completed. Page will reload automatically in 5 seconds"
+msgstr "Toutes les opérations sont terminées. La page se rechargera automatiquement dans 5 secondes"
+
+msgid "All users"
+msgstr "Tous les utilisateurs"
+
+msgid "Allowed Groups"
+msgstr "Groupes autorisés"
+
+msgid "Allowed Users"
+msgstr "Utilisateurs autorisés"
+
+msgid "Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname."
+msgstr "Vous pouvez également utiliser WinSCP/FileZilla. Reportez-vous aux instructions disponibles sur ce site Web et utilisez votre point de terminaison AWS Transfer comme nom d'hôte."
+
+msgid "Always On"
+msgstr "Toujours allumé"
+
+msgid "AlwaysOn"
+msgstr "Toujours activé"
+
+msgid "Amazon DCV"
+msgstr "Amazon DVD"
+
+msgid "Amazon EKS Containers"
+msgstr "Conteneurs Amazon EKS"
+
+msgid "AmazonElasticFileSystemClientReadWriteAccess"
+msgstr "Accès en lecture/écriture au client Amazon Elastic File System"
+
+msgid "Analytics / Budget"
+msgstr "Analyses/Budget"
+
+msgid "Any script authenticating to SOCA using this key will return"
+msgstr "Tout script s'authentifiant auprès de SOCA à l'aide de cette clé renverra"
+
+msgid "Application Imported successfully"
+msgstr "Application importée avec succès"
+
+msgid "Application Profiles"
+msgstr ""
+
+msgid "Application deleted successfully"
+msgstr "L'application a été supprimée avec succès"
+
+msgid "Application not found or user is not authorized."
+msgstr "L'application est introuvable ou l'utilisateur n'est pas autorisé."
+
+msgid "Application parameters"
+msgstr "Paramètres de l'application"
+
+msgid "Application updated successfully"
+msgstr "Application mise à jour avec succès"
+
+msgid "Applications are loaded in memory and will restart automatically"
+msgstr "Les applications sont chargées en mémoire et redémarrent automatiquement"
+
+msgid "Architecture (x86_64/ aarch64) of the target node"
+msgstr "Architecture (x86_64/ aarch64) du Target Node"
+
+msgid "Array Size"
+msgstr "Taille de la matrice"
+
+msgid "As hostname, enter the following for the Login Node load balancer endpoint:"
+msgstr "En tant que nom d'hôte, entrez les informations suivantes pour le point de terminaison de l'équilibreur de charge Login Node :"
+
+msgid "Assign this desktop to an existing capacity reservation id"
+msgstr "Attribuer ce bureau à un identifiant de réservation de capacité existant"
+
+msgid "Associated AWS Budget"
+msgstr "Budget AWS associé"
+
+msgid "Associated Budgets"
+msgstr "Budgets associés"
+
+msgid "Associated Profile"
+msgstr "Profil associé"
+
+msgid "Associated Projects"
+msgstr "Projets associés"
+
+msgid "Attention"
+msgstr "Attention"
+
+msgid "Attention: Your job cannot run"
+msgstr "Attention : votre job ne peut pas être exécutée"
+
+msgid "Authentication failed - please refresh the page and try again."
+msgstr "L'authentification a échoué. Veuillez actualiser la page et réessayer."
+
+msgid "Authentication failed. Close this window and open a new pop-out from the main SSH page."
+msgstr "L'authentification a échoué. Fermez cette fenêtre et ouvrez une nouvelle fenêtre contextuelle depuis la page principale de SSH."
+
+msgid "Authorized"
+msgstr "Autorisé"
+
+msgid "Auto-filled with the input file path"
+msgstr "Rempli automatiquement avec le chemin du fichier d'entrée"
+
+msgid "Auto-scroll"
+msgstr "Défilement automatique"
+
+msgid "Automatic Provisioning"
+msgstr "Approvisionnement automatique"
+
+msgid "Automatic Provisioning (Default)"
+msgstr "Provisionnement automatique (par défaut)"
+
+msgid "Automatically start/stop this session based on schedule."
+msgstr "Démarrez/arrêtez automatiquement cette session en fonction du calendrier."
+
+msgid "Benefits and Features"
+msgstr "Avantages et fonctionnalités"
+
+msgid "Both commands will return a JSON object with all information regarding your job."
+msgstr "Les deux commandes renverront un objet JSON contenant toutes les informations relatives à votre job."
+
+msgid "Both commands will return the ID associated to the job you just submitted"
+msgstr "Les deux commandes renverront l'identifiant associé à la job que vous venez de soumettre"
+
+msgid "Browse Software Stacks"
+msgstr "Parcourir les piles de logiciels"
+
+msgid "Budgets and Cost Management"
+msgstr "Gestion des budgets et des coûts"
+
+msgid "CPUs"
+msgstr "processeurs"
+
+msgid "Cache updated with the latest revision of the folder"
+msgstr "Cache mis à jour avec la dernière révision du dossier"
+
+msgid "Calculate number of nodes to provision automatically"
+msgstr "Calculez le nombre de nœuds à approvisionner automatiquement"
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "Capacity being provisioned"
+msgstr "Capacité en cours de provisionnement"
+
+msgid "Capacity provisioning blocked"
+msgstr "Le provisionnement des capacités est bloqué"
+
+msgid "Change group membership"
+msgstr "Modifier l'appartenance à un groupe"
+
+msgid "Change my password"
+msgstr "Changer mon mot de passe"
+
+msgid "Changing an instance type does not cause data loss."
+msgstr "La modification d'un type d'instance n'entraîne pas de perte de données."
+
+msgid "Check Project Membership"
+msgstr "Vérifier l'adhésion au projet"
+
+msgid "Check group"
+msgstr "Vérifiez le groupe"
+
+msgid "Check group membership"
+msgstr "Vérifiez l'adhésion au groupe"
+
+msgid "Check project membership for a given user"
+msgstr "Vérifier l'appartenance au projet pour un utilisateur donné"
+
+#, python-format
+msgid "Choose %(ep_type)s depending on your setup. It's recommended to use %(vpc)s for IP restrictions via your security groups. %(pub)s means your AWS Transfer endpoint won't be protected by IP safelist."
+msgstr "Choisissez %(ep_type)s en fonction de votre configuration. Il est recommandé d'utiliser %(vpc)s pour les restrictions IP via vos groupes de sécurité. %(pub)s signifie que votre point de terminaison AWS Transfer ne sera pas protégé par une liste IP sécurisée."
+
+msgid "Choose AMI launch tenancy setting"
+msgstr "Choisissez le paramètre de location de lancement d'AMI"
+
+msgid "Choose a EDH software stack for"
+msgstr "Choisissez une suite logicielle EDH pour"
+
+msgid "Choose a friendly name for your AMI."
+msgstr "Choisissez un nom convivial pour votre AMI."
+
+msgid "Choose an Instance Type"
+msgstr "Choisissez un type d'instance"
+
+msgid "Choose an Instance Type supported for this Software Stack"
+msgstr "Choisissez un type d'instance pris en charge pour cette suite logicielle"
+
+msgid "Choose what interpreter you want to use to execute the code below:"
+msgstr "Choisissez l'interpréteur que vous souhaitez utiliser pour exécuter le code ci-dessous :"
+
+msgid "Choose your Operating System"
+msgstr "Choisissez votre système d'exploitation"
+
+msgid "Choose your Software Stack"
+msgstr "Choisissez votre suite logicielle"
+
+msgid "Clear the buffer (Ctrl+L)"
+msgstr "Videz la mémoire tampon (Ctrl+L)"
+
+#, python-format
+msgid "Click %(start_a)shere%(end_a)s to download it"
+msgstr "Click %(start_a)shere%(end_a)s to download it"
+
+msgid "Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it."
+msgstr "Cliquez sur + pour ajouter un nouvel onglet de terminal. Utilisez le ⏸ sur un onglet pour vous détacher (maintenir la session en cours) ou le × pour y mettre fin."
+
+msgid "Click connect/open to access the cluster"
+msgstr "Cliquez sur Connecter/Ouvrir pour accéder au cluster"
+
+msgid "Click here to Open Terminal in a separate window"
+msgstr "Cliquez ici pour ouvrir le terminal dans une fenêtre séparée"
+
+msgid "Click here to learn how to Import/Export your Workflow Profiles"
+msgstr "Cliquez ici pour savoir comment importer/exporter vos profils de Workflow"
+
+msgid "Click here to learn how to create custom images"
+msgstr "Cliquez ici pour savoir comment créer des images personnalisées"
+
+msgid "Close"
+msgstr "Fermer"
+
+msgid "Closing tabs or this window leaves them running so you can resume later."
+msgstr "En fermant les onglets ou en fermant cette fenêtre, ils s'exécutent pour que vous puissiez les reprendre plus tard."
+
+msgid "Cluster"
+msgstr ""
+
+msgid "Cluster Metrics"
+msgstr "Métriques du cluster"
+
+msgid "Code Editor"
+msgstr "Editeur de code"
+
+msgid "Code Editor is taking longer than expected to load."
+msgstr "Le chargement de l'éditeur de code prend plus de temps que prévu."
+
+msgid "Comma separated value of key=value variable that will be replaced in the user data if present."
+msgstr "Valeur séparée par des virgules de la variable key=value qui sera remplacée dans les données utilisateur si elles sont présentes."
+
+msgid "Command Override"
+msgstr "Remplacer une commande"
+
+msgid "Company Resources"
+msgstr "Ressources de l'entreprise"
+
+msgid "Compute"
+msgstr "Calculer"
+
+msgid "Compute Resources"
+msgstr "Ressources informatiques"
+
+msgid "Compute rate are retrieved for your running region"
+msgstr "Les taux de calcul sont récupérés pour votre région de course"
+
+msgid "Configure Job Cost Estimate automatically"
+msgstr "Configurer automatiquement l'estimation du coût du travail"
+
+msgid "Confirm Delete"
+msgstr "Confirmer la suppression"
+
+msgid "Confirm New Password"
+msgstr "Confirmer le nouveau mot de passe"
+
+msgid "Confirm Password"
+msgstr "Confirmer le mot de"
+
+msgid "Confirm Terminate"
+msgstr "Confirmer la fin"
+
+msgid "Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:"
+msgstr "Connectez-vous à votre point de terminaison AWS Transfer à l'aide de votre application FTP préférée via une ligne de commande telle que :"
+
+msgid "Connected"
+msgstr "Connecté"
+
+msgid "Connecting..."
+msgstr "Connexion..."
+
+msgid "Connection String"
+msgstr "Chaîne de connexion"
+
+msgid "Consumable Resource Override"
+msgstr "Remplacement des ressources consommables"
+
+msgid "Contact your EDH administrator if you want to add Analytics capability to your cluster."
+msgstr "Contactez votre administrateur EDH si vous souhaitez ajouter la fonctionnalité Analytics à votre cluster."
+
+msgid "Container Overrides"
+msgstr "Dérogations de conteneurs"
+
+msgid "Continue to GitHub"
+msgstr "Continuer sur GitHub"
+
+msgid "Control AWS resource deployment authorization via AWS Budget"
+msgstr "Contrôlez l'autorisation de déploiement des ressources AWS via AWS Budget"
+
+msgid "Cost Control and Budgets"
+msgstr "Contrôle des coûts et budgets"
+
+msgid "Cost Management"
+msgstr "Gestion des coûts"
+
+msgid "Cost estimate for your job"
+msgstr "Estimation des coûts de votre projet"
+
+msgid "Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file."
+msgstr "L'estimation des coûts n'est pas disponible car ce Workflow générera une commande Linux et non un fichier qsub."
+
+msgid "Could not check group membership: "
+msgstr "Impossible de vérifier l'appartenance au groupe : "
+
+msgid "Could not delete group: "
+msgstr "Impossible de supprimer le groupe : "
+
+msgid "Could not delete user: "
+msgstr "Impossible de supprimer l'utilisateur : "
+
+msgid "Could not locate the directory. Did you delete it ?"
+msgstr "Impossible de localiser le répertoire. L'avez-vous supprimé ?"
+
+msgid "Could not locate the directory: "
+msgstr "Impossible de localiser le répertoire : "
+
+msgid "Create Account"
+msgstr "Créer un compte"
+
+msgid "Create EDH Project"
+msgstr "Créer un projet EDH"
+
+msgid "Create Folder"
+msgstr "Créer un dossier"
+
+msgid "Create Group"
+msgstr "Créer un groupe"
+
+msgid "Create User Data template"
+msgstr "Créer un modèle de données utilisateur"
+
+msgid "Create a \"mynewgroup.ldif\" text file."
+msgstr "Créez un fichier texte « mynewgroup.ldif »."
+
+msgid "Create a group"
+msgstr "Créez un groupe"
+
+msgid "Create a new EDH Project"
+msgstr "Créer un nouveau projet EDH"
+
+msgid "Create a new Target Node Profile"
+msgstr "Création d'un nouveau profil de Target Node"
+
+msgid "Create a new User Data Template"
+msgstr "Création d'un nouveau modèle de données utilisateur"
+
+msgid "Create a new Virtual Desktop Profile"
+msgstr "Création d'un nouveau profil de bureau virtuel"
+
+msgid "Create a new Workflow Profile"
+msgstr "Création d'un nouveau profil de Workflow"
+
+msgid "Create a new group"
+msgstr "Créez un nouveau groupe"
+
+msgid "Create a new queue"
+msgstr "Créer une nouvelle file d'attente"
+
+msgid "Create a queue"
+msgstr "Création d'une file d'attente"
+
+msgid "Create new EDH Project"
+msgstr "Créer un nouveau projet EDH"
+
+msgid "Create new Queue"
+msgstr "Créer une nouvelle file d'attente"
+
+msgid "Create new Target Node Profile"
+msgstr "Créer un nouveau profil de Target Node"
+
+msgid "Create new User Data Template"
+msgstr "Créer un nouveau modèle de données utilisateur"
+
+msgid "Create new Virtual Desktop Profile"
+msgstr "Créer un nouveau profil de bureau virtuel"
+
+msgid "Create new Workflow Profile"
+msgstr "Créer un nouveau profil de Workflow"
+
+msgid "Create this Workflow Profile"
+msgstr "Créer ce profil de Workflow"
+
+msgid "Created"
+msgstr "Créé"
+
+msgid "Created On"
+msgstr "Créé le"
+
+msgid "Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account."
+msgstr "La création d'un utilisateur sur Active Directory peut prendre jusqu'à 1 minute. N'actualisez pas la page pendant qu'EDH crée un nouveau compte."
+
+msgid "Custom"
+msgstr "Personnalisé"
+
+msgid "Custom Consumable Resources"
+msgstr "Ressources consommables personnalisées"
+
+msgid "DANGER ZONE - Reset my API key"
+msgstr "DANGER ZONE - Réinitialiser ma clé API"
+
+msgid "DCV Session Type."
+msgstr "Type de session DCV."
+
+msgid "Data Transfer to/from EDH"
+msgstr "Transfert de données vers/depuis EDH"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Dedicated Host Tenancy"
+msgstr "Location d'hôtes dédiée"
+
+msgid "Dedicated Host Tenancy (host)"
+msgstr "Location d'hôte dédiée (hôte)"
+
+msgid "Dedicated Instance Tenancy"
+msgstr "Location d'instances dédiées"
+
+msgid "Dedicated Instance Tenancy (instance)"
+msgstr "Location d'instance dédiée (instance)"
+
+msgid "Default Tenancy"
+msgstr "Location par défaut"
+
+msgid "Default Tenancy (default)"
+msgstr "Location par défaut (par défaut)"
+
+msgid "Define custom consumable resources beyond vCPU and Memory."
+msgstr "Définissez des ressources consommables personnalisées au-delà du processeur virtuel et de la mémoire."
+
+msgid "Define environment variables as key-value pairs."
+msgstr "Définissez les variables d'environnement sous forme de paires clé-valeur."
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Delete Desktop"
+msgstr "Supprimer le bureau"
+
+msgid "Delete Group"
+msgstr "Supprimer le groupe"
+
+msgid "Delete Job"
+msgstr "Supprimer la job"
+
+msgid "Delete Project"
+msgstr "Supprimer le projet"
+
+msgid "Delete Queue"
+msgstr "Supprimer la file d'attente"
+
+msgid "Delete Target Node"
+msgstr "Supprimer le Target Node"
+
+msgid "Delete Target Node Profile"
+msgstr "Supprimer le profil du Target Node"
+
+msgid "Delete User"
+msgstr "Supprimer un utilisateur"
+
+msgid "Delete User Data Template"
+msgstr "Supprimer le modèle de données utilisateur"
+
+msgid "Delete Virtual Desktop Profile"
+msgstr "Supprimer le profil de bureau virtuel"
+
+msgid "Delete Workflow Profile"
+msgstr "Supprimer le profil de Workflow"
+
+msgid "Delete a group"
+msgstr "Supprimer un groupe"
+
+msgid "Delete a job"
+msgstr "Supprimer une job"
+
+msgid "Delete a queue"
+msgstr "Supprimer une file d'attente"
+
+msgid "Delete an existing Workflow Profile"
+msgstr "Supprimer un profil de Workflow existant"
+
+msgid "Delete file"
+msgstr "Supprimer le fichier"
+
+msgid "Delete group"
+msgstr "Supprimer le groupe"
+
+msgid "Delete the folder"
+msgstr "Supprimer le dossier"
+
+msgid "Delete this file"
+msgstr "Supprimer ce fichier"
+
+msgid "Delete user"
+msgstr "Supprimer un utilisateur"
+
+msgid "Deleted user"
+msgstr "Utilisateur supprimé"
+
+#, python-format
+msgid "Deleting a virtual desktop will NOT delete content from %(owner_path)s partition"
+msgstr "La suppression d'un bureau virtuel ne supprimera PAS le contenu de la partition %(owner_path)s"
+
+msgid "Deleting a virtual desktop will delete content stored on your local partition (ex:"
+msgstr "La suppression d'un bureau virtuel supprimera le contenu stocké sur votre partition locale (par exemple :"
+
+msgid "Deleting group may cause access issue. Make sure your group is no longer in use before deleting it"
+msgstr "La suppression d'un groupe peut entraîner un problème d'accès. Assurez-vous que votre groupe n'est plus utilisé avant de le supprimer"
+
+msgid "Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data"
+msgstr "La suppression de l'utilisateur empêchera l'utilisateur d'accéder au cluster mais ne supprimera pas le répertoire et les données $HOME associés"
+
+msgid "Denied Groups"
+msgstr "Groupes refusés"
+
+msgid "Denied Users"
+msgstr "Utilisateurs refusés"
+
+msgid "Deny takes precedence over allow"
+msgstr "Refuser a priorité sur autoriser"
+
+msgid "Description"
+msgstr "Descriptif"
+
+msgid "Description of your Project"
+msgstr "Description de votre projet"
+
+msgid "Description of your Software Stack"
+msgstr "Description de votre suite logicielle"
+
+msgid "Description of your Target Node Profile"
+msgstr "Description du profil de votre Target Node"
+
+msgid "Description of your User Data Template"
+msgstr "Description de votre modèle de données utilisateur"
+
+msgid "Description of your Virtual Desktop Profile"
+msgstr "Description de votre profil de bureau virtuel"
+
+msgid "Detach (session keeps running)"
+msgstr "Détacher (la session continue de fonctionner)"
+
+msgid "Detached"
+msgstr "Détaché"
+
+msgid "Disable Auto-Refresh"
+msgstr "Désactiver l'actualisation automatique"
+
+msgid "Disclaimer: Baseline numbers"
+msgstr "Avertissement : chiffres de référence"
+
+msgid "Disconnected"
+msgstr "Déconnecté"
+
+msgid "Do not close the page while uploading."
+msgstr "Ne fermez pas la page pendant le téléchargement."
+
+msgid "Do not use spaces"
+msgstr "N'utilisez pas d'espaces"
+
+msgid "Do you want to limit how long the job will be running?"
+msgstr "Voulez-vous limiter la durée d'exécution de la job ?"
+
+msgid "Do you want to limit your job to Reserved Instance only?"
+msgstr "Voulez-vous limiter votre job à l'instance réservée uniquement ?"
+
+msgid "Do you want to specify a thumbnail (this will be scaled to 150*150px)?"
+msgstr "Voulez-vous spécifier une miniature (elle sera redimensionnée à 150*150px) ?"
+
+msgid "Documentation"
+msgstr "Documentation"
+
+msgid "Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)"
+msgstr "Ne reflète pas les frais supplémentaires tels que le transfert réseau ou de stockage ou l'utilisation du volume io2 (par défaut, gp3)"
+
+msgid "Download FileZilla"
+msgstr "Télécharger FileZilla"
+
+msgid "Download PuTTY"
+msgstr "Télécharger PuTTY"
+
+#, python-format
+msgid "Download PuttyGEN from %(puttygen_link)s, then convert the key you have downloaded on step1 to %(fmt)s format"
+msgstr "Téléchargez PuTTYgen depuis %(puttygen_link)s, puis convertissez la clé que vous avez téléchargée à l'étape 1 au format %(fmt)s"
+
+msgid "Download Session File"
+msgstr "Télécharger le fichier de session"
+
+msgid "Download all"
+msgstr "Téléchargez tout"
+
+msgid "Download file is disabled. Please contact your cluster administrator"
+msgstr "Le téléchargement du fichier est désactivé. Veuillez contacter l'administrateur de votre cluster"
+
+msgid "Download my private key"
+msgstr "Télécharger ma clé privée"
+
+msgid "Download selected"
+msgstr "Téléchargement sélectionné"
+
+msgid "Download selected files"
+msgstr "Télécharger les fichiers sélectionnés"
+
+msgid "Download this file"
+msgstr "Téléchargez ce fichier"
+
+#, python-format
+msgid "Download your %(kind)s SSH key"
+msgstr "Téléchargez votre clé SSH %(kind)s"
+
+msgid "Download your client here."
+msgstr "Téléchargez votre client ici."
+
+msgid "Drag & Drop form components based on your own requirements."
+msgstr "Faites glisser et déposez les composants du formulaire en fonction de vos propres besoins."
+
+msgid "Drag and Drop files to upload or click"
+msgstr "Faites glisser et déposez les fichiers à télécharger ou cliquez"
+
+msgid "EBS/FSx rates as of January 2025 based on us-east-1"
+msgstr "Taux EBS/FSx en janvier 2025 sur la base de us-east-1"
+
+msgid "EC2 Instance Types you are authorized to deploy for this software stack. Manage list via"
+msgstr "Types d'instances EC2 que vous êtes autorisé à déployer pour cette pile logicielle. Gérer la liste via"
+
+msgid "EC2 instance type to provision"
+msgstr "Type d'instance EC2 à provisionner"
+
+msgid "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision"
+msgstr "Type d'instance EC2 à provisionner. Cela sera utilisé avec les processeurs virtuels pour calculer le nombre de nœuds à approvisionner"
+
+msgid "EDH - Engineering Development Hub"
+msgstr "EDH - Pôle de développement de l'ingénierie"
+
+msgid "EDH APIs"
+msgstr "API EDH"
+
+msgid "EDH Analytics module is not enabled on your EDH environment."
+msgstr "Le module EDH Analytics n'est pas activé dans votre environnement EDH."
+
+msgid "EDH CAE Assistant"
+msgstr "Assistante EDH CAE"
+
+msgid "EDH Profiles"
+msgstr "Profils EDH"
+
+msgid "EDH Projects"
+msgstr "Projets EDH"
+
+#, python-format
+msgid "EDH Projects let you control visibility for your %(vd_link)s and %(tn_link)s."
+msgstr "Les projets EDH vous permettent de contrôler la visibilité de vos %(vd_link)s et %(tn_link)s."
+
+msgid "EDH Projects."
+msgstr "Projets EDH."
+
+msgid "EDH Public Documentation"
+msgstr "Documentation publique de l'EDH"
+
+msgid "EDH Software Stacks"
+msgstr "Piles logicielles EDH"
+
+msgid "EDH Target Nodes Profiles."
+msgstr "Profils des Target Nodes EDH."
+
+msgid "EDH Terminal"
+msgstr "Borne EDH"
+
+msgid "EDH VDI Profiles."
+msgstr "Profils EDH VDI."
+
+msgid "EDH includes a Floating Licenses-enabled script which calculate the number of licenses for a given feature and only start to provision capacity when enough licenses are available"
+msgstr "EDH inclut un script compatible avec les licences flottantes qui calcule le nombre de licences pour une fonctionnalité donnée et ne commence à provisionner la capacité que lorsque suffisamment de licences sont disponibles"
+
+msgid "EDH is built entirely on top of AWS and can be customized by users as needed. More importantly, the entire codebase is open-source and available on GitHub"
+msgstr "EDH repose entièrement sur AWS et peut être personnalisé par les utilisateurs selon leurs besoins. Plus important encore, l'ensemble de la base de code est open source et disponible sur GitHub"
+
+msgid "EDH projects"
+msgstr "Projets EDH"
+
+msgid "EDH projects you are authorized to use for this stack. Resources will use the assigned budget if specified. Manage list via"
+msgstr "Les projets EDH que vous êtes autorisé à utiliser pour cette pile. Les ressources utiliseront le budget attribué s'il est spécifié. Gérer la liste via"
+
+msgid "EDH public GitHub repository"
+msgstr "Dépôt public GitHub de l'EDH"
+
+msgid "EDH reserved variables"
+msgstr "Variables réservées EDH"
+
+msgid "EDH tried to restart the session automatically, but was unable to do so. Please contact your EDH administrator for further troubleshooting."
+msgstr "EDH a essayé de redémarrer la session automatiquement, mais n'y est pas parvenu. Contactez votre administrateur EDH pour plus d'informations sur la résolution des problèmes."
+
+msgid "EDIT"
+msgstr "MODIFIER"
+
+msgid "EKS Cluster"
+msgstr "Pôle EKS"
+
+msgid "EKS Namespace"
+msgstr "Espace de noms EKS"
+
+msgid "EKS Namespace to launch your job on"
+msgstr "Espace de noms EKS sur lequel lancer votre job"
+
+msgid "Each line is one argument."
+msgstr "Chaque ligne correspond à un argument."
+
+msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations"
+msgstr "Soumettez facilement des job pour LSF, OpenPBS, PBSpro, Slurm et personnalisez facilement les exigences en matière de calcul, de stockage et de systèmes d'exploitation pour vos simulations HPC"
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Edit EDH Project"
+msgstr "Modifier le projet EDH"
+
+msgid "Edit File"
+msgstr "Modifier le fichier"
+
+msgid "Edit Project"
+msgstr "Modifier le projet"
+
+msgid "Edit SOCA User Data Template"
+msgstr "Modifier le modèle de données utilisateur SOCA"
+
+msgid "Edit Software Stack"
+msgstr "Modifier la pile logicielle"
+
+msgid "Edit Target Node Profile"
+msgstr "Modifier le profil du Target Node"
+
+msgid "Edit User Data Template"
+msgstr "Modifier le modèle de données utilisateur"
+
+msgid "Edit Virtual Desktop Profile"
+msgstr "Modifier le profil du bureau virtuel"
+
+msgid "Edit Workflow Profile"
+msgstr "Modifier le profil du Workflow"
+
+msgid "Edit an existing Workflow Profile"
+msgstr "Modifier un profil de Workflow existant"
+
+#, python-format
+msgid "Edit the test template below to match the variables you have created on your form or simply write code that cannot be changed by the user. To read values from your form, use %(jinja_link)s syntax (e.g. if your form input name is %(my_param)s, retrieve the value via %(my_param_ref)s)"
+msgstr "Modifiez le modèle de test ci-dessous pour qu'il corresponde aux variables que vous avez créées sur votre formulaire ou écrivez simplement du code qui ne peut pas être modifié par l'utilisateur. Pour lire les valeurs de votre formulaire, utilisez la syntaxe %(jinja_link)s (par exemple, si le nom d'entrée de votre formulaire est %(my_param)s, récupérez la valeur via %(my_param_ref)s)"
+
+msgid "Edit this file (text file only)"
+msgstr "Modifier ce fichier (fichier texte uniquement)"
+
+msgid "Email"
+msgstr "Courrier électronique"
+
+msgid "Embeeded Development"
+msgstr ""
+
+msgid "Enable Auto-Refresh"
+msgstr "Activer l'actualisation automatique"
+
+msgid "Enable Hibernation Support."
+msgstr "Activez le support de mise en veille prolongée."
+
+msgid "Enable Nested Virtualization. Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)."
+msgstr "Activez la virtualisation imbriquée. Nécessite une famille de types d'instances AWS de 8e génération (par exemple c8i, r8i, m8i)."
+
+msgid "Enable Sudo Access"
+msgstr "Activer Sudo Access"
+
+msgid "End session (terminates tmux)"
+msgstr "Fin de session (met fin à tmux)"
+
+msgid "End this terminal session? The remote tmux will be terminated."
+msgstr "Mettre fin à cette session terminale ? Le tmux distant sera arrêté."
+
+msgid "Engineering Development Hub"
+msgstr ""
+
+msgid "Enter friendly AMI Name"
+msgstr "Entrez un nom AMI convivial"
+
+msgid "Enter one environment variable per line in KEY=VALUE format."
+msgstr "Entrez une variable d'environnement par ligne au format KEY=VALUE."
+
+msgid "Enter shell code here"
+msgstr "Entrez le code du shell ici"
+
+msgid "Enter value"
+msgstr "Entrez la valeur"
+
+msgid "Entering the Danger Zone"
+msgstr "Entrée dans la zone de danger"
+
+msgid "Entering the danger zone"
+msgstr "Entrée dans la zone de danger"
+
+msgid "Environment Variables"
+msgstr "Variables d'environnement"
+
+msgid "Error during"
+msgstr "Erreur pendant"
+
+msgid "Error uploading file!"
+msgstr "Erreur lors du chargement du fichier !"
+
+msgid "Error while creating "
+msgstr "Erreur lors de la création "
+
+msgid "Error, could not connect to your virtual desktop."
+msgstr "Erreur, impossible de se connecter à votre bureau virtuel."
+
+msgid "Error, this path probably does not exist. "
+msgstr "Erreur, ce chemin n'existe probablement pas. "
+
+msgid "Error:"
+msgstr "Erreur :"
+
+msgid "Error: "
+msgstr "Erreur : "
+
+msgid "Estimated Compute OnDemand"
+msgstr "Calcul à la demande estimé"
+
+msgid "Estimated Cost:"
+msgstr "Coût estimé :"
+
+msgid "Estimated Storage:"
+msgstr "Stockage estimé :"
+
+msgid "Estimated compute price with RI"
+msgstr "Prix de calcul estimé avec RI"
+
+msgid "Example:"
+msgstr "Exemple :"
+
+msgid "Example: Create a new LDAP group"
+msgstr "Exemple : création d'un nouveau groupe LDAP"
+
+msgid "Example: Delete Operation"
+msgstr "Exemple : opération de suppression"
+
+msgid "Example: How to submit/query and delete a job via HTTP API"
+msgstr "Exemple : Comment soumettre/interroger et supprimer une job via l'API HTTP"
+
+msgid "Example: Modify Operation"
+msgstr "Exemple : opération de modification"
+
+msgid "Execution timeout"
+msgstr "Délai d'exécution"
+
+msgid "Explore your Filesystem"
+msgstr "Explorez votre système de fichiers"
+
+msgid "Export"
+msgstr "Exporter"
+
+msgid "Export existing Workflow Profile"
+msgstr "Exporter le profil de Workflow existant"
+
+msgid "External Website Notice"
+msgstr "Avis relatif au site Web externe"
+
+msgid "FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "Base de référence persistante FSx : (ligne de base de 50 Mo/s/TiB, rafale jusqu'à 1,3 Go/s/TiB)"
+
+msgid "FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "Base de référence FSx Scratch : (ligne de base de 200 Mo/s/TiB, rafale jusqu'à 1,3 Go/s/TiB)"
+
+msgid "FSx for Lustre size in GB (default: 0)"
+msgstr "FSx pour la taille de Lustre en Go (par défaut : 0)"
+
+msgid "FSx for Lustre:"
+msgstr "FSx pour Lustre :"
+
+msgid "Failed to load earlier content"
+msgstr "Impossible de charger le contenu précédent"
+
+msgid "Failure to do so will result in your profile remaining hidden from users."
+msgstr "Si vous ne le faites pas, votre profil restera caché aux utilisateurs."
+
+msgid "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "Fonctionnalité non disponible pour vous sur ce cluster EDH. Contactez votre administrateur pour l'activer."
+
+msgid "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "Fonctionnalité non disponible sur ce cluster EDH. Contactez votre administrateur pour l'activer."
+
+msgid "File Explorer"
+msgstr "Explorateur de fichiers"
+
+msgid "File Updated."
+msgstr "Fichier mis à jour."
+
+msgid "File appears to be binary and cannot be tailed"
+msgstr "Le fichier semble être binaire et ne peut pas être suivi"
+
+msgid "File does not exist or is not a regular file"
+msgstr "Le fichier n'existe pas ou n'est pas un fichier normal"
+
+msgid "File is too large to tail (max {max_mb:.0f} MB). Use download instead."
+msgstr "Le fichier est trop volumineux pour être traîné (max {max_mb : .0f} Mo). Utilisez plutôt le téléchargement."
+
+msgid "File removed"
+msgstr "Fichier supprimé"
+
+msgid "File rotated"
+msgstr "Fichier pivoté"
+
+msgid "File rotated; earlier history is unavailable"
+msgstr "Fichier pivoté ; l'historique antérieur n'est pas disponible"
+
+msgid "File truncated"
+msgstr "Fichier tronqué"
+
+msgid "File(s) will be uploaded under"
+msgstr "Le ou les fichiers seront uploader sous"
+
+msgid "Filter"
+msgstr "Filtre"
+
+msgid "Finally valid your group has been created correctly using"
+msgstr "Enfin, validez que votre groupe a été créé correctement en utilisant"
+
+msgid "Folder Name"
+msgstr "Nom du dossier"
+
+msgid "Folder removed."
+msgstr "Dossier supprimé."
+
+msgid "For Linux user data, we recommend starting the script with:"
+msgstr "Pour les données utilisateur Linux, nous vous recommandons de démarrer le script avec :"
+
+msgid "For Windows user data, we recommend starting the script with:"
+msgstr "Pour les données utilisateur Windows, nous vous recommandons de démarrer le script avec :"
+
+#, python-format
+msgid "For example, %(ex_var)s on your user data will automatically be replaced with \"test123\" if you configure %(ex_assign)s on the Software Stack associated to this User Data."
+msgstr "Par exemple, %(ex_var)s sur vos données utilisateur sera automatiquement remplacé par « test123 » si vous configurez %(ex_assign)s sur la Suite logicielle associée à ces données utilisateur."
+
+msgid "For internal support, refer to the links provided by your Administrator or contact your AWS account team."
+msgstr "Pour obtenir une assistance interne, consultez les liens fournis par votre administrateur ou contactez l'équipe chargée de votre compte AWS."
+
+msgid "For the best performance, use the dedicated client application."
+msgstr "Pour des performances optimales, utilisez l'application client dédiée."
+
+msgid "Force your job to run on a specific instance type"
+msgstr "Forcer l'exécution de votre job sur un type d'instance spécifique"
+
+msgid "Friendly Name for your project"
+msgstr "Nom convivial pour votre projet"
+
+msgid "Friendly Name for your template"
+msgstr "Nom convivial pour votre modèle"
+
+msgid "Friendly name for your User Data template"
+msgstr "Nom convivial pour votre modèle de données utilisateur"
+
+msgid "GPUs"
+msgstr "GPU"
+
+msgid "General Options"
+msgstr "Options générales"
+
+msgid "Generate temporary password"
+msgstr "Générer un mot de passe temporaire"
+
+#, python-format
+msgid "Generating a new API key will invalidate the previous key (%(token)s %(show_btn)s)."
+msgstr "La génération d'une nouvelle clé API invalidera la clé précédente (%(token)s %(show_btn)s)."
+
+msgid "Get Started"
+msgstr "Commencez"
+
+msgid "Grant Admin permission"
+msgstr "Accorder l'autorisation d'administrateur"
+
+msgid "Grant user Admin permission"
+msgstr "Accorder l'autorisation d'administrateur à l'"
+
+msgid "Grant/Revoke Admin permissions"
+msgstr "Accorder/révoquer les autorisations d'administrateur"
+
+msgid "Group "
+msgstr "Groupe "
+
+msgid "Group ID"
+msgstr "ID de groupe"
+
+msgid "Group created successfully"
+msgstr "Groupe créé avec succès"
+
+msgid "Group deleted successfully"
+msgstr "Le groupe a été supprimé avec succès"
+
+msgid "Group name"
+msgstr "Nom du groupe"
+
+msgid "Group update successfully"
+msgstr "Mise à jour du groupe réussie"
+
+msgid "Group updated successfully"
+msgstr "Groupe mis à jour avec succès"
+
+msgid "Group: "
+msgstr "Groupe : "
+
+msgid "Groups Management"
+msgstr "Gestion des groupes"
+
+msgid "Groups Permissions"
+msgstr "Autorisations pour les groupes"
+
+msgid "Groups: OU=Group,DC=soca,DC=local"
+msgstr "Groupes : OU=groupe, DC=SOCA, DC=local"
+
+msgid "HTTP 401/Unauthorized"
+msgstr "HTTP 401/Non autorisé"
+
+msgid "Hello"
+msgstr "Bonjour"
+
+msgid "Here are some documentation to help you transfer files from/to Engineering Development Hub:"
+msgstr "Voici quelques documents qui vous aideront à transférer des fichiers depuis/vers l'Engineering Development Hub :"
+
+msgid "Hibernation will not cause any data loss"
+msgstr "L'hibernation n'entraînera aucune perte de données"
+
+msgid "High Performance Computing"
+msgstr "Informatique de haute performance"
+
+msgid "Home Directory"
+msgstr "Répertoire d'accueil"
+
+msgid "Host"
+msgstr "Hôte"
+
+msgid "Host in this queue will stay online until an admin decide to manually turn them off"
+msgstr "L'hôte figurant dans cette file d'attente restera en ligne jusqu'à ce qu'un administrateur décide de le désactiver manuellement"
+
+msgid "Host(s)"
+msgstr "Hôte (s)"
+
+msgid "Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete."
+msgstr "Les hôtes de cette file d'attente seront automatiquement provisionnés en fonction du nombre de jobs en file d'attente. Les hôtes sont limités à un identifiant de job donné et sont automatiquement résiliés dès que la job est terminée."
+
+msgid "How do you want to name this Workflow Profile?"
+msgstr "Comment souhaitez-vous nommer ce profil de Workflow ?"
+
+msgid "How many Virtual CPUs do you want?"
+msgstr "Combien de processeurs virtuels souhaitez-vous ?"
+
+msgid "How much storage do you want (SSD under /scratch)"
+msgstr "Quelle quantité de stockage souhaitez-vous (SSD sous /scratch)"
+
+msgid "How to interact with EDH APIs"
+msgstr "Comment interagir avec les API EDH"
+
+msgid "I am sure I want to"
+msgstr "Je suis sûr que je veux"
+
+#, python-format
+msgid "I am sure I want to %(action)s Admin permission to this user"
+msgstr "Je suis sûr de vouloir accorder l'autorisation d'administrateur %(action)s à cet utilisateur"
+
+#, python-format
+msgid "I am sure I want to %(verb)s this user from my group"
+msgstr "Je suis sûr de vouloir %(verb)s cet utilisateur de mon groupe"
+
+msgid "I am sure I want to delete this Target Node Profile"
+msgstr "Je suis sûr de vouloir supprimer ce profil de Target Node"
+
+msgid "I am sure I want to delete this User Data Template from EDH"
+msgstr "Je suis sûr de vouloir supprimer ce modèle de données utilisateur d'EDH"
+
+msgid "I am sure I want to delete this Virtual Desktop Profile"
+msgstr "Je suis sûr de vouloir supprimer ce profil de bureau virtuel"
+
+msgid "I am sure I want to delete this group"
+msgstr "Je suis sûr de vouloir supprimer ce groupe"
+
+msgid "I am sure I want to delete this project from EDH"
+msgstr "Je suis sûr de vouloir supprimer ce projet d'EDH"
+
+msgid "I am sure I want to delete this queue"
+msgstr "Je suis sûr de vouloir supprimer cette file"
+
+msgid "I am sure I want to delete this target node"
+msgstr "Je suis sûr de vouloir supprimer ce Target Node"
+
+msgid "I am sure I want to delete this user"
+msgstr "Je suis sûr de vouloir supprimer cet utilisateur"
+
+msgid "I am sure I want to delete this virtual desktop"
+msgstr "Je suis sûr de vouloir supprimer ce bureau virtuel"
+
+msgid "I am sure I want to reset the password for this user"
+msgstr "Je suis sûr de vouloir réinitialiser le mot de passe de cet utilisateur"
+
+msgid "I am sure I want to unregister this Software Stack from EDH"
+msgstr "Je suis sûr de vouloir annuler l'enregistrement de cette suite logicielle auprès d'EDH"
+
+msgid "I am sure I want to unregister this Software Stack from SOCA"
+msgstr "Je suis sûr de vouloir annuler l'enregistrement de cette suite logicielle de la SOCA"
+
+msgid "I understand I will need to update my scripts with the new key to prevent any outage"
+msgstr "Je comprends que je vais devoir mettre à jour mes scripts avec la nouvelle clé pour éviter toute panne"
+
+msgid "I want to delete this Workflow Profile"
+msgstr "Je souhaite supprimer ce profil de Workflow"
+
+msgid "IMPORTANT"
+msgstr "IMPORTANT"
+
+msgid "IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)"
+msgstr "IMPORTANT : Le nombre de nœuds est basé sur le nombre de processeurs virtuels (et non de processeurs) par machine. (par exemple : un c6i.xlarge possède 2 processeurs physiques mais 4 processeurs virtuels. Si vous demandez 8 vCPU, EDH fournira 2 instances. Si vous avez besoin de 8 cœurs logiques, nous vous recommandons d'utiliser ht_support=false et de demander une seule machine EC2 avec 16 vCPU)"
+
+msgid "Id"
+msgstr "ID"
+
+#, python-format
+msgid "If %(it)s and %(vc)s parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the %(nd)s resource manually."
+msgstr "Si les paramètres %(it)s et %(vc)s sont spécifiés, EDH calcule automatiquement le nombre de nœuds à approvisionner. Dans le cas contraire, vous devez définir la ressource %(nd)s manuellement."
+
+msgid "If force_ri is True, the job must ONLY run on Reserved Instance. If there is not enough RI, job will stay in the queue. Parameter is ignored if you use Spot"
+msgstr "Si force_ri a la valeur True, la job doit UNIQUEMENT être exécutée sur une instance réservée. S'il n'y a pas assez de RI, la job restera dans la file d'attente. Le paramètre est ignoré si vous utilisez Spot"
+
+msgid "If present, autofilled with the input file name"
+msgstr "S'il est présent, saisi automatiquement avec le nom du fichier d'entrée"
+
+msgid "If the page stays blank, the code-server service may not be running on this cluster."
+msgstr "Si la page reste vide, le service de serveur de code n'est peut-être pas en cours d'exécution sur ce cluster."
+
+#, python-format
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit %(cfg)s and add:"
+msgstr "Si vous ne souhaitez pas que votre session soit automatiquement fermée après quelques minutes d'inactivité, modifiez %(cfg)s et ajoutez :"
+
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, go to Connection and add \"3\" as \"Seconds between KeepAlive\\"
+msgstr "Si vous ne souhaitez pas que votre session soit automatiquement fermée après quelques minutes d'inactivité, allez dans Connexion et ajoutez « 3 » comme « Secondes entre KeepAlive »."
+
+msgid "If you think your key has been compromised, reset it using the link available at the bottom of the page."
+msgstr "Si vous pensez que votre clé a été compromise, réinitialisez-la à l'aide du lien disponible en bas de page."
+
+msgid "Image"
+msgstr "Image"
+
+msgid "Image Digest"
+msgstr "Résumé d'images"
+
+msgid "Image ID (start with ami-xxx or) or AMI alias (/service/aws/...)"
+msgstr "ID d'image (commencez par ami-xxx ou) ou alias AMI (/service/aws/...)"
+
+msgid "Image ID (start with ami-xxx)"
+msgstr "Identifiant de l'image (commencez par ami-xxx)"
+
+msgid "Image ID (start with ami-xxx) or AMI alias (/aws/service/...)"
+msgstr "ID d'image (commencez par ami-xxx) ou alias AMI (/aws/service/...)"
+
+msgid "Image Tag"
+msgstr "Balise d'image"
+
+msgid "Image URI"
+msgstr "URI de l'image"
+
+msgid "Import"
+msgstr "Importer"
+
+msgid "Import Workflow Profile"
+msgstr "Profil de Workflow d'importation"
+
+msgid "Import/Export"
+msgstr "Importation/Exportation"
+
+msgid "Import/Export existing EDH Workflow Profile"
+msgstr "Importer/exporter le profil de Workflow EDH existant"
+
+msgid "Important"
+msgstr "Important"
+
+msgid "Important Info about your User Data"
+msgstr "Informations importantes concernant vos données d'utilisateur"
+
+msgid "Important:"
+msgstr "Important :"
+
+msgid "Important: Active Directory"
+msgstr "Important : Active Directory"
+
+#, python-format
+msgid "In the %(section)s section click %(action)s"
+msgstr "Dans la section %(section)s, cliquez sur %(action)s"
+
+msgid "Info"
+msgstr "Infos"
+
+msgid "Input location"
+msgstr "Emplacement de saisie"
+
+msgid "Instance Family"
+msgstr "Famille d'instances"
+
+msgid "Instance ID of the target node"
+msgstr "ID d'instance du Target Node"
+
+msgid "Instance Type"
+msgstr "Type d'instance"
+
+msgid "Instance Type:"
+msgstr "Type d'instance :"
+
+msgid "Instance type (default: c5.large)"
+msgstr "Type d'instance (par défaut : c5.large)"
+
+msgid "Instance type of the target node"
+msgstr "Type d'instance du Target Node"
+
+msgid "Instructions for Linux/Mac"
+msgstr "Instructions pour Linux/Mac"
+
+msgid "Instructions for Windows"
+msgstr "Instructions pour Windows"
+
+msgid "Invalid feature flag configuration"
+msgstr "Configuration de l'indicateur de fonctionnalité non valide"
+
+msgid "Invalid file identifier"
+msgstr "Identifiant de fichier non valide"
+
+msgid "Invalid graphical sessions"
+msgstr "Sessions graphiques non valides"
+
+msgid "It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility"
+msgstr "Il n'est pas recommandé de procéder à une mise à niveau/à une rétrogradation entre des instances non GPU et des instances GPU en raison de l'incompatibilité des pilotes"
+
+msgid "JOB CANNOT START"
+msgstr "LE TRAVAIL NE PEUT PAS DÉMARRER"
+
+msgid "Jinja templating"
+msgstr "Modélisation Jinja"
+
+msgid "Job Definition"
+msgstr "Définition du poste"
+
+msgid "Job Dependencies"
+msgstr "Dépendances au travail"
+
+msgid "Job Details"
+msgstr "Détails du poste"
+
+msgid "Job Directory"
+msgstr "Répertoire des offres d'emploi"
+
+msgid "Job ID"
+msgstr "Identifiant du poste"
+
+msgid "Job ID is required to delete a Batch job."
+msgstr "L'ID de job est requis pour supprimer une job par lots."
+
+msgid "Job Info"
+msgstr "Informations sur l'emploi"
+
+msgid "Job Name"
+msgstr "Nom du poste"
+
+msgid "Job Overrides"
+msgstr "Dérogations aux jobs"
+
+msgid "Job Queue"
+msgstr "File d'attente des jobs"
+
+msgid "Job State"
+msgstr "État de l'emploi"
+
+msgid "Job Status Legend"
+msgstr "Légende du statut de l'emploi"
+
+msgid "Job attempts"
+msgstr "Tentatives d'embauche"
+
+msgid "Job completed are automatically removed after 1 hour."
+msgstr "Les jobs terminées sont automatiquement supprimées au bout d'une heure."
+
+msgid "Job is finished or in invalid state"
+msgstr "La job est terminée ou n'est pas valide"
+
+msgid "Jump to live (End)"
+msgstr "Passer en direct (Fin)"
+
+msgid "Jump to start of file (Home)"
+msgstr "Aller au début du fichier (Accueil)"
+
+msgid "Jumping to start..."
+msgstr "Sauter pour commencer..."
+
+msgid "KEY"
+msgstr "CLÉ"
+
+msgid "Key"
+msgstr "Clé"
+
+msgid "Key File"
+msgstr "Fichier clé"
+
+msgid "Keyboard shortcuts"
+msgstr "Raccourcis clavier"
+
+msgid "Keyboard shortcuts (?)"
+msgstr "Raccourcis clavier (?)"
+
+msgid "LSF"
+msgstr "LSF"
+
+msgid "Large (8 vCPUs, 32 GB RAM)"
+msgstr "Grande capacité (8 processeurs virtuels, 32 Go de RAM)"
+
+msgid "Last 12 hours"
+msgstr "Les 12 dernières heures"
+
+msgid "Last 2 days"
+msgstr "Les 2 derniers jours"
+
+msgid "Last 24 hours"
+msgstr "Dernières 24 heures"
+
+msgid "Last 30 days"
+msgstr "Les 30 derniers jours"
+
+msgid "Last 6 hours"
+msgstr "Les 6 dernières heures"
+
+msgid "Last 7 days"
+msgstr "Les 7 derniers jours"
+
+msgid "Last Modified"
+msgstr "Dernière modification"
+
+msgid "Launch Batch Job"
+msgstr "Lancer une job par lots"
+
+msgid "Launch Container"
+msgstr "Conteneur de lancement"
+
+msgid "Launch EKS Container"
+msgstr "Lancez le conteneur EKS"
+
+msgid "Launch Host ID"
+msgstr "ID d'hôte de lancement"
+
+msgid "Launch Host if using Dedicated Host Tenancy"
+msgstr "Lancez Host si vous utilisez Dedicated Host Tenancy"
+
+msgid "Launch My Desktop"
+msgstr "Lancez My Desktop"
+
+msgid "Launch My Target Node"
+msgstr "Lancer My Target Node"
+
+msgid "Launch Tenancy"
+msgstr "Lancez Tenancy"
+
+msgid "Launch a New Container"
+msgstr "Lancer un nouveau conteneur"
+
+msgid "Launch a New Target Node"
+msgstr "Lancer un nouveau Target Node"
+
+msgid "Launch a New Virtual Desktop"
+msgstr "Lancer un nouveau bureau virtuel"
+
+msgid "Launch a new Job"
+msgstr "Lancer un nouveau job"
+
+msgid "Launch new Target Node"
+msgstr "Lancer un nouveau Target Node"
+
+msgid "Launch new Virtual Desktop"
+msgstr "Lancer le nouveau bureau virtuel"
+
+msgid "Launch your virtual desktop in a specific subnet."
+msgstr "Lancez votre bureau virtuel dans un sous-réseau spécifique."
+
+msgid "Leave blank to remove access"
+msgstr "Laissez ce champ vide pour supprimer l'accès"
+
+msgid "Leave everything else as default."
+msgstr "Laissez tout le reste par défaut."
+
+msgid "Let us assume you want to submit a simple job on the default OpenPBS"
+msgstr "Supposons que vous souhaitiez soumettre une job simple sur l'OpenPBS par défaut"
+
+msgid "Limitations"
+msgstr "Restrictions"
+
+msgid "Linux"
+msgstr "Linux"
+
+msgid "List all Virtual Desktops"
+msgstr "Répertorier tous les bureaux virtuels"
+
+msgid "List all active Virtual Desktops"
+msgstr "Répertorier tous les bureaux virtuels actifs"
+
+msgid "List all your AWS Batch jobs."
+msgstr "Répertoriez toutes vos jobs AWS Batch."
+
+msgid "List all your container images stored on one or more Amazon Elastic Container Registry (ECR)."
+msgstr "Répertoriez toutes vos images de conteneurs stockées sur un ou plusieurs Amazon Elastic Container Registry (ECR)."
+
+msgid "List all your containers running on one or more Amazon Elastic Kubernetes Services (EKS)."
+msgstr "Répertoriez tous vos conteneurs exécutés sur un ou plusieurs Amazon Elastic Kubernetes Services (EKS)."
+
+msgid "List of allowed groups"
+msgstr "Liste des groupes autorisés"
+
+msgid "List of allowed instance type/family"
+msgstr "Liste des types/familles d'instances autorisés"
+
+msgid "List of allowed subnets"
+msgstr "Liste des sous-réseaux autorisés"
+
+msgid "List of allowed users"
+msgstr "Liste des utilisateurs autorisés"
+
+msgid "List of allowed/denied users or group"
+msgstr "Liste des utilisateurs ou groupes autorisés/refusés"
+
+msgid "List of authorized Application Profiles"
+msgstr "Liste des profils d'application autorisés"
+
+msgid "List of authorized Target node stacks"
+msgstr "Liste des piles de Target Nodes autorisées"
+
+msgid "List of authorized Virtual Desktop Software Stacks"
+msgstr "Liste des piles logicielles de bureau virtuel autorisées"
+
+msgid "List of authorized subnets"
+msgstr "Liste des sous-réseaux autorisés"
+
+msgid "List of denied groups"
+msgstr "Liste des groupes refusés"
+
+msgid "List of denied users"
+msgstr "Liste des utilisateurs refusés"
+
+msgid "List of instance type or family allowed"
+msgstr "Liste des types d'instances ou des familles autorisés"
+
+msgid "List of users of "
+msgstr "Liste des utilisateurs de "
+
+msgid "List your Windows or Linux Virtual Desktops. Provision machines connected to your EDH environment that can mount shared or local filers"
+msgstr "Répertoriez vos bureaux virtuels Windows ou Linux. Provisionnez des machines connectées à votre environnement EDH capables de monter des fichiers partagés ou locaux"
+
+msgid "Live file tail"
+msgstr "File Tail en direct"
+
+msgid "Load earlier content (PageUp)"
+msgstr "Charger le contenu antérieur (PageUp)"
+
+msgid "Loading earlier content..."
+msgstr "Chargement du contenu antérieur..."
+
+msgid "Login"
+msgstr "Se connecter"
+
+msgid "Logon Type"
+msgstr "Type de connexion"
+
+msgid "Logout"
+msgstr "Déconnexion"
+
+msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+msgstr "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+
+msgid "MY_ENV"
+msgstr "MON_ENV"
+
+#, python-format
+msgid "Make sure to have established connectivity between AWS and your corporate network (e.g. via %(peering)s, %(direct)s, %(vpn)s or similar) if you are planning to access the analytic dashboard URL from your corporate machines."
+msgstr "Assurez-vous d'avoir établi une connectivité entre AWS et votre réseau d'entreprise (par exemple via %(peering)s, %(direct)s, %(vpn)s ou similaire) si vous prévoyez d'accéder à l'URL du tableau de bord analytique depuis vos machines d'entreprise."
+
+msgid "Make sure to have uploaded your data to EDH first to prevent data loss"
+msgstr "Assurez-vous d'avoir d'abord téléchargé vos données sur EDH pour éviter toute perte de données"
+
+msgid "Make sure your Amazon Machine Images (AMI) are available in your current region:"
+msgstr "Assurez-vous que vos Amazon Machine Images (AMI) sont disponibles dans votre région actuelle :"
+
+msgid "Malformed file identifier"
+msgstr "Identifiant de fichier mal formé"
+
+msgid "Manage EDH Projects"
+msgstr "Gérer les projets EDH"
+
+msgid "Manage Software Stacks"
+msgstr "Gérer les piles de logiciels"
+
+msgid "Manage Target Node Profiles"
+msgstr "Gérer les profils de Target Nodes"
+
+msgid "Manage User Data Templates"
+msgstr "Gérer les modèles de données utilisateur"
+
+msgid "Manage User Data template"
+msgstr "Modèle de gestion des données utilisateur"
+
+msgid "Manage Virtual Desktop Profiles"
+msgstr "Gérer les profils de postes de travail virtuels"
+
+msgid "Manage your Virtual Desktops"
+msgstr "Gérez vos bureaux virtuels"
+
+msgid "Manage your Virtual Targets"
+msgstr "Gérez vos cibles virtuelles"
+
+msgid "Max runtime (default: 01:00:00)"
+msgstr "Durée maximale (par défaut : 01:00:00)"
+
+msgid "Maximum EBS Root Disk size (in GB)"
+msgstr "Taille maximale du disque racine EBS (en Go)"
+
+msgid "Maximum EBS storage the user will be able to provision for their target node"
+msgstr "Stockage EBS maximal que l'utilisateur pourra provisionner pour son Target Node"
+
+msgid "Maximum EBS storage the user will be able to provision for their virtual desktop"
+msgstr "Stockage EBS maximal que l'utilisateur pourra provisionner pour son bureau virtuel"
+
+msgid "Maximum of 5 consumable resources allowed."
+msgstr "Un maximum de 5 ressources consommables sont autorisées."
+
+msgid "Medium (4 vCPUs, 16 GB RAM)"
+msgstr "Moyen (4 processeurs virtuels, 16 Go de RAM)"
+
+msgid "Members: (choose all that apply)"
+msgstr "Membres : (choisissez toutes les réponses qui s'appliquent)"
+
+msgid "Memory (GB)"
+msgstr "Mémoire (Go)"
+
+msgid "Memory in GB"
+msgstr "Mémoire en Go"
+
+msgid "Menu"
+msgstr "Menu"
+
+msgid "Missing file identifier"
+msgstr "Identifiant de fichier manquant"
+
+msgid "Missing files? Refresh folder cache"
+msgstr "Des fichiers manquants ? Actualiser le cache des dossiers"
+
+msgid "Missing profile_id"
+msgstr "Identifiant de profil manquant"
+
+msgid "Missing project_id"
+msgstr "Project_id manquant"
+
+msgid "Missing required parameters (app and input_file)."
+msgstr "Paramètres obligatoires manquants (app et input_file)."
+
+msgid "Missing software_stack_id"
+msgstr "software_stack_id manquant"
+
+msgid "Missing template_id"
+msgstr "Template_id manquant"
+
+msgid "Must be a valid EDH group"
+msgstr "Doit être un groupe EDH valide"
+
+msgid "Must be a valid EDH user"
+msgstr "Doit être un utilisateur EDH valide"
+
+msgid "My API Key"
+msgstr "Ma clé d'API"
+
+msgid "My API Key (Developer mode)"
+msgstr "Ma clé API (mode développeur)"
+
+msgid "My AWS Batch Job"
+msgstr "Ma job AWS Batch"
+
+msgid "My AWS Batch Jobs"
+msgstr "Mes jobs AWS Batch"
+
+msgid "My Account"
+msgstr "Mon compte"
+
+msgid "My Amazon EKS Containers"
+msgstr "Mes conteneurs Amazon EKS"
+
+msgid "My Amazon EKS Job"
+msgstr "Mon travail sur Amazon EKS"
+
+msgid "My Batch Jobs"
+msgstr "Mes offres d'emploi par lots"
+
+msgid "My Container Images"
+msgstr "Images de mes conteneurs"
+
+msgid "My EKS Containers"
+msgstr "Mes conteneurs EKS"
+
+msgid "My HPC Jobs"
+msgstr "Mes offres d'emploi en HPC"
+
+msgid "My LDAP Group"
+msgstr "Mon groupe LDAP"
+
+msgid "My Profile"
+msgstr "Mon profil"
+
+msgid "My SSH access"
+msgstr "Mon accès SSH"
+
+msgid "My Target Nodes"
+msgstr "Mes Target Nodes"
+
+msgid "My Virtual Desktops"
+msgstr "Mes bureaux virtuels"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Name for your project"
+msgstr "Nom de votre projet"
+
+msgid "Name for your template"
+msgstr "Nom de votre modèle"
+
+msgid "Name for your user data template"
+msgstr "Nom de votre modèle de données utilisateur"
+
+msgid "Name of the AWS Batch Job Definition to use"
+msgstr "Nom de la définition de job AWS Batch à utiliser"
+
+msgid "Name of the AWS Batch Job Queue to use"
+msgstr "Nom de la file d'attente de jobs AWS Batch à utiliser"
+
+msgid "Name of the EKS cluster to use"
+msgstr "Nom du cluster EKS à utiliser"
+
+msgid "Name of the current EDH user requesting the target node"
+msgstr "Nom de l'utilisateur EDH actuel demandant le Target Node"
+
+msgid "Name of the current SOCA user requesting the target node"
+msgstr "Nom de l'utilisateur SOCA actuel demandant le Target Node"
+
+msgid "Name of your job"
+msgstr "Nom de votre poste"
+
+msgid "Name of your profile"
+msgstr "Nom de votre profil"
+
+msgid "Namespace"
+msgstr "Espace de noms"
+
+msgid "Navigate file"
+msgstr "Naviguer dans le fichier"
+
+msgid "New Password"
+msgstr "Nouveau mot de passe"
+
+msgid "New terminal tab (Ctrl+Shift+T)"
+msgstr "Nouvel onglet de terminal (Ctrl+Shift+T)"
+
+msgid "Next"
+msgstr "Suivant"
+
+msgid "No"
+msgstr "Non"
+
+msgid "No AMI found"
+msgstr "Aucune AMI n'a été trouvée"
+
+msgid "No Budget"
+msgstr "Pas de budget"
+
+msgid "No Description Provided"
+msgstr "Aucune description n'a été fournie"
+
+msgid "No Project found"
+msgstr "Aucun projet trouvé"
+
+msgid "No Target Node Profiles found"
+msgstr "Aucun profil de Target Node n'a été trouvé"
+
+msgid "No User Data Template Found"
+msgstr "Aucun modèle de données utilisateur n'a été trouvé"
+
+msgid "No Virtual Desktop Profiles found"
+msgstr "Aucun profil de bureau virtuel n'a été trouvé"
+
+msgid "No custom AMI found. Create one first"
+msgstr "Aucune AMI personnalisée n'a été trouvée. Créez-en un d'abord"
+
+msgid "No files in this directory"
+msgstr "Aucun fichier dans ce répertoire"
+
+msgid "No image"
+msgstr "Aucune image"
+
+msgid "No links have been configured by your EDH Administrators"
+msgstr "Aucun lien n'a été configuré par vos administrateurs EDH"
+
+msgid "No more than 1 day"
+msgstr "Pas plus d'un jour"
+
+msgid "No more than 1 hour"
+msgstr "Pas plus d'une heure"
+
+msgid "No more than 1 month"
+msgstr "Pas plus d'un mois"
+
+msgid "No more than 5 hours"
+msgstr "Pas plus de 5 heures"
+
+msgid "No open terminals."
+msgstr "Pas de terminaux ouverts."
+
+msgid "No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator."
+msgstr "Aucune pile logicielle n'a été trouvée. Vérifiez que vous avez été ajouté aux projets EDH appropriés. Si le problème persiste, contactez votre administrateur EDH."
+
+msgid "Nodes Count"
+msgstr "Nombre de nœuds"
+
+msgid "None"
+msgstr "Aucune"
+
+msgid "Not authorized"
+msgstr "Non autorisé"
+
+msgid "Note:"
+msgstr "Remarque :"
+
+#, python-format
+msgid "Note: AWS Batch Job Definitions clusters must have the tag %(tag)s and be %(status)s to be visible on EDH"
+msgstr "Remarque : les clusters AWS Batch Job Definitions doivent avoir la balise %(tag)s et être %(status)s pour être visibles sur EDH"
+
+#, python-format
+msgid "Note: AWS Batch Job Queues must have the tag %(tag)s, state must be %(state)s and status must be %(status)s to be visible on EDH"
+msgstr "Remarque : AWS Batch Job Queues doit avoir la balise %(tag)s, l'état doit être %(state)s et le statut doit être %(status)s pour être visible sur EDH"
+
+#, python-format
+msgid "Note: EKS clusters must have the tag %(tag)s to be visible on EDH"
+msgstr "Remarque : les clusters EKS doivent avoir la balise %(tag)s pour être visibles sur EDH"
+
+msgid "Note: If not specified, EDH uses the following default parameters:"
+msgstr "Remarque : Si aucun paramètre n'est spécifié, EDH utilise les paramètres par défaut suivants :"
+
+msgid "Note: Your Analytics Dashboard URL is"
+msgstr "Remarque : l'URL de votre tableau de bord Analytics est"
+
+msgid "Notes:"
+msgstr "Remarques :"
+
+msgid "Number of CPUs to request for your job"
+msgstr "Nombre de processeurs à demander pour votre travail"
+
+msgid "Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count"
+msgstr "Le nombre d'instances EC2 sera automatiquement calculé en fonction du type d'instance et du nombre de vCPU"
+
+msgid "Number of GPU to allocate"
+msgstr "Nombre de GPU à allouer"
+
+msgid "Number of vCPUs (default: 1)"
+msgstr "Nombre de vCPU (par défaut : 1)"
+
+msgid "Number of vCPUs to allocate to the simulation"
+msgstr "Nombre de vCPU à allouer à la simulation"
+
+msgid "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision"
+msgstr "Nombre de vCPU à allouer à la simulation. Cela sera utilisé avec instance_type pour calculer le nombre de nœuds à approvisionner"
+
+msgid "Once connected, simply drag & drop to upload/download files."
+msgstr "Une fois connecté, il suffit de glisser-déposer pour télécharger/télécharger des fichiers."
+
+#, python-format
+msgid "Once you have created your Target Node Software Stack, please ensure that it is %(link)s"
+msgstr "Une fois que vous avez créé votre pile logicielle Target Node, assurez-vous qu'elle est %(link)s"
+
+#, python-format
+msgid "Once you have created your Virtual Desktop Software Stack, please ensure that it is %(link)s"
+msgstr "Une fois que vous avez créé votre pile logicielle de bureau virtuel, assurez-vous qu'elle est %(link)s"
+
+#, python-format
+msgid "Once you have created your Workflow Profile, please ensure that it is %(link)s Failure to do so will result in your profile remaining hidden from users."
+msgstr "Une fois que vous avez créé votre profil de Workflow, assurez-vous qu'il s'agit de %(link)s. À défaut, votre profil restera caché aux utilisateurs."
+
+msgid "Only images that have tags are shown in the repository table. Untagged images are not displayed."
+msgstr "Seules les images comportant des balises sont affichées dans le tableau du référentiel. Les images non balisées ne sont pas affichées."
+
+msgid "Only users with sudo permissions can access this page"
+msgstr "Seuls les utilisateurs disposant d'autorisations sudo peuvent accéder à cette page"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created and click %(btn)s and enter the following information."
+msgstr "Ouvrez la console AWS et accédez au service nommé %(service)s, sélectionnez le serveur que vous avez créé, cliquez sur %(btn)s et entrez les informations suivantes."
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created, and retrieve the %(ep)s under %(details)s."
+msgstr "Ouvrez la console AWS et accédez au service nommé %(service)s, sélectionnez le serveur que vous avez créé et récupérez le %(ep)s sous %(details)s."
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(action)s"
+msgstr "Ouvrez la console AWS et accédez au service nommé %(service)s, puis cliquez sur %(action)s"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(menu)s on the left sidebar and finally click %(btn)s"
+msgstr "Ouvrez la console AWS et accédez au service nommé %(service)s, puis cliquez sur %(menu)s dans la barre latérale gauche et enfin sur %(btn)s"
+
+msgid "Open FileZilla and select File > Site Manager to create a new Site"
+msgstr "Ouvrez FileZilla et sélectionnez Fichier > Gestionnaire de sites pour créer un nouveau site"
+
+msgid "Open a SSH Terminal"
+msgstr "Ouvrez un terminal SSH"
+
+msgid "Open in Browser"
+msgstr "Ouvrir dans le navigateur"
+
+msgid "Open in a separate window"
+msgstr "Ouvrir dans une fenêtre séparée"
+
+msgid "OpenPBS"
+msgstr ""
+
+msgid "Operating System"
+msgstr "Système d'exploitation"
+
+msgid "Option1: Browser access"
+msgstr "Option 1 : Accès au navigateur"
+
+msgid "Option2: Native Application"
+msgstr "Option 2 : Application native"
+
+msgid "Optional"
+msgstr "Facultatif"
+
+msgid "Optional: Enable KeepAlive"
+msgstr "Facultatif : activez KeepAlive"
+
+msgid "Other Shells"
+msgstr "Autres coquillages"
+
+msgid "Output connection information to user"
+msgstr "Informations de connexion de sortie pour l'utilisateur"
+
+msgid "Override Entry Point"
+msgstr "Annuler le point d'entrée"
+
+msgid "Override your container entrypoint"
+msgstr "Remplacez le point d'entrée de votre conteneur"
+
+msgid "Override your container runtime arguments"
+msgstr "Remplacez les arguments d'exécution de votre conteneur"
+
+msgid "Owner"
+msgstr "Propriétaire"
+
+msgid "PENDING"
+msgstr "EN ATTENTE"
+
+#, python-format
+msgid "Page %(current)s of %(total)s"
+msgstr "Page %(current)s sur %(total)s"
+
+msgid "Parameters used to estimate the simulation cost:"
+msgstr "Paramètres utilisés pour estimer le coût de la simulation :"
+
+msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
+msgstr "Processeurs partiels autorisés (par exemple 0,5 = la moitié d'un processeur)"
+
+msgid "Partial GBs allowed (e.g. 2.5 = 2.5 GB RAM)"
+msgstr "Go partiels autorisés (par exemple 2,5 = 2,5 Go de RAM)"
+
+msgid "Password"
+msgstr "Mot de passe"
+
+msgid "Password does not match"
+msgstr "Le mot de passe ne correspond pas"
+
+msgid "Password for "
+msgstr "Mot de passe pour "
+
+msgid "Password updated correctly"
+msgstr "Mot de passe correctement mis à jour"
+
+msgid "Path to the solver executable/binary"
+msgstr "Chemin d'accès au solveur exécutable/binaire"
+
+msgid "Path to the solver executable/binary. It is usually located within the bin folder of your installation directory"
+msgstr "Chemin d'accès au solveur exécutable/binaire. Il se trouve généralement dans le dossier bin de votre répertoire d'installation."
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Pause Desktop"
+msgstr "Suspendre le bureau"
+
+msgid "Pause Target Node"
+msgstr "Suspendre le Target Node"
+
+msgid "Pause or resume (Space)"
+msgstr "Pause ou reprise (espace)"
+
+msgid "People: OU=People,DC=soca,DC=local"
+msgstr "Personnes : OU = personnes, DC = SOCA, DC = local"
+
+msgid "Pick a simple name to identify your graphical session"
+msgstr "Choisissez un nom simple pour identifier votre session graphique"
+
+msgid "Pick a simple name to identify your target node session"
+msgstr "Choisissez un nom simple pour identifier la session de votre Target Node"
+
+#, python-format
+msgid "Please %(warn)s when creating an issue."
+msgstr "Veuillez %(warn)s lors de la création d'un problème."
+
+msgid "Please fill out the form first"
+msgstr "Veuillez d'abord remplir le formulaire"
+
+msgid "Please select an image to run your job"
+msgstr "Veuillez sélectionner une image pour exécuter votre travail"
+
+msgid "Please wait ..."
+msgstr "Veuillez patienter..."
+
+msgid "Please wait to 15 minutes after launching a new login node before being able to spawn terminal session on it"
+msgstr "Veuillez attendre 15 minutes après le lancement d'un nouveau nœud de connexion avant de pouvoir y générer une session de terminal"
+
+msgid "Please wait while we estimate the price of this job ..."
+msgstr "Veuillez patienter pendant que nous estimons le prix de ce travail..."
+
+msgid "Please wait, your session is starting and will be ready soon."
+msgstr "Veuillez patienter, votre session commence et sera bientôt prête."
+
+msgid "Pod(s) IP(s)"
+msgstr "IP (s) du (des) pod (s)"
+
+msgid "Pop-out window was blocked by the browser. Please allow popups for this site."
+msgstr "La fenêtre contextuelle a été bloquée par le navigateur. Veuillez autoriser les fenêtres contextuelles pour ce site."
+
+msgid "Port"
+msgstr "Port"
+
+msgid "Prepare the input"
+msgstr "Préparez l'entrée"
+
+msgid "Prepare the request"
+msgstr "Préparez la demande"
+
+msgid "Previous"
+msgstr "Précédent"
+
+msgid "Private DNS of the target node"
+msgstr "DNS privé du Target Node"
+
+msgid "Private IP of the target node"
+msgstr "IP privée du Target Node"
+
+msgid "Profile associated to this stack"
+msgstr "Profil associé à cette pile"
+
+#, python-format
+msgid "Profile associated with this stack (%(link)s)"
+msgstr "Profil associé à ce stack (%(link)s)"
+
+msgid "Profile name"
+msgstr "Nom du profil"
+
+msgid "Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ..."
+msgstr "Profil qui contrôle la liste des types d'instances EC2 autorisés, des ID de sous-réseau, de la capacité de stockage maximale, etc."
+
+msgid "Profile updated successfully"
+msgstr "Profil mis à jour avec succès"
+
+msgid "Project"
+msgstr "Projet"
+
+msgid "Project Name"
+msgstr "Nom du projet"
+
+msgid "Project deleted successfully"
+msgstr "Projet supprimé avec succès"
+
+msgid "Project has been created successfully"
+msgstr "Le projet a été créé avec succès"
+
+msgid "Project has been updated successfully"
+msgstr "Le projet a été mis à jour avec succès"
+
+msgid "Projects"
+msgstr "Projets"
+
+msgid "Projects and Role Based ACLs"
+msgstr "Projets et ACL basés sur les rôles"
+
+msgid "Protocol"
+msgstr "Protocole"
+
+msgid "Query a job"
+msgstr "Rechercher une offre d'emploi"
+
+msgid "Queue"
+msgstr "File d'attente"
+
+msgid "Queue 1 (Low Priority)"
+msgstr "File d'attente 1 (faible priorité)"
+
+msgid "Queue 2 (High Priority)"
+msgstr "File d'attente 2 (priorité élevée)"
+
+msgid "Queue name"
+msgstr "Nom de file d'attente"
+
+msgid "REMOVE"
+msgstr "SUPPRIMER"
+
+msgid "RUNNING"
+msgstr "COURIR"
+
+msgid "Recommended Parameters"
+msgstr "Paramètres recommandés"
+
+#, python-format
+msgid "Refer to %(link)s documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH."
+msgstr "Consultez la documentation %(link)s pour savoir comment configurer un transfert de fichiers sécurisé, fiable et à haut débit entre vos serveurs de fichiers actuels et EDH."
+
+#, python-format
+msgid "Refer to %(link)s page for a list of EC2 instances"
+msgstr "Reportez-vous à la page %(link)s pour obtenir la liste des instances EC2"
+
+#, python-format
+msgid "Refresh (%(countdown)ss)"
+msgstr "Refresh (%(countdown)ss)"
+
+msgid "Regenerate new key"
+msgstr "Régénérer une nouvelle clé"
+
+msgid "Register Software Stack"
+msgstr "Enregistrer Software Stack"
+
+msgid "Register Software Stack in EDH"
+msgstr "Enregistrer Software Stack dans EDH"
+
+msgid "Register a new Software Stack (AMI) to EDH"
+msgstr "Enregistrer une nouvelle suite logicielle (AMI) auprès de l'EDH"
+
+msgid "Register a new Target Node Software Stack (AMI) to EDH"
+msgstr "Enregistrer une nouvelle pile logicielle (AMI) Target Node auprès de l'EDH"
+
+msgid "Remove"
+msgstr "Supprimer"
+
+msgid "Remove a user from your group"
+msgstr "Supprimer un utilisateur de votre groupe"
+
+msgid "Remove from group"
+msgstr "Supprimer du groupe"
+
+msgid "Remove user"
+msgstr "Supprimer un utilisateur"
+
+msgid "Remove user to your group"
+msgstr "Supprimer un utilisateur de votre groupe"
+
+msgid "Removing a software stack will not impact existing virtual desktops"
+msgstr "La suppression d'une pile logicielle n'aura aucun impact sur les bureaux virtuels existants"
+
+msgid "Removing the Software Stack from EDH will not remove the AMI from your AWS account"
+msgstr "La suppression de la pile logicielle d'EDH ne supprimera pas l'AMI de votre compte AWS"
+
+msgid "Report an issue"
+msgstr "Signaler un problème"
+
+msgid "Repository Name"
+msgstr "Nom du référentiel"
+
+msgid "Request to delete job was successful. The job will be removed from the queue shortly"
+msgstr "La demande de suppression de la job a été acceptée. La job sera supprimée de la file d'attente sous peu"
+
+msgid "Requested vCPUs:"
+msgstr "vCPU demandés :"
+
+msgid "Reset Password"
+msgstr "Réinitialiser le mot de passe"
+
+msgid "Reset user password"
+msgstr "Rétablir le mot de passe utilisateur"
+
+msgid "Resize Desktop Instance"
+msgstr "Redimensionner l'instance de bureau"
+
+msgid "Resize Target Node"
+msgstr "Redimensionner le Target Node"
+
+msgid "Resize Target Node Instance"
+msgstr "Redimensionner l'instance de Target Node"
+
+msgid "Resource Type (e.g., GPU, FPGA)"
+msgstr "Type de ressource (par exemple, GPU, FPGA)"
+
+msgid "Resources"
+msgstr "Ressources"
+
+msgid "Resume streaming"
+msgstr "Reprendre le streaming"
+
+msgid "Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...)."
+msgstr "Renvoie une liste où chaque élément est la valeur d'une clé publique attribuée à l'utilisateur (id_rsa.pub, id_edcsa.pub etc...)."
+
+msgid "Review"
+msgstr "Révision"
+
+msgid "Review HPC parameters"
+msgstr "Passez en revue les paramètres HPC"
+
+msgid "Revoke Admin permission"
+msgstr "Révoquer l'autorisation d'administrateur"
+
+msgid "Revoke user Admin permission"
+msgstr "Révoquer l'autorisation d'administrateur de l'utilisateur"
+
+msgid "Role"
+msgstr "Rôle"
+
+msgid "Root Disk Size (in GB)"
+msgstr "Taille du disque racine (en Go)"
+
+msgid "Root Partition (default 40GB if not set):"
+msgstr "Partition racine (40 Go par défaut si elle n'est pas définie) :"
+
+msgid "Run"
+msgstr "Courez"
+
+msgid "Run All Day"
+msgstr "Courez toute la journée"
+
+msgid "Run, test, and emulate embedded ECUs and target hardware directly in the cloud."
+msgstr "Exécutez, testez et émulez des calculateurs intégrés et du matériel cible directement dans le cloud."
+
+msgid "Runtime Arguments"
+msgstr "Arguments d'exécution"
+
+msgid "SFTP"
+msgstr "SFTP"
+
+msgid "SFTP (SSH File Transfer Protocol) - file transfer over Secure Shell"
+msgstr "SFTP (protocole de transfert de fichiers SSH) - transfert de fichiers via Secure Shell"
+
+msgid "SFTP (easiest)"
+msgstr "SFTP (le plus simple)"
+
+msgid "SOCA Logo"
+msgstr "Logo de la SOCA"
+
+msgid "SOCA cannot access your home directory. Please ask an admin to set your folder ACLs to 750"
+msgstr "La SOCA ne peut pas accéder à votre répertoire personnel. Demandez à un administrateur de définir les ACL de vos dossiers sur 750"
+
+msgid "SSH Client Access"
+msgstr "Accès au client SSH"
+
+msgid "SSH Public Key"
+msgstr "Clé publique SSH"
+
+msgid "Save Schedule"
+msgstr "Enregistrer le calendrier"
+
+msgid "Save changes"
+msgstr "Enregistrer les modifications"
+
+msgid "Save the settings and click connect"
+msgstr "Enregistrez les paramètres et cliquez sur Connecter"
+
+msgid "Save your session"
+msgstr "Enregistrez votre session"
+
+msgid "Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at"
+msgstr "Le Scale-Out Computing sur AWS utilise OpenLDAP et vous pouvez interagir directement avec votre annuaire via LDIF. Si vous n'êtes pas familier avec le LDIF, vous pouvez utiliser notre emballage personnalisé disponible sur"
+
+msgid "Schedule"
+msgstr "Calendrier"
+
+msgid "Scheduler"
+msgstr ""
+
+msgid "Scheduler ID"
+msgstr "ID du planificateur"
+
+#, python-format
+msgid "Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use %(normal)s queue). Refer to %(more_link)s"
+msgstr "Les paramètres du planificateur sont facultatifs. S'il n'est pas défini, votre job utilisera les paramètres par défaut configurés pour votre file d'attente (si aucune file d'attente n'est spécifiée, la job utilisera la file d'attente %(normal)s). Reportez-vous à %(more_link)s"
+
+msgid "Scheduling priority"
+msgstr "Priorité de planification"
+
+msgid "Scratch Partition:"
+msgstr "Cloison anti-rayures :"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..."
+msgstr "Recherche par ID AMI, nom d'AMI, systèmes d'exploitation, architecture (x86_64/arm64)..."
+
+msgid "Search for a file or a folder"
+msgstr "Rechercher un fichier ou un dossier"
+
+msgid "Search for an image tag, digest ..."
+msgstr "Recherchez une étiquette d'image, synthétisez-la..."
+
+msgid "Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks."
+msgstr "Stations de travail sécurisées et évolutives basées sur le cloud, conçues pour les charges de travail d'ingénierie et les jobs de calcul lourdes."
+
+msgid "See Documentation."
+msgstr "Voir la documentation."
+
+msgid "Select"
+msgstr "Sélectionnez"
+
+#, python-format
+msgid "Select %(choice)s as identity provider"
+msgstr "Sélectionnez %(choice)s comme fournisseur d'identité"
+
+#, python-format
+msgid "Select %(domain)s as Domain"
+msgstr "Sélectionnez %(domain)s comme domaine"
+
+#, python-format
+msgid "Select %(entity)s as Trusted Entity Type and select %(use_case)s as Use Case"
+msgstr "Sélectionnez %(entity)s comme type d'entité de confiance et sélectionnez %(use_case)s comme cas d'utilisation"
+
+#, python-format
+msgid "Select %(role)s and use the latest %(policy)s available"
+msgstr "Sélectionnez %(role)s et utilisez le dernier %(policy)s disponible"
+
+msgid "Select a Project to see details."
+msgstr "Sélectionnez un projet pour en voir les détails."
+
+#, python-format
+msgid "Select a Role name (for example %(name)s) and save it"
+msgstr "Sélectionnez un nom de rôle (par exemple %(name)s) et enregistrez-le"
+
+msgid "Select a User Data Template to see details."
+msgstr "Sélectionnez un modèle de données utilisateur pour en voir les détails."
+
+msgid "Select a profile to see details."
+msgstr "Sélectionnez un profil pour en voir les détails."
+
+msgid "Select a stack to see details."
+msgstr "Sélectionnez une pile pour en voir les détails."
+
+msgid "Select an EDH Project"
+msgstr "Sélectionnez un projet EDH"
+
+msgid "Select an image (jpg or png) to use as thumbnail"
+msgstr "Sélectionnez une image (jpg ou png) à utiliser comme miniature"
+
+msgid "Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail"
+msgstr "Sélectionnez une image (jpg ou png) à utiliser comme miniature. Laissez ce champ vide pour utiliser la miniature existante"
+
+msgid "Select an image with pre-installed applications or use the default vanilla image"
+msgstr "Sélectionnez une image avec des applications préinstallées ou utilisez l'image standard par défaut"
+
+msgid "Select group:"
+msgstr "Sélectionnez un groupe :"
+
+msgid "Select image baseOS"
+msgstr "Sélectionnez l'image BaseOS"
+
+msgid "Select the AWS managed policy named"
+msgstr "Sélectionnez la politique gérée par AWS nommée"
+
+msgid "Select the EDH Project and optional AWS Budget for this target node"
+msgstr "Sélectionnez le projet EDH et, en option, le budget AWS pour ce Target Node"
+
+msgid "Select the EDH Projects and optional AWS Budget for this desktop"
+msgstr "Sélectionnez les projets EDH et le budget AWS optionnel pour cet ordinateur de bureau"
+
+msgid "Select the Workflow Profile to delete"
+msgstr "Sélectionnez le profil de Workflow à supprimer"
+
+msgid "Select the Workflow Profile to edit"
+msgstr "Sélectionnez le profil de Workflow à modifier"
+
+msgid "Select the instance type to deploy your job on"
+msgstr "Sélectionnez le type d'instance sur lequel déployer votre job"
+
+msgid "Select the instance type to provision"
+msgstr "Sélectionnez le type d'instance à provisionner"
+
+msgid "Select the operating system for your virtual desktop"
+msgstr "Sélectionnez le système d'exploitation de votre bureau virtuel"
+
+msgid "Select this Stack"
+msgstr "Sélectionnez cette pile"
+
+msgid "Select user:"
+msgstr "Sélectionnez un utilisateur :"
+
+msgid "Select your Workflow"
+msgstr "Sélectionnez votre Workflow"
+
+msgid "ServerAliveCountMax 2"
+msgstr "ServerAliveCountMax 2"
+
+msgid "ServerAliveInterval 10"
+msgstr "ServerAliveInterval 10"
+
+msgid "Session Name"
+msgstr "Nom de session"
+
+msgid "Session Type"
+msgstr "Type de séance"
+
+msgid "Setup your AWS Batch Job"
+msgstr "Configuration de votre AWS Batch Job"
+
+msgid "Setup your Amazon EKS Job"
+msgstr "Configurez votre job Amazon EKS"
+
+msgid "Show"
+msgstr "Afficher"
+
+msgid "Size"
+msgstr "Taille"
+
+msgid "Size (MB)"
+msgstr "Taille (Mo)"
+
+msgid "Size of the memory to request for your job"
+msgstr "Taille de la mémoire à demander pour votre job"
+
+msgid "Slurm"
+msgstr "Slurm"
+
+msgid "Small (2 vCPUs, 8GB RAM)"
+msgstr "Petit (2 processeurs virtuels, 8 Go de RAM)"
+
+msgid "Software Stack"
+msgstr "Pile logicielle"
+
+msgid "Software Stack Description"
+msgstr "Description de la pile logicielle"
+
+msgid "Software Stack Name"
+msgstr "Nom de la pile logicielle"
+
+msgid "Software Stack removed from SOCA"
+msgstr "Suite logicielle supprimée de la SOCA"
+
+msgid "Sorry this feature has been disabled by your Administrator."
+msgstr "Désolé, cette fonctionnalité a été désactivée par votre administrateur."
+
+msgid "Sorry this page requires admin privileges."
+msgstr "Désolé, cette page nécessite des privilèges d'administrateur."
+
+msgid "Sorry we could not access this location due to a permission error. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "Désolé, nous n'avons pas pu accéder à cet emplacement en raison d'une erreur d'autorisation. Si vous avez récemment modifié les autorisations, veuillez prévoir jusqu'à 10 minutes pour la synchronisation."
+
+msgid "Sorry you cannot download more than 40 files in a single call"
+msgstr "Désolé, vous ne pouvez pas télécharger plus de 40 fichiers en un seul appel"
+
+msgid "Sorry, the maximum archive size is {:.2f} MB. Your archive was {:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "Désolé, la taille d'archive maximale est de {:.2f} Mo. Votre archive mesurait {:.2f} Mo. Pour éviter ce problème, vous pouvez créer une archive plus petite, télécharger des fichiers individuellement, utiliser SFTP ou modifier la taille d'archive maximale autorisée."
+
+msgid "Sorry, the maximum archive size is {max_size:.2f} MB. Your archive was {actual_size:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "Désolé, la taille d'archive maximale est de {max_size : .2f} Mo. Votre archive mesurait {actual_size : .2f} Mo. Pour éviter ce problème, vous pouvez créer une archive plus petite, télécharger des fichiers individuellement, utiliser SFTP ou modifier la taille d'archive maximale autorisée."
+
+msgid "Source Code"
+msgstr "Code source"
+
+msgid "Specify whether or not your job requires GPUs"
+msgstr "Spécifiez si votre travail nécessite ou non des GPU"
+
+msgid "Stack Info"
+msgstr "Informations sur la pile"
+
+msgid "Stack Type"
+msgstr "Type de pile"
+
+msgid "Standard Launch"
+msgstr "Lancement standard"
+
+msgid "Start Desktop"
+msgstr "Démarrer le bureau"
+
+msgid "Start Target Node"
+msgstr "Démarrer le Target Node"
+
+msgid "Start a new terminal on an EDH Login Node"
+msgstr "Démarrer un nouveau terminal sur un nœud de connexion EDH"
+
+msgid "Starting Code Editor..."
+msgstr "Démarrage de l'éditeur de code..."
+
+msgid "Status"
+msgstr "État"
+
+msgid "Step 1: Configure AWS Transfer"
+msgstr "Étape 1 : Configuration d'AWS Transfer"
+
+msgid "Step 2: Create IAM role for your AWS Transfer Users"
+msgstr "Étape 2 : créer un rôle IAM pour vos utilisateurs AWS Transfer"
+
+msgid "Step 3: Download PEM Key File (Public)"
+msgstr "Étape 3 : Télécharger le fichier clé PEM (public)"
+
+msgid "Step 4: Download your PEM key File (Private)"
+msgstr "Étape 4 : Téléchargez votre fichier de clé PEM (privé)"
+
+msgid "Step 5: Register your AWS Transfer Users"
+msgstr "Étape 5 : Enregistrez vos utilisateurs AWS Transfer"
+
+msgid "Step 6: Test"
+msgstr "Étape 6 : Testez"
+
+msgid "Step1:"
+msgstr "Étape 1 :"
+
+msgid "Step1: Design the form"
+msgstr "Étape 1 : Conception du formulaire"
+
+msgid "Step2: Configure FileZilla"
+msgstr "Étape 2 : Configuration de FileZilla"
+
+msgid "Step2: Convert your SSH key"
+msgstr "Étape 2 : Convertissez votre clé SSH"
+
+msgid "Step2: Design the job script"
+msgstr "Étape 2 : Conception du script de job"
+
+msgid "Step2: Modify key permission"
+msgstr "Étape 2 : modifier l'autorisation clé"
+
+msgid "Step3: Configure PuTTY"
+msgstr "Étape 3 : Configuration de PuTTY"
+
+msgid "Step3: Connect and transfer file to FileZilla"
+msgstr "Étape 3 : Connexion et transfert du fichier vers FileZilla"
+
+msgid "Step3: Connect to the cluster via the login node(s)"
+msgstr "Étape 3 : connexion au cluster via le ou les nœuds de connexion"
+
+msgid "Stick to bottom when new data arrives"
+msgstr "Restez au bas de l'échelle lorsque de nouvelles données arrivent"
+
+msgid "Stopped All Day"
+msgstr "Arrêté toute la journée"
+
+msgid "Stopping an instance will not cause any data loss"
+msgstr "L'arrêt d'une instance n'entraînera aucune perte de données"
+
+msgid "Storage"
+msgstr "Rangement"
+
+#, python-format
+msgid "Storage Size for your main partition (%(linux_path)s for Linux, %(windows_path)s for Windows)"
+msgstr "Taille de stockage pour votre partition principale (%(linux_path)s pour Linux, %(windows_path)s pour Windows)"
+
+msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
+msgstr "Le stream se ferme automatiquement après une période d'inactivité ou une durée maximale. Utilisez Pop out pour les montres longues."
+
+msgid "Submit AWS Batch Job"
+msgstr "Soumettre une job AWS Batch"
+
+msgid "Submit Amazon EKS Job"
+msgstr "Soumettre une offre d'emploi Amazon EKS"
+
+msgid "Submit a New Batch Job"
+msgstr "Soumettre une nouvelle job par lots"
+
+msgid "Submit a job"
+msgstr "Soumettre une offre d'emploi"
+
+msgid "Submit job"
+msgstr "Soumettre une offre"
+
+msgid "Subnets must be from the list of private subnets configured on EDH"
+msgstr "Les sous-réseaux doivent provenir de la liste des sous-réseaux privés configurés sur EDH"
+
+msgid "Successfully deactivated"
+msgstr "Désactivé avec succès"
+
+#, python-format
+msgid "Support Exact Instance Type (%(example)s)"
+msgstr "Supporte le type d'instance exact (%(example)s)"
+
+#, python-format
+msgid "Support Instance Family (%(example)s)"
+msgstr "Famille d'instances de support (%(example)s)"
+
+msgid "Support for network license"
+msgstr "Support pour les licences réseau"
+
+msgid "Supported Variables (case-sensitive)"
+msgstr "Variables prises en charge (distinction majuscules/minuscules)"
+
+msgid "Supported variables (case-sensitive)"
+msgstr "Variables prises en charge (distinction majuscules/minuscules)"
+
+msgid "Tail"
+msgstr "Queue"
+
+msgid "Tail (live view)"
+msgstr "Tail (vue en direct)"
+
+msgid "Target Node"
+msgstr ""
+
+msgid "Target Node Profile removed from SOCA"
+msgstr "Le profil de Target Node a été supprimé de la SOCA"
+
+msgid "Target Node Software Stack"
+msgstr "Pile logicielle Target Node"
+
+msgid "Target Node Stacks"
+msgstr "Piles de Target Nodes"
+
+msgid "Target Nodes"
+msgstr ""
+
+msgid "Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development."
+msgstr "Les Target Nodes sont des images de machine Amazon (AMI) EC2 sans aucune modification spécifique à EDH (par exemple : aucun montage de système de fichiers, jointure AD/OpenLDAP, packages installés...). Ces nœuds sont conçus pour fonctionner avec des systèmes d'exploitation ou des hyperviseurs spécialisés, tels que ceux utilisés dans le développement intégré."
+
+msgid "Technical Details"
+msgstr "Détails techniques"
+
+msgid "Template Name"
+msgstr "Nom du modèle"
+
+msgid "Tenancy defines how EC2 instances are distributed across physical hardware."
+msgstr "Tenancy définit la manière dont les instances EC2 sont distribuées sur le matériel physique."
+
+msgid "Terminate"
+msgstr "Terminer"
+
+msgid "Terminate Job"
+msgstr "Mettre fin à la job"
+
+msgid "The IAM role you have created (ex: TransferEFSClient)"
+msgstr "Le rôle IAM que vous avez créé (ex : TransferefsClient)"
+
+msgid "The Posix GID of your user you have retrieved via `id` command"
+msgstr "Le GID Posix de votre utilisateur que vous avez récupéré via la commande `id`"
+
+msgid "The Posix UID of your user you have retrieved via `id` command"
+msgstr "L'UID Posix de votre utilisateur que vous avez récupéré via la commande `id`"
+
+msgid "The content of your SSH public key retrieved during Step 3"
+msgstr "Le contenu de votre clé publique SSH récupéré lors de l'étape 3"
+
+msgid "The data remains available on the system without incurring compute charges. Storage fees continue to apply."
+msgstr "Les données restent disponibles sur le système sans frais de calcul. Les frais de stockage continuent de s'appliquer."
+
+msgid "The maximum size (in GB) of the root disk a user can specify"
+msgstr "Taille maximale (en Go) du disque racine qu'un utilisateur peut spécifier"
+
+msgid "The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
+msgstr "Taille minimale (en Go) du disque racine pour cette image. Le provisionnement d'une instance avec une taille EBS inférieure générera une erreur"
+
+#, python-format
+msgid "The server is using %(tz)s timezone."
+msgstr "Le serveur utilise le fuseau horaire %(tz)s."
+
+msgid "Then run the following command to create your group"
+msgstr "Exécutez ensuite la commande suivante pour créer votre groupe"
+
+msgid "These numbers are just an estimate:"
+msgstr "Ces chiffres ne sont qu'une estimation :"
+
+msgid "These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us."
+msgstr "Ces traductions ont été générées à l'aide de l'IA et peuvent contenir des inexactitudes ou une formulation anormale. Si vous êtes un locuteur natif et que vous souhaitez contribuer à l'amélioration d'une traduction, nous serions ravis de votre contribution ! N'hésitez pas à nous contacter."
+
+msgid "This API has been disabled by your Administrator"
+msgstr "Cette API a été désactivée par votre administrateur"
+
+msgid "This API key is only available to you. Do not share it externally as this key is used to authorize requests on your behalf."
+msgstr "Cette clé API n'est disponible que pour vous. Ne la partagez pas en externe car cette clé est utilisée pour autoriser les demandes en votre nom."
+
+msgid "This action cannot be reversed."
+msgstr "Cette action ne peut pas être annulée."
+
+msgid "This estimate is based on a simulation time of"
+msgstr "Cette estimation est basée sur un temps de simulation de"
+
+#, python-format
+msgid "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+msgstr "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+
+msgid "This file is too big to be compressed via web. Download file separately or use SFTP."
+msgstr "Ce fichier est trop volumineux pour être compressé via le Web. Téléchargez le fichier séparément ou utilisez SFTP."
+
+msgid "This folder already exist, choose a different name"
+msgstr "Ce dossier existe déjà, choisissez un autre nom"
+
+msgid "This is a Linux script (will use /bin/bash)"
+msgstr "Il s'agit d'un script Linux (utilisera /bin/bash)"
+
+msgid "This is a Linux script (will use /bin/csh)"
+msgstr "Il s'agit d'un script Linux (utilisera /bin/csh)"
+
+msgid "This is a Linux script (will use /bin/sh)"
+msgstr "Il s'agit d'un script Linux (utilisera /bin/sh)"
+
+msgid "This is a Linux script (will use /bin/zsh)"
+msgstr "Il s'agit d'un script Linux (utilisera /bin/zsh)"
+
+msgid "This is the last tab. Close the window?"
+msgstr "Il s'agit du dernier onglet. Fermer la fenêtre ?"
+
+msgid "This location is not cached"
+msgstr "Cet emplacement n'est pas mis en cache"
+
+msgid "This page will automatically refresh when the state of your virtual desktops changes."
+msgstr "Cette page est automatiquement actualisée lorsque l'état de vos bureaux virtuels change."
+
+#, python-format
+msgid "This session will automatically pause <strong>after %(n)s hour</strong> of inactivity.This session will automatically pause <strong>after %(n)s hours</strong> of inactivity."
+msgstr "<strong>Cette session sera automatiquement suspendue <strong>après %(n)s heures</strong> d'inactivité. Cette session sera automatiquement suspendue après %(n)s heures d'inactivité.</strong>"
+
+msgid "This will generate a temporary password for a given user"
+msgstr "Cela générera un mot de passe temporaire pour un utilisateur donné"
+
+msgid "Thumbnail (150px * 150px)"
+msgstr "Vignette (150 pixels * 150 pixels)"
+
+msgid "Thumbnail to use (150px * 150px)"
+msgstr "Vignette à utiliser (150px * 150px)"
+
+msgid "Time in seconds"
+msgstr "Durée en secondes"
+
+msgid "Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
+msgstr "Le fuseau horaire {config.config.timezone} configuré par l'administrateur n'existe pas. La valeur par défaut est UTC. Consultez https://en.wikipedia.org/wiki/List_of_tz_database_time_zones pour obtenir la liste complète des fuseaux horaires pris en charge"
+
+#, python-format
+msgid "Tip: You can use %(and_op)s / %(or_op)s operators (ex: %(ex1)s %(ex2)s %(ex3)s)"
+msgstr "Conseil : Vous pouvez utiliser les opérateurs %(and_op)s/%(or_op)s (ex : %(ex1)s %(ex2)s %(ex3)s)"
+
+msgid "To prevent outage, you must update all your scripts (if any) with the new key"
+msgstr "Pour éviter toute panne, vous devez mettre à jour tous vos scripts (le cas échéant) avec la nouvelle clé"
+
+msgid "Toggle light/dark theme (T)"
+msgstr "Basculer entre le thème clair et le thème foncé (T)"
+
+msgid "Token has expired. As a security measure we have refreshed your token. Please re-submit your request again."
+msgstr "Le jeton a expiré. Par mesure de sécurité, nous avons actualisé votre jeton. Veuillez soumettre à nouveau votre demande."
+
+msgid "Too many active tail sessions. Close one and try again."
+msgstr "Trop de sessions de queue actives. Fermez-en une et réessayez."
+
+msgid "Type"
+msgstr "Tapez"
+
+msgid "Type to search an instance type..."
+msgstr "Tapez pour rechercher un type d'instance..."
+
+msgid "Type:"
+msgstr "Tapez :"
+
+msgid "URI of the Image to deploy on your pod"
+msgstr "URI de l'image à déployer sur votre pod"
+
+msgid "Unable to access the file. Please try again:  "
+msgstr "Impossible d'accéder au fichier. Veuillez réessayer :  "
+
+msgid "Unable to create file. Check logs for additional info"
+msgstr "Impossible de créer le fichier. Consultez les journaux pour plus d'informations"
+
+msgid "Unable to create new user. API returned error: "
+msgstr "Impossible de créer un nouvel utilisateur. L'API a renvoyé une erreur : "
+
+msgid "Unable to delete "
+msgstr "Impossible de supprimer "
+
+msgid "Unable to delete Batch job {job_id}."
+msgstr "Impossible de supprimer le traitement par lots {job_id}."
+
+msgid "Unable to describe instance type. See logs for additional details."
+msgstr "Impossible de décrire le type d'instance. Consultez les journaux pour plus de détails."
+
+msgid "Unable to determine vCPU count for instance type. See logs for additional details."
+msgstr "Impossible de déterminer le nombre de processeurs virtuels pour le type d'instance. Consultez les journaux pour plus de détails."
+
+msgid "Unable to download "
+msgstr "Impossible de télécharger "
+
+msgid "Unable to download file. Did you remove it?"
+msgstr "Impossible de télécharger le fichier. Tu l'as retiré ?"
+
+msgid "Unable to edit application. See logs for additional details."
+msgstr "Impossible de modifier l'application. Consultez les journaux pour plus de détails."
+
+msgid "Unable to estimate cost"
+msgstr "Impossible d'estimer le coût"
+
+msgid "Unable to extract input file information. See logs for additional details"
+msgstr "Impossible d'extraire les informations du fichier d'entrée. Consultez les journaux pour plus de détails"
+
+msgid "Unable to extract profile information. See logs for additional details"
+msgstr "Impossible d'extraire les informations de profil. Consultez les journaux pour plus de détails"
+
+#, python-format
+msgid "Unable to find any %(link)s onboarded to this EDH environment."
+msgstr "Impossible de trouver un %(link)s intégré à cet environnement EDH."
+
+msgid "Unable to find any AWS Batch Job Definition onboarded to this EDH environment."
+msgstr "Impossible de trouver une définition de job AWS Batch intégrée à cet environnement EDH."
+
+msgid "Unable to find any AWS Batch Job Queues onboarded to this EDH environment."
+msgstr "Impossible de trouver des files d'attente de jobs AWS Batch intégrées à cet environnement EDH."
+
+msgid "Unable to generate download link. Check the logs for more information"
+msgstr "Impossible de générer le lien de téléchargement. Consultez les journaux pour plus d'informations"
+
+msgid "Unable to generate job script. See logs for additional details"
+msgstr "Impossible de générer un script de job. Consultez les journaux pour plus de détails"
+
+msgid "Unable to list AWS Batch jobs due to {error}"
+msgstr "Impossible de répertorier les jobs AWS Batch en raison de {error}"
+
+msgid "Unable to list all_users: "
+msgstr "Impossible de répertorier tous les utilisateurs : "
+
+msgid "Unable to list applications. See logs for additional details"
+msgstr "Impossible de répertorier les applications. Consultez les journaux pour plus de détails"
+
+msgid "Unable to list applications. See logs for additional details."
+msgstr "Impossible de répertorier les applications. Consultez les journaux pour plus de détails."
+
+msgid "Unable to list groups: "
+msgstr "Impossible de répertorier les groupes : "
+
+msgid "Unable to list your clusters images"
+msgstr "Impossible de répertorier les images de vos clusters"
+
+msgid "Unable to list your container images"
+msgstr "Impossible de répertorier les images de vos conteneurs"
+
+msgid "Unable to locate  the download archive, please try again"
+msgstr "Impossible de localiser l'archive de téléchargement, veuillez réessayer"
+
+msgid "Unable to locate the download archive, please try again"
+msgstr "Impossible de localiser l'archive de téléchargement, veuillez réessayer"
+
+msgid "Unable to preview this file via web"
+msgstr "Impossible de prévisualiser ce fichier via le Web"
+
+msgid "Unable to read file"
+msgstr "Impossible de lire le fichier"
+
+msgid "Unable to read the job script. See logs for additional details."
+msgstr "Impossible de lire le script de la job. Consultez les journaux pour plus de détails."
+
+msgid "Unable to reset password. Error: "
+msgstr "Impossible de réinitialiser le mot de passe. Erreur : "
+
+msgid "Unable to reset your password. Error: "
+msgstr "Impossible de réinitialiser votre mot de passe. Erreur : "
+
+msgid "Unable to retrieve API key for user. See logs for additional details."
+msgstr "Impossible de récupérer la clé API de l'utilisateur. Consultez les journaux pour plus de détails."
+
+msgid "Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue parameters and check logs for more details"
+msgstr "Impossible de récupérer les jobs sur tous les planificateurs. Vérifiez les paramètres utilisateur/planificateur/file d'attente et consultez les journaux pour plus de détails"
+
+msgid "Unable to retrieve this virtual desktop."
+msgstr "Impossible de récupérer ce bureau virtuel."
+
+msgid "Unable to stat file"
+msgstr "Impossible de démarrer le fichier"
+
+msgid "Unable to submit AWS Batch job due to {error}"
+msgstr "Impossible de soumettre la job AWS Batch en raison d'une {erreur}"
+
+msgid "Unable to update group: "
+msgstr "Impossible de mettre à jour le groupe : "
+
+msgid "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+msgstr "Impossible d'utiliser ce fichier comme entrée (peut-être que le fichier a été supprimé ou que vous n'êtes pas autorisé à y accéder)."
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars"
+msgstr "Identifiant unique de votre image Amazon. Doit être une image valide, commencer par ami- et entre 8 et 21 caractères"
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)"
+msgstr "Identifiant unique de votre image Amazon. Il doit s'agir d'une image valide, commencez par ami- ou alias AMI (/aws/service/...)"
+
+msgid "Unknown session state"
+msgstr "État de session inconnu"
+
+msgid "Unregister Software Stack from EDH"
+msgstr "Désenregistrer Software Stack auprès d'EDH"
+
+msgid "Unregister Software Stack from SOCA"
+msgstr "Désenregistrer Software Stack de SOCA"
+
+msgid "Update Password"
+msgstr "Modifier le mot de passe"
+
+msgid "Update Project"
+msgstr "Mettre à jour le projet"
+
+msgid "Update Software Stack"
+msgstr "Mettre à jour la pile logicielle"
+
+msgid "Update Target Node Profile"
+msgstr "Mettre à jour le profil du Target Node"
+
+msgid "Update User Data Template"
+msgstr "Mettre à jour le modèle de données utilisateur"
+
+msgid "Update Virtual Desktop Profile"
+msgstr "Mettre à jour le profil du bureau virtuel"
+
+msgid "Update this Workflow Profile"
+msgstr "Mettre à jour ce profil de Workflow"
+
+msgid "Update your password"
+msgstr "Mettez à jour votre mot de passe"
+
+msgid "Upload file(s)"
+msgstr "Téléverser un ou plusieurs fichiers"
+
+#, python-format
+msgid "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %(start_a)sEDH SFTP solution%(end_a)s for larger files or edit the configuration files."
+msgstr "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %(start_a)sEDH SFTP solution%(end_a)s for larger files or edit the configuration files."
+
+msgid "Upload your content to EDH"
+msgstr "Téléchargez votre contenu sur EDH"
+
+#, python-format
+msgid "Use %(hidden)s fields to hardcode values. Otherwise, defaults will be applied."
+msgstr "Utilisez les champs %(hidden)s pour coder les valeurs en dur. Dans le cas contraire, les valeurs par défaut seront appliquées."
+
+#, python-format
+msgid "Use %(star)s to allow all users"
+msgstr "Utilisez %(star)s pour autoriser tous les utilisateurs"
+
+#, python-format
+msgid "Use %(star)s to deny all"
+msgstr "Utilisez %(star)s pour tout refuser"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds)"
+msgstr "Utiliser le format HH:MM:SS (heures:minutes:secondes)"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds). For example 90 minutes is 00:90:00 or 01:30:00"
+msgstr "Utilisez le format HH:MM:SS (heures:minutes:secondes). Par exemple, 90 minutes correspond à 00:90:00 ou 01:30:00"
+
+msgid "Use as workflow input"
+msgstr "Utiliser comme entrée de Workflow"
+
+#, python-format
+msgid "Use this link only to %(purpose)s regarding issues with the Engineering Development Hub (EDH) project."
+msgstr "Utilisez ce lien uniquement vers %(purpose)s en ce qui concerne les problèmes liés au projet Engineering Development Hub (EDH)."
+
+msgid "Used to calculate the number of node(s) to provision"
+msgstr "Utilisé pour calculer le nombre de nœuds à approvisionner"
+
+msgid "Used to calculate the number of nodes to provision"
+msgstr "Utilisé pour calculer le nombre de nœuds à approvisionner"
+
+msgid "Used to estimate cost"
+msgstr "Utilisé pour estimer les coûts"
+
+msgid "User"
+msgstr "Utilisateur"
+
+msgid "User "
+msgstr "Utilisateur "
+
+msgid "User Data"
+msgstr ""
+
+msgid "User Data Template Description"
+msgstr "Description du modèle de données utilisateur"
+
+msgid "User Data Template Name"
+msgstr "Nom du modèle de données utilisateur"
+
+msgid "User Data Template deleted successfully"
+msgstr "Modèle de données utilisateur supprimé avec succès"
+
+msgid "User Data Template has been updated successfully"
+msgstr "Le modèle de données utilisateur a été mis à jour avec succès"
+
+msgid "User Data Templates"
+msgstr "Modèles de données utilisateur"
+
+msgid "User Data Variables"
+msgstr "Variables de données utilisateur"
+
+#, python-format
+msgid "User Data associated with this stack (%(link)s)"
+msgstr "Données utilisateur associées à cette pile (%(link)s)"
+
+msgid "User Data script runs during the instance initial boot"
+msgstr "Le script de données utilisateur s'exécute lors du démarrage initial de l'instance"
+
+msgid "User Data template has been created successfully"
+msgstr "Le modèle de données utilisateur a été créé avec succès"
+
+msgid "User Data to be executed on the EC2 host"
+msgstr "Données utilisateur à exécuter sur l'hôte EC2"
+
+msgid "User ID"
+msgstr "ID utilisateur"
+
+msgid "User Membership"
+msgstr "Abonnement utilisateur"
+
+msgid "User code to be executed AFTER the solver command"
+msgstr "Code utilisateur à exécuter APRÈS la commande du solveur"
+
+msgid "User code to be executed BEFORE the solver command"
+msgstr "Code utilisateur à exécuter AVANT la commande du solveur"
+
+msgid "User created"
+msgstr "Créé par l'utilisateur"
+
+msgid "User created but unable to generate API token: "
+msgstr "L'utilisateur a créé mais n'a pas pu générer le jeton d'API : "
+
+msgid "User data is limited to 16 KB"
+msgstr "Les données utilisateur sont limitées à 16 Ko"
+
+msgid "User data script is operating system-specific: Linux requires a Bash script, while Windows expects a PowerShell script."
+msgstr "Le script de données utilisateur est spécifique au système d'exploitation : Linux nécessite un script Bash, tandis que Windows nécessite un script PowerShell."
+
+msgid "User data supports"
+msgstr "Supports relatifs aux données utilisateur"
+
+msgid "User(s) in your group:"
+msgstr "Utilisateur (s) de votre groupe :"
+
+msgid "User-Data templates are assigned to EDH Target Nodes"
+msgstr "Les modèles de données utilisateur sont attribués aux Target Nodes EDH"
+
+msgid "User: "
+msgstr "Utilisateur : "
+
+msgid "Username"
+msgstr "Nom d'utilisateur"
+
+msgid "Users Management"
+msgstr "Gestion des utilisateurs"
+
+msgid "Users Permissions"
+msgstr "Autorisations des utilisateurs"
+
+msgid "Users in denied groups will be denied even if individually allowed"
+msgstr "Les utilisateurs appartenant à des groupes refusés seront refusés même s'ils y sont autorisés individuellement"
+
+msgid "Users in your group can access (read-only) your $HOME directory by default."
+msgstr "Les utilisateurs de votre groupe peuvent accéder (en lecture seule) à votre répertoire $HOME par défaut."
+
+msgid "Users/Groups Permissions"
+msgstr "Autorisations des utilisateurs/groupes"
+
+msgid "Using Bash"
+msgstr "Utilisation de Bash"
+
+msgid "Using Python"
+msgstr "À l'aide de Python"
+
+msgid "VALUE"
+msgstr "VALEUR"
+
+msgid "VDI Profile"
+msgstr "Profil VDI"
+
+msgid "VDI Profile removed from SOCA"
+msgstr "Profil VDI supprimé de SOCA"
+
+msgid "Value"
+msgstr "Valeur"
+
+msgid "Value (e.g., 1, 2)"
+msgstr "Valeur (par exemple, 1, 2)"
+
+msgid "Value:"
+msgstr "Valeur :"
+
+msgid "Via EDH Web Portal"
+msgstr "Via le portail Web de l'EDH"
+
+msgid "Via command line (CLI)"
+msgstr "Via la ligne de commande (CLI)"
+
+msgid "View Advanced Options"
+msgstr "Afficher les options avancées"
+
+msgid "View Details"
+msgstr "Afficher les détails"
+
+msgid "View HTTP API documentation"
+msgstr "Afficher la documentation de l'API HTTP"
+
+msgid "View my jobs"
+msgstr "Afficher mes offres d'emploi"
+
+msgid "View/Manage Authorized Application Profiles"
+msgstr "Afficher/gérer les profils d'applications autorisés"
+
+msgid "View/Manage Authorized Target Nodes Stacks"
+msgstr "Afficher/gérer les piles de Target Nodes autorisées"
+
+msgid "View/Manage Authorized Virtual Desktops Stacks"
+msgstr "Afficher/gérer les piles de postes de travail virtuels autorisés"
+
+msgid "Virtual Desktop"
+msgstr "Bureau virtuel"
+
+msgid "Virtual Desktop Software Stack"
+msgstr "Pile logicielle de bureau virtuel"
+
+msgid "Virtual Desktop Stacks"
+msgstr "Piles de bureaux virtuels"
+
+msgid "Virtual Desktops"
+msgstr "Ordinateurs de bureau virtuels"
+
+msgid "We have generated a test template for you, customize it as needed or"
+msgstr "Nous avons créé un modèle de test pour vous, personnalisez-le selon vos besoins ou"
+
+msgid "Web Terminal"
+msgstr "Terminal Web"
+
+msgid "WebSocket connection failed. Check that the webshell service is running on Login Nodes."
+msgstr "La connexion WebSocket a échoué. Vérifiez que le service Webshell s'exécute sur les nœuds de connexion."
+
+msgid "WebSocket error"
+msgstr "Erreur WebSocket"
+
+msgid "What input file do you want to use? Navigate to the folder where your input file is located then click 'Use as Simulation Input'"
+msgstr "Quel fichier d'entrée souhaitez-vous utiliser ? Accédez au dossier dans lequel se trouve votre fichier d'entrée, puis cliquez sur « Utiliser comme entrée de simulation »"
+
+msgid "What queue do you want to use?"
+msgstr "Quelle file d'attente souhaitez-vous utiliser ?"
+
+msgid "What type of instance do you want to use?"
+msgstr "Quel type d'instance souhaitez-vous utiliser ?"
+
+msgid "What version of the solver do you want to use?"
+msgstr "Quelle version du solveur souhaitez-vous utiliser ?"
+
+msgid "What workflow do you want to run?"
+msgstr "Quel Workflow souhaitez-vous exécuter ?"
+
+msgid "Windows"
+msgstr ""
+
+msgid "Workflow Profile input file (JSON)"
+msgstr "Fichier d'entrée du profil de Workflow (JSON)"
+
+msgid "Workflow Profile name"
+msgstr "Nom du profil de Workflow"
+
+msgid "Workflows Management"
+msgstr "Gestion des Workflow"
+
+msgid "Wrap"
+msgstr "Envelopper"
+
+msgid "Wrap long lines"
+msgstr "Enveloppez de longues lignes"
+
+msgid "X-EDH-TOKEN and set the value to"
+msgstr "X-EDH-TOKEN et définissez la valeur sur"
+
+msgid "X-EDH-USER and set the value to"
+msgstr "X-EDH-USER et définissez la valeur sur"
+
+msgid "Yes"
+msgstr "Oui"
+
+msgid "You are about to be redirected to"
+msgstr "Vous êtes sur le point d'être redirigé vers"
+
+msgid "You are about to permanently delete"
+msgstr "Vous êtes sur le point de supprimer définitivement"
+
+msgid "You are about to permanently delete a target note. All data stored on the local partitions will be lost."
+msgstr "Vous êtes sur le point de supprimer définitivement une note cible. Toutes les données stockées sur les partitions locales seront perdues."
+
+msgid "You are about to remove this job from your EKS cluster."
+msgstr "Vous êtes sur le point de supprimer cette job de votre cluster EKS."
+
+msgid "You are about to terminate this AWS Batch job:"
+msgstr "Vous êtes sur le point de mettre fin à cette job AWS Batch :"
+
+msgid "You are currently using"
+msgstr "Vous utilisez actuellement"
+
+msgid "You are not authorized to access this file"
+msgstr "Vous n'êtes pas autorisé à accéder à ce fichier"
+
+msgid "You are not authorized to access this location and/or this path is restricted by the Administrator. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "Vous n'êtes pas autorisé à accéder à cet emplacement et/ou ce chemin est restreint par l'administrateur. Si vous avez récemment modifié les autorisations, veuillez prévoir jusqu'à 10 minutes pour la synchronisation."
+
+msgid "You are not authorized to download some files (double check if your user own ALL files in this directory)."
+msgstr "Vous n'êtes pas autorisé à télécharger certains fichiers (vérifiez si tous les fichiers de ce répertoire appartiennent à votre utilisateur)."
+
+msgid "You are not authorized to download this file or this file is no longer available on the filesystem"
+msgstr "Vous n'êtes pas autorisé à télécharger ce fichier ou ce fichier n'est plus disponible sur le système de fichiers"
+
+msgid "You are not authorized to upload in this location ({path}). If you recently changed the permissions, please allow up to 10 minutes for sync"
+msgstr "Vous n'êtes pas autorisé à télécharger à cet emplacement ({path}). Si vous avez récemment modifié les autorisations, veuillez prévoir jusqu'à 10 minutes pour la synchronisation"
+
+msgid "You are not the job owner"
+msgstr "Vous n'êtes pas le titulaire du poste"
+
+#, python-format
+msgid "You can create %(link)s to provision your virtual desktop faster."
+msgstr "Vous pouvez créer %(link)s pour provisionner votre bureau virtuel plus rapidement."
+
+msgid "You can have multiple Software Stacks using the same Target Node Profile."
+msgstr "Vous pouvez avoir plusieurs piles logicielles en utilisant le même profil de Target Node."
+
+msgid "You can have multiple Software Stacks using the same Virtual Desktop Profile."
+msgstr "Vous pouvez disposer de plusieurs piles logicielles à l'aide du même profil de bureau virtuel."
+
+msgid "You can interact with your EDH cluster (create users, groups, queue, submit jobs, view jobs etc.) via a simple REST interface."
+msgstr "Vous pouvez interagir avec votre cluster EDH (créer des utilisateurs, des groupes, faire la queue, soumettre des jobs, afficher des jobs, etc.) via une interface REST simple."
+
+msgid "You can not manage your own Admin permissions."
+msgstr "Vous ne pouvez pas gérer vos propres autorisations d'administrateur."
+
+msgid "You can not reset your own password using this tool. Please visit 'My Account' section for that"
+msgstr "Vous ne pouvez pas réinitialiser votre propre mot de passe à l'aide de cet outil. Veuillez consulter la section « Mon compte » pour cela"
+
+msgid "You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>"
+msgstr "Vous pouvez utiliser vos propres noms de variables, mais notez que <strong>certaines automatisations sont préconfigurées pour vous lorsque vous utilisez les variables suivantes :</strong>"
+
+msgid "You cannot change hardware if you have enabled Hibernation"
+msgstr "Vous ne pouvez pas changer de matériel si vous avez activé la mise en veille prolongée"
+
+msgid "You cannot delete a Target Node Profile if it's being associated to an existing target node."
+msgstr "Vous ne pouvez pas supprimer un profil de Target Node s'il est associé à un Target Node existant."
+
+msgid "You cannot delete a Virtual Desktop Profile if it's being associated to an existing virtual desktop."
+msgstr "Vous ne pouvez pas supprimer un profil de bureau virtuel s'il est associé à un bureau virtuel existant."
+
+msgid "You cannot delete default profile."
+msgstr "Vous ne pouvez pas supprimer le profil par défaut."
+
+msgid "You cannot delete your own account."
+msgstr "Vous ne pouvez pas supprimer votre propre compte."
+
+msgid "You cannot delete your own group."
+msgstr "Vous ne pouvez pas supprimer votre propre groupe."
+
+msgid "You could save money by"
+msgstr "Vous pourriez économiser de l'argent en"
+
+msgid "You do not have a target node yet. Create one by clicking the button above."
+msgstr "Vous n'avez pas encore de Target Node. Créez-en un en cliquant sur le bouton ci-dessus."
+
+msgid "You do not have a virtual desktop yet. Create one by clicking the button above."
+msgstr "Vous n'avez pas encore de bureau virtuel. Créez-en un en cliquant sur le bouton ci-dessus."
+
+msgid "You do not have any running EDH Login Nodes. Please launch at least 1 login node before being able to use Web Terminal."
+msgstr "Vous n'avez aucun nœud de connexion EDH en cours d'exécution. Veuillez lancer au moins un nœud de connexion avant de pouvoir utiliser le Terminal Web."
+
+msgid "You do not have permission to read this file"
+msgstr "Vous n'êtes pas autorisé à lire ce fichier"
+
+msgid "You do not have the permission to delete this file. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "Vous n'êtes pas autorisé à supprimer ce fichier. Si vous avez récemment modifié les autorisations, veuillez prévoir jusqu'à 10 minutes pour la synchronisation."
+
+msgid "You do not have the permission to delete this folder. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "Vous n'êtes pas autorisé à supprimer ce dossier. Si vous avez récemment modifié les autorisations, veuillez prévoir jusqu'à 10 minutes pour la synchronisation."
+
+msgid "You do not have the permission to download this file"
+msgstr "Vous n'êtes pas autorisé à télécharger ce fichier"
+
+msgid "You made it that far? Congrats from the SOCA team!"
+msgstr "Tu es arrivé jusqu'ici ? Félicitations de la part de l'équipe de la SOCA !"
+
+msgid "You must first pause your target node"
+msgstr "Vous devez d'abord suspendre votre Target Node"
+
+msgid "You must first pause your virtual desktop"
+msgstr "Vous devez d'abord suspendre votre bureau virtuel"
+
+msgid "You must first stop your target node"
+msgstr "Vous devez d'abord arrêter votre Target Node"
+
+msgid "You must specify cpus and instance_type parameters"
+msgstr "Vous devez spécifier les paramètres cpus et instance_type"
+
+msgid "You will also need to pass the Base64 encoded string as payload. See below for examples:"
+msgstr "Vous devrez également transmettre la chaîne codée en Base64 en tant que charge utile. Vous trouverez des exemples ci-dessous :"
+
+msgid "You will need to specify three headers:"
+msgstr "Vous devrez spécifier trois en-têtes :"
+
+#, python-format
+msgid "You will need to update %(pkg)s to add instances released after the date of your EDH installation"
+msgstr "Vous devrez mettre à jour %(pkg)s pour ajouter des instances publiées après la date de votre installation d'EDH"
+
+#, python-format
+msgid "You will need your user UID/GID. You can retrieve this value by typing %(cmd)s on any EDH nodes (Linux). In the example below, the UID is 5001 and GID is also 5001"
+msgstr "Vous aurez besoin de votre UID/GID utilisateur. Vous pouvez récupérer cette valeur en saisissant %(cmd)s sur n'importe quel nœud EDH (Linux). Dans l'exemple ci-dessous, l'UID est 5001 et le GID est également 5001"
+
+msgid "You won't be charged for the compute time while your session is stopped"
+msgstr "Le temps de calcul pendant l'arrêt de votre session ne vous sera pas facturé"
+
+msgid "Your API key:"
+msgstr "Votre clé API :"
+
+#, python-format
+msgid "Your Analytics endpoint %(emphasis)s. You can access it via your EDH Virtual Desktops (Linux or Windows)."
+msgstr "Votre point de terminaison Analytics %(emphasis)s. Vous pouvez y accéder via vos bureaux virtuels EDH (Linux ou Windows)."
+
+msgid "Your EDH environment must be using Amazon EFS to use AWS Transfer"
+msgstr "Votre environnement EDH doit utiliser Amazon EFS pour utiliser AWS Transfer"
+
+msgid "Your Software Stack has been updated successfully"
+msgstr "Votre suite logicielle a été mise à jour avec succès"
+
+msgid "Your Target Node Profile has been updated successfully"
+msgstr "Votre profil de Target Node a été mis à jour avec succès"
+
+msgid "Your Target Node is about to be terminated"
+msgstr "Votre Target Node est sur le point d'être résilié"
+
+msgid "Your Target Node session has been initiated. It will be ready shortly"
+msgstr "Votre session Target Node a été initiée. Il sera bientôt prêt"
+
+msgid "Your User Data Template has been removed  successfully"
+msgstr "Votre modèle de données utilisateur a été supprimé avec succès"
+
+msgid "Your Virtual Desktop Profile has been updated successfully"
+msgstr "Votre profil de bureau virtuel a été mis à jour avec succès"
+
+msgid "Your Virtual Desktop is about to be terminated"
+msgstr "Votre bureau virtuel est sur le point d'être résilié"
+
+msgid "Your Virtual Desktop session has been initiated. It will be ready within 20 minutes."
+msgstr "Votre session de bureau virtuel a été initiée. Il sera prêt dans les 20 minutes."
+
+msgid "Your cluster administrator disabled this feature."
+msgstr "L'administrateur de votre cluster a désactivé cette fonctionnalité."
+
+msgid "Your desktop is about to be stopped as requested"
+msgstr "Votre bureau est sur le point d'être arrêté comme demandé"
+
+msgid "Your desktop is about to be terminated as requested"
+msgstr "Votre ordinateur de bureau est sur le point d'être fermé comme demandé"
+
+msgid "Your desktop is starting"
+msgstr "Votre bureau est en train de démarrer"
+
+msgid "Your desktop will be stopped soon."
+msgstr "Votre bureau sera bientôt arrêté."
+
+msgid "Your endpoint use the following syntax:"
+msgstr "Votre terminal utilise la syntaxe suivante :"
+
+msgid "Your job was deleted successfully"
+msgstr "Votre offre d'emploi a été supprimée avec succès"
+
+msgid "Your job was submitted successfully"
+msgstr "Votre offre d'emploi a été envoyée avec succès"
+
+msgid "Your job will stay in the queue until the issue is fixed."
+msgstr "Votre job restera dans la file d'attente jusqu'à ce que le problème soit résolu."
+
+msgid "Your password has been changed successfully."
+msgstr "Votre mot de passe a été modifié avec succès."
+
+msgid "Your profile has been created successfully"
+msgstr "Votre profil a été créé avec succès"
+
+msgid "Your profile has been deleted successfully"
+msgstr "Votre profil a été supprimé avec succès"
+
+msgid "Your project has been created successfully"
+msgstr "Votre projet a été créé avec succès"
+
+msgid "Your project has been removed  successfully"
+msgstr "Votre projet a été supprimé avec succès"
+
+msgid "Your project has been updated successfully"
+msgstr "Votre projet a été mis à jour avec succès"
+
+msgid "Your schedule has been updated successfully"
+msgstr "Votre calendrier a été mis à jour avec succès"
+
+#, python-format
+msgid "Your session will be automatically deleted <strong>after %(n)s hour</strong> if you do not restart it.Your session will be automatically deleted <strong>after %(n)s hours</strong> if you do not restart it."
+msgstr "Votre session sera automatiquement supprimée <strong>après %(n)s heures</strong> si vous ne la redémarrez pas. Votre session sera automatiquement supprimée <strong>après %(n)s heures</strong> si vous ne la redémarrez pas."
+
+msgid "Your session will use new hardware as soon as you restart it"
+msgstr "Votre session utilisera du nouveau matériel dès que vous la redémarrerez"
+
+msgid "Your software stack has been removed  successfully"
+msgstr "Votre pile logicielle a été supprimée avec succès"
+
+msgid "Your target node is about to be stopped as requested"
+msgstr "Votre Target Node est sur le point d'être arrêté comme demandé"
+
+msgid "Your target node is already running"
+msgstr "Votre Target Node est déjà en cours d'exécution"
+
+msgid "Your target node is already stopped"
+msgstr "Votre Target Node est déjà arrêté"
+
+msgid "Your target node is being created"
+msgstr "Votre Target Node est en cours de création"
+
+msgid "Your target node is not running yet"
+msgstr "Votre Target Node n'est pas encore en cours d'exécution"
+
+msgid "Your target node is starting"
+msgstr "Votre Target Node est en train de démarrer"
+
+msgid "Your target node is stopped."
+msgstr "Votre Target Node est arrêté."
+
+msgid "Your target node schedule has been updated"
+msgstr "La planification de votre Target Node a été mise à jour"
+
+msgid "Your target node will be stopped soon."
+msgstr "Votre Target Node sera bientôt arrêté."
+
+msgid "Your target note is about to be terminated as requested"
+msgstr "Votre note cible est sur le point d'être supprimée comme demandé"
+
+msgid "Your user data template has been created successfully"
+msgstr "Votre modèle de données utilisateur a été créé avec succès"
+
+msgid "Your user data template has been updated successfully"
+msgstr "Votre modèle de données utilisateur a été mis à jour avec succès"
+
+msgid "Your virtual desktop has been updated"
+msgstr "Votre bureau virtuel a été mis à jour"
+
+msgid "Your virtual desktop is already running"
+msgstr "Votre bureau virtuel est déjà en cours d'exécution"
+
+msgid "Your virtual desktop is already stopped"
+msgstr "Votre bureau virtuel est déjà arrêté"
+
+msgid "Your virtual desktop is being created"
+msgstr "Votre bureau virtuel est en cours de création"
+
+msgid "Your virtual desktop is not running yet"
+msgstr "Votre bureau virtuel ne fonctionne pas encore"
+
+msgid "Your virtual desktop is starting"
+msgstr "Votre bureau virtuel est en train de démarrer"
+
+msgid "Your virtual desktop is stopped."
+msgstr "Votre bureau virtuel est arrêté."
+
+msgid "Your virtual desktop schedule has been updated"
+msgstr "Le calendrier de votre bureau virtuel a été mis à jour"
+
+msgid "Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed."
+msgstr "Votre espace de travail contient toutes vos données stockées sur le système de fichiers EDH. Par défaut, /apps et /data sont partagés et accessibles depuis tous les nœuds EDH. Vous pouvez monter des systèmes de fichiers supplémentaires selon vos besoins."
+
+msgid "__SOCA_CLUSTER__NAME__"
+msgstr "__SOCA_CLUSTER__NOM__"
+
+msgid "all"
+msgstr "tous"
+
+msgid "and close it with"
+msgstr "et fermez-le avec"
+
+msgid "app_profile file is missing."
+msgstr "Le fichier app_profile est manquant."
+
+msgid "base64"
+msgstr "base 64"
+
+msgid "breadcrumb"
+msgstr "fil d'Ariane"
+
+msgid "clear the buffer"
+msgstr "vider la mémoire tampon"
+
+msgid "click here for manual reload"
+msgstr "cliquez ici pour le rechargement manuel"
+
+msgid "click here to start from scratch."
+msgstr "cliquez ici pour repartir de zéro."
+
+msgid "close the modal"
+msgstr "fermer le modal"
+
+msgid "closed"
+msgstr "fermé"
+
+msgid "comma separated list of job ids e,g: 1,2,3"
+msgstr "liste d'identifiants de travail séparés par des virgules, par exemple : 1,2,3"
+
+msgid "connecting"
+msgstr "reliant"
+
+msgid "cpus must be a valid integer"
+msgstr "cpus doit être un entier valide"
+
+msgid "cr-123456abc"
+msgstr "cr-123456abc"
+
+msgid "create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags."
+msgstr "créez, surveillez et gérez vos budgets pour vos cibles virtuelles, vos bureaux virtuels et vos nœuds de calcul en un seul endroit. Bénéficiez d'une visibilité totale grâce aux balises automatiques d'allocation des coûts AWS."
+
+msgid "disconnected"
+msgstr "déconnecté"
+
+msgid "e.g. --epochs"
+msgstr "par exemple --epochs"
+
+msgid "e.g. /bin/bash"
+msgstr "par exemple /bin/bash"
+
+msgid "e.g. argument"
+msgstr "par exemple argument"
+
+msgid "encode function:"
+msgstr "fonction d'encodage :"
+
+msgid "error"
+msgstr "erreur"
+
+msgid "example: c6g.metal"
+msgstr "exemple : c6g.metal"
+
+msgid "file rotated, stream ending"
+msgstr "fichier pivoté, fin du flux"
+
+msgid "file truncated, resuming"
+msgstr "fichier tronqué, reprise"
+
+msgid "file_path"
+msgstr "chemin_fichier"
+
+msgid "from the filesystem."
+msgstr "depuis le système de fichiers."
+
+msgid "fsx_capacity"
+msgstr "fsx_capacity"
+
+msgid "has been uploaded to EDH"
+msgstr "a été uploadé sur EDH"
+
+msgid "hour"
+msgstr "heure"
+
+msgid "hour(s) with HyperThreading support set to True"
+msgstr "heure (s) avec la prise en charge de l'HyperThreading réglée sur True"
+
+msgid "idle"
+msgstr "tourner au ralenti"
+
+msgid "input_file is a reserved name on EDH. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name"
+msgstr "input_file est un nom réservé sur EDH. La valeur sera automatiquement remplacée par l'emplacement de saisie fourni par l'utilisateur. Vous DEVEZ l'avoir et le nom du paramètre DOIT être input_name"
+
+msgid "insert timestamp checkpoint"
+msgstr "insérer un point de contrôle d'horodatage"
+
+msgid "instance_type"
+msgstr "type_d'instance"
+
+msgid "is HTML tag for new line"
+msgstr "est une balise HTML pour une nouvelle ligne"
+
+msgid "is running but EDG could not validate your session via"
+msgstr "est en cours d'exécution mais EDG n'a pas pu valider votre session via"
+
+msgid "jump to live"
+msgstr "passez au live"
+
+msgid "jump to start"
+msgstr "sauter pour commencer"
+
+msgid "live"
+msgstr "en direct"
+
+msgid "load earlier"
+msgstr "charger plus tôt"
+
+msgid "loading"
+msgstr "chargement"
+
+msgid "no file specified"
+msgstr "aucun fichier spécifié"
+
+msgid "pause or resume"
+msgstr "pause ou reprise"
+
+msgid "paused"
+msgstr "interrompue"
+
+msgid "pending"
+msgstr "en attente"
+
+msgid "profile_name is missing."
+msgstr "profile_name est manquant."
+
+msgid "purchasing Reserved Instances"
+msgstr "achat d'instances réservées"
+
+msgid "root_size"
+msgstr "taille_racine"
+
+msgid "rotated"
+msgstr "pivoté"
+
+msgid "running"
+msgstr "course"
+
+msgid "s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com"
+msgstr "s- {UNIQUE_ID} -.server.transfer. {AWS_REGION} .amazonaws.com"
+
+msgid "scheduler_id and job_id must be specified"
+msgstr "scheduler_id et job_id doivent être spécifiés"
+
+msgid "scratch_size"
+msgstr "scratch_size"
+
+msgid "since last mark"
+msgstr "depuis la dernière marque"
+
+msgid "stopped"
+msgstr "stoppé"
+
+msgid "stream ended"
+msgstr "stream terminé"
+
+msgid "this user from the group"
+msgstr "cet utilisateur du groupe"
+
+msgid "this user to my group"
+msgstr "cet utilisateur dans mon groupe"
+
+msgid "this user to the group"
+msgstr "cet utilisateur au groupe"
+
+msgid "toggle theme"
+msgstr "basculer le thème"
+
+msgid "toggle this help"
+msgstr "activer cette aide"
+
+msgid "toggle wrap"
+msgstr "enveloppe à bascule"
+
+msgid "upload because of"
+msgstr "télécharger à cause de"
+
+msgid "upload was canceled"
+msgstr "le téléchargement a été annulé"
+
+msgid "vCPUs"
+msgstr "vCPU"
+
+msgid "vcpus"
+msgstr "processeur virtuel"
+
+msgid "wall_time"
+msgstr "wall_time"
+
+msgid "wall_time must use HH:MM:SS format and only use valid numbers"
+msgstr "wall_time doit utiliser le format HH:MM:SS et utiliser uniquement des nombres valides"
+
+msgid "{entry.name} returned an error and cannot be displayed: {err}"
+msgstr "{entry.name} a renvoyé une erreur et ne peut pas être affiché : {err}"
+
+msgid "──── Schedulers ───────"
+msgstr "─ Programmateurs ─ ─ ─ ─ ─ ─"
+
+msgid "──── System Interpreters ───────"
+msgstr "─ Interprètes de système ─ ─ ─ ─ ─"
+
+msgid "🎉 SOCA YEAH 🌴"
+msgstr "🎉 SOCA YEAH 🌴"
+
+

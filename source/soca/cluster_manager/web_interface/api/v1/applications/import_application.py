@@ -5,6 +5,7 @@ from flask_restful import Resource, reqparse
 import logging
 from utils.response import SocaResponse
 from flask import request
+from flask_babel import gettext as _
 from werkzeug.datastructures import FileStorage
 import json
 from utils.error import SocaError
@@ -56,11 +57,18 @@ class ImportApplication(Resource):
                 type: object
                 required:
                   - app_profile
+                  - profile_name
                 properties:
                   app_profile:
                     type: string
                     format: binary
                     description: JSON file containing application profile configuration
+                  profile_name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: Name to assign to the imported application profile
+                    example: "ANSYS Fluent"
         responses:
           '200':
             description: Application profile imported successfully
@@ -159,7 +167,7 @@ class ImportApplication(Resource):
      
             if _create_application.get("success") is True:
                 return SocaResponse(
-                    success=True, message="Application Imported successfully"
+                    success=True, message=_("Application Imported successfully")
                 ).as_flask()
             else:
                 logger.error(

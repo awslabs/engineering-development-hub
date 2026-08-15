@@ -33,8 +33,16 @@ def backup_db(
     _timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     _backup_file = os.path.join(_backup_dir, f"backup_{_timestamp}.sqlite")
 
+    # Aurora PG mode: no local db.sqlite file. Aurora handles backups natively
+    _source_sqlite = f"{socaweb_folder}/db.sqlite"
+    if not os.path.exists(_source_sqlite):
+        logger.info(
+            "Local db.sqlite not present (Aurora PG mode); skipping SQLite backup."
+        )
+        return
+
     # Create a backup, main DB is db.sqlite
-    conn = sqlite3.connect(f"{socaweb_folder}/db.sqlite")
+    conn = sqlite3.connect(_source_sqlite)
     backup_conn = sqlite3.connect(_backup_file)
     with backup_conn:
         conn.backup(backup_conn)

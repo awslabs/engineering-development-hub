@@ -1,0 +1,197 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    
+    <link rel="stylesheet" href="/static/vendor/xterm/xterm.min.css" />
+    <link rel="stylesheet" href="/static/css/webshell_tabs.css" />
+    <script src="/static/vendor/xterm/xterm.min.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-fit.min.js"></script>
+    <style>
+        /* Inline terminal is inside a SOCA UI tab-pane. Override a couple
+           of the shared-module positioning rules so xterm.js has a solid
+           block container rather than absolute fill. */
+        #edh-inline-terminals {
+            height: 70vh;
+            min-height: 400px;
+            width: 100%;
+            background: #000;
+            border-radius: 0 0 4px 4px;
+        }
+        #edh-inline-terminals .edh-terminal-pane {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+        }
+    </style>
+</head>
+
+<body id="page-top">
+{% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+         <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card shadow mb-4">
+                            <div class="card-body">
+                                <h3>{{ _("Access the cluster via a Web Terminal") }}</h3>                                               
+                                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                   <li class="nav-item">
+                                    <a class="nav-link active" href="#"> {{ _("Web Terminal") }}</a>
+                                </li>
+                                    <li class="nav-item">
+                                    <a  class="nav-link" href="/ssh">{{ _("SSH Client Access") }}</a>
+                                </li>
+                
+                                </ul>
+                                <br>
+                                {% if has_running_login_nodes == 0 %}
+                                    <div class="alert alert-warning">
+                                        {{ _("You do not have any running EDH Login Nodes. Please launch at least 1 login node before being able to use Web Terminal.") }}
+                                    </div>                                
+                                {% else %}                                                                                              
+                                    <div id="edh-inline-tab-bar" class="edh-tab-bar">
+                                          <div id="edh-inline-new-tab" class="edh-new-tab" title="{{ _("New terminal tab (Ctrl+Shift+T)") }}">+</div>
+                                    </div>
+                                      
+                                    <div id="edh-inline-terminals" class="edh-terminal-container"
+                                           style="position:relative; height:70vh; min-height:400px; width:100%;">
+                                          <div id="edh-inline-empty-state" class="edh-empty-state" style="display:none">
+                                              {{ _("No open terminals.") }}<br>
+                                              <button id="edh-inline-new-tab-empty">{{ _("Start a new terminal on an EDH Login Node") }}</button>
+                                              <hr>
+                                              <div class="alert alert-primary">
+                                                {{ _("Closing tabs or this window leaves them running so you can resume later.") }} <br>
+                                                {{ _("Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it.") | safe }}
+                                                <hr>
+                                                {{ _("Please wait to 15 minutes after launching a new login node before being able to spawn terminal session on it") }}
+                                              </div>
+                                          </div>
+
+                                          
+                                      
+                                    </div>
+
+                                    
+                                    <script id="edh-terminal-i18n" type="application/json">
+                                      {
+                                          "connecting":     {{ _("Connecting...")|tojson }},
+                                          "connected":      {{ _("Connected")|tojson }},
+                                          "disconnected":   {{ _("Disconnected")|tojson }},
+                                          "detached":       {{ _("Detached")|tojson }},
+                                          "auth_failed":    {{ _("Authentication failed - please refresh the page and try again.")|tojson }},
+                                          "ws_error":       {{ _("WebSocket connection failed. Check that the webshell service is running on Login Nodes.")|tojson }},
+                                          "detach_tab":     {{ _("Detach (session keeps running)")|tojson }},
+                                          "kill_tab":       {{ _("End session (terminates tmux)")|tojson }},
+                                          "confirm_kill":   {{ _("End this terminal session? The remote tmux will be terminated.")|tojson }},
+                                          "popout_blocked": {{ _("Pop-out window was blocked by the browser. Please allow popups for this site.")|tojson }}
+                                      }
+                                    </script>
+
+                                    <br>
+                
+                                        <button type="button" class="btn btn-primary btn-sm" id="edh-btn-popout">
+                                          <i class="fas fa-external-link-alt"></i> {{ _("Click here to Open Terminal in a separate window") }} 
+                                        </button> 
+                                        <hr>
+                                        <i>You have {{has_running_login_nodes}} login node(s) eligible for Web Terminal sessions. Please note that newly launched login nodes may take up to 15 minutes before they can host their first session.</i>
+                                        
+                                    </div> 
+                                    {% endif %}                                       
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+
+
+{% include 'common/footer.html' %}
+
+  {% if has_running_login_nodes > 0 %}
+<script src="/static/js/webshell_tabs.js"></script>
+<script>
+(function() {
+    const i18n = JSON.parse(document.getElementById("edh-terminal-i18n").textContent);
+    const manager = new WebshellTabManager({
+        tabBar:        document.getElementById("edh-inline-tab-bar"),
+        termContainer: document.getElementById("edh-inline-terminals"),
+        emptyState:    document.getElementById("edh-inline-empty-state"),
+        labelPrefix:   "main-",
+        storageKey:    "edh_inline_tabs_{{ user }}",
+        csrfToken:     "{{ csrf_token() | safe }}",
+        i18n,
+        autoOpen: false,
+        closeWindowOnLastTab: false,
+    });
+
+    const emptyBtn = document.getElementById("edh-inline-new-tab-empty");
+    if (emptyBtn) emptyBtn.addEventListener("click", () => manager.createTab("main"));
+
+    const popoutBtn = document.getElementById("edh-btn-popout");
+    if (popoutBtn) {
+        popoutBtn.addEventListener("click", () => {
+            // Hand off the currently-active inline tab's label so the popout
+            // window attaches to the same tmux session rather than creating
+            // an orphan. If there's no active tab (all detached), open the
+            // popout with no ?session= so it shows the discovery list and
+            // the login_nodes_endpoint can choose which session to attach.
+            const active = manager.activeLabel || "";
+            const url = active
+                ? `/web_terminal/popout?session=${encodeURIComponent(active)}`
+                : `/web_terminal/popout`;
+            // Use a stable window-name keyed by label so re-clicking popout
+            // for the same active tab focuses the existing popout window
+            // instead of spawning a new one.
+            const winName = `edh-webshell-${active || "discover"}`;
+            const win = window.open("about:blank", winName,
+                "width=1024,height=640,resizable=yes,scrollbars=yes");
+            if (!win) {
+                alert(i18n.popout_blocked);
+                return;
+            }
+            win.location.href = url;
+        });
+    }
+
+    function maybeInit() {
+        const terminalTab = document.getElementById("terminal");
+        if (terminalTab && terminalTab.classList.contains("active")) {
+            manager.init();
+            return;
+        }
+        const btn = document.querySelector('[data-bs-toggle="tab"][href="#terminal"], [data-bs-target="#terminal"]');
+        if (btn) {
+            btn.addEventListener("shown.bs.tab", () => manager.init(), { once: true });
+        } else {
+            manager.init();
+        }
+    }
+
+    if (document.readyState === "complete") {
+        maybeInit();
+    } else {
+        window.addEventListener("load", maybeInit);
+    }
+})();
+</script>
+{% endif %}
+
+</body>
+
+</html>

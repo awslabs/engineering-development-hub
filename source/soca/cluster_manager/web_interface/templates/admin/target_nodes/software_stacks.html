@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -20,20 +20,20 @@
 
                 <div class="col-md-12">
                     <div class="alert alert-primary">
-                        Make sure your Amazon Machine Images (AMI) are available in your current region:
+                        {{ _("Make sure your Amazon Machine Images (AMI) are available in your current region:") }}
                         <strong>{{ region_name }}</strong> <br>
                     </div>
 
                       <div class="alert alert-warning">
-                          <strong>Once you have created your Target Node Software Stack, please ensure that it is <a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a></strong> Failure to do so will result in your profile remaining hidden from users.
+                          <strong>{% trans link='<a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a>'|safe %}Once you have created your Target Node Software Stack, please ensure that it is {{ link }}{% endtrans %}</strong> {{ _("Failure to do so will result in your profile remaining hidden from users.") }}
                       </div>
 
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab" href="#nav-add"
-                               role="tab" aria-controls="nav-home" aria-selected="true">Register Software Stack</a>
+                               role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Register Software Stack") }}</a>
                             <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab" href="#nav-delete"
-                               role="tab" aria-controls="nav-delete" aria-selected="false">Manage Software Stacks</a>
+                               role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Manage Software Stacks") }}</a>
                         </div>
                     </nav>
 
@@ -44,14 +44,12 @@
                             <div class="card shadow mb-4">
                                     
                                     <div class="card-body">
-                                        <h3>Register a new Target Node Software Stack
-                                        (AMI) to EDH</h3>
+                                        <h3>{{ _("Register a new Target Node Software Stack (AMI) to EDH") }}</h3>
                                         <form action="/admin/target_nodes/software_stacks/create" method="post" enctype="multipart/form-data">
                                             <div class="form-group">
                                                 <label for="ami_id" data-toggle="tooltip" data-placement="top"
-                                                       title="Unique ID of your Amazon image. Must be a valid image, start with ami-  or AMI alias (/aws/service/...)">AMI
-                                                    ID</label>
-                                                <input id="ami_id" placeholder="Image ID (start with ami-xxx or) or AMI alias (/aws/service/...)"
+                                                       title="{{ _("Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)") }}">{{ _("AMI ID") }}</label>
+                                                <input id="ami_id" placeholder="{{ _("Image ID (start with ami-xxx) or AMI alias (/aws/service/...)") }}" development
                                                        class="form-control"
                                                        type="text"
                                                        required name="ami_id">
@@ -59,34 +57,34 @@
 
                                             <div class="form-group">
                                                 <label for="stack_name" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose a friendly name for your AMI.">Software Stack Name
+                                                       title="{{ _("Choose a friendly name for your AMI.") }}">{{ _("Software Stack Name") }}
                                                 </label>
-                                                <input id="stack_name" placeholder="Enter friendly AMI Name"
+                                                <input id="stack_name" placeholder="{{ _("Enter friendly AMI Name") }}"
                                                        class="form-control" type="text"
                                                        required name="stack_name">
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="description" data-toggle="tooltip" data-placement="top"
-                                                       title="Description of your Software Stack">Software Stack Description
+                                                       title="{{ _("Description of your Software Stack") }}">{{ _("Software Stack Description") }}
                                                 </label>
-                                                <textarea id="description" placeholder="(Optional) Description for your software stack (maximum 500 characters)."
+                                                <textarea id="description" placeholder="{{ _("(Optional) Description for your software stack (maximum 500 characters).") }}"
                                                           class="form-control" rows="3"  name="description"></textarea>
                                             </div>
 
 
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
-                                                       for="root_size">Root Disk Size (in GB)</label>
+                                                       title="{{ _("The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error") }}"
+                                                       for="root_size">{{ _("Root Disk Size (in GB)") }}</label>
                                                 <input type="number" min=0 value=40 id="root_size" class="form-control"
                                                        required name="root_size">
                                             </div>
 
                                              <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ..."
-                                                       for="target_node_profile_id">Profile associated with this stack  (<a target="_blank" href="/admin/target_nodes/profiles">see Target Nodes Profiles</a>)</label>
+                                                       title="{{ _("Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ...") }}"
+                                                       for="target_node_profile_id">{% trans link='<a target="_blank" href="/admin/target_nodes/profiles">see Target Nodes Profiles</a>'|safe %}Profile associated with this stack ({{ link }}){% endtrans %}</label>
                                                 <select class="form-control" required id="target_node_profile_id" name="target_node_profile_id">
                                                  {% for profile_id, profile_info in profiles.items() %}
                                                     <option value="{{profile_id}}"> {{ profile_info.profile_name }}</option>
@@ -96,8 +94,8 @@
 
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="User Data script runs during the instance's initial boot"
-                                                       for="target_node_user_data_id">User Data associated with this stack (<a  target="_blank" href="/admin/target_nodes/user_data">see User Data Templates</a>)</label>
+                                                       title="{{ _("User Data script runs during the instance initial boot") }}"
+                                                       for="target_node_user_data_id">{% trans link='<a target="_blank" href="/admin/target_nodes/user_data">see User Data Templates</a>'|safe %}User Data associated with this stack ({{ link }}){% endtrans %}</label>
                                                 <select class="form-control" required id="target_node_user_data_id" name="target_node_user_data_id">
                                                  {% for template_id, template_info in user_data_template.items() %}
                                                     <option value="{{template_id}}"> {{ template_info.template_name }}</option>
@@ -107,49 +105,49 @@
 
                                             <div class="form-group">
                                                 <label for="user_data_variables" data-toggle="tooltip" data-placement="top"
-                                                       title="Comma separated value of key=value variable that will be replaced in the user data if present.">User Data Variables
+                                                       title="{{ _("Comma separated value of key=value variable that will be replaced in the user data if present.") }}">{{ _("User Data Variables") }}
                                                 </label>
-                                                <input id="user_data_variables" placeholder="(Optional) myvar1=myvalue1,myvar2=myvalue2"
+                                                <input id="user_data_variables" placeholder="{{ _("(Optional) myvar1=myvalue1,myvar2=myvalue2") }}"
                                                        class="form-control" type="text"
                                                        name="user_data_variables">
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="connection_string" data-toggle="tooltip" data-placement="top"
-                                                        title="Output connection information to user">Connection String
+                                                        title="{{ _("Output connection information to user") }}">{{ _("Connection String") }}
                                                 </label>
                                                  <div class="alert alert-primary">
-                                                    <h5>Supported Variables (case-sensitive)</h5>
+                                                    <h5>{{ _("Supported Variables (case-sensitive)") }}</h5>
                                                       <ul>
                                                           <li>
-                                                              <kbd>{%raw%}{{ EDH_USER }}{%endraw%}</kbd> Name of the current SOCA user requesting the target node
+                                                              <kbd>{%raw%}{{ EDH_USER }}{%endraw%}</kbd> {{ _("Name of the current SOCA user requesting the target node") }}
                                                           </li>
                                                           <li>
-                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_PRIVATE_IP }}{%endraw%}</kbd> Private IP of the target node
+                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_PRIVATE_IP }}{%endraw%}</kbd> {{ _("Private IP of the target node") }}
                                                           </li>
                                                           <li>
-                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_PRIVATE_DNS }}{%endraw%}</kbd> Private DNS of the target node
+                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_PRIVATE_DNS }}{%endraw%}</kbd> {{ _("Private DNS of the target node") }}
                                                           </li>
                                                            <li>
-                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_ID }}{%endraw%}</kbd> Instance ID of the target node
+                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_ID }}{%endraw%}</kbd> {{ _("Instance ID of the target node") }}
                                                           </li>
                                                            <li>
-                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_TYPE }}{%endraw%}</kbd> Instance type of the target node
+                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_TYPE }}{%endraw%}</kbd> {{ _("Instance type of the target node") }}
                                                           </li>
                                                           <li>
-                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_ARCH }}{%endraw%}</kbd> Architecture (x86_64/ aarch64) of the target node
+                                                              <kbd>{%raw%}{{ EDH_NODE_INSTANCE_ARCH }}{%endraw%}</kbd> {{ _("Architecture (x86_64/ aarch64) of the target node") }}
                                                           </li>
                                                           <li>
-                                                              <kbd>{%raw%}{{ AWS_REGION }}{%endraw%}</kbd> AWS Region of the target node
+                                                              <kbd>{%raw%}{{ AWS_REGION }}{%endraw%}</kbd> {{ _("AWS Region of the target node") }}
                                                           </li>
                                                     </ul>
 
-                                                     Example: <br>
+                                                     {{ _("Example:") }} <br>
                                                      <code>
                                                          &lt;strong&gt;Connect via SSH &lt;/strong&gt;: ssh {%raw%}{{ EDH_USER }}@{{ EDH_NODE_INSTANCE_PRIVATE_IP }} &lt;br&gt;  &lt;strong&gt;Access ADB &lt;/strong&gt;: adb connect {{ EDH_NODE_INSTANCE_PRIVATE_DNS }}:65324{%endraw%}
                                                      </code>
                                                      <hr>
-                                                     <i>Note: <code>&lt;br&gt;</code> is HTML tag for new line</i>
+                                                     <i>{{ _("Note:") }} <code>&lt;br&gt;</code> {{ _("is HTML tag for new line") }}</i>
 
                                                 </div>
                                                 <textarea id="connection_string" required
@@ -158,32 +156,29 @@
 
                                             <div class="form-group">
                                                 <label for="launch_tenancy" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose AMI launch tenancy setting">Launch Tenancy</label>
+                                                       title="{{ _("Choose AMI launch tenancy setting") }}">{{ _("Launch Tenancy") }}</label>
                                                 <select class="form-control" name='launch_tenancy' id="launch_tenancy">
-                                                    <option value="default" selected>Default Tenancy (default)</option>
-                                                    <option value="dedicated">Dedicated Instance Tenancy (instance)</option>
-                                                    <option value="host">Dedicated Host Tenancy (host)</option>
+                                                    <option value="default" selected>{{ _("Default Tenancy (default)") }}</option>
+                                                    <option value="dedicated">{{ _("Dedicated Instance Tenancy (instance)") }}</option>
+                                                    <option value="host">{{ _("Dedicated Host Tenancy (host)") }}</option>
                                                 </select>
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="launch_host" data-toggle="tooltip" data-placement="top"
-                                                       title="Launch Host if using Dedicated Host Tenancy">Launch Host
-                                                    ID</label>
-                                                <input id="launch_host" placeholder="(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+                                                       title="{{ _("Launch Host if using Dedicated Host Tenancy") }}">{{ _("Launch Host ID") }}</label>
+                                                <input id="launch_host" placeholder="{{ _("(Optional if not using Host Tenancy) Launch Host ID (h-xxx)") }}"
                                                        class="form-control" type="text"
                                                        name="launch_host">
                                             </div>
 
                                             <div class="form-group">
                                                  <label data-toggle="tooltip" data-placement="top"
-                                                       title="Thumbnail to use (150px * 150px)">Thumbnail (150px * 150px)
+                                                       title="{{ _("Thumbnail to use (150px * 150px)") }}">{{ _("Thumbnail (150px * 150px)") }}
                                                     </label>
                                                 <div class="custom-file">
                                                     <input type="file" class="custom-file-input" id="thumbnail" name="thumbnail" accept="image/png, image/jpeg, image/jpg">
-                                                    <label class="custom-file-label">Select an
-                                                        image (jpg or png) to use as thumbnail. Leave blank to
-                                                        use the existing thumbnail</label>
+                                                    <label class="custom-file-label">{{ _("Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail") }}</label>
                                                 </div>
                                                 <script>
                                                     $(".custom-file-input").on("change", function () {
@@ -196,7 +191,7 @@
                                             <div>
                                                 <input type="hidden" name="csrf_token"
                                                        value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Register Software Stack in EDH
+                                                <button type="submit" class="btn btn-primary">{{ _("Register Software Stack in EDH") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -208,13 +203,13 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Manage Software Stacks</h3>
+                                        <h3>{{ _("Manage Software Stacks") }}</h3>
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important:</strong> <br>
+                                            <strong>{{ _("Important:") }}</strong> <br>
 
-                                            Removing the Software Stack from EDH will not remove the AMI from your AWS account
+                                            {{ _("Removing the Software Stack from EDH will not remove the AMI from your AWS account") }}
                                             <br>
-                                            Removing a software stack won't impact existing virtual desktops
+                                            {{ _("Removing a software stack will not impact existing virtual desktops") }}
                                         </div>
                                         <div class="row">
                                         {% if software_stacks %}
@@ -242,27 +237,24 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                            required>
-                                                    <label class="form-check-label" for="verif">I am sure I want to
-                                                        unregister this
-                                                        Software Stack from SOCA</label>
+                                                    <label class="form-check-label" for="verif">{{ _("I am sure I want to unregister this Software Stack from SOCA") }}</label>
                                                 </div>
                                                 <div class="d-flex justify-content-center">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="submit" class="btn btn-danger mr-2">Unregister Software Stack from
-                                                        SOCA
+                                                    <button type="submit" class="btn btn-danger mr-2">{{ _("Unregister Software Stack from SOCA") }}
                                                     </button>
-                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">Edit Software Stack</button>
+                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">{{ _("Edit Software Stack") }}</button>
 
                                                 </div>
                                             </form>
                                                 </div>
                                             <div class="col-md-7">
                                                  <div id="stackInfo">
-                                                     Select a stack to see details.
+                                                     {{ _("Select a stack to see details.") }}
                                                  </div>
                                             </div>
                                         {% else %}
-                                            No custom AMI found. Create one first
+                                            {{ _("No custom AMI found. Create one first") }}
                                         {% endif %}
                                         </div>
                                     </div>

@@ -1,0 +1,822 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <nav>
+                        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                            <a class="nav-item nav-link active" data-bs-toggle="tab" href="#nav-shares"
+                               role="tab">{{ _("Active Shares") }}</a>
+                            <a class="nav-item nav-link" data-bs-toggle="tab" href="#nav-profiles"
+                               role="tab">{{ _("Permission Profiles") }}</a>
+                            <a class="nav-item nav-link" data-bs-toggle="tab" href="#nav-settings"
+                               role="tab">{{ _("Settings") }}</a>
+                        </div>
+                    </nav>
+
+                    <div class="tab-content mt-3">
+
+                        <!-- Active Shares Tab -->
+                        <div class="tab-pane fade show active" id="nav-shares" role="tabpanel">
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h4>{{ _("Session Shares") }}</h4>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <select class="form-control" id="admin-grants-filter" style="width:auto;">
+                                                <option value="ACTIVE" selected>{{ _("Active") }}</option>
+                                                <option value="ALL">{{ _("All (history)") }}</option>
+                                                <option value="REVOKED">{{ _("Revoked") }}</option>
+                                                <option value="EXPIRED">{{ _("Expired") }}</option>
+                                            </select>
+                                            &nbsp;<button class="btn btn-outline-danger btn-sm" id="btn-revoke-selected" disabled>
+                                                <i class="fas fa-trash me-1"></i> {{ _("Revoke Selected") }}
+                                            </button>
+                                            &nbsp;<button class="btn btn-outline-danger btn-sm" id="btn-revoke-all">
+                                                <i class="fas fa-trash-can me-1"></i> {{ _("Revoke All Active") }}
+                                            </button>
+                                            &nbsp;<button class="btn btn-primary btn-sm" id="btn-admin-create-share">
+                                                <i class="fas fa-plus me-1"></i> {{ _("Create Share") }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover" id="admin-grants-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:1%;"><input type="checkbox" id="admin-grants-selall" title="{{ _('Select all') }}"></th>
+                                                    <th>{{ _("Session Owner") }}</th>
+                                                    <th>{{ _("Guest") }}</th>
+                                                    <th>{{ _("Profile") }}</th>
+                                                    <th>{{ _("Status") }}</th>
+                                                    <th>{{ _("Expires") }}</th>
+                                                    <th>{{ _("Created By") }}</th>
+                                                    <th>{{ _("Last Connected") }}</th>
+                                                    <th>{{ _("Actions") }}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="admin-grants-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                    <p class="text-muted small" id="admin-grants-empty" style="display:none;">{{ _("No active shares") }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Permission Profiles Tab -->
+                        <div class="tab-pane fade" id="nav-profiles" role="tabpanel">
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h4>{{ _("Permission Profiles") }}</h4>
+                                        <button class="btn btn-primary btn-sm" id="btn-open-create-profile" data-bs-toggle="modal" data-bs-target="#createProfileModal">
+                                            <i class="fas fa-plus me-1"></i> {{ _("Create Profile") }}
+                                        </button>
+                                    </div>
+                                    <div class="alert alert-primary d-flex align-items-start" role="alert">
+                                        
+                                        <div>{{ _("Default profiles cannot be edited or deleted. Use the Enabled toggle to control whether a profile (including defaults) is offered to users in the share dropdowns -- disabling hides it without removing it.") }}</div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm" id="profiles-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>{{ _("Name") }}</th>
+                                                    <th>{{ _("Permissions") }}</th>
+                                                    <th>{{ _("Default") }}</th>
+                                                    <th>{{ _("In Use") }}</th>
+                                                    <th>{{ _("Enabled") }}</th>
+                                                    <th>{{ _("Actions") }}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="profiles-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Tab -->
+                        <div class="tab-pane fade" id="nav-settings" role="tabpanel">
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h4><i class="fas fa-gear me-2"></i>{{ _("Cluster-Level Sharing Settings") }}</h4>
+                                    <p class="text-muted">{{ _("These settings control what sharing modes are available cluster-wide. VDI Profile settings cannot exceed these limits.") }}</p>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">{{ _("Allowed Sharing Modes") }}</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="mode-none" checked disabled>
+                                            <label class="form-check-label" for="mode-none">
+                                                <strong>None</strong> - {{ _("Disable sharing (always available as a profile option)") }}
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="mode-secure" checked>
+                                            <label class="form-check-label" for="mode-secure">
+                                                <strong>Secure</strong> - {{ _("Single-use nonce, token never exposed (recommended)") }}
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="mode-link">
+                                            <label class="form-check-label" for="mode-link">
+                                                <strong>Link</strong> - {{ _("Shareable URL with embedded token (less secure, use for external guests)") }}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">{{ _("Unsupervised Access Policy") }}</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="allow-unsupervised">
+                                            <label class="form-check-label" for="allow-unsupervised">
+                                                {{ _("Allow owners to grant unsupervised access (guest may connect without the owner present). When OFF, every share is forced supervised cluster-wide, overriding the per-share toggle and Full Control.") }}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">{{ _("Guest Desktop Thumbnail") }}</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="guest-screenshot-enabled">
+                                            <label class="form-check-label" for="guest-screenshot-enabled">
+                                                {{ _("Show the desktop thumbnail preview on a guest's \"Shared With Me\" tile. When OFF, guests see the shared-session tile without a screenshot (owners always see their own).") }}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <button class="btn btn-primary" id="btn-save-settings">
+                                        {{ _("Save Settings") }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Profile Modal -->
+<div class="modal fade" id="createProfileModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ _("Create Permission Profile") }}</h5>
+        <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">{{ _("Profile Name") }}</label>
+          <input type="text" class="form-control" id="new-profile-name" placeholder="e.g. View Only">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _("DCV Permissions") }}</label>
+          <div id="perm-checkboxes"></div>
+          <small class="text-muted d-block mt-2">
+            <i class="fas fa-circle-info me-1"></i>{{ _("Hover a permission for details. ") }}
+            <a href="https://docs.aws.amazon.com/dcv/latest/adminguide/security-authorization-file-create-permission.html" target="_blank" rel="noopener">{{ _("Permission reference") }}</a>
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+        <button type="button" class="btn btn-primary" id="btn-create-profile">{{ _("Create") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Create Share Modal -->
+<div class="modal fade" id="adminCreateShareModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ _("Create Share (Admin)") }}</h5>
+        <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">{{ _("Admin override: creates a share on behalf of the session owner. The grant is recorded as created by you (administrator).") }}</div>
+        <div class="mb-3">
+          <label class="form-label">{{ _("Session") }}</label>
+          <select class="form-control" id="acs-session"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _("Guest username(s)") }}</label>
+          <input type="text" class="form-control" id="acs-guest-search"
+                 placeholder="Start typing a username..." autocomplete="off">
+          <div id="acs-guest-results" class="list-group mt-1" style="max-height:150px;overflow-y:auto;"></div>
+          <div id="acs-guest-chips" class="mt-2 d-flex flex-wrap gap-1"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _("Permission Profile") }}</label>
+          <select class="form-control" id="acs-profile"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _("Expires in") }}</label>
+          <select class="form-control" id="acs-expiry">
+            <option value="1">1 {{ _("hour") }}</option>
+            <option value="4">4 {{ _("hours") }}</option>
+            <option value="8" selected>8 {{ _("hours") }}</option>
+            <option value="24">24 {{ _("hours") }}</option>
+          </select>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="acs-unsupervised">
+          <label class="form-check-label" for="acs-unsupervised">{{ _("Allow guest to connect without the owner present (unsupervised)") }}</label>
+        </div>
+        <div class="text-danger small" id="acs-error" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+        <button type="button" class="btn btn-primary" id="btn-acs-submit">{{ _("Create Share") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Disable Profile (in-use) confirmation modal -->
+<div class="modal fade" id="disableProfileModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ _("Disable Permission Profile") }}</h5>
+        <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="disable-profile-text"></p>
+        <p class="small text-muted mb-0">{{ _("Disabling hides this profile from new shares. Existing shares keep working unless you also revoke them. Revoking disconnects those guests immediately.") }}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+        <button type="button" class="btn btn-warning" id="btn-disable-only">{{ _("Disable only") }}</button>
+        <button type="button" class="btn btn-danger" id="btn-disable-revoke">{{ _("Disable & revoke") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// HTML-escape any server/user-controlled value before injecting via innerHTML
+// (prevents stored XSS from usernames / profile names / display names).
+function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+const DCV_PERMISSIONS = [
+    {flag: 'display', desc: 'Receive visual data (view the screen)'},
+    {flag: 'keyboard', desc: 'Keyboard input to the server'},
+    {flag: 'keyboard-sas', desc: 'Use the secure attention sequence (CTRL+Alt+Del). Requires the keyboard feature'},
+    {flag: 'mouse', desc: 'Pointer input (clicks/movement) to the server'},
+    {flag: 'pointer', desc: 'View server mouse position and pointer shapes'},
+    {flag: 'audio-in', desc: 'Send client audio (microphone) to the server'},
+    {flag: 'audio-out', desc: 'Play server audio on the client'},
+    {flag: 'clipboard-copy', desc: 'Copy from the server to the client clipboard'},
+    {flag: 'clipboard-paste', desc: 'Paste from the client clipboard to the server'},
+    {flag: 'file-download', desc: 'Download files from session storage'},
+    {flag: 'file-upload', desc: 'Upload files to session storage'},
+    {flag: 'printer', desc: 'Create PDF/XPS prints from the server to the client'},
+    {flag: 'smartcard', desc: 'Read the smart card from the client'},
+    {flag: 'stylus', desc: 'Input from specialized USB devices, such as 3D pointing devices or graphic tablets'},
+    {flag: 'usb', desc: 'Use client USB devices'},
+    {flag: 'touch', desc: 'IUse native touch events'},
+    {flag: 'screenshot', desc: 'Save a screenshot of the remote desktop'},
+    {flag: 'webcam', desc: 'Use the client webcam'},
+    {flag: 'gamepad', desc: 'Use gamepads connected to a client computer in a session'},
+    {flag: 'unsupervised-access', desc: 'Connect without the owner present (owner-less access)', high: true},
+    {flag: 'builtin', desc: 'All features -- full control', high: true}
+];
+
+(function() {
+    loadGrants();
+    loadProfiles();
+
+    // Permissions checkboxes in create modal
+    // builtin = "all features"; when checked, the individual flags are
+    // redundant -- disable and clear them so the stored permission list is
+    // exactly ['builtin'].
+    function _applyBuiltinLock() {
+        const bcb = document.getElementById('perm-builtin');
+        const on = !!(bcb && bcb.checked);
+        document.querySelectorAll('.perm-cb').forEach(cb => {
+            if (cb.value === 'builtin') return;
+            cb.disabled = on;
+            if (on) cb.checked = false;
+        });
+    }
+
+    const permDiv = document.getElementById('perm-checkboxes');
+    if (permDiv) {
+        const standard = DCV_PERMISSIONS.filter(p => !p.high);
+        const high     = DCV_PERMISSIONS.filter(p =>  p.high);
+
+        const renderItem = (p, extraCls = '') => `<div class="form-check py-1${extraCls}">
+                <input class="form-check-input perm-cb" type="checkbox" value="${p.flag}" id="perm-${p.flag}">
+                <label class="form-check-label small" for="perm-${p.flag}" title="${p.desc}">
+                    <strong>${p.flag}</strong>
+                    <span class="text-muted d-block">${p.desc}</span>
+                </label>
+            </div>`;
+
+        permDiv.innerHTML =
+            `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem 1.5rem;">
+                ${standard.map(p => renderItem(p)).join('')}
+            </div>
+            <div class="alert alert-warning mt-3 mb-0">
+                <div class="mb-2"><strong><i class="fas fa-triangle-exclamation me-1"></i>High Privilege</strong></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem 1.5rem;">
+                    ${high.map(p => renderItem(p)).join('')}
+                </div>
+            </div>`;
+        const _bcb = document.getElementById('perm-builtin');
+        if (_bcb) _bcb.addEventListener('change', _applyBuiltinLock);
+
+        // keyboard-sas requires keyboard — auto-check it when sas is selected.
+        const _sasCb = document.getElementById('perm-keyboard-sas');
+        const _kbCb  = document.getElementById('perm-keyboard');
+        if (_sasCb && _kbCb) {
+            _sasCb.addEventListener('change', function() {
+                if (this.checked) _kbCb.checked = true;
+            });
+        }
+
+        _applyBuiltinLock();
+    }
+
+    function loadGrants() {
+        const filter = (document.getElementById('admin-grants-filter') || {}).value || 'ACTIVE';
+        fetch('/api/dcv/session_sharing/grants?all=true&status=' + encodeURIComponent(filter))
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('admin-grants-tbody');
+                const empty = document.getElementById('admin-grants-empty');
+                const grants = data.message || [];
+                if (!grants.length) { empty.style.display = ''; tbody.innerHTML = ''; _updateRevokeSelBtn(); return; }
+                empty.style.display = 'none';
+                const statusBadge = s => {
+                    const cls = s === 'ACTIVE' ? 'success' : (s === 'REVOKED' ? 'secondary' : 'warning');
+                    return `<span class="badge bg-${cls} text-white">${s || ''}</span>`;
+                };
+                tbody.innerHTML = grants.map(g => {
+                    const lastConn = g.last_connected_at
+                        ? `${new Date(g.last_connected_at).toLocaleString()}<br><small class="text-muted">${esc(g.last_connected_by || '')} (x${g.connect_count || 1})</small>`
+                        : '<span class="text-muted">never</span>';
+                    const revokeBtn = g.status === 'ACTIVE'
+                        ? `<button class="btn btn-sm btn-outline-danger btn-admin-revoke" data-grant-id="${g.pk}">Revoke</button>`
+                        : '';
+                    const selCell = g.status === 'ACTIVE'
+                        ? `<td><input type="checkbox" class="admin-grant-sel" data-grant-id="${g.pk}"></td>`
+                        : '<td></td>';
+                    return `<tr>
+                        ${selCell}
+                        <td>${esc(g.owner_username)}</td>
+                        <td>${esc(g.guest_username)}</td>
+                        <td><span class="badge bg-info text-white">${esc(g.profile_name)}</span></td>
+                        <td>${statusBadge(g.status)}</td>
+                        <td>${g.expires_at ? new Date(g.expires_at).toLocaleString() : ''}</td>
+                        <td>${esc(g.created_by)} ${g.actor_role === 'admin' ? '(admin)' : ''}</td>
+                        <td>${lastConn}</td>
+                        <td>${revokeBtn}</td>
+                    </tr>`;
+                }).join('');
+                tbody.querySelectorAll('.btn-admin-revoke').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (!confirm('Revoke this share?')) return;
+                        fetch('/api/dcv/session_sharing/grants/' + this.dataset.grantId, {method: 'DELETE'})
+                            .then(() => loadGrants());
+                    });
+                });
+                _updateRevokeSelBtn();
+            });
+    }
+    document.getElementById('admin-grants-filter')?.addEventListener('change', loadGrants);
+
+    // ---- Bulk revoke (multi-select + revoke all) ----
+    function _selectedGrantIds() {
+        return Array.from(document.querySelectorAll('.admin-grant-sel:checked')).map(cb => cb.dataset.grantId);
+    }
+    function _updateRevokeSelBtn() {
+        const n = _selectedGrantIds().length;
+        const btn = document.getElementById('btn-revoke-selected');
+        if (btn) {
+            btn.disabled = n === 0;
+            btn.innerHTML = '<i class="fas fa-trash me-1"></i>Revoke Selected' + (n ? ' (' + n + ')' : '');
+        }
+        const all = document.querySelectorAll('.admin-grant-sel');
+        const selAll = document.getElementById('admin-grants-selall');
+        if (selAll) {
+            selAll.checked = all.length > 0 && n === all.length;
+            selAll.indeterminate = n > 0 && n < all.length;
+        }
+    }
+    // Best-effort fan-out: one DELETE per grant, count successes/failures.
+    function _revokeGrants(ids) {
+        let ok = 0, fail = 0;
+        return Promise.all(ids.map(id =>
+            fetch('/api/dcv/session_sharing/grants/' + id, {method: 'DELETE'})
+                .then(r => { if (r.ok) { ok++; } else { fail++; } })
+                .catch(() => { fail++; })
+        )).then(() => ({ok, fail}));
+    }
+    // Select-all header checkbox toggles every visible (ACTIVE) row checkbox.
+    document.getElementById('admin-grants-selall')?.addEventListener('change', function() {
+        const on = this.checked;
+        document.querySelectorAll('.admin-grant-sel').forEach(cb => { cb.checked = on; });
+        _updateRevokeSelBtn();
+    });
+    // Delegated change handler -- row checkboxes are re-rendered on every loadGrants.
+    document.getElementById('admin-grants-tbody')?.addEventListener('change', function(e) {
+        if (e.target && e.target.classList && e.target.classList.contains('admin-grant-sel')) {
+            _updateRevokeSelBtn();
+        }
+    });
+    document.getElementById('btn-revoke-selected')?.addEventListener('click', function() {
+        const ids = _selectedGrantIds();
+        if (!ids.length) return;
+        if (!confirm('Revoke ' + ids.length + ' selected share(s)?')) return;
+        _revokeGrants(ids).then(res => {
+            if (res.fail) alert('Revoked ' + res.ok + ', failed ' + res.fail + '.');
+            loadGrants();
+        });
+    });
+    // Revoke ALL active shares regardless of the current filter view.
+    document.getElementById('btn-revoke-all')?.addEventListener('click', function() {
+        fetch('/api/dcv/session_sharing/grants?all=true&status=ACTIVE')
+            .then(r => r.json())
+            .then(data => {
+                const ids = (data.message || []).map(g => g.pk);
+                if (!ids.length) { alert('No active shares to revoke.'); return; }
+                if (!confirm('Revoke ALL ' + ids.length + ' active share(s)? This cannot be undone.')) return;
+                _revokeGrants(ids).then(res => {
+                    if (res.fail) alert('Revoked ' + res.ok + ', failed ' + res.fail + '.');
+                    loadGrants();
+                });
+            });
+    });
+
+    // Profile use tracking (active grants per profile) + disable-with-revoke state
+    let _profileUseCount = {};
+    let _profileUseGrantIds = {};
+    let _disableProfileId = null;
+    let _disableGrantIds = [];
+
+    function _putProfileEnabled(pid, on, cbEl) {
+        fetch('/api/dcv/session_sharing/profiles/' + pid, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: on})
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) { alert('Failed: ' + (d.message || 'unknown')); if (cbEl) cbEl.checked = !on; }
+            else { loadProfiles(); }
+        })
+        .catch(() => { alert('Network error'); if (cbEl) cbEl.checked = !on; });
+    }
+
+    function loadProfiles() {
+        Promise.all([
+            fetch('/api/dcv/session_sharing/profiles?all=true').then(r => r.json()),
+            fetch('/api/dcv/session_sharing/grants?all=true&status=ACTIVE').then(r => r.json())
+        ]).then(([pdata, gdata]) => {
+                const tbody = document.getElementById('profiles-tbody');
+                const profiles = pdata.message || [];
+                _profilesCache = profiles;
+                // Tally active grants per profile_id for the In Use column + revoke list.
+                _profileUseCount = {};
+                _profileUseGrantIds = {};
+                (gdata.message || []).forEach(g => {
+                    const pid = g.profile_id;
+                    if (!pid) return;
+                    _profileUseCount[pid] = (_profileUseCount[pid] || 0) + 1;
+                    (_profileUseGrantIds[pid] = _profileUseGrantIds[pid] || []).push(g.pk);
+                });
+                tbody.innerHTML = profiles.map(p => {
+                    const used = _profileUseCount[p.pk] || 0;
+                    const useCell = used > 0
+                        ? `<span class="badge bg-info text-white">${used}</span>`
+                        : '<span class="text-muted">0</span>';
+                    return `<tr${p.enabled === false ? ' class="text-muted"' : ''}>
+                        <td><strong>${esc(p.profile_name)}</strong></td>
+                        <td><code class="small">${esc((p.permissions || []).join(', '))}</code></td>
+                        <td>${p.is_default ? '<span class="badge bg-secondary text-white">Default</span>' : ''}</td>
+                        <td>${useCell}</td>
+                        <td><div class="form-check form-switch"><input class="form-check-input prof-enabled" type="checkbox" data-id="${p.pk}"${p.enabled === false ? '' : ' checked'}></div></td>
+                        <td>${p.is_default ? '' : '<button class="btn btn-sm btn-outline-primary btn-edit-profile me-1" data-id="' + p.pk + '">Edit</button><button class="btn btn-sm btn-outline-danger btn-delete-profile" data-id="' + p.pk + '">Delete</button>'}</td>
+                    </tr>`;
+                }).join('');
+                tbody.querySelectorAll('.btn-edit-profile').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const prof = _profilesCache.find(x => String(x.pk) === String(this.dataset.id));
+                        if (!prof) return;
+                        _setProfileModalMode('edit', prof);
+                        new bootstrap.Modal(document.getElementById('createProfileModal')).show();
+                    });
+                });
+                tbody.querySelectorAll('.prof-enabled').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const on = this.checked;
+                        const self = this;
+                        const pid = this.dataset.id;
+                        const inUse = _profileUseCount[pid] || 0;
+                        // Disabling a profile that's in use: ask whether to also
+                        // revoke the active shares. Keep it enabled until decided.
+                        if (!on && inUse > 0) {
+                            self.checked = true;
+                            _disableProfileId = pid;
+                            _disableGrantIds = _profileUseGrantIds[pid] || [];
+                            document.getElementById('disable-profile-text').textContent =
+                                'This profile is used by ' + inUse + ' active share(s).';
+                            document.getElementById('btn-disable-revoke').textContent = 'Disable & revoke ' + inUse;
+                            new bootstrap.Modal(document.getElementById('disableProfileModal')).show();
+                            return;
+                        }
+                        _putProfileEnabled(pid, on, self);
+                    });
+                });
+                tbody.querySelectorAll('.btn-delete-profile').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (!confirm('Delete this profile?')) return;
+                        fetch('/api/dcv/session_sharing/profiles/' + this.dataset.id, {method: 'DELETE'})
+                            .then(r => r.json())
+                            .then(d => { if (!d.success) alert('Failed: ' + (d.message || 'unknown')); loadProfiles(); });
+                    });
+                });
+            });
+    }
+
+    // Disable-profile modal buttons (wired once; modal markup is static).
+    document.getElementById('btn-disable-only')?.addEventListener('click', function() {
+        bootstrap.Modal.getInstance(document.getElementById('disableProfileModal')).hide();
+        if (_disableProfileId) _putProfileEnabled(_disableProfileId, false, null);
+    });
+    document.getElementById('btn-disable-revoke')?.addEventListener('click', function() {
+        bootstrap.Modal.getInstance(document.getElementById('disableProfileModal')).hide();
+        const pid = _disableProfileId, ids = _disableGrantIds || [];
+        if (!pid) return;
+        _revokeGrants(ids).then(res => {
+            if (res.fail) alert('Revoked ' + res.ok + ', failed ' + res.fail + '.');
+            _putProfileEnabled(pid, false, null);
+        });
+    });
+
+    // Create / Edit profile (dual-purpose modal)
+    let _profilesCache = [];
+    let _editingProfileId = null;
+
+    function _setProfileModalMode(mode, profile) {
+        const title = document.querySelector('#createProfileModal .modal-title');
+        const submitBtn = document.getElementById('btn-create-profile');
+        const nameInput = document.getElementById('new-profile-name');
+        document.querySelectorAll('.perm-cb').forEach(cb => { cb.checked = false; });
+        if (mode === 'edit' && profile) {
+            _editingProfileId = profile.pk;
+            if (title) title.textContent = 'Edit Permission Profile';
+            if (submitBtn) submitBtn.textContent = 'Save';
+            if (nameInput) nameInput.value = profile.profile_name || '';
+            (profile.permissions || []).forEach(p => {
+                const cb = document.getElementById('perm-' + p);
+                if (cb) cb.checked = true;
+            });
+        } else {
+            _editingProfileId = null;
+            if (title) title.textContent = 'Create Permission Profile';
+            if (submitBtn) submitBtn.textContent = 'Create';
+            if (nameInput) nameInput.value = '';
+        }
+        if (typeof _applyBuiltinLock === 'function') _applyBuiltinLock();
+    }
+
+    // Opening via the "Create Profile" button always resets to create mode.
+    document.getElementById('btn-open-create-profile')?.addEventListener('click', function() {
+        _setProfileModalMode('create');
+    });
+
+    document.getElementById('btn-create-profile')?.addEventListener('click', function() {
+        const name = document.getElementById('new-profile-name').value.trim();
+        const perms = [...document.querySelectorAll('.perm-cb:checked')].map(cb => cb.value);
+        if (!name || !perms.length) { alert('Name and at least one permission required'); return; }
+        const editing = _editingProfileId;
+        const url = editing
+            ? '/api/dcv/session_sharing/profiles/' + editing
+            : '/api/dcv/session_sharing/profiles';
+        fetch(url, {
+            method: editing ? 'PUT' : 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({profile_name: name, permissions: perms})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('createProfileModal')).hide();
+                _editingProfileId = null;
+                loadProfiles();
+            } else { alert('Failed: ' + data.message); }
+        });
+    });
+
+    // ---- Cluster settings ----
+    function loadSettings() {
+        fetch('/api/dcv/session_sharing/settings')
+            .then(r => r.json())
+            .then(data => {
+                const s = (data && data.message) || {};
+                const modes = s.allowed_sharing_modes || ['none', 'secure'];
+                document.getElementById('mode-secure').checked = modes.includes('secure');
+                document.getElementById('mode-link').checked = modes.includes('link');
+                document.getElementById('allow-unsupervised').checked = !!s.allow_unsupervised_access;
+                document.getElementById('guest-screenshot-enabled').checked = s.guest_screenshot_enabled !== false;
+            });
+    }
+    loadSettings();
+
+    document.getElementById('btn-save-settings')?.addEventListener('click', function() {
+        const modes = ['none'];  // always included
+        if (document.getElementById('mode-secure').checked) modes.push('secure');
+        if (document.getElementById('mode-link').checked) modes.push('link');
+        fetch('/api/dcv/session_sharing/settings', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                allowed_sharing_modes: modes,
+                allow_unsupervised_access: document.getElementById('allow-unsupervised').checked,
+                guest_screenshot_enabled: document.getElementById('guest-screenshot-enabled').checked
+            })
+        })
+        .then(r => r.json())
+        .then(data => alert(data.success ? 'Settings saved.' : 'Failed: ' + JSON.stringify(data.message)));
+    });
+
+    // ---- Admin Create Share (D5 admin override) ----
+    let _acsSessions = [];
+    document.getElementById('btn-admin-create-share')?.addEventListener('click', function() {
+        const sessSel = document.getElementById('acs-session');
+        const profSel = document.getElementById('acs-profile');
+        document.getElementById('acs-error').style.display = 'none';
+        _acsGuests = [];
+        _acsRenderChips();
+        document.getElementById('acs-guest-search').value = '';
+        document.getElementById('acs-guest-results').innerHTML = '';
+        sessSel.innerHTML = '<option>Loading...</option>';
+        fetch('/api/dcv/session_sharing/sessions')
+            .then(r => r.json())
+            .then(data => {
+                const _payload = data.message || {};
+                _acsSessions = _payload.sessions || [];
+                sessSel.innerHTML = _acsSessions.length
+                    ? _acsSessions.map((s, i) => `<option value="${i}">${esc(s.owner)} - ${esc(s.session_uuid)} (${esc(s.state)})</option>`).join('')
+                    : '<option value="">No active sessions</option>';
+                // Cluster policy: grey out unsupervised toggle when disallowed.
+                const unsup = document.getElementById('acs-unsupervised');
+                const allow = _payload.allow_unsupervised_access !== false;
+                if (unsup) {
+                    unsup.disabled = !allow;
+                    if (!allow) unsup.checked = false;
+                    const lbl = document.querySelector('label[for="acs-unsupervised"]');
+                    if (lbl) lbl.classList.toggle('text-muted', !allow);
+                }
+            });
+        profSel.innerHTML = '<option>Loading...</option>';
+        fetch('/api/dcv/session_sharing/profiles')
+            .then(r => r.json())
+            .then(data => {
+                profSel.innerHTML = (data.message || []).map(p => `<option value="${esc(p.pk)}">${esc(p.profile_name)}</option>`).join('');
+            });
+        new bootstrap.Modal(document.getElementById('adminCreateShareModal')).show();
+    });
+
+    // ---- Admin Create Share: guest multiselect typeahead (chips) ----
+    let _acsGuests = [];  // array of {username, display_name}
+
+    function _acsRenderChips() {
+        const box = document.getElementById('acs-guest-chips');
+        box.innerHTML = _acsGuests.map((g, i) =>
+            `<span class="badge bg-secondary d-inline-flex align-items-center">${g.display_name ? esc(g.display_name) + ' (' + esc(g.username) + ')' : esc(g.username)}` +
+            `<a href="#" class="acs-chip-x ms-2 text-white text-decoration-none" data-i="${i}">&times;</a></span>`
+        ).join('');
+        box.querySelectorAll('.acs-chip-x').forEach(x => {
+            x.addEventListener('click', function(e) {
+                e.preventDefault();
+                _acsGuests.splice(parseInt(this.dataset.i, 10), 1);
+                _acsRenderChips();
+            });
+        });
+    }
+
+    let _acsSearchTimeout;
+    const _acsSearchInput = document.getElementById('acs-guest-search');
+    if (_acsSearchInput) {
+        _acsSearchInput.addEventListener('input', function() {
+            clearTimeout(_acsSearchTimeout);
+            const q = this.value.trim();
+            if (q.length < 2) { document.getElementById('acs-guest-results').innerHTML = ''; return; }
+            _acsSearchTimeout = setTimeout(() => _acsSearchUsers(q), 300);
+        });
+    }
+
+    function _acsSearchUsers(q) {
+        // Exclude the chosen session's OWNER (cannot share a session to its
+        // own owner). Admin can still find themselves since they are not the
+        // owner. If no session is selected yet, no owner to exclude.
+        const _sel = _acsSessions[parseInt(document.getElementById('acs-session').value, 10)];
+        const _ex = _sel && _sel.owner ? '&exclude=' + encodeURIComponent(_sel.owner) : '';
+        fetch('/api/dcv/session_sharing/users/search?q=' + encodeURIComponent(q) + _ex)
+            .then(r => r.json())
+            .then(data => {
+                const container = document.getElementById('acs-guest-results');
+                if (!data.success) { container.innerHTML = ''; return; }
+                const _picked = new Set(_acsGuests.map(g => g.username.toLowerCase()));
+                container.innerHTML = (data.message || []).map(u => {
+                    const un = u.username || u;
+                    const label = u.display_name ? u.display_name + ' (' + un + ')' : un;
+                    const sel = _picked.has(un.toLowerCase());
+                    return '<a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center acs-guest-pick' + (sel ? ' active' : '') + '" data-user="' + esc(un) + '" data-name="' + esc(u.display_name || '') + '">'
+                        + '<span>' + esc(label) + '</span>'
+                        + '<i class="fas fa-check acs-pick-check" style="visibility:' + (sel ? 'visible' : 'hidden') + '"></i></a>';
+                }).join('');
+                container.querySelectorAll('.acs-guest-pick').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const un = this.dataset.user;
+                        const idx = _acsGuests.findIndex(g => g.username.toLowerCase() === un.toLowerCase());
+                        const chk = this.querySelector('.acs-pick-check');
+                        if (idx >= 0) {
+                            _acsGuests.splice(idx, 1);
+                            this.classList.remove('active');
+                            if (chk) chk.style.visibility = 'hidden';
+                        } else {
+                            _acsGuests.push({username: un, display_name: this.dataset.name || ''});
+                            this.classList.add('active');
+                            if (chk) chk.style.visibility = 'visible';
+                        }
+                        _acsRenderChips();
+                        // Results + search box stay open for multi-select from one search.
+                    });
+                });
+            });
+    }
+
+    document.getElementById('btn-acs-submit')?.addEventListener('click', function() {
+        const err = document.getElementById('acs-error');
+        err.style.display = 'none';
+        const sess = _acsSessions[parseInt(document.getElementById('acs-session').value, 10)];
+        const profileId = document.getElementById('acs-profile').value;
+        const hours = parseInt(document.getElementById('acs-expiry').value, 10);
+        if (!sess || !_acsGuests.length || !profileId) {
+            err.textContent = 'Session, at least one guest, and profile are required.'; err.style.display = ''; return;
+        }
+        const expiresAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+        const unsup = document.getElementById('acs-unsupervised').checked;
+        const btn = this; btn.disabled = true;
+        // Best-effort fan-out: one grant POST per selected guest.
+        Promise.all(_acsGuests.map(g =>
+            fetch('/api/dcv/session_sharing/grants', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    session_id: sess.broker_session_id,
+                    owner_username: sess.owner,
+                    guest_username: g.username,
+                    profile_id: profileId,
+                    expires_at: expiresAt,
+                    unsupervised: unsup
+                })
+            }).then(r => r.json().then(d => ({ok: r.ok && d.success, user: g.username, msg: d.message})))
+              .catch(() => ({ok: false, user: g.username, msg: 'network error'}))
+        )).then(results => {
+            btn.disabled = false;
+            const ok = results.filter(r => r.ok);
+            const bad = results.filter(r => !r.ok);
+            loadGrants();
+            if (!bad.length) {
+                bootstrap.Modal.getInstance(document.getElementById('adminCreateShareModal')).hide();
+            } else {
+                // Keep modal open; drop the succeeded guests, show failures.
+                const failedUsers = new Set(bad.map(r => r.user.toLowerCase()));
+                _acsGuests = _acsGuests.filter(g => failedUsers.has(g.username.toLowerCase()));
+                _acsRenderChips();
+                err.textContent = `Created ${ok.length} share(s). ${bad.length} failed: ` +
+                    bad.map(r => `${r.user} (${typeof r.msg === 'string' ? r.msg : 'error'})`).join('; ');
+                err.style.display = '';
+            }
+        });
+    });
+})();
+</script>
+
+{% include 'common/footer.html' %}
+</body>
+</html>

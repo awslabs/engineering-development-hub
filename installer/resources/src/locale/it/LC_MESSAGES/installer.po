@@ -1,0 +1,373 @@
+# Italian translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-04-30 15:55-0500\n"
+"PO-Revision-Date: 2026-04-30 16:05-0500\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+
+msgid "[italic #8a9bb8]Press Ctrl+C to exit at any time[/]"
+msgstr "[italic #8a9bb8]Premi Ctrl+C per uscire in qualsiasi momento[/]"
+
+msgid "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
+msgstr "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
+
+#, python-brace-format
+msgid ""
+"EDH will create AWS resources using the default parameters specified "
+"in {config_file}.\nMake sure you have read, reviewed and updated them "
+"(if needed). Continue?"
+msgstr "EDH creerà risorse AWS utilizzando i parametri predefiniti specificati in {config_file}. \\nAssicurati di averle lette, esaminate e aggiornate (se necessario). Continuare?"
+
+msgid "[yellow]Aborted by user.[/yellow]"
+msgstr "[yellow]Interrotto dall'utente.[/yellow]"
+
+msgid "Select the region where you want to deploy your EDH cluster:"
+msgstr "Seleziona la regione in cui desideri implementare il tuo cluster EDH:"
+
+msgid "Validating EC2 Prefix List ID ... "
+msgstr "Convalida dell'ID dell'elenco dei prefissi EC2... "
+
+msgid ""
+"Please provide your EDH environment name (edh- is automatically added "
+"as a prefix):"
+msgstr "Fornisci il nome del tuo ambiente EDH (edh- viene aggiunto automaticamente come prefisso):"
+
+msgid "Checking if name is available on Cloudformation"
+msgstr "Verifica se il nome è disponibile su Cloudformation"
+
+msgid ""
+"Select the default operating system for your EDH cluster (this can be "
+"changed post deployment):"
+msgstr "Seleziona il sistema operativo predefinito per il tuo cluster EDH (può essere modificato dopo la distribuzione):"
+
+msgid "Email address for cluster notifications:"
+msgstr "Indirizzo e-mail per le notifiche del cluster:"
+
+msgid ""
+"Client IPv4/IPv6 or CIDR range authorized to access EDH on TCP ports "
+"443/22:"
+msgstr "Intervallo client IPv4/IPv6 o CIDR autorizzato ad accedere a EDH sulle porte TCP 443/22:"
+
+msgid "Choose the SSH keypair to use: "
+msgstr "Scegli la coppia di chiavi SSH da usare: "
+
+msgid ""
+"Enter the name of an S3 bucket you own in the target region to be used "
+"for cluster state storage:"
+msgstr "Inserisci il nome di un bucket S3 di tua proprietà nella regione di destinazione da utilizzare per l'archiviazione dello stato del cluster:"
+
+msgid "VPC configuration:"
+msgstr "Configurazione VPC:"
+
+msgid "Create a new VPC"
+msgstr "Crea un nuovo VPC"
+
+msgid "Use an existing VPC"
+msgstr "Usa un VPC esistente"
+
+msgid "VPC CIDR block (e.g. 10.0.0.0/16):"
+msgstr "Blocco CIDR VPC (ad esempio 10.0.0.0/16):"
+
+msgid "Select an existing VPC:"
+msgstr "Seleziona un VPC esistente:"
+
+msgid "Select at least 2 public subnets:"
+msgstr "Seleziona almeno 2 sottoreti pubbliche:"
+
+msgid "Select at least 2 private subnets:"
+msgstr "Seleziona almeno 2 sottoreti private:"
+
+msgid ""
+"Select the filesystem provider for /apps (where applications will be "
+"installed):"
+msgstr "Seleziona il provider del file system per /apps (dove verranno installate le applicazioni):"
+
+msgid ""
+"Select the filesystem provider for /data (where user data will be "
+"stored):"
+msgstr "Seleziona il provider del file system per /data (dove verranno archiviati i dati utente):"
+
+msgid "Bootstrapping CDK environment ..."
+msgstr "Ambiente CDK di avvio..."
+
+msgid "Enabling SSM High Throughput mode ..."
+msgstr "Attivazione della modalità SSM High Throughput..."
+
+msgid "Retrieving EDH Admin credentials from AWS Secrets Manager ..."
+msgstr "Recupero delle credenziali di amministratore EDH da AWS Secrets Manager..."
+
+msgid ""
+"Waiting for EDH to be fully configured, this can take up to 30 minutes "
+"..."
+msgstr "In attesa che EDH sia completamente configurato, l'operazione può richiedere fino a 30 minuti..."
+
+msgid "Waiting for EDH Admin user to be created ..."
+msgstr "In attesa della creazione dell'utente EDH Admin..."
+
+msgid "[red] Installation cancelled.[/red]"
+msgstr "[red]Installazione annullata.[/red]"
+
+msgid "What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16"
+msgstr "Quale CIDR vuoi usare per il tuo VPC? Consigliamo 10.0.0.0/16"
+
+msgid "Select the AWS PCS cluster to link to"
+msgstr "Seleziona il cluster AWS PCS a cui collegarti"
+
+msgid "Username of a domain user with  admin permissions?"
+msgstr "Nome utente di un utente di dominio con autorizzazioni di amministratore?"
+
+msgid "Password of the domain user with admin permissions"
+msgstr "Password dell'utente del dominio con autorizzazioni di amministratore"
+
+msgid ""
+"Was this role generated by a previous SOCA deployment? If yes, are you "
+"also using the same S3 bucket?"
+msgstr "Questo ruolo è stato generato da una precedente distribuzione SOCA? In caso affermativo, stai utilizzando anche lo stesso bucket S3?"
+
+msgid ""
+"[IMPORTANT] Make sure this role is assumed by 'ec2.amazon.com' and "
+"'ssm.amazonaws.com'\n Type ok to continue ..."
+msgstr "[IMPORTANTE] Assicurati che questo ruolo sia assunto da 'ec2.amazon.com' e 'ssm.amazonaws.com'\\nDigita ok per continuare..."
+
+msgid "Was this role generated by a previous SOCA deployment?"
+msgstr "Questo ruolo è stato generato da una precedente distribuzione SOCA?"
+
+msgid ""
+"[IMPORTANT] Make sure this role is assumed by "
+"'spotfleet.amazonaws.com'\n Type ok to continue ..."
+msgstr "[IMPORTANTE] Assicurati che questo ruolo sia assunto da 'spotfleet.amazonaws.com'\\nDigita ok per continuare..."
+
+msgid "Disable CDK --strict setting (Failure on CDK stack warnings)"
+msgstr "Disabilita l'impostazione CDK --strict (avvisi di errore sullo stack CDK)"
+
+msgid "AWS CDK CloudFormation Execution Policy ARNs"
+msgstr "Policy di esecuzione di AWS CDK CloudFormation ARN"
+
+msgid "AWS CDK CloudFormation Execution Role ARN"
+msgstr "Ruolo di esecuzione AWS CDK CloudFormation ARN"
+
+msgid "AWS CDK Bootstrap KMS Key ID"
+msgstr "ID chiave AWS CDK Bootstrap KMS"
+
+msgid "AWS CDK Custom Permissions Boundary"
+msgstr "Limite delle autorizzazioni personalizzate di AWS CDK"
+
+msgid "AWS CDK Termination Protection setting"
+msgstr "Impostazione AWS CDK Termination Protection"
+
+msgid ""
+"AWS CLI profile to use. See "
+"https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html"
+msgstr "Profilo AWS CLI da utilizzare. Vedi https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html"
+
+msgid "AWS region where you want to deploy your SOCA environment."
+msgstr "Regione AWS in cui desideri distribuire il tuo ambiente SOCA."
+
+msgid "Path of custom config file(s). Defaults to default_config.yml ."
+msgstr "Percorso dei file di configurazione personalizzati. Il valore predefinito è default_config.yml."
+
+msgid ""
+"(Deprecated) Path of AMI region mapping files. Defaults to various "
+"region_map files. Use --region-map-dir instead!"
+msgstr "(Obsoleto) Percorso dei file di mappatura della regione AMI. Il valore predefinito è costituito da vari file region_map. Usa invece --region-map-dir!"
+
+msgid "Path of AMI region_map.d directory structure"
+msgstr "Percorso della struttura della directory AMI region_map.d"
+
+msgid "S3 Bucket to use"
+msgstr "Bucket S3 da usare"
+
+msgid "SSH key to use"
+msgstr "Chiave SSH da usare"
+
+msgid "Specify a custom image"
+msgstr "Specifica un'immagine personalizzata"
+
+msgid ""
+"Administrator email address(es) that will be registered for cluster "
+"notifications and alerts. Supports multiple values --email email1 "
+"--email email2 etc."
+msgstr "Indirizzi e-mail degli amministratori che verranno registrati per le notifiche e gli avvisi del cluster. Supporta più valori --email email1 --email email2 ecc."
+
+msgid "What IPv4 CIDR do you want to use for your VPC (eg: 10.0.0.0/16)"
+msgstr "Quale CIDR IPv4 desideri utilizzare per il tuo VPC (ad esempio: 10.0.0.0/16)"
+
+msgid "What IPv6 CIDR do you want to use for your VPC (eg: 2001:db8::/56)"
+msgstr "Quale CIDR IPv6 desideri utilizzare per il tuo VPC (ad esempio: 2001:db8: :/56)"
+
+msgid "Client IPv4 authorized to access SOCA on TCP ports 22/443"
+msgstr "Client IPv4 autorizzato ad accedere a SOCA sulle porte TCP 22/443"
+
+msgid "Client IPv6 authorized to access SOCA on TCP ports 22/443"
+msgstr "Client IPv6 autorizzato ad accedere a SOCA sulle porte TCP 22/443"
+
+msgid "Prefix list ID with IPv4 authorized to access SOCA on port 22/443"
+msgstr "ID dell'elenco dei prefissi con IPv4 autorizzato ad accedere a SOCA sulla porta 22/443"
+
+msgid "Prefix list ID with IPv6 authorized to access SOCA on port 22/443"
+msgstr "ID dell'elenco dei prefissi con IPv6 autorizzato ad accedere a SOCA sulla porta 22/443"
+
+msgid ""
+"Friendly name for your SOCA cluster. Must be unique in the region. "
+"SOCA will be added as prefix"
+msgstr "Nome descrittivo per il tuo cluster SOCA. Deve essere unico nella regione. SOCA verrà aggiunto come prefisso"
+
+msgid ""
+"Configuration key(s) to override. Syntax is "
+"'<key_name>,<type>,<value>'. You can use multiple --override if "
+"needed."
+msgstr "Chiavi di configurazione da sovrascrivere. <value>La sintassi è '<key_name>,<type>,'. Puoi usare più --override se necessario."
+
+msgid ""
+"The preferred Linux distribution for the controller and compute "
+"instances"
+msgstr "La distribuzione Linux preferita per il controller e le istanze di calcolo"
+
+msgid "Storage Provider to specify for /apps"
+msgstr "Provider di archiviazione da specificare per /apps"
+
+msgid "Storage Provider to specify for /data"
+msgstr "Provider di storage da specificare per /data"
+
+msgid ""
+"Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: "
+"False)"
+msgstr "Abilita IPv6 per la sonda client-ipv6 (richiesta per tutti gli IPv6) (impostazione predefinita: False)"
+
+msgid "Enable CDK debug mode"
+msgstr "Abilita la modalità di debug CDK"
+
+msgid "Skip default_config message"
+msgstr "Salta il messaggio default_config"
+
+msgid "Output CfnOutputs via a text file"
+msgstr "Produci CFNoOutputs tramite un file di testo"
+
+msgid ""
+"SOCA will create AWS resources using the default parameters specified "
+"in installer/default_config.yml.\n Make sure you have read, reviewed "
+"and updated them (if needed). Enter 'yes' to continue ..."
+msgstr "SOCA creerà risorse AWS utilizzando i parametri predefiniti specificati in installer/default_config.yml. \\nAssicurati di averle lette, esaminate e aggiornate (se necessario). Inserisci «sì» per continuare..."
+
+msgid "Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22"
+msgstr "Client IPv4/CIDR autorizzato ad accedere a SOCA sulle porte TCP 443/22"
+
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid VPCs in region {region}. "
+"Please see the VPC Table for specific errors."
+msgstr "ERRORE IRREVERSIBILE: impossibile individuare alcun VPC valido nella regione {region}. Consulta la tabella VPC per errori specifici."
+
+msgid "Choose the VPC you want to use?"
+msgstr "Scegli il VPC che vuoi usare?"
+
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid Analytics engines in region "
+"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
+"select 'new' to create a new one."
+msgstr "ERRORE IRREVERSIBILE: impossibile individuare alcun motore di Analytics valido nella regione {region} - VPC {vpc_id}. Conferma e riprova oppure esegui nuovamente e seleziona «nuovo» per crearne uno nuovo."
+
+msgid "Choose the OpenSearch Cluster you want to use?"
+msgstr "Scegli il cluster OpenSearch che vuoi usare?"
+
+msgid "Choose the directory you want to use?"
+msgstr "Scegli la directory che vuoi usare?"
+
+msgid "How many of these subnets do you want to use?"
+msgstr "Quante di queste sottoreti vuoi usare?"
+
+msgid ""
+"Your security groups may not be configured correctly. Verify them and "
+"determine if the warnings listed above are false-positive.\n Do you "
+"still want to continue with the installation?"
+msgstr "I gruppi di sicurezza potrebbero non essere configurati correttamente. Verificali e determina se gli avvisi sopra elencati sono falsi positivi. \\nVuoi continuare con l'installazione?"
+
+msgid ""
+"Create EDH installer. Visit "
+"https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ "
+"if you need help"
+msgstr "Crea il programma di installazione EDH. Visita https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ se hai bisogno di aiuto"
+
+msgid "AWS CDK Bootstrap Profile"
+msgstr "Profilo Bootstrap di AWS CDK"
+
+msgid "Skip the configuration review prompt"
+msgstr "Salta la richiesta di revisione della configurazione"
+
+msgid "AWS region to deploy EDH in"
+msgstr "Regione AWS in cui implementare EDH"
+
+msgid "Base OS for EDH controller and login nodes"
+msgstr "Sistema operativo di base per controller EDH e nodi di accesso"
+
+msgid "EDH cluster name (e.g. edh-mycluster)"
+msgstr "Nome del cluster EDH (ad esempio edh-mycluster)"
+
+msgid ""
+"Email address for cluster notifications (can be specified multiple "
+"times)"
+msgstr "Indirizzo e-mail per le notifiche del cluster (può essere specificato più volte)"
+
+msgid "S3 bucket for EDH state storage"
+msgstr "Bucket S3 per l'archiviazione dello stato EDH"
+
+msgid "EC2 SSH key pair name"
+msgstr "Nome della coppia di chiavi SSH EC2"
+
+msgid "VPC CIDR block for new VPC (e.g. 10.0.0.0/16)"
+msgstr "Blocco CIDR VPC per nuovi VPC (ad esempio 10.0.0.0/16)"
+
+msgid "Existing VPC ID to deploy into"
+msgstr "ID VPC esistente in cui implementare"
+
+msgid ""
+"Client IP/CIDR authorized to access EDH (can be specified multiple "
+"times)"
+msgstr "Client IP/CIDR autorizzato ad accedere a EDH (può essere specificato più volte)"
+
+msgid ""
+"Public subnet IDs when using an existing VPC. Use + to specify more "
+"than 1 subnet."
+msgstr "ID di sottorete pubblici quando si utilizza un VPC esistente. Usa + per specificare più di una sottorete."
+
+msgid ""
+"Private subnet IDs when using an existing VPC. Use + to specify more "
+"than 1 subnet."
+msgstr "ID di sottorete privati quando si utilizza un VPC esistente. Usa + per specificare più di una sottorete."
+
+msgid "Select if you want to add Prefix List to your security groups."
+msgstr "Seleziona se desideri aggiungere l'elenco dei prefissi ai tuoi gruppi di sicurezza."
+
+msgid ""
+"Filesystem provider for /apps (efs, fsx_lustre, fsx_ontap, "
+"fsx_openzfs)"
+msgstr "Provider di file system per /apps (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
+
+msgid "Existing filesystem DNS/IP for /apps"
+msgstr "DNS/IP del file system esistente per /apps"
+
+msgid ""
+"Filesystem provider for /data (efs, fsx_lustre, fsx_ontap, "
+"fsx_openzfs)"
+msgstr "Provider del file system per /data (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
+
+msgid "Existing filesystem DNS/IP for /data"
+msgstr "File system DNS/IP esistente per /data"
+
+msgid "Existing OpenSearch domain endpoint URL"
+msgstr "URL dell'endpoint del dominio OpenSearch esistente"

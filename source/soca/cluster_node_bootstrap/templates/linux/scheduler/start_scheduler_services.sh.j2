@@ -27,7 +27,17 @@ function start_edh_scheduler_services {
                 # Start service if not already running
                 if ! systemctl is-active "${svc}" &>/dev/null; then
                     log_info "Starting ${svc}"
-                    if ! systemctl start "${svc}"; then
+                    local _started=0
+                    for _attempt in 1 2 3; do
+                        if systemctl start "${svc}" 2>/dev/null; then
+                            _started=1; break
+                        fi
+                        # Ubuntu24+ systemd can reject start during post-boot
+                        # transaction settling ("destructive transaction"). Retry.
+                        log_info "Start ${svc} attempt ${_attempt} failed, retrying in 10s"
+                        sleep 10
+                    done
+                    if [[ "${_started}" != "1" ]]; then
                         journalctl -xeu "${svc}"
                         exit_fail "Unable to start ${svc}, check logs for details"
                     fi

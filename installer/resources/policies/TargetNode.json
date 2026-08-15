@@ -44,6 +44,25 @@
         },
         {
             "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:instance/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                },
+                "ForAllValues:StringEquals": {
+                    "aws:TagKeys": [
+                        "edh:ADComputerName"
+                    ]
+                }
+            },
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
                 "ec2:DescribeVolumes",
                 "ec2:DescribeNetworkInterfaces",
                 "ec2:DescribeInstanceTypes",

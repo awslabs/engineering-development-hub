@@ -1,0 +1,79 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: File Downloader (HTTP and S3)
+# Windows mirror of templates/linux/common/file_download.sh.j2.
+#
+# resources_mirroring rewrites /system/* URLs into a pipe-delimited
+# "s3://mirror|https://fallback" form at Jinja render time. The .NET
+# downloaders (Invoke-WebRequest / WebClient.DownloadString) cannot parse
+# that, so every Windows template that fed context.get('/system/...')
+# straight into a .NET downloader failed on mirroring-enabled clusters.
+# This helper splits on '|' and tries each candidate in order (s3:// via
+# the AWS CLI, http(s) via Invoke-WebRequest), matching the Linux
+# file_download contract. ASCII only (CP1252 parser mangles unicode).
+
+function Invoke-SOCAFileDownload {
+    param (
+        [Parameter(Mandatory = $true)]  [string] $DownloadUrl,      # raw, may be "s3://mirror|https://fallback"
+        [Parameter(Mandatory = $true)]  [string] $SaveAs,           # destination file path
+        [Parameter(Mandatory = $false)] [string] $Sha256Checksum    # optional hex digest (case-insensitive)
+    )
+
+    Log-Info -Message "Detected file_download request: url=$DownloadUrl save-as=$SaveAs"
+
+    # Try each candidate in order until one succeeds.
+    $Candidates = $DownloadUrl -split '\|' | Where-Object { $_ -ne '' }
+    $Success = $false
+
+    foreach ($Candidate in $Candidates) {
+        Log-Info -Message "Trying download URL: $Candidate"
+        try {
+            if ($Candidate -like 's3://*') {
+                # s3 requires the AWS CLI. During the AWS CLI install itself
+                # it is not present yet, so skip to the next (https) candidate
+                # rather than failing, matching the Linux flow.
+                if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
+                    Log-Warning -Message "AWS CLI not available yet, skipping S3 candidate $Candidate"
+                    continue
+                }
+                if ($Candidate.EndsWith('/')) {
+                    # $SaveAs is a destination FILE; `aws s3 sync` treats its
+                    # destination as a directory, which breaks the contract
+                    # (Test-Path / msiexec / Get-FileHash all expect a file).
+                    # No caller uses a prefix URL, so reject it explicitly.
+                    Exit-Fail "Invoke-SOCAFileDownload does not support S3 prefix (directory) URLs: $Candidate"
+                }
+                Invoke-SOCAAwsCli s3 cp $Candidate $SaveAs --quiet
+            } else {
+                Invoke-WebRequest -Uri $Candidate -OutFile $SaveAs -UseBasicParsing
+            }
+
+            if (Test-Path $SaveAs) {
+                Log-Info -Message "$Candidate downloaded successfully and saved as $SaveAs"
+                $Success = $true
+                break
+            }
+            Log-Warning -Message "Download of $Candidate produced no file, trying next URL if available ..."
+        } catch {
+            Log-Warning -Message "Failed to download from ${Candidate}: $($_.Exception.Message)"
+            Remove-Item -Path $SaveAs -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if (-not $Success) {
+        Exit-Fail "All download URLs failed for: $DownloadUrl"
+    }
+
+    # Optional integrity check.
+    if ($Sha256Checksum) {
+        Log-Info -Message "sha256 supplied, verifying $SaveAs"
+        $Found = (Get-FileHash -Path $SaveAs -Algorithm SHA256).Hash.ToLower()
+        $Expected = $Sha256Checksum.ToLower()
+        if ($Found -ne $Expected) {
+            Exit-Fail "Checksum for $DownloadUrl failed. Expected SHA256 $Expected but found $Found. File may be compromised."
+        }
+        Log-Info -Message "Checksum verified: $Found"
+    }
+}
+# End: File Downloader

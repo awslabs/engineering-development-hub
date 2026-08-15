@@ -12,17 +12,27 @@
 ######################################################################################################################
 
 
-from flask_restful import Resource, reqparse
+from flask_restful import Resource
 from flask import request
 import logging
+from datetime import datetime, date
 from decorators import private_api, feature_flag
-import errors
-import utils.aws.boto3_wrapper as utils_boto3
+import utils.aws.ec2_helper as utils_ec2
 from utils.config import SocaConfig
 from utils.error import SocaError
 
 logger = logging.getLogger("soca_logger")
-client_ec2 = utils_boto3.get_boto(service_name="ec2").message
+
+
+def _json_safe(obj):
+    """Recursively convert datetime objects to ISO strings for JSON serialization."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    return obj
 
 
 class ListLoginNodes(Resource):
@@ -30,19 +40,30 @@ class ListLoginNodes(Resource):
     @feature_flag(flag_name="LOGIN_NODES", mode="api")
     def get(self):
         """
-        List all login node IP addresses
+        List all login node instances
         ---
         openapi: 3.1.0
-        operationId: getLoginNodeIPs
+        operationId: listLoginNodes
         tags:
           - Login Nodes
-        summary: List all login node IP addresses
-        description: Retrieve IP addresses of all running login nodes in the SOCA cluster
-        security:
-          - socaAuth: []
+        summary: List all running login node instances
+        description: Retrieve full EC2 instance details for all running login nodes in the SOCA cluster
+        parameters:
+          - name: X-EDH-USER
+            in: header
+            schema:
+              type: string
+            required: true
+            description: SOCA username for authentication
+          - name: X-EDH-TOKEN
+            in: header
+            schema:
+              type: string
+            required: true
+            description: SOCA authentication token
         responses:
           '200':
-            description: Login node IPs retrieved successfully
+            description: Login node instances retrieved successfully
             content:
               application/json:
                 schema:
@@ -53,11 +74,10 @@ class ListLoginNodes(Resource):
                       example: true
                     message:
                       type: array
+                      description: List of EC2 instance objects for running login nodes
                       items:
-                        type: string
-                        format: ipv4
-                        description: IP address of login node (public IP preferred, private IP as fallback)
-                      example: ["10.0.1.100", "52.123.45.67"]
+                        type: object
+                        description: EC2 instance description (AWS DescribeInstances format)
           '401':
             description: Authentication required
             content:
@@ -84,29 +104,14 @@ class ListLoginNodes(Resource):
                     message:
                       type: string
                       example: "AWS API error"
-        components:
-          securitySchemes:
-            socaAuth:
-              type: apiKey
-              in: header
-              name: X-EDH-USER
-              description: SOCA username for authentication
-            socaToken:
-              type: apiKey
-              in: header
-              name: X-EDH-TOKEN
-              description: SOCA authentication token
         """
         logger.debug("Fetching all Login Nodes IPs for your SOCA environment")
         user = request.headers.get("X-EDH-USER")
         if user is None:
             return SocaError.CLIENT_MISSING_HEADER(header="X-EDH-USER").as_flask()
 
-        login_nodes = []
-
-        ec2_paginator = client_ec2.get_paginator("describe_instances")
-        ec2_iterator = ec2_paginator.paginate(
-            Filters=[
+        _result = utils_ec2.describe_instances_paginate(
+            filters=[
                 {"Name": "tag:edh:NodeType", "Values": ["login_node"]},
                 {"Name": "instance-state-name", "Values": ["running"]},
                 {
@@ -117,15 +122,12 @@ class ListLoginNodes(Resource):
                         .get("message")
                     ],
                 },
-            ],
+            ]
         )
 
-        for page in ec2_iterator:
-            for reservation in page["Reservations"]:
-                for instance in reservation["Instances"]:
-                    logger.debug(f"Found Login Node instance {instance}")
-                    _public_ip = instance.get("PublicIpAddress", None)
-                    _private_ip = instance.get("PrivateIpAddress")
-                    login_nodes.append(_public_ip if _public_ip else _private_ip)
+        if _result.get("success") is False:
+            return {"success": False, "message": _result.get("message")}, 500
+
+        login_nodes = _json_safe(_result.get("message"))
         logger.debug(f"Login nodes list: {login_nodes}")
         return {"success": True, "message": login_nodes}, 200

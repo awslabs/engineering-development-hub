@@ -1,30 +1,30 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
 ap-south-1:
   x86_64:
-    amazonlinux2: ami-07b580c9db4dd9219
-    amazonlinux2023: ami-00ca570c1b6d79f36
-    rhel10: ami-025082fbd99760e15
+    amazonlinux2: ami-0ab8af19c4ceb6264
+    amazonlinux2023: ami-0cd39192f9cfadf25
+    rhel10: ami-09412f98f7d40557b
     rhel7: ami-04441997c6042da85
-    rhel8: ami-0619404f9180a28b3
-    rhel9: ami-0fa4f7682aad1940d
-    rocky8: ami-053ac9a936bd4459e
-    rocky9: ami-08e313580b7dba0a6
-    ubuntu2204: ami-07216ac99dc46a187
-    ubuntu2404: ami-0a14f53a6fe4dfcd1
+    rhel8: ami-0c3fbb94a11aaae98
+    rhel9: ami-07965f2ce18015293
+    rocky8: ami-09257763066623324
+    rocky9: ami-0ef5ed7f4cfd103f1
+    ubuntu2204: ami-0c809520a0d652e03
+    ubuntu2404: ami-07e5ce642bbc48c0d
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-05719891dc427778c
-    amazonlinux2023: ami-061d45d4bd9c71ba1
-    rhel10: ami-0078618fcd784fe3c
-    rhel8: ami-01bcef20fc6eb08aa
-    rhel9: ami-08413e056ac69e477
-    rocky8: ami-081e22d3cbc2a6a6f
-    rocky9: ami-07a2cc29a3a3a2732
-    ubuntu2204: ami-0c91e3f0ba849e5cc
-    ubuntu2404: ami-0d9ee65a2a86e323b
+    amazonlinux2: ami-0a788baab20807363
+    amazonlinux2023: ami-099beae5b6252e395
+    rhel10: ami-01358782181414066
+    rhel8: ami-07410c1061310938f
+    rhel9: ami-0d1ca058dc0dd75f3
+    rocky8: ami-007f6b765d7b882b7
+    rocky9: ami-0f5cc6b3d9800bdad
+    ubuntu2204: ami-0ed94ae886fc31365
+    ubuntu2404: ami-03f419e5dee7ea8f3
   x86_64_mac:
     macos15: ami-0f80f8596d45b7cc9
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC

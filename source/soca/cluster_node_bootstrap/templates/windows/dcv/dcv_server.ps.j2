@@ -15,14 +15,10 @@ function Install-DCVServer {
             & "$EDHBootstrapAssetsFolder\vc_redist_64.exe" /install /passive /norestart
         }
 
-        # Download Package(s)
-        Invoke-WebRequest -uri "{{ context.get("/system/dcv/windows/url") }}" -OutFile "$EDHBootstrapAssetsFolder\DCVServer.msi"
-        $checksum = Get-FileHash -Path "$EDHBootstrapAssetsFolder\DCVServer.msi" -Algorithm SHA256
-
-        # Validate DCV hash
-        if (! $checksum.Hash -eq "{{ context.get("/system/dcv/windows/sha256") | upper }}" ) {
-            Exit-Fail "DCV SHA256 hash ${checksum} does NOT match the expected value of {{ context.get("/system/dcv/windows/sha256") }}."
-        }
+        # Download Package(s). The DCV URL may be a pipe-delimited
+        # "s3://mirror|https://fallback" value when resources_mirroring is
+        # enabled; Invoke-SOCAFileDownload parses it and verifies the sha256.
+        Invoke-SOCAFileDownload -DownloadUrl "{{ context.get("/system/dcv/windows/url") }}" -SaveAs "$EDHBootstrapAssetsFolder\DCVServer.msi" -Sha256Checksum "{{ context.get("/system/dcv/windows/sha256") }}"
 
         # Install DCV with all packages
         Start-Process "msiexec.exe" -ArgumentList "/i $EDHBootstrapAssetsFolder\DCVServer.msi ADDLOCAL=ALL /qn /norestart /l*v dcv_install_msi.log" -Wait

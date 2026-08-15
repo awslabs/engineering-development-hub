@@ -1,0 +1,840 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    <style>
+    .token-value-box {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 4px;
+        word-break: break-all;
+        border: 1px solid #dee2e6;
+    }
+    .permissions-badge {
+        font-size: 0.8rem;
+    }
+    .token-expired {
+        opacity: 0.6;
+    }
+    #permissionsEditor {
+        font-family: monospace;
+        font-size: 0.85rem;
+        min-height: 120px;
+    }
+    .blurred {
+        filter: blur(6px);
+        user-select: none;
+    }
+    </style>
+</head>
+
+<body id="page-top">
+{% include 'common/horizontal_menu_bar.html' %}
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                <!-- Token Created Alert (hidden by default) -->
+                <div id="tokenCreatedAlert" class="alert alert-success alert-dismissible fade" role="alert" style="display:none;">
+                    <h5 class="alert-heading">{{ _("Token Created Successfully") }}</h5>
+                    <p>{{ _("Copy your token now. It will not be shown again.") }}</p>
+                    <div class="token-value-box mb-2">
+                        <span id="newTokenValue"></span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success" id="copyTokenBtn" onclick="copyNewToken()">
+                        <i class="fas fa-copy"></i> {{ _("Copy to Clipboard") }}
+                    </button>
+                    <button type="button" class="close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+                </div>
+
+                <!-- Error Alert (hidden by default) -->
+                <div id="errorAlert" class="alert alert-danger alert-dismissible fade" role="alert" style="display:none;">
+                    <span id="errorMessage"></span>
+                    <button type="button" class="close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+                </div>
+
+                <!-- Scoped Tokens Card -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            {{ _("Your API Tokens") }} <span class="badge bg-warning text-dark">PREVIEW</span>
+                        </h3>
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createTokenModal">
+                            {{ _("Create Token") }}
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="tokensLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="tokensEmpty" class="text-center py-4 text-muted" style="display:none;">
+                            <i class="fas fa-key fa-2x mb-2"></i>
+                            <p>{{ _("No scoped tokens yet. Create one to get started.") }}</p>
+                        </div>
+                        <div class="table-responsive" id="tokensTableWrapper" style="display:none;">
+                            <table class="table table-hover align-middle" id="tokensTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{{ _("Name") }}</th>
+                                        <th>{{ _("Hint") }}</th>
+                                        <th>{{ _("Permissions") }}</th>
+                                        <th>{{ _("Expires") }}</th>
+                                        <th>{{ _("Last Used") }}</th>
+                                        <th>{{ _("Created") }}</th>
+                                        <th>{{ _("Actions") }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tokensBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-primary">
+                            {{ _("Scoped tokens let you grant limited access to specific API endpoints. Each token can be restricted to certain paths and HTTP methods, has a configurable lifetime, and can be revoked independently.") }}
+                            <br> {{ _("Note: token permissions only control which endpoints the token is allowed to call. EDH still enforces user-level authorization, a regular user cannot access admin endpoints even if the token permissions include them.") }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                <!-- API Documentation Card -->
+                <div class="col-md-7">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h3 class="mb-0">
+                            {{ _("How to interact with EDH APIs") }}
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-primary"><strong>{{ _("API Documentation") }}</strong><br>
+                            {{ _("You can interact with your EDH cluster (create users, groups, queue, submit jobs, view jobs etc.) via a simple REST interface.") }} <br>
+                            {{ _("Additional documentation and examples can be found here:") }}
+                            <ul>
+                                <li><a href="{{ scheduler_host }}api/doc?ui=swagger" target="_blank" rel="noopener,noreferrer">{{ scheduler_host }}api/doc?ui=swagger (Swagger UI)</a></li>
+                                <li><a href="{{ scheduler_host }}api/doc?ui=rapidoc" target="_blank" rel="noopener,noreferrer">{{ scheduler_host }}api/doc?ui=rapidoc (RapiDoc UI)</a></li>
+                            </ul>
+                        </div>
+
+                        <h4>{{ _("Prepare the request") }}</h4>
+                        {{ _("You will need to specify two headers:") }}
+                        <ul>
+                            <li><code>X-EDH-USER</code> {{ _("set to") }} <code>{{ user }}</code></li>
+                            <li><code>X-EDH-TOKEN</code> {{ _("set to your scoped token (e.g.") }} <code>edh_xxxxxxxx...</code>)</li>
+                        </ul>
+
+                        <br>
+                        <h4>{{ _("Example: How to submit/query and delete a job via HTTP API") }}</h4>
+
+                        <h5>{{ _("Prepare the input") }}</h5>
+                        {{ _("Let us assume you want to submit a simple job on the default OpenPBS") }}
+                        <pre><code class="language-bash">
+#!/bin/bash
+#PBS -N testjob
+#PBS -V -j oe -o testjob_output.qlog
+#PBS -P myproject
+#PBS -q normal
+#PBS -k oed
+#PBS -l nodes=1,instance_type=c6i.large
+/bin/echo "Hello World"</code></pre>
+                        {{ _("Encode the payload using Base64:") }}
+                        <pre><code class="language-bash">$ base64 test_input_file.sh
+IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo=</code></pre>
+
+                        <br>
+                        <h5>
+                            <a href="#submitJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
+                            {{ _("Submit a job") }}</a>
+                        </h5>
+                        <hr>
+                        <div class="collapse mt-3" id="submitJob">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Bash") }}</h6>
+                                    <pre><code class="language-bash">
+curl -k -X POST \
+   -H "X-EDH-TOKEN: $YOUR_SCOPED_TOKEN" \
+   -H "X-EDH-USER: {{ user }}" \
+   -F interpreter="{{openpbs_scheduler}}" \
+   -F payload="IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo="
+   {{ scheduler_host }}api/scheduler/job</code></pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Python") }}</h6>
+                                    <pre><code class="language-python">
+import requests
+hdrs = {"X-EDH-TOKEN": "YOUR_SCOPED_TOKEN",
+        "X-EDH-USER": "{{ user }}"}
+api_endpoint = "{{ scheduler_host }}api/scheduler/job"
+payload = {"interpreter": "{{openpbs_scheduler}}", "payload": "IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo="}
+req = requests.post(api_endpoint, headers=hdrs, data=payload, verify=False)
+print(req.status_code)
+print(req.json())</code></pre>
+                                </div>
+                                <p>{{ _("Both commands will return the ID associated to the job you just submitted") }}</p>
+                            </div>
+                        </div>
+
+                        <br>
+                        <h5>
+                            <a href="#queryJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
+                            {{ _("Query a job") }}</a>
+                        </h5>
+                        <hr>
+                        <div class="collapse mt-3" id="queryJob">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Bash") }}</h6>
+                                    <pre><code class="language-bash">
+curl -k -X GET \
+   -H "X-EDH-TOKEN: $YOUR_SCOPED_TOKEN" \
+   -H "X-EDH-USER: {{ user }}" \
+   {{ scheduler_host }}api/scheduler/job?job_id=%YOUR_JOB_ID%&scheduler_id={{openpbs_scheduler}}</code></pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Python") }}</h6>
+                                    <pre><code class="language-python">
+import requests
+hdrs = {"X-EDH-TOKEN": "YOUR_SCOPED_TOKEN",
+        "X-EDH-USER": "{{ user }}"}
+api_endpoint = "{{ scheduler_host }}api/scheduler/job"
+data = {"job_id": "%YOUR_JOB_ID%", "scheduler_id": "{{openpbs_scheduler}}"}
+req = requests.get(api_endpoint, headers=hdrs, params=data, verify=False)
+print(req.status_code)
+print(req.json())</code></pre>
+                                </div>
+                                <p>{{ _("Both commands will return a JSON object with all information regarding your job.") }}</p>
+                            </div>
+                        </div>
+
+                        <br>
+                        <h5>
+                            <a href="#deleteJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
+                            {{ _("Delete a job") }}</a>
+                        </h5>
+                        <hr>
+                        <div class="collapse mt-3" id="deleteJob">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Bash") }}</h6>
+                                    <pre><code class="language-bash">
+curl -k -X DELETE \
+   -H "X-EDH-TOKEN: $YOUR_SCOPED_TOKEN" \
+   -H "X-EDH-USER: {{ user }}" \
+   -F job_id=%YOUR_JOB_ID% \
+   -F scheduler_id="{{openpbs_scheduler}}" \
+   {{ scheduler_host }}api/scheduler/job</code></pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>{{ _("Using Python") }}</h6>
+                                    <pre><code class="language-python">
+import requests
+hdrs = {"X-EDH-TOKEN": "YOUR_SCOPED_TOKEN",
+        "X-EDH-USER": "{{ user }}"}
+api_endpoint = "{{ scheduler_host }}api/scheduler/job"
+data = {"job_id": "%YOUR_JOB_ID%", "scheduler_id": "{{openpbs_scheduler}}"}
+req = requests.delete(api_endpoint, headers=hdrs, data=data, verify=False)
+print(req.status_code)
+print(req.json())</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Token Policy Card -->
+                <div class="col-md-5">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h3 class="mb-0">
+                            {{ _("Token Policy (System Settings)") }}
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">{{ _("These settings are enforced by your EDH administrator and apply to all user-created tokens.") }}</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" id="policyTable">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>{{ _("Max tokens per user") }}</strong></td>
+                                        <td id="policyMaxTokens"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{{ _("Max lifetime") }}</strong></td>
+                                        <td id="policyMaxLifetime"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{{ _("Unlimited lifetime allowed") }}</strong></td>
+                                        <td id="policyRequireExpiration"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{{ _("Renewal allowed") }}</strong></td>
+                                        <td id="policyRenewalAllowed"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{{ _("Max renewals per token") }}</strong></td>
+                                        <td id="policyMaxRenewals"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{{ _("Globally denied paths") }}</strong></td>
+                                        <td id="policyGlobalDeny"><span class="spinner-border spinner-border-sm"></span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <a class="scroll-to-top rounded" href="#page-top">
+        <i class="fas fa-angle-up"></i>
+    </a>
+</div>
+
+<!-- Create Token Modal -->
+<div class="modal fade" id="createTokenModal" tabindex="-1" aria-labelledby="createTokenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTokenModalLabel">
+                    {{ _("Create Scoped Token") }}
+                </h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createTokenForm">
+                    <div class="row mb-3">
+                        <label for="tokenName" data-toggle="tooltip" data-placement="top" title="{{ _('A unique name to help you identify this token (e.g. CI/CD, monitoring script)') }}" class="col-md-2 col-form-label"><i class="fa-solid fa-tag"></i> {{ _("Token Name") }}</label>
+                        <div class="col-md-10">
+                            <input type="text" class="form-control" id="tokenName" maxlength="100"
+                                   placeholder="{{ _('e.g. CI/CD Pipeline Token') }}" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="permissionTemplate" data-toggle="tooltip" data-placement="top" title="{{ _('Pre-configured permission sets for common use cases. Select one to auto-fill the permissions JSON below.') }}" class="col-md-2 col-form-label"><i class="fa-solid fa-clipboard-list"></i> {{ _("Template") }}</label>
+                        <div class="col-md-10">
+                            <select class="form-control" id="permissionTemplate" onchange="applyPermissionTemplate()">
+                                <option value="">{{ _("-- Select a template or customize below --") }}</option>
+                                <option value="scheduler_readonly">{{ _("Scheduler (read-only)") }}</option>
+                                <option value="scheduler_full">{{ _("Scheduler (submit, query, delete)") }}</option>
+                                <option value="vdi_user">{{ _("Virtual Desktops (user)") }}</option>
+                                <option value="vdi_readonly">{{ _("Virtual Desktops (read-only)") }}</option>
+                                <option value="file_manager">{{ _("File Manager") }}</option>
+                                <option value="full_readonly">{{ _("Full API (read-only)") }}</option>
+                                <option value="full_access">{{ _("Full API (all methods)") }}</option>
+                                <option value="custom">{{ _("Custom (edit JSON below)") }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="permissionsEditor" data-toggle="tooltip" data-placement="top" title="{{ _('JSON object defining which API paths and HTTP methods this token can access. Use allow/deny rules.') }}" class="col-md-2 col-form-label"><i class="fa-solid fa-shield-halved"></i> {{ _("Permissions") }}</label>
+                        <div class="col-md-10">
+                            <textarea class="form-control" id="permissionsEditor" rows="6">{"allow": {"/api/*": ["*"]}}</textarea>
+                            <div class="form-text">
+                                {{ _("Define allowed API paths and HTTP methods.") }}
+                                <a href="#permissionsReference" data-bs-toggle="collapse" role="button">{{ _("View available paths") }}</a>
+                            </div>
+                            <div class="collapse mt-2" id="permissionsReference">
+                                <div class="card card-body small" style="max-height: 300px; overflow-y: auto;">
+                                    <strong>{{ _("Format:") }}</strong> <code>{"allow": {"/api/path/*": ["GET","POST"]}, "deny": {"/api/path/*": ["DELETE"]}}</code>
+                                    <hr class="my-2">
+                                    <strong>{{ _("HTTP Methods:") }}</strong> <code>GET | POST | PUT | DELETE | * (all)</code>
+                                    <hr class="my-2">
+                                    <strong>{{ _("Available API Paths:") }}</strong>
+                                <a href="/api/doc?ui=swagger" target="_blank" rel="noopener,noreferrer"> {{ _("See the full list of endpoints and their methods in the API documentation.") }}</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="tokenLifetime" data-toggle="tooltip" data-placement="top" title="{{ _('How long this token remains valid. After expiration, the token can no longer authenticate requests.') }}" class="col-md-2 col-form-label"><i class="fa-solid fa-clock"></i> {{ _("Lifetime") }}</label>
+                        <div class="col-md-10">
+                            <select class="form-control" id="tokenLifetime">
+                                <option value="3600">{{ _("1 hour") }}</option>
+                                <option value="28800">{{ _("8 hours") }}</option>
+                                <option value="86400">{{ _("24 hours") }}</option>
+                                <option value="604800">{{ _("7 days") }}</option>
+                                <option value="2592000" selected>{{ _("30 days") }}</option>
+                                <option value="7776000">{{ _("90 days") }}</option>
+                                <option value="0">{{ _("Unlimited (no expiration)") }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label data-toggle="tooltip" data-placement="top" title="{{ _('When enabled, you can extend the token expiration before it expires without generating a new secret.') }}" class="col-md-2 col-form-label"><i class="fa-solid fa-arrows-rotate"></i> {{ _("Renewable") }}</label>
+                        <div class="col-md-10 d-flex align-items-center">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="tokenRenewable" checked>
+                                <label class="form-check-label" for="tokenRenewable">
+                                    {{ _("Allow extending this token's expiration before it expires.") }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div id="createTokenError" class="alert alert-danger mt-3" style="display:none;">
+                    <span id="createTokenErrorMsg"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                <button type="button" class="btn btn-primary" id="createTokenSubmit" onclick="createToken()">
+                    {{ _("Create Token") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Permissions Modal -->
+<div class="modal fade" id="viewPermissionsModal" tabindex="-1" aria-labelledby="viewPermissionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewPermissionsModalLabel">
+                    {{ _("Token Permissions") }}
+                </h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h6 id="viewPermissionsTokenName" class="mb-3"></h6>
+                <pre id="viewPermissionsContent" style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 12px; border-radius: 4px;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Close") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revoke Confirmation Modal -->
+<div class="modal fade" id="revokeTokenModal" tabindex="-1" aria-labelledby="revokeTokenModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="revokeTokenModalLabel">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> {{ _("Revoke Token") }}
+                </h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>{{ _("Are you sure you want to revoke") }} <strong id="revokeTokenName"></strong>?</p>
+                <div class="alert alert-danger">
+                    {{ _("This action cannot be undone. Any script or application using this token will immediately lose access.") }}
+                </div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="revokeConfirmCheck" onchange="toggleRevokeBtn()">
+                    <label class="form-check-label" for="revokeConfirmCheck">
+                        {{ _("I understand this token will be permanently revoked.") }}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                <button type="button" class="btn btn-danger" id="confirmRevokeBtn" onclick="confirmRevoke()" disabled>
+                    <i class="fas fa-trash"></i> {{ _("Revoke") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var currentUser = "{{ user }}";
+
+var PERMISSION_TEMPLATES = {
+    scheduler_readonly: {allow: {"/api/scheduler/*": ["GET"]}},
+    scheduler_full: {allow: {"/api/scheduler/*": ["GET", "POST", "DELETE"]}},
+    vdi_user: {allow: {"/api/dcv/virtual_desktops/*": ["GET", "POST", "DELETE"]}},
+    vdi_readonly: {allow: {"/api/dcv/virtual_desktops/list": ["GET"], "/api/dcv/virtual_desktops/software_stacks": ["GET"]}},
+    file_manager: {allow: {"/api/system/files": ["GET", "POST", "PUT", "DELETE"]}},
+    full_readonly: {allow: {"/api/*": ["GET"]}},
+    full_access: {allow: {"/api/*": ["*"]}}
+};
+
+function applyPermissionTemplate() {
+    var key = $("#permissionTemplate").val();
+    if (key && PERMISSION_TEMPLATES[key]) {
+        $("#permissionsEditor").val(JSON.stringify(PERMISSION_TEMPLATES[key], null, 2));
+    }
+}
+
+function viewPermissions(tokenName, permissions) {
+    $("#viewPermissionsTokenName").text(tokenName);
+    var formatted = permissions ? JSON.stringify(permissions, null, 2) : "No permissions set";
+    $("#viewPermissionsContent").text(formatted);
+    var modal = new bootstrap.Modal(document.getElementById("viewPermissionsModal"));
+    modal.show();
+}
+
+$(document).ready(function() {
+    loadTokens();
+    loadPolicy();
+    $("#createTokenModal").on("show.bs.modal", function() {
+        hideModalError();
+    });
+});
+
+function showError(msg) {
+    $("#errorMessage").text(msg);
+    $("#errorAlert").show().addClass("show");
+}
+
+function hideError() {
+    $("#errorAlert").hide().removeClass("show");
+}
+
+function loadTokens() {
+    $("#tokensLoading").show();
+    $("#tokensTableWrapper").hide();
+    $("#tokensEmpty").hide();
+
+    $.ajax({
+        url: "/api/user/tokens",
+        type: "GET",
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            $("#tokensLoading").hide();
+            var tokens = data.message || data.tokens || [];
+            if (!Array.isArray(tokens)) tokens = [];
+            if (tokens.length === 0) {
+                $("#tokensEmpty").show();
+            } else {
+                renderTokensTable(tokens);
+                $("#tokensTableWrapper").show();
+            }
+        },
+        error: function(xhr) {
+            $("#tokensLoading").hide();
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to load tokens") : "Failed to load tokens";
+            showError(msg);
+        }
+    });
+}
+
+function renderTokensTable(tokens) {
+    var tbody = $("#tokensBody");
+    tbody.empty();
+
+    tokens.forEach(function(token) {
+        var permSummary = getPermissionsSummary(token.permissions);
+        var expiresDisplay = token.expires_at ? relativeTime(token.expires_at) : "Never";
+        var lastUsedDisplay = token.last_used_at ? relativeTime(token.last_used_at) : "Never";
+        var createdDisplay = token.created_at ? formatDate(token.created_at) : "-";
+        var isExpired = token.expires_at && new Date(token.expires_at) < new Date();
+
+        var actions = '<button class="btn btn-sm btn-outline-danger" onclick="revokeToken(\'' + token.id + '\', \'' + escapeHtml(token.name) + '\')">' +
+                      '<i class="fas fa-trash"></i> Revoke</button>';
+
+        if (token.renewable && !isExpired) {
+            actions += ' <button class="btn btn-sm btn-outline-primary" onclick="renewToken(\'' + token.id + '\')">' +
+                       '<i class="fas fa-sync"></i> Renew</button>';
+        }
+
+        var rowClass = isExpired ? "token-expired" : "";
+        var expiredBadge = isExpired ? ' <span class="badge bg-danger">Expired</span>' : "";
+
+        var row = '<tr class="' + rowClass + '">' +
+            '<td><strong>' + escapeHtml(token.name) + '</strong>' + expiredBadge + '</td>' +
+            '<td><code>' + escapeHtml(token.hint || "***") + '</code></td>' +
+            '<td><span class="badge bg-info permissions-badge text-white" style="cursor:pointer;" onclick=\'viewPermissions(' + JSON.stringify(escapeHtml(token.name)) + ', ' + JSON.stringify(token.permissions) + ')\'>' + escapeHtml(permSummary) + ' <i class="fas fa-eye fa-xs"></i></span></td>' +
+            '<td>' + escapeHtml(expiresDisplay) + '</td>' +
+            '<td>' + escapeHtml(lastUsedDisplay) + '</td>' +
+            '<td>' + escapeHtml(createdDisplay) + '</td>' +
+            '<td>' + actions + '</td>' +
+            '</tr>';
+
+        tbody.append(row);
+    });
+}
+
+function getPermissionsSummary(permissions) {
+    if (!permissions) return "No restrictions";
+    var allow = permissions.allow || permissions;
+    if (typeof allow === "object") {
+        var pathCount = Object.keys(allow).length;
+        return pathCount + " path" + (pathCount !== 1 ? "s" : "") + " allowed";
+    }
+    return "Custom";
+}
+
+function relativeTime(dateStr) {
+    var date = new Date(dateStr);
+    var now = new Date();
+    var diffMs = date - now;
+    var diffSec = Math.round(diffMs / 1000);
+    var diffMin = Math.round(diffSec / 60);
+    var diffHr = Math.round(diffMin / 60);
+    var diffDay = Math.round(diffHr / 24);
+
+    if (diffMs < 0) {
+        var absSec = Math.abs(diffSec);
+        var absMin = Math.abs(diffMin);
+        var absHr = Math.abs(diffHr);
+        var absDay = Math.abs(diffDay);
+        if (absSec < 60) return absSec + "s ago";
+        if (absMin < 60) return absMin + "m ago";
+        if (absHr < 24) return absHr + "h ago";
+        return absDay + "d ago";
+    } else {
+        if (diffSec < 60) return "in " + diffSec + "s";
+        if (diffMin < 60) return "in " + diffMin + "m";
+        if (diffHr < 24) return "in " + diffHr + "h";
+        return "in " + diffDay + "d";
+    }
+}
+
+function formatDate(dateStr) {
+    var d = new Date(dateStr);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+function showModalError(msg) {
+    $("#createTokenErrorMsg").text(msg);
+    $("#createTokenError").show();
+}
+
+function hideModalError() {
+    $("#createTokenError").hide();
+}
+
+function createToken() {
+    hideModalError();
+    var name = $("#tokenName").val().trim();
+    if (!name) {
+        showModalError("Token name is required.");
+        return;
+    }
+    if (name.length > 100) {
+        showModalError("Token name must be 100 characters or fewer.");
+        return;
+    }
+
+    var permText = $("#permissionsEditor").val().trim();
+    var permissions = null;
+    if (permText) {
+        try {
+            permissions = JSON.parse(permText);
+        } catch (e) {
+            showModalError("Invalid JSON in permissions field: " + e.message);
+            return;
+        }
+    }
+
+    var lifetimeSeconds = parseInt($("#tokenLifetime").val());
+    var lifetimeHours = lifetimeSeconds === 0 ? 0 : Math.max(1, Math.round(lifetimeSeconds / 3600));
+    var renewable = $("#tokenRenewable").is(":checked");
+
+    var payload = {
+        name: name,
+        lifetime_hours: lifetimeHours,
+        renewable: renewable
+    };
+    if (permissions) {
+        payload.permissions = permissions;
+    }
+
+    $("#createTokenSubmit").prop("disabled", true).html('<i class="fas fa-spinner fa-spin"></i> Creating...');
+
+    $.ajax({
+        url: "/api/user/tokens",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(payload),
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            $("#createTokenSubmit").prop("disabled", false).html('Create Token');
+            hideModalError();
+            var modal = bootstrap.Modal.getInstance(document.getElementById("createTokenModal"));
+            modal.hide();
+            $("#createTokenForm")[0].reset();
+            $("#permissionTemplate").val("");
+            $("#permissionsEditor").val('{"allow": {"/api/*": ["*"]}}');
+
+            var result = data.message || data;
+            var tokenValue = (typeof result === "object") ? (result.token || "") : result;
+            $("#newTokenValue").text(tokenValue);
+            $("#tokenCreatedAlert").show().addClass("show");
+
+            loadTokens();
+        },
+        error: function(xhr) {
+            $("#createTokenSubmit").prop("disabled", false).html('Create Token');
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to create token") : "Failed to create token";
+            showModalError(msg);
+        }
+    });
+}
+
+var _pendingRevokeTokenId = null;
+
+function toggleRevokeBtn() {
+    $("#confirmRevokeBtn").prop("disabled", !$("#revokeConfirmCheck").is(":checked"));
+}
+
+function revokeToken(tokenId, tokenName) {
+    _pendingRevokeTokenId = tokenId;
+    $("#revokeTokenName").text(tokenName);
+    $("#revokeConfirmCheck").prop("checked", false);
+    $("#confirmRevokeBtn").prop("disabled", true);
+    var modal = new bootstrap.Modal(document.getElementById("revokeTokenModal"));
+    modal.show();
+}
+
+function confirmRevoke() {
+    if (!_pendingRevokeTokenId) return;
+    hideError();
+    var tokenId = _pendingRevokeTokenId;
+    _pendingRevokeTokenId = null;
+
+    var modal = bootstrap.Modal.getInstance(document.getElementById("revokeTokenModal"));
+    modal.hide();
+
+    $.ajax({
+        url: "/api/user/tokens/" + encodeURIComponent(tokenId),
+        type: "DELETE",
+        xhrFields: { withCredentials: true },
+        success: function(data) { loadTokens(); },
+        error: function(xhr) {
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to revoke token") : "Failed to revoke token";
+            showError(msg);
+        }
+    });
+}
+
+function renewToken(tokenId) {
+    hideError();
+
+    $.ajax({
+        url: "/api/user/tokens/" + encodeURIComponent(tokenId) + "/renew",
+        type: "POST",
+        xhrFields: { withCredentials: true },
+        success: function(data) { loadTokens(); },
+        error: function(xhr) {
+            var msg = xhr.responseJSON ? (xhr.responseJSON.message || "Failed to renew token") : "Failed to renew token";
+            showError(msg);
+        }
+    });
+}
+
+function copyNewToken() {
+    var tokenText = $("#newTokenValue").text();
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(tokenText).then(function() {
+            $("#copyTokenBtn").html('<i class="fas fa-check"></i> Copied!');
+            setTimeout(function() { $("#copyTokenBtn").html('<i class="fas fa-copy"></i> Copy to Clipboard'); }, 2000);
+        });
+    } else {
+        var textArea = document.createElement("textarea");
+        textArea.value = tokenText;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        $("#copyTokenBtn").html('<i class="fas fa-check"></i> Copied!');
+        setTimeout(function() { $("#copyTokenBtn").html('<i class="fas fa-copy"></i> Copy to Clipboard'); }, 2000);
+    }
+}
+
+function loadPolicy() {
+    $.ajax({
+        url: "/api/user/tokens/policy",
+        type: "GET",
+        xhrFields: { withCredentials: true },
+        success: function(data) {
+            var policy = data.message || data.policy || data;
+            if (typeof policy !== "object") return;
+
+            if (policy.require_expiration) {
+                $('#tokenLifetime option[value="0"]').hide();
+            }
+
+            var maxSeconds = (policy.max_lifetime_hours || 720) * 3600;
+            $('#tokenLifetime option').each(function() {
+                var val = parseInt($(this).val());
+                if (val > maxSeconds && val !== 0) {
+                    $(this).hide();
+                }
+            });
+
+            $("#policyMaxTokens").text(policy.max_tokens_per_user || "5");
+
+            var maxHours = policy.max_lifetime_hours || 720;
+            if (maxHours >= 720) {
+                $("#policyMaxLifetime").text(Math.round(maxHours / 24) + " days");
+            } else {
+                $("#policyMaxLifetime").text(maxHours + " hours");
+            }
+
+            $("#policyRequireExpiration").html(
+                policy.require_expiration
+                    ? '<span class="badge badge-warning text-dark">No</span>'
+                    : '<span class="badge badge-success">Yes</span>'
+            );
+
+            $("#policyRenewalAllowed").html(
+                policy.renewal_allowed
+                    ? '<span class="badge badge-success">Yes</span>'
+                    : '<span class="badge badge-warning text-dark">No</span>'
+            );
+
+            $("#policyMaxRenewals").text(
+                policy.max_renewals ? policy.max_renewals : "Unlimited"
+            );
+
+            var globalDeny = policy.global_deny || {};
+            var denyPaths = Object.keys(globalDeny);
+            if (denyPaths.length === 0) {
+                $("#policyGlobalDeny").html('<span class="text-muted">None</span>');
+            } else {
+                var html = '<ul class="mb-0 ps-3">';
+                denyPaths.forEach(function(path) {
+                    var methods = globalDeny[path];
+                    var methodStr = (methods.indexOf("*") >= 0) ? "ALL methods" : methods.join(", ");
+                    html += '<li><code>' + path + '</code> &mdash; ' + methodStr + '</li>';
+                });
+                html += '</ul>';
+                $("#policyGlobalDeny").html(html);
+            }
+        },
+        error: function() {
+            $("#policyTable td:nth-child(2)").text("Unable to load");
+        }
+    });
+}
+</script>
+
+<script>
+$(document).ready(function () {
+    $('[data-toggle="tooltip"]').tooltip()
+})
+</script>
+
+{% include 'common/footer.html' %}
+
+</body>
+
+</html>

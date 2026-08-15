@@ -4,6 +4,7 @@
 import logging
 from decorators import login_required, feature_flag
 from flask import Blueprint, render_template, session, redirect
+from flask_babel import gettext as _
 from utils.config import SocaConfig
 from utils.http_client import SocaHttpClient
 from utils.aws.boto3_wrapper import get_boto
@@ -20,7 +21,7 @@ def setup_job():
     logger.info(f"Preparing EKS job with data {request.form.to_dict()}")
     _image_uri = request.form.to_dict().get("image_uri", None)
     if not _image_uri:
-        flash("Please select an image to run your job", "error")
+        flash(_("Please select an image to run your job"), "error")
         return redirect("/containers/images")
 
     _get_eks_cluster = SocaHttpClient(
@@ -33,7 +34,7 @@ def setup_job():
         _eks_clusters = _get_eks_cluster.get("message")
     else:
         logger.error(f"Unable to list EKS clusters image because of {_get_eks_cluster}")
-        flash(f"Unable to list your clusters images due to {_get_eks_cluster.get('message')}", "error")
+        flash(_(f"Unable to list your clusters images due to {_get_eks_cluster.get('message')}"), "error")
         _eks_clusters = []
 
     _soca_cluster_id = (
@@ -59,9 +60,10 @@ def submit_job():
         headers={"X-EDH-USER": session["user"], "X-EDH-TOKEN": session["api_key"]},
     ).post(request.form.to_dict())
     if _submit_job.get("success") is True:
-        flash(f"Your job was submitted successfully", "success")
+        flash(_(f"Your job was submitted successfully"), "success")
         return redirect("/containers/eks/list")
     else:
+        # i18n: message is a dynamic API response — translate at the API layer
         flash(
             _submit_job.get("message"),
             "error",
@@ -119,14 +121,14 @@ def list_jobs():
                 logger.error(
                     f"Unable to list job for cluster {cluster} because of {_get_job_for_cluster}"
                 )
-                flash(
-                    f"{_get_job_for_cluster.get('message')}",
+                flash(_(
+                    f"{_get_job_for_cluster.get('message')}"),
                     "error",
                 )
 
     except Exception as err:
         logger.error(f"Error listing containers: {err}")
-        flash(f"Failed to list containers: {err}", "error")
+        flash(_(f"Failed to list containers: {err}"), "error")
 
     logger.debug(f"Detected jobs {_containers}")
     return render_template(
@@ -148,8 +150,9 @@ def delete_job():
         },
     ).delete(data=request.args.to_dict())
     if _delete_job.get("success") is True:
-        flash(f"Your job was deleted successfully", "success")
+        flash(_(f"Your job was deleted successfully"), "success")
     else:
+        # i18n: message is a dynamic API response — translate at the API layer
         flash(
             _delete_job.get("message"),
             "error",

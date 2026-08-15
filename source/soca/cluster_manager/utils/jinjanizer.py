@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from jinja2 import (
-    Environment,
     FileSystemLoader,
     select_autoescape,
-    Template,
     TemplateError,
+    TemplateSyntaxError,
 )
+from jinja2.sandbox import SandboxedEnvironment
 from utils.cast import SocaCastEngine
 from utils.error import SocaError
 from utils.response import SocaResponse
@@ -18,8 +18,18 @@ import sys
 import pathlib
 from types import SimpleNamespace
 
-
 logger = logging.getLogger("soca_logger")
+
+
+def _finalize_canonical(value):
+    # autocast() types vars so {% if %} works, but renders bool as Python
+    # "True"/"False"; bootstrap shell/config consumers need lowercase, so
+    # normalize bool OUTPUT here (identity checks leave int/None/str untouched).
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return value
 
 
 class SocaJinja2Renderer:
@@ -28,15 +38,31 @@ class SocaJinja2Renderer:
     """
 
     @staticmethod
+    def validate_template(data: str):
+        try:
+            SandboxedEnvironment().parse(data)
+            return SocaResponse(success=True, message="Template syntax is valid")
+        except TemplateSyntaxError as err:
+            return SocaError.JINJA_GENERATOR_ERROR(
+                helper=f"Template syntax is invalid: {err}"
+            )
+        except Exception as err:
+            return SocaError.JINJA_GENERATOR_ERROR(helper=f"{err}")
+
+    @staticmethod
     def from_string(data: str, variables: dict):
-        template = Template(data)
         if not isinstance(variables, dict):
             return SocaError.JINJA_GENERATOR_ERROR(
                 helper=f"Unable to cast {variables} as dict. Verify format"
             )
         try:
+            template = SandboxedEnvironment().from_string(data)
             _rendered_user_data = template.render(**variables)
             return SocaResponse(success=True, message=_rendered_user_data)
+        except TemplateSyntaxError as err:
+            return SocaError.JINJA_GENERATOR_ERROR(
+                helper=f"Your template syntax is invalid. Wrap your code inside raw/endraw if needed. Error: {err}"
+            )
         except Exception as err:
             return SocaError.JINJA_GENERATOR_ERROR(helper=f"{err}")
 
@@ -61,9 +87,10 @@ class SocaJinja2Generator:
             )
 
         logger.debug(f"Jinja2 template dir: {self._template_dirs}")
-        _jinja2_env = Environment(
+        _jinja2_env = SandboxedEnvironment(
             loader=FileSystemLoader(self._template_dirs),
             extensions=["jinja2.ext.do"],
+            finalize=_finalize_canonical,
             autoescape=select_autoescape(
                 enabled_extensions=("j2", "jinja2"),
                 default_for_string=True,

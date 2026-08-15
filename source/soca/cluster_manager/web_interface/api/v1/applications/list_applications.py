@@ -5,6 +5,7 @@ from flask_restful import Resource, reqparse
 import logging
 from utils.response import SocaResponse
 from utils.error import SocaError
+from utils.cast import SocaCastEngine
 from decorators import admin_api, feature_flag
 from models import ApplicationProfiles
 
@@ -63,8 +64,8 @@ class ListApplications(Resource):
                       type: boolean
                       example: true
                     message:
-                      type: object
-                      additionalProperties:
+                      type: array
+                      items:
                         type: object
                         properties:
                           id:
@@ -141,7 +142,14 @@ class ListApplications(Resource):
         try:
             _application_profiles = []
             if _application_id:
-                _profile = ApplicationProfiles.query.filter_by(id=_application_id).first()
+                _app_id_cast = SocaCastEngine(data=_application_id).cast_as(int)
+                _profile = (
+                    ApplicationProfiles.query.filter_by(
+                        id=_app_id_cast.get("message")
+                    ).first()
+                    if _app_id_cast.get("success") is True
+                    else None
+                )
                 if _profile:
                     _application_profiles = [_profile]
                 else:

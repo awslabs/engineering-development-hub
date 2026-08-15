@@ -1,3 +1,12 @@
 *.css linguist-vendored
 *.scss linguist-vendored
 *.js linguist-vendored
+
+# Custom merge driver for gettext .po catalogs.
+# See docs/I18n.md §12.5. Requires a one-time per-clone setup:
+#   git config merge.po.driver "scripts/git_po_merge.sh %O %A %B"
+#   git config merge.po.name   "gettext PO catalog merger"
+# Without that config, git falls back to the default line-based merge (same
+# as today), so this attribute is safe to commit — it opts in per clone.
+*.po merge=po
+*.pot merge=po

@@ -5,6 +5,8 @@ import logging
 from extensions import db
 from models import VirtualDesktopSessions
 import utils.aws.boto3_wrapper as utils_boto3
+from utils.config import SocaConfig
+from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 import config
 from sqlalchemy.orm import Session
@@ -19,6 +21,46 @@ from flask import Flask
 logger = logging.getLogger("scheduled_tasks_virtual_desktops_session_error_watcher")
 
 client_ssm = utils_boto3.get_boto(service_name="ssm").message
+
+
+def is_high_scale_enabled() -> bool:
+    """
+    True if the cluster is running in DCV high-scale (broker) mode.
+
+    In broker mode, session_state_watcher.py validates session health
+    by querying the broker every 1 minute -- which is more frequent than
+    this 5-minute error watcher anyway. Running a parallel SSM-based
+    check from this watcher would be (a) redundant, (b) hostile (SSM
+    timeouts can cause spurious "session not reachable" blips in the
+    WebUI), so we skip this watcher entirely in high-scale mode.
+
+    Reads /dcv/high_scale_enabled -- the canonical persisted flag (matches
+    create_virtual_desktop.py, list_virtual_desktops.py, session_state_watcher.py,
+    etc). /configuration/DcvHighScale is a render-only variable that is
+    never persisted to SSM -- reading it here always fell through to the
+    "false" default, permanently caching False and letting this watcher's
+    SSM-probe path run on every high-scale cluster (exactly the "hostile"
+    behavior the docstring above says this function exists to prevent).
+    """
+    if not hasattr(is_high_scale_enabled, "_cached"):
+        try:
+            # Canonical persisted flag is /dcv/high_scale_enabled (matches
+            # create/list/render). /configuration/DcvHighScale is a render-only
+            # var, never persisted -> defaulted false -> this watcher never
+            # skipped and false-errored console broker sessions.
+            _resp = SocaConfig(key="/dcv/high_scale_enabled").get_value(
+                default="false", allow_unknown_key=True
+            )
+            _val = _resp.message if _resp.success else "false"
+            _cast = SocaCastEngine(_val).cast_as(bool)
+            is_high_scale_enabled._cached = _cast.message if _cast.success else False
+        except Exception as _err:
+            logger.warning(
+                f"is_high_scale_enabled: could not read /dcv/high_scale_enabled, "
+                f"defaulting to False: {_err}"
+            )
+            is_high_scale_enabled._cached = False
+    return is_high_scale_enabled._cached
 
 
 def chunked_iterable(iterable: Iterable[TypeVar], chunk_size: int) -> Iterator[List]:
@@ -37,6 +79,16 @@ def process_chunk(
     _db_scoped_session = db.session
     try:
         logger.info(f"Processing chunk {sessions}")
+
+        if is_high_scale_enabled():
+            logger.info(
+                "High-scale mode -- skipping session_error_watcher SSM check "
+                "(state_watcher validates session health via broker every 1 min)"
+            )
+            return SocaResponse(
+                success=True,
+                message="Skipped in high-scale mode (broker is source of truth)",
+            )
 
         if config.Config.DCV_VERIFY_SESSION_HEALTH is True:
             validate_dcv_session(

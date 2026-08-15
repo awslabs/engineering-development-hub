@@ -1,0 +1,106 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ _("EDH Terminal") }} - {{ user }}</title>
+
+    {# Pop-out window is kiosk-style: no navbar, no side menu. Just the
+       tab bar + terminals. Shared CSS + JS modules in static/. #}
+    <link rel="stylesheet" href="/static/vendor/xterm/xterm.min.css" />
+    <link rel="stylesheet" href="/static/css/webshell_tabs.css" />
+    <script src="/static/vendor/xterm/xterm.min.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-fit.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+        }
+        #edh-tab-bar { }   /* uses .edh-tab-bar base style via modifier class */
+        .edh-terminal-container { position: absolute; top: 34px; left: 0; right: 0; bottom: 0; }
+    </style>
+</head>
+<body>
+    <div id="edh-tab-bar" class="edh-tab-bar">
+        <div id="edh-new-tab" class="edh-new-tab" title="{{ _("New terminal tab (Ctrl+Shift+T)") }}">+</div>
+    </div>
+    <div id="edh-terminals" class="edh-terminal-container">
+        <div id="edh-empty-state" class="edh-empty-state" style="display:none">
+            {{ _("No open terminals.") }}<br>
+            <button id="edh-new-tab-empty">{{ _("Start a new terminal on an EDH Login Node") }}</button>
+            <hr>
+            <div class="alert alert-primary">
+                {{ _("Closing tabs or this window leaves them running so you can resume later.") }} <br>
+                {{ _("Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it.") | safe }}
+                <hr>
+                {{ _("Please wait to 15 minutes after launching a new login node before being able to spawn terminal session on it") }}
+            </div>
+        </div>
+    </div>
+
+    <script id="edh-popout-i18n" type="application/json">
+    {
+        "connecting":     {{ _("Connecting...")|tojson }},
+        "connected":      {{ _("Connected")|tojson }},
+        "disconnected":   {{ _("Disconnected")|tojson }},
+        "detached":       {{ _("Detached")|tojson }},
+        "auth_failed":    {{ _("Authentication failed. Close this window and open a new pop-out from the main SSH page.")|tojson }},
+        "ws_error":       {{ _("WebSocket error")|tojson }},
+        "detach_tab":     {{ _("Detach (session keeps running)")|tojson }},
+        "kill_tab":       {{ _("End session (terminates tmux)")|tojson }},
+        "confirm_kill":   {{ _("End this terminal session? The remote tmux will be terminated.")|tojson }},
+        "last_tab_close": {{ _("This is the last tab. Close the window?")|tojson }}
+    }
+    </script>
+
+    <script src="/static/js/webshell_tabs.js"></script>
+    <script>
+    (function() {
+        const i18n = JSON.parse(document.getElementById('edh-popout-i18n').textContent);
+        const initialSessionLabel = {{ session_label|tojson }};
+
+        // Each pop-out window uses window.name as a persistent id ONLY for
+        // the local sessionStorage key (so two popout windows in the same
+        // browser don't clobber each other's UI state). The label PREFIX
+        // is shared with the inline page (`main-`) so a tab created in
+        // either window appears under the same name in the other after
+        // discovery -- that prevents orphan sessions when the user pops
+        // a tab out (or back) without realising the labels diverged.
+        if (!window.name || !window.name.startsWith('edhpop-')) {
+            window.name = 'edhpop-' + Math.random().toString(36).slice(2, 8);
+        }
+        const windowId = window.name.replace('edhpop-', '');
+
+        const manager = new WebshellTabManager({
+            tabBar: document.getElementById('edh-tab-bar'),
+            termContainer: document.getElementById('edh-terminals'),
+            emptyState: document.getElementById('edh-empty-state'),
+            labelPrefix: 'main-',
+            storageKey: `edh_popout_tabs_${windowId}`,
+            csrfToken: "{{ csrf_token() | safe }}",
+            i18n,
+            autoOpen: true,
+            closeWindowOnLastTab: true,
+            initialLabel: initialSessionLabel,
+        });
+        document.getElementById('edh-new-tab-empty').addEventListener(
+            'click', () => manager.createTab()
+        );
+
+        if (document.readyState === 'complete') {
+            manager.init();
+        } else {
+            window.addEventListener('load', () => manager.init());
+        }
+    })();
+    </script>
+</body>
+</html>

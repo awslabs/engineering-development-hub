@@ -20,6 +20,7 @@
     local MOUNT_PATH
     local MOUNT_OPTIONS
     local ON_MOUNT_FAILURE
+    local FS_NAME
     for arg in "$@"; do
         case $arg in
             --mount-target=*) MOUNT_TARGET="${arg#*=}" ;;
@@ -27,6 +28,7 @@
             --mount-options=*) MOUNT_OPTIONS="${arg#*=}" ;;
             --on-mount-failure=*) ON_MOUNT_FAILURE="${arg#*=}" ;;
             --enabled=*) ENABLED="${arg#*=}" ;;
+            --filesystem-name=*) FS_NAME="${arg#*=}" ;;
             *) exit_fail "Unknown arg ${arg} for mount_efs";;
         esac
     done
@@ -81,6 +83,10 @@
           exit_fail "Unable to determine StorageVirtualMachines[].Endpoints.Nfs.DNSName for ${FSX_VOLUME_SVM_ID}. API Result ${FSX_DESCRIBE_SVM}"
         fi
 
+        # SMB/CIFS endpoint -- only present on multi-protocol (AD-joined) SVMs. Optional:
+        # used by the controller to publish the CIFS mount info to SSM for Windows VDIs.
+        local SMB_DNS_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[].Endpoints.Smb.DNSName // "NO_VALUE"' )
+
         local DS_DOMAIN_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // "NO_VALUE"')
         if [[ ${DS_DOMAIN_NAME} == "NO_VALUE" ]]; then
           log_warning "Unable to determine AD Domain Name for ${FSX_VOLUME_SVM_ID}, group membership may default to nobody. API Result ${FSX_DESCRIBE_SVM}"
@@ -112,9 +118,26 @@
         if [[ "${FSX_VOLUME_TAG_ONTAP_FIRST_SETUP}" == "true" ]]; then
           log_info "Tag edh:OntapFirstSetup = true exist on this FSx for NetApp ONTAP, processing to CIFS share creation and SVM conf"
           {% include "templates/linux/shared_storage/fsx/ontap/first_setup.sh.j2" %}
-          fsx_ontap_first_setup "${MOUNT_TARGET}"
+          fsx_ontap_first_setup "${MOUNT_TARGET}" "${FS_NAME}"
         else
           log_info "edh:OntapFirstSetup not present or not true, fsx_ontap_first_setup is not needed"
+        fi
+
+        # Publish the SMB endpoint (AWS-assigned, from the FSx API) to SSM so Windows
+        # VDIs can build the CIFS UNC without any FSx API calls. The CIFS *share name*
+        # is admin-owned config (cifs_share_name set via 'edhctl filesystems') and is
+        # NOT derived here -- ONTAP share names are not always based on the junction path.
+        # Controller-only (compute nodes have no ssm:PutParameter), idempotent.
+        # Fires at controller bootstrap (EC2 user-data, run-once at launch), NOT on
+        # every OS reboot; re-publishes on controller relaunch. Skipped for NFS-only SVMs.
+        if [[ -n "${FS_NAME}" && "${SMB_DNS_NAME}" != "NO_VALUE" && -n "${SMB_DNS_NAME}" ]]; then
+          local FS_SSM_BASE="/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems/${FS_NAME}"
+          log_info "Publishing SMB endpoint for FileSystem '${FS_NAME}' to SSM: smb_dns=${SMB_DNS_NAME}"
+          if ! aws_cli ssm put-parameter --name "${FS_SSM_BASE}/smb_dns" --value "${SMB_DNS_NAME}" --type "String" --overwrite >/dev/null; then
+            log_warning "Failed to publish ${FS_SSM_BASE}/smb_dns to SSM; Windows auto-mount may be unavailable for ${FS_NAME}"
+          fi
+        else
+          log_info "No SMB endpoint for FileSystem '${FS_NAME:-unknown}' (NFS-only SVM) or filesystem-name not provided; skipping SMB SSM publish."
         fi
       fi
 

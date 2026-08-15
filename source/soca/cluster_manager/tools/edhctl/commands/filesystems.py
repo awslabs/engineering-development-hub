@@ -9,6 +9,7 @@ from commands.common import print_output, is_controller_instance, confirm
 from commands.config import set as config_set
 from commands.config import get as config_get
 from commands.config import key_exists as config_key_exists
+from utils.validators import Validators
 
 
 @click.group()
@@ -124,6 +125,19 @@ def get(ctx, key, output, flatten):
     help="Enable the filesystem",
 )
 @click.option(
+    "-d",
+    "--mount-drive-letter",
+    type=str,
+    required=False,
+    help="(fsx_ontap only) Windows drive letter (A-Z) to auto-map the CIFS share to on Windows VDIs. Recommend F or later -- A-E are commonly used by system/instance-store-scratch/CD-ROM; any letter already in use on the instance is skipped. Opt-in: omit to disable Windows auto-mount for this filesystem.",
+)
+@click.option(
+    "--cifs-share-name",
+    type=str,
+    required=False,
+    help="(fsx_ontap only) OPTIONAL override of the CIFS/SMB share name to map on Windows VDIs. For shares EDH creates, the controller auto-publishes the correct name -- leave this UNSET. Set it only to map a share EDH did not create, or one renamed from the default.",
+)
+@click.option(
     "--force",
     is_flag=True,
     default=False,
@@ -140,6 +154,8 @@ def set(
     mount_options,
     on_mount_failure,
     enabled,
+    mount_drive_letter,
+    cifs_share_name,
     force,
 ):
 
@@ -200,6 +216,41 @@ def set(
             error=True,
         )
 
+    # mount_drive_letter is opt-in and only meaningful for fsx_ontap (the only
+    # multi-protocol provider with a CIFS/SMB endpoint). Normalize "z" / "Z" / "Z:" -> "Z:".
+    if mount_drive_letter:
+        if provider != "fsx_ontap":
+            print_output(
+                message="--mount-drive-letter is only supported for provider fsx_ontap",
+                error=True,
+            )
+        _drive = mount_drive_letter.rstrip(":").upper()
+        if not re.match(r"^[A-Z]$", _drive):
+            print_output(
+                message="--mount-drive-letter must be a single letter A-Z",
+                error=True,
+            )
+        mount_drive_letter = f"{_drive}:"
+
+    if cifs_share_name:
+        if provider != "fsx_ontap":
+            print_output(
+                message="--cifs-share-name is only supported for provider fsx_ontap",
+                error=True,
+            )
+        if "\\" in cifs_share_name or "/" in cifs_share_name or Validators.is_string_length_greater_than(cifs_share_name, 80):
+            print_output(
+                message="--cifs-share-name must be a valid CIFS share name (no slashes, 80 chars max)",
+                error=True,
+            )
+
+    # For EDH-created shares the controller auto-publishes cifs_share_name, so a drive
+    # letter alone is sufficient. Only warn when a share name is given without a letter.
+    if cifs_share_name and not mount_drive_letter:
+        print_output(
+            message="Note: --cifs-share-name has no effect without --mount-drive-letter; set a drive letter to enable Windows auto-mount."
+        )
+
     # Reminder: All SSM keys are stored as str
     _ssm_keys = {
         f"/configuration/FileSystems/{filesystem_name}/provider": str(provider),
@@ -213,6 +264,17 @@ def set(
             mount_options
         ),
     }
+
+    # Sparse: only written when the admin opted in. smb_dns is NOT set here -- it is
+    # resolved and published by the controller (from the FSx API) at mount time.
+    if mount_drive_letter:
+        _ssm_keys[
+            f"/configuration/FileSystems/{filesystem_name}/mount_drive_letter"
+        ] = str(mount_drive_letter)
+    if cifs_share_name:
+        _ssm_keys[
+            f"/configuration/FileSystems/{filesystem_name}/cifs_share_name"
+        ] = str(cifs_share_name)
     if force is False:
         print_output(_ssm_keys, output="json")
         if (
@@ -240,8 +302,8 @@ def set(
 @click.option(
     "-k",
     "--key",
-    type=click.Choice(["mount_options", "enabled", "mount_path", "mount_target"]),
-    help="You can only update mount_options, enabled or mount_path key for an existing filesystem.",
+    type=click.Choice(["mount_options", "enabled", "mount_path", "mount_target", "mount_drive_letter", "cifs_share_name"]),
+    help="You can only update mount_options, enabled, mount_path, mount_target, mount_drive_letter or cifs_share_name key for an existing filesystem.",
     required=True,
 )
 @click.option("-v", "--value", help="New value", required=True)
@@ -272,6 +334,25 @@ def update(ctx, filesystem_name, key, value, provider, force):
 
     if key == "enabled" and value.lower() not in ["true", "false"]:
         print_output(message="Enabled must be true or false", error=True)
+
+    # mount_drive_letter: single letter A-Z, normalized to "Z:". Honored only for
+    # fsx_ontap filesystems on Windows VDIs (ignored by other providers).
+    if key == "mount_drive_letter":
+        _drive = value.rstrip(":").upper()
+        if not re.match(r"^[A-Z]$", _drive):
+            print_output(
+                message="mount_drive_letter must be a single letter A-Z",
+                error=True,
+            )
+        value = f"{_drive}:"
+
+    # cifs_share_name: admin-owned CIFS/SMB share name. Honored only for fsx_ontap on Windows VDIs.
+    if key == "cifs_share_name":
+        if "\\" in value or "/" in value or Validators.is_string_length_greater_than(value, 80):
+            print_output(
+                message="cifs_share_name must be a valid CIFS share name (no slashes, 80 chars max)",
+                error=True,
+            )
 
     _mount_target_regex = {
         "efs": r"fs-[0-9a-z]{8,40}",

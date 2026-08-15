@@ -5,23 +5,20 @@
 function Install-AwsCliV2 {
     Log-Info -Message "Installing AWS CLI v2 (if needed)"
     $AwsCliInstaller = "{{ context.get('/system/awscliv2/windows/x86_64') }}"
-    try {
-        $awsVersion = aws --version 2>&1
-        if ($awsVersion -match "^aws-cli\/\d+\.\d+\.\d+") {
-          Log-Info -Message "AWS CLI is installed. Version:" $awsVersion
-        }
-        else {
-        Log-Info -Message "AWS not found, installing it ..."
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest $AwsCliInstaller -OutFile "AWSCLIV2.msi"
-        Start-Process msiexec.exe -Wait -ArgumentList '/i AWSCLIV2.msi /quiet'
-        }
-    } catch {
+    $awsVersion = ""
+    try { $awsVersion = (aws --version 2>&1) } catch { $awsVersion = "" }
+    if ($awsVersion -match "^aws-cli\/\d+\.\d+\.\d+") {
+        Log-Info -Message "AWS CLI is installed. Version: $awsVersion"
+        return
+    }
     Log-Info -Message "AWS not found, installing it ..."
     $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest $AwsCliInstaller -OutFile "AWSCLIV2.msi"
+    # $AwsCliInstaller may be a pipe-delimited "s3://mirror|https://fallback"
+    # value when resources_mirroring is enabled. Invoke-SOCAFileDownload
+    # parses that and falls back to the https URL (the AWS CLI is not yet
+    # present to service the s3 candidate at this point).
+    Invoke-SOCAFileDownload -DownloadUrl $AwsCliInstaller -SaveAs "AWSCLIV2.msi"
     Start-Process msiexec.exe -Wait -ArgumentList '/i AWSCLIV2.msi /quiet'
-    }
 }
 Install-AwsCliV2
 Log-Info -Message "Update Global Path to include AWS CLI v2"

@@ -1,0 +1,144 @@
+[
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Recommended Parameters"
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "What type of instance do you want to use? (instance_type)",
+    "description": "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "Small (2 vCPUs, 4 GB RAM)",
+        "value": "c6i.large",
+        "selected": false
+      },
+      {
+        "label": "Medium (4 vCPUs, 8 GB RAM)",
+        "value": "c6i.xlarge",
+        "selected": false
+      },
+      {
+        "label": "Large (8 vCPUs, 16 GB RAM)",
+        "value": "c6i.2xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "How many Virtual CPUs do you want ? (vcpus)",
+    "description": "Number of Virtual CPUs (vCPUs) to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision",
+    "placeholder": "Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count",
+    "className": "form-control",
+    "name": "vcpus",
+    "value": "2",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job Name (job_name)",
+    "placeholder": "Do not use spaces",
+    "className": "form-control",
+    "name": "job_name",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Input location (input_file)",
+    "description": "input_file is a reserved name on SOCA. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name",
+    "placeholder": "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file.",
+    "className": "form-control",
+    "name": "input_file",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "How much storage do you want (SSD under /scratch)",
+    "className": "form-control",
+    "name": "scratch_size",
+    "values": [
+      {
+        "label": "10 GB",
+        "value": "10",
+        "selected": false
+      },
+      {
+        "label": "50 GB",
+        "value": "50",
+        "selected": false
+      },
+      {
+        "label": "150 GB",
+        "value": "150",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Application parameters"
+  },
+  {
+    "type": "select",
+    "required": false,
+    "label": "(Example) What version of the solver do you want to use ? (binary_location)",
+    "description": "Path to the solver executable/binary. It's usually located within the \"bin\" folder of your installation directory",
+    "className": "form-control",
+    "name": "binary_location",
+    "values": [
+      {
+        "label": "Version 2020",
+        "value": "/apps/software/version2020/bin/solver.exe",
+        "selected": false
+      },
+      {
+        "label": "Version 2019 ",
+        "value": "/apps/software/version19/bin/solver.exe",
+        "selected": false
+      },
+      {
+        "label": "BETA",
+        "value": "/apps/software/versionBETA/bin/solver.exe",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "For documentation, please refer to <a href=\"#\">wiki.mycompany.tld/documentation/how-to-launch-this-application</a>"
+  },
+  {
+    "type": "text",
+    "required": false,
+    "label": "(Example) --param1",
+    "placeholder": "Value for --param1",
+    "className": "form-control",
+    "name": "param1",
+    "value": "Enter value for param1",
+    "subtype": "text"
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "(Example) User code to be executed AFTER the solver command (user_post_exec)",
+    "placeholder": "enter shell code here",
+    "className": "form-control",
+    "name": "user_post_exec",
+    "subtype": "textarea",
+    "rows": 3
+  }
+]

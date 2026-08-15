@@ -19,6 +19,7 @@ import json
 from utils.config import SocaConfig
 from decorators import private_api, feature_flag
 from flask import request
+from flask_babel import gettext as _
 import re
 import uuid
 import sys
@@ -34,8 +35,10 @@ from utils.aws.ssm_helper import get_ami_id_from_alias
 from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
+from utils.stack_naming import generate_stack_name
 from utils.jinjanizer import SocaJinja2Renderer
 from helpers.target_node_software_stacks import TargetNodeSoftwareStacksHelper
+from helpers.base_image_registry import resolve_launch_ami
 import base64
 import random
 from pathlib import Path
@@ -96,7 +99,7 @@ class CreateTargetNode(Resource):
     @private_api
     @feature_flag(flag_name="TARGET_NODES", mode="api")
     def post(self):
-        """
+        r"""
         Create a new target node session
         ---
         openapi: 3.1.0
@@ -170,6 +173,11 @@ class CreateTargetNode(Resource):
                     enum: [default, dedicated, host]
                     description: EC2 tenancy type
                     example: default
+                  nested_virtualization:
+                    type: string
+                    enum: ["true", "false"]
+                    description: Enable nested virtualization on the instance (requires EnableNestedVirtualization feature flag)
+                    example: "false"
         responses:
           '200':
             description: Target node session created successfully
@@ -291,7 +299,11 @@ class CreateTargetNode(Resource):
                     helper="Unable to query SSM for this SOCA environment",
                 ).as_flask()
 
-            _stack_name = f"{_get_soca_parameters.get('/configuration/ClusterId')}-{_session_name}-{_user}"
+            _stack_name = generate_stack_name(
+                cluster_id=_get_soca_parameters.get("/configuration/ClusterId"),
+                owner=_user,
+                session_uuid=_session_uuid,
+            )
             logger.debug(f"VDI will be provisioned by {_stack_name=}")
 
             _max_session_count = config.Config.TARGET_NODE_SESSION_COUNT
@@ -369,6 +381,9 @@ class CreateTargetNode(Resource):
                     
             else:
                 _ami_id = _software_stack_info.get("ami_id")
+
+            # Owned-base indirection: swap to the local owned copy when active (passthrough if FF off)
+            _ami_id = resolve_launch_ami(_ami_id).get("message")
 
             # Note: if subnet_id is set to `auto`, SOCA will cycle trough the list until capacity is available
             _selected_subnet = None
@@ -550,9 +565,13 @@ class CreateTargetNode(Resource):
             else:
                 return SocaError.GENERIC_ERROR(
                     helper=f"Unable to generate User data due to {get_user_data.get('message')}"
-                )
+                ).as_flask()
 
-            _stack_name = f"{_get_soca_parameters.get('/configuration/ClusterId')}-{_session_name}-{_user}"
+            _stack_name = generate_stack_name(
+                cluster_id=_get_soca_parameters.get("/configuration/ClusterId"),
+                owner=_user,
+                session_uuid=_session_uuid,
+            )
             logger.debug(f"VDI will be provisioned by {_stack_name=}")
 
             launch_parameters = {
@@ -774,7 +793,7 @@ class CreateTargetNode(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Session {_session_name} started successfully.",
+                message=_(f"Session {_session_name} started successfully."),
             ).as_flask()
 
         except Exception as err:

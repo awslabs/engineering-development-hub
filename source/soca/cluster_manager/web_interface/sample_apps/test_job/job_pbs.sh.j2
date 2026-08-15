@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -N {{job_name}}
+# https://awslabs.github.io/scale-out-computing-on-aws-documentation/tutorials/integration-ec2-job-parameters/
+#PBS -l instance_type={{instance_type}}
+
+
+# Change path to current working directory
+cd $PBS_O_WORKDIR
+
+{{user_pre_exec}}
+
+echo "Test Job submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]
+                                          

@@ -13,6 +13,7 @@ from flask import (
     flash,
     Response,
 )
+from flask_babel import gettext as _
 from requests import get, post, put, delete
 from decorators import login_required, feature_flag
 from models import db, TargetNodeSessions, TargetNodeSoftwareStacks, TargetNodeProfiles
@@ -49,9 +50,7 @@ def index():
     try:
         tz = pytz.timezone(config.Config.TIMEZONE)
     except pytz.exceptions.UnknownTimeZoneError:
-        flash(
-            f"Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
-        )
+        flash(_("Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"))
         tz = pytz.timezone("UTC")
 
     server_time = (
@@ -68,8 +67,8 @@ def index():
     ).get(params={"target_nodes": "all"})
 
     if _get_tn_software_stacks_for_user.get("success") is False:
-        flash(
-            f"Unable to list software stack for this user because of {_get_tn_software_stacks_for_user.get('message')}",
+        flash(_(
+            f"Unable to list software stack for this user because of {_get_tn_software_stacks_for_user.get('message')}"),
             "error",
         )
         _software_stacks = {}
@@ -77,6 +76,24 @@ def index():
         _software_stacks = _get_tn_software_stacks_for_user.get("message").get(
             "target_node_software_stacks"
         )
+
+    # Faded session-uuid under the tile name = user's resolved
+    # show_session_uuid_tile preference (user choice -> built-in false).
+    # Best-effort: any preference-store error degrades to hidden.
+    try:
+        from utils import user_pref_store as _user_prefs
+        from utils.cast import SocaCastEngine
+
+        _uuid_resp = _user_prefs.resolve_pref(session["user"], "show_session_uuid_tile")
+        _uuid_cast = SocaCastEngine(
+            _uuid_resp.message.get("value") if _uuid_resp.success else False
+        ).cast_as(expected_type=bool)
+        _show_session_uuid_tile = (
+            _uuid_cast.get("message") if _uuid_cast.get("success") else False
+        )
+    except Exception as _pref_err:
+        logger.warning(f"user preference resolve failed: {_pref_err}")
+        _show_session_uuid_tile = False
 
     return render_template(
         "target_nodes.html",
@@ -88,6 +105,7 @@ def index():
         page="target_nodes",
         server_time=server_time,
         server_timezone_human=config.Config.TIMEZONE,
+        show_session_uuid_tile=_show_session_uuid_tile,
     )
 
 
@@ -100,6 +118,7 @@ def get_session_state():
     )
     _get_all_state = SocaHttpClient(
         endpoint=f"/api/target_nodes/session_state",
+        headers={"X-EDH-USER": session["user"], "X-EDH-TOKEN": session["api_key"]},
     ).get(params={"session_uuid": request.args.get("session_uuid")})
 
     return _get_all_state.get("message"), 200
@@ -117,13 +136,13 @@ def create():
     ).post(data=request.form.to_dict())
 
     if _create_target_node.get("success") is True:
-        flash(
-            "Your Target Node session has been initiated. It will be ready shortly",
+        flash(_(
+            "Your Target Node session has been initiated. It will be ready shortly"),
             "success",
         )
     else:
-        flash(
-            f"{_create_target_node.get('message')} ",
+        flash(_(
+            f"{_create_target_node.get('message')} "),
             "error",
         )
 
@@ -148,10 +167,10 @@ def delete():
     ).delete(data={"session_uuid": _session_uuid})
 
     if _delete_target_node.get("success") is True:
-        flash(f"Your target note is about to be terminated as requested", "success")
+        flash(_(f"Your target note is about to be terminated as requested"), "success")
     else:
-        flash(
-            f"Unable to delete target node: {_delete_target_node.get('message')} ",
+        flash(_(
+            f"Unable to delete target node: {_delete_target_node.get('message')} "),
             "error",
         )
 
@@ -174,10 +193,10 @@ def stop():
     ).put(data={"session_uuid": _session_uuid})
 
     if _stop_target_node_request.get("success") is True:
-        flash(f"Your target node is about to be stopped as requested", "success")
+        flash(_(f"Your target node is about to be stopped as requested"), "success")
     else:
-        flash(
-            f"Unable to stop target nodes: {_stop_target_node_request.get('message')} ",
+        flash(_(
+            f"Unable to stop target nodes: {_stop_target_node_request.get('message')} "),
             "error",
         )
 
@@ -203,10 +222,10 @@ def start():
     ).put(data={"session_uuid": _session_uuid})
 
     if _start_desktop_request.get("success") is True:
-        flash(f"Your target node is starting", "success")
+        flash(_(f"Your target node is starting"), "success")
     else:
-        flash(
-            f"Unable to start target node: {_start_desktop_request.get('message')} ",
+        flash(_(
+            f"Unable to start target node: {_start_desktop_request.get('message')} "),
             "error",
         )
 
@@ -233,10 +252,10 @@ def schedule():
     ).put(data={"session_uuid": _session_uuid, "schedule": _schedule})
 
     if _update_schedule_request.get("success") is True:
-        flash(f"Your schedule has been updated successfully", "success")
+        flash(_(f"Your schedule has been updated successfully"), "success")
     else:
-        flash(
-            f"{_update_schedule_request.get('message')} ",
+        flash(_(
+            f"{_update_schedule_request.get('message')} "),
             "error",
         )
 
@@ -263,10 +282,10 @@ def resize():
     ).put(data={"session_uuid": _session_uuid, "instance_type": _instance_type})
 
     if _resize_request.get("success") is True:
-        flash(f"Your target node is now using {_instance_type}", "success")
+        flash(_(f"Your target node is now using {_instance_type}"), "success")
     else:
-        flash(
-            f"Unable to update hardware size: {_resize_request.get('message')} ",
+        flash(_(
+            f"Unable to update hardware size: {_resize_request.get('message')} "),
             "error",
         )
 

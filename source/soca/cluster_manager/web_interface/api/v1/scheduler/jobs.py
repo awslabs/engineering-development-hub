@@ -3,6 +3,7 @@
 
 import os
 import sys
+import re
 from flask_restful import Resource, reqparse
 import logging
 from decorators import private_api, feature_flag
@@ -10,11 +11,22 @@ from utils.error import SocaError
 from utils.subprocess_client import SocaSubprocessClient
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
+from utils.validators import Validators
 from utils.hpc.job_fetcher import SocaHpcJobFetcher
 from utils.datamodels.hpc.scheduler import get_schedulers
+from utils.config import SocaConfig
 import json
 
 logger = logging.getLogger("soca_logger")
+
+# Server-side allowlist for identifier-style query args (matches the documented OpenAPI pattern)
+_ARG_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
+
+
+def _job_state_upper(job: dict) -> str:
+    """Uppercased job_state via SocaCastEngine (empty string on cast failure)."""
+    _cast = SocaCastEngine(data=job.get("job_state", "")).cast_as(str)
+    return _cast.get("message").upper() if _cast.get("success") is True else ""
 
 
 class Jobs(Resource):
@@ -85,31 +97,32 @@ class Jobs(Resource):
                       example: true
                     message:
                       type: object
-                      description: Jobs list and list of scheduler that returned an error
-                      additionalProperties:
-                        type: object
-                        properties:
-                          Job_Name:
+                      description: Jobs list and list of schedulers that returned an error
+                      properties:
+                        jobs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              Job_Name:
+                                type: string
+                                example: my_job
+                              Job_Owner:
+                                type: string
+                                example: john.doe@cluster
+                              job_state:
+                                type: string
+                                enum: [Q, R, H, S, E, F]
+                                example: R
+                              queue:
+                                type: string
+                                example: normal
+                        scheduler_errors:
+                          type: array
+                          items:
                             type: string
-                            example: my_job
-                          Job_Owner:
-                            type: string
-                            example: john.doe@cluster
-                          job_state:
-                            type: string
-                            enum: [Q, R, H, S, E, F]
-                            example: R
-                          queue:
-                            type: string
-                            example: normal
-                      example: {
-                        "123.scheduler": {
-                          "Job_Name": "my_job",
-                          "Job_Owner": "john.doe@cluster",
-                          "job_state": "R",
-                          "queue": "normal"
-                        }
-                      }
+                          description: List of scheduler identifiers that failed to return jobs
+                          example: []
           '401':
             description: Authentication required
           '500':
@@ -119,10 +132,38 @@ class Jobs(Resource):
         parser.add_argument("user", type=str, location="args")
         parser.add_argument("queue", type=str, location="args")
         parser.add_argument("scheduler_id", type=str, location="args")
+        parser.add_argument("include_finished", type=str, location="args")
+        parser.add_argument("since", type=int, location="args")
+        parser.add_argument("until", type=int, location="args")
+        parser.add_argument("max_rows", type=int, location="args")
         args = parser.parse_args()
         _user = args.get("user", "")
         _queue = args.get("queue", "")
         _scheduler_id = args.get("scheduler_id", "all")
+
+        # Allowlist-validate identifier args at the entry point (defense-in-depth on top of shlex-quoted sink)
+        for _label, _val in (("user", _user), ("queue", _queue), ("scheduler_id", _scheduler_id)):
+            if _val and not _ARG_RE.match(_val):
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Invalid {_label}: must match ^[a-zA-Z0-9._-]+$"
+                ).as_flask()
+        _inc_cast = SocaCastEngine(data=args.get("include_finished")).cast_as(bool)
+        _include_finished = (
+            _inc_cast.get("message") is True if _inc_cast.get("success") is True else False
+        )
+        _since = args.get("since")
+        _until = args.get("until")
+        # Config MaxRows is the server ceiling; a client value may only lower it, never exceed it
+        _cfg_resp = SocaConfig(key="/configuration/HPC/JobListing/MaxRows").get_value(
+            return_as=int, default=1000
+        )
+        _cfg_max = _cfg_resp.get("message") if _cfg_resp.get("success") is True else 1000
+        _cfg_max = _cfg_max if Validators.is_int(_cfg_max) and _cfg_max > 0 else 1000
+        _max_rows_arg = args.get("max_rows")
+        if not _max_rows_arg or _max_rows_arg <= 0:
+            _max_rows = _cfg_max
+        else:
+            _max_rows = min(_max_rows_arg, _cfg_max)
 
         logger.debug(f"Listing all jobs for {_user=} / {_queue=} / {_scheduler_id}")
 
@@ -156,6 +197,7 @@ class Jobs(Resource):
                 ).get_all_jobs(
                     queue=None if not _queue else _queue,
                     user=None if not _user else _user,
+                    include_finished=_include_finished,
                 )
                 if _get_jobs_response.get("success") is True:
                     logger.debug(
@@ -185,11 +227,42 @@ class Jobs(Resource):
                     )
                     _unsuccessful_schedulers.append(_scheduler.identifier)
 
+            # Server coarse-bound (D5): active jobs always returned in full;
+            # finished jobs are windowed by since/until then capped to max_rows (newest first)
+            _active_jobs = [j for j in _all_jobs if _job_state_upper(j) != "FINISHED"]
+            _finished_jobs = [j for j in _all_jobs if _job_state_upper(j) == "FINISHED"]
+
+            if _since is not None or _until is not None:
+                def _in_window(job):
+                    _t = job.get("job_end_time") or job.get("job_queue_time")
+                    if _t is None:
+                        return True
+                    if _since is not None and _t < _since:
+                        return False
+                    if _until is not None and _t > _until:
+                        return False
+                    return True
+
+                _finished_jobs = [j for j in _finished_jobs if _in_window(j)]
+
+            _finished_jobs.sort(
+                key=lambda j: (j.get("job_end_time") or j.get("job_queue_time") or 0),
+                reverse=True,
+            )
+
+            _capped = Validators.is_list_length_greater_than(_finished_jobs, _max_rows)
+            if _capped:
+                _finished_jobs = _finished_jobs[:_max_rows]
+
+            _all_jobs = _active_jobs + _finished_jobs
+
             return SocaResponse(
                 success=True,
                 message={
                     "jobs": _all_jobs,
                     "scheduler_errors": _unsuccessful_schedulers,
+                    "capped": _capped,
+                    "max_rows": _max_rows,
                 },
             ).as_flask()
 

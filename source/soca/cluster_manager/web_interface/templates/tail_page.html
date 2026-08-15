@@ -1,0 +1,44 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+  {% include 'common/header.html' %}
+  <title>{{ _("Live file tail") }}</title>
+  <style>
+    /* Standalone tail page uses all available viewport height.
+       No navbars or margins to maximize the log area. */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    .tail-page-root {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="tail-page-root">
+    {# tail_standalone=true tells the viewer to auto-start from ?uid=... #}
+    {% set tail_standalone = true %}
+    {% include 'tail_viewer.html' %}
+  </div>
+
+  {% include 'common/js_i18n.html' %}
+</body>
+
+</html>

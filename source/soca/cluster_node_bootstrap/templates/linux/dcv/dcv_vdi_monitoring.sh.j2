@@ -1,0 +1,213 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Install DCV streaming metrics collector + CW Agent on VDI host
+#
+# Two pieces installed here:
+#   1. CloudWatch Agent — host-level metrics (mem, cpu, disk, swap, net)
+#      published to namespace EDH/DCVHighScale with dim {InstanceId}.
+#      VDI hosts are standalone EC2 (not in an ASG), so InstanceId is
+#      the only meaningful append dim — CW Agent silently drops literal
+#      strings in `append_dimensions`, only honoring the four built-in
+#      ${aws:...} placeholders. Per-cluster scoping is via namespace
+#      (works for single-cluster accounts; multi-cluster needs a
+#      different scoping strategy, see docs/DCVMonitoring.md).
+#      The existing host alarms target broker/gateway ASG dims, not
+#      these VDI hosts; per-VDI alarms (if added later) will need a
+#      composite alarm or per-instance alarm pattern.
+#   2. DCV streaming metrics collector — Python script that polls
+#      `dcv describe-session --json` every 60s and publishes streaming
+#      quality metrics (frame loss, latency, bandwidth) to namespace
+#      EDH/DCVStreaming. systemd timer drives it.
+#
+# Both run as the `dcvsmagent` user where possible. The collector
+# needs to query the DCV CLI; on Linux this requires running as root
+# (or the dcv-server-managed service user) — same constraint as
+# `dcv list-sessions`. We run via systemd and let the unit file own
+# the privilege.
+
+function install_dcv_vdi_monitoring () {
+
+  log_info "Installing DCV VDI host monitoring (CW Agent + streaming collector)"
+
+  local AWS_REGION="{{ context.get("/configuration/Region") }}"
+  local CLUSTER_ID="{{ context.get("/configuration/ClusterId") }}"
+  local DOWNLOAD_LINK_PATTERN="{{ context.get("/system/cloudwatch_agent/download_link_pattern") }}"
+  local MACHINE=$(uname -m)
+
+  ##
+  ## 1. CloudWatch Agent
+  ##
+  if ! rpm -q amazon-cloudwatch-agent >/dev/null 2>&1 && ! dpkg -s amazon-cloudwatch-agent >/dev/null 2>&1; then
+    log_info "Installing amazon-cloudwatch-agent"
+
+    {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023") %}
+      local CWA_OS="amazon_linux"; local CWA_EXT="rpm"
+    {% elif context.get("/job/BaseOS") in ("rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
+      local CWA_OS="redhat";       local CWA_EXT="rpm"
+    {% elif context.get("/job/BaseOS") == "centos7" %}
+      local CWA_OS="centos";       local CWA_EXT="rpm"
+    {% elif context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+      local CWA_OS="ubuntu";       local CWA_EXT="deb"
+    {% else %}
+      log_warning "CW Agent not packaged for this BaseOS — skipping CW Agent install"
+      local CWA_OS=""
+    {% endif %}
+
+    case ${MACHINE} in
+      aarch64) local CWA_ARCH="arm64" ;;
+      x86_64)  local CWA_ARCH="amd64" ;;
+      *)       log_warning "Unrecognized arch ${MACHINE} for CW Agent" ; local CWA_OS="" ;;
+    esac
+
+    if [[ -n "${CWA_OS}" ]]; then
+      local CWA_URL=$(echo "${DOWNLOAD_LINK_PATTERN}" \
+        | sed -e "s/%region%/${AWS_REGION}/g" \
+              -e "s/%os%/${CWA_OS}/g" \
+              -e "s/%architecture%/${CWA_ARCH}/g" \
+              -e "s/%ext%/${CWA_EXT}/g")
+      pushd /tmp
+      file_download --download-url="${CWA_URL}" --save-as="amazon-cloudwatch-agent.${CWA_EXT}"
+      if [[ "${CWA_EXT}" == "deb" ]]; then
+        DEBIAN_FRONTEND=noninteractive dpkg -i ./amazon-cloudwatch-agent.deb || apt-get -f install -y
+      else
+        rpm -U ./amazon-cloudwatch-agent.rpm
+      fi
+      popd
+    fi
+  else
+    log_info "amazon-cloudwatch-agent already installed"
+  fi
+
+  # CW Agent config: host-level metrics into the same EDH/DCVHighScale
+  # namespace already used by broker/gateway hosts. {ClusterId,
+  # InstanceId} dimensions so per-host alarms work without per-VDI alarms.
+  cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << CWAGENT_EOF
+{
+  "agent": {
+    "run_as_user": "root",
+    "metrics_collection_interval": 60
+  },
+  "metrics": {
+    "namespace": "EDH/DCVHighScale",
+    "append_dimensions": {
+      "InstanceId": "\${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "cpu": {
+        "measurement": ["cpu_usage_idle", "cpu_usage_iowait", "cpu_usage_user", "cpu_usage_system"],
+        "metrics_collection_interval": 60,
+        "totalcpu": true
+      },
+      "disk": {
+        "measurement": ["used_percent"],
+        "metrics_collection_interval": 60,
+        "resources": ["/"]
+      },
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_used", "mem_available", "mem_total"],
+        "metrics_collection_interval": 60
+      },
+      "swap": {
+        "measurement": ["swap_used_percent", "swap_used"],
+        "metrics_collection_interval": 60
+      },
+      "net": {
+        "measurement": ["bytes_in", "bytes_out", "packets_in", "packets_out"],
+        "metrics_collection_interval": 60,
+        "resources": ["*"]
+      },
+      "procstat": [
+        {
+          "pattern": "Xdcv",
+          "measurement": ["cpu_usage", "memory_rss"]
+        },
+        {
+          "pattern": "dcvagent",
+          "measurement": ["cpu_usage", "memory_rss"]
+        }
+      ]
+    }
+  }
+}
+CWAGENT_EOF
+
+  # CW Agent does NOT expand \${aws:InstanceId} during fetch-config — it
+  # treats the literal as a built-in variable resolved at agent runtime.
+  # Our shell heredoc did the right thing by escaping the $ so it lands
+  # literally in the JSON.
+
+  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+  log_info "CloudWatch Agent configured for VDI host metrics"
+
+  ##
+  ## 2. DCV streaming metrics collector
+  ##
+
+  # Ensure boto3 is present. Bake a venv to insulate from system Python
+  # churn on Ubuntu (PEP 668), and to avoid touching the dcvsmagent's
+  # global site-packages.
+  local COLLECTOR_DIR=/opt/edh/dcv_streaming_metrics
+  local COLLECTOR_VENV="${COLLECTOR_DIR}/venv"
+  local COLLECTOR_SCRIPT="${COLLECTOR_DIR}/dcv_streaming_metrics_collector.py"
+
+  mkdir -p "${COLLECTOR_DIR}"
+
+  if [[ ! -x "${COLLECTOR_VENV}/bin/python3" ]]; then
+    log_info "Creating venv for DCV streaming collector"
+    python3 -m venv "${COLLECTOR_VENV}"
+    "${COLLECTOR_VENV}/bin/pip" install --quiet --upgrade pip
+    "${COLLECTOR_VENV}/bin/pip" install --quiet boto3
+  fi
+
+  # The collector script itself ships as a sibling .j2 rendered by the
+  # bootstrap. We render it inline here via Jinja `include` to keep
+  # everything in one S3 asset stub.
+  cat > "${COLLECTOR_SCRIPT}" << 'COLLECTOR_EOF'
+{% include "templates/linux/dcv/dcv_streaming_metrics_collector.py.j2" %}
+COLLECTOR_EOF
+  chmod 755 "${COLLECTOR_SCRIPT}"
+
+  # systemd unit + timer. Service is one-shot; timer fires every 60s.
+  cat > /etc/systemd/system/edh-dcv-streaming-metrics.service << SVC_EOF
+[Unit]
+Description=EDH DCV streaming metrics collector
+After=network-online.target dcvserver.service
+Wants=dcvserver.service
+
+[Service]
+Type=oneshot
+ExecStart=${COLLECTOR_VENV}/bin/python3 ${COLLECTOR_SCRIPT} --cluster-id ${CLUSTER_ID} --region ${AWS_REGION}
+# Run as root: dcv list-sessions on Linux requires it (DCV server uses
+# Unix-domain sockets owned by root) — same constraint as the SM Agent
+# screenshot path. The collector only does IMDSv2 + dcv CLI + CW
+# PutMetricData.
+User=root
+Group=root
+# Resource caps so a runaway collector can never starve the desktop.
+MemoryMax=128M
+CPUQuota=10%
+TimeoutStartSec=45
+SVC_EOF
+
+  cat > /etc/systemd/system/edh-dcv-streaming-metrics.timer << TIMER_EOF
+[Unit]
+Description=Trigger EDH DCV streaming metrics collector every 60s
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=60
+AccuracySec=10
+Unit=edh-dcv-streaming-metrics.service
+
+[Install]
+WantedBy=timers.target
+TIMER_EOF
+
+  systemctl daemon-reload
+  systemctl enable --now edh-dcv-streaming-metrics.timer
+  log_info "DCV streaming metrics collector scheduled (60s timer)"
+}
+install_dcv_vdi_monitoring
+# End: Install DCV streaming metrics collector + CW Agent

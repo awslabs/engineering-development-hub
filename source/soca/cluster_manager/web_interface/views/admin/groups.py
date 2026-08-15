@@ -14,8 +14,8 @@
 import logging
 import config
 from flask import render_template, Blueprint, request, redirect, session, flash
+from flask_babel import gettext as _
 from requests import get, post, delete, put
-from models import ApiKeys
 from decorators import login_required, admin_only, feature_flag
 
 logger = logging.getLogger("soca_logger")
@@ -27,29 +27,12 @@ admin_groups = Blueprint("admin_groups", __name__, template_folder="templates")
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
 def index():
-    get_all_groups = get(
-        config.Config.FLASK_ENDPOINT + "/api/ldap/groups",
-        headers={"X-EDH-TOKEN": session["api_key"], "X-EDH-USER": session["user"]},
-        verify=False,
-    )  # nosec
-
-    if get_all_groups.status_code == 200:
-        all_groups = get_all_groups.json()["message"].keys()
-    else:
-        flash("Unable to list groups: " + str(get_all_groups._content), "error")
-        all_groups = {}
-
-    get_all_users = get(
-        config.Config.FLASK_ENDPOINT + "/api/ldap/users",
-        headers={"X-EDH-TOKEN": session["api_key"], "X-EDH-USER": session["user"]},
-        verify=False,
-    )  # nosec
-
-    if get_all_users.status_code == 200:
-        all_users = get_all_users.json()["message"].keys()
-    else:
-        flash("Unable to list all_users: " + str(get_all_users._content), "error")
-        all_users = {}
+    # Create / Delete / Check / Manage pickers use on-demand bounded
+    # typeaheads against /api/ldap/users?q= and /api/ldap/groups?q=, so this
+    # view no longer fetches the full user/group lists (which at scale shipped
+    # thousands of <option> nodes per page).
+    all_groups = []
+    all_users = []
 
     return render_template(
         "admin/groups.html",
@@ -74,10 +57,10 @@ def create_group():
     )  # nosec
 
     if create_group.status_code == 200:
-        flash("Group " + group_name + " created successfully", "success")
+        flash(_("Group ") + group_name + " created successfully", "success")
     else:
-        flash(
-            "Error while creating "
+        flash(_(
+            "Error while creating ")
             + group_name
             + " because of "
             + create_group.json()["message"],
@@ -94,7 +77,7 @@ def create_group():
 def delete_group():
     group = str(request.form.get("group_to_delete"))
     if session["user"] == group:  # user group name is <username>group
-        flash("You cannot delete your own group.", "error")
+        flash(_("You cannot delete your own group."), "error")
         return redirect("/admin/groups")
 
     group_to_delete = delete(
@@ -105,10 +88,10 @@ def delete_group():
     )  # nosec
 
     if group_to_delete.status_code == 200:
-        flash("Group: " + group + " has been deleted correctly", "success")
+        flash(_("Group: ") + group + " has been deleted correctly", "success")
     else:
-        flash(
-            "Could not delete group: "
+        flash(_(
+            "Could not delete group: ")
             + group
             + ". Check trace: "
             + str(group_to_delete.text),
@@ -135,10 +118,10 @@ def check_group():
         members = check_group.json()["message"]["members"]
         if members.__len__() == 0:
             members = ["No member found."]
-        flash("List of users of " + group + ": <hr> " + " ".join(members), "success")
+        flash(_("List of users of ") + group + ": <hr> " + " ".join(members), "success")
     else:
-        flash(
-            "Could not check group membership: "
+        flash(_(
+            "Could not check group membership: ")
             + group
             + ". Check trace: "
             + check_group.json()["message"],
@@ -164,8 +147,8 @@ def manage_group():
     )  # nosec
 
     if update_group.status_code == 200:
-        flash("Group update successfully", "success")
+        flash(_("Group update successfully"), "success")
     else:
-        flash("Unable to update group: " + update_group.json()["message"], "error")
+        flash(_("Unable to update group: ") + update_group.json()["message"], "error")
 
     return redirect("/admin/groups")

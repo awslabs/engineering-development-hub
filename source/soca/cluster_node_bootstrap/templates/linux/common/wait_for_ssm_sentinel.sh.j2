@@ -1,0 +1,84 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin - wait_for_ssm_sentinel. Added via common.sh.j2
+#
+# Block until an SSM parameter reaches a specific value, or a timeout elapses.
+#
+# The canonical use is to wait on /edh/<cluster>/cdk_completed == "true"
+# before rendering templates from the SSM tree. Without this wait, a
+# bootstrap script can race the BulkSSMWriter CustomResource and render
+# against a half-populated SSM tree -- producing misleading
+# `context.get(...)` == None failures (see BulkSSMWriter.md § 5.8).
+#
+# Usage:
+#     wait_for_ssm_sentinel "/edh/${CLUSTER}/cdk_completed"
+#     wait_for_ssm_sentinel "/edh/${CLUSTER}/cdk_completed" "true"
+#     wait_for_ssm_sentinel "/edh/${CLUSTER}/cdk_completed" "true" 1800 10
+#
+# Args:
+#   $1  name      -- required, SSM parameter name (full path)
+#   $2  expected  -- optional, target value (default: "true")
+#   $3  cap_secs  -- optional, overall timeout seconds (default: 1800)
+#   $4  poll_secs -- optional, delay between polls (default: 10)
+#
+# Relies on:
+#   - aws_cli() wrapper (defined in wrapper_awscli.sh.j2), called with
+#     the --no-cache flag so the wrapper's ElastiCache-backed response
+#     cache is bypassed. A cached empty or stale value for a sentinel
+#     parameter would starve this wait indefinitely -- --no-cache
+#     forces every poll to hit the SSM API directly. The wrapper still
+#     handles --region injection, throttle retry, and structured logs.
+#   - log_info() / exit_fail() (defined in log.sh.j2).
+#
+# Returns 0 on match, calls exit_fail on timeout (non-zero).
+function wait_for_ssm_sentinel () {
+    local _name="${1:?wait_for_ssm_sentinel: parameter name is required}"
+    local _expected="${2:-true}"
+    local _cap_secs="${3:-1800}"
+    local _poll_secs="${4:-10}"
+
+    local _deadline
+    _deadline=$(( $(date +%s) + _cap_secs ))
+
+    local _value=""
+    local _last_err_file
+    _last_err_file="$(mktemp /tmp/wait_for_ssm_sentinel.err.XXXXXX)"
+    # Best-effort cleanup; exit_fail on timeout will leave this behind
+    # on purpose for post-mortem -- operator can cat it to see why.
+    trap "rm -f '${_last_err_file}'" RETURN
+
+    log_info "Waiting for SSM parameter ${_name} == '${_expected}' (cap ${_cap_secs}s, poll ${_poll_secs}s)"
+
+    while [ "$(date +%s)" -lt "${_deadline}" ]; do
+        # Use aws_cli with two flags:
+        #   --no-cache     bypass the ElastiCache response cache (a
+        #                  stale empty entry would starve this wait)
+        #   --quiet-error  downgrade expected "ParameterNotFound" errors
+        #                  (the poll before the CR has written the
+        #                  sentinel) from ERROR to DEBUG, so they
+        #                  don't pollute bootstrap_ERROR.log with
+        #                  false alarms.
+        # The wrapper still handles --region injection, throttle
+        # retry, and structured logging. See wrapper_awscli.sh.j2.
+        _value="$(aws_cli --no-cache --quiet-error ssm get-parameter \
+            --name "${_name}" \
+            --query 'Parameter.Value' \
+            --output text 2>"${_last_err_file}" \
+            || true)"
+
+        if [ "${_value}" = "${_expected}" ]; then
+            log_info "Sentinel ${_name} is '${_expected}' -- continuing"
+            return 0
+        fi
+
+        sleep "${_poll_secs}"
+    done
+
+    local _last_err=""
+    if [ -r "${_last_err_file}" ]; then
+        _last_err="$(tail -c 500 "${_last_err_file}" 2>/dev/null | tr '\n' ' ')"
+    fi
+    exit_fail "Timed out after ${_cap_secs}s waiting for ${_name} == '${_expected}'. Last observed value: '${_value}'. Last stderr from aws: '${_last_err}'. BulkSSMWriter CustomResource may have failed -- check its CloudWatch log group at /edh/<cluster>/BulkSSMWriterLambda/<uuid>."
+}
+# End - wait_for_ssm_sentinel

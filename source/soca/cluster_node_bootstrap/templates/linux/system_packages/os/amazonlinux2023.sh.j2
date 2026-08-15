@@ -30,10 +30,17 @@ ADD_PKGS=(
   openldap-compat
 )
 
-if (uname -r | grep -q ^6.12.); then
-  ADD_PKGS+=(kernel-devel-$(uname -r) kernel6.12-modules-extra)
+
+
+if grep -qE "^exclude=.*kernel" /etc/dnf/dnf.conf /etc/yum.conf 2>/dev/null; then
+  log_warning "Kernel packages are pinned (exclude directive detected). Removing kernel packages to preserve pinned kernel version"
+  REMOVE_PKGS+=(kernel kernel-devel kernel-headers)
 else
-  ADD_PKGS+=(kernel-devel-$(uname -r) kernel-modules-extra)
+    if (uname -r | grep -q ^6.12.); then
+    ADD_PKGS+=(kernel-devel-$(uname -r) kernel6.12-modules-extra)
+    else
+    ADD_PKGS+=(kernel-devel-$(uname -r) kernel-modules-extra)
+    fi
 fi
 
 log_info "Removing packages for ALI2023: ${REMOVE_PKGS[*]}"

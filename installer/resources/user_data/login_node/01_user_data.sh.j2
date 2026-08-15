@@ -25,41 +25,62 @@
 {% include "templates/linux/common/wrapper_awscli.sh.j2" %}
 {% include "templates/linux/common/wrapper_imds.sh.j2" %}
 
+# Load SSM sentinel wait helper (depends on aws_cli + log_info defined above)
+{% include "templates/linux/common/wait_for_ssm_sentinel.sh.j2" %}
+
 # Load packages management functions
 {% include "templates/linux/system_packages/packages_management.sh.j2" %}
-
-# Install AWS Systems Manager agent
-{% include "templates/linux/aws_ssm_agent.sh.j2" %}
 
 # Install awscli
 {% include "templates/linux/awscli.sh.j2" %}
 
+# Install AWS Systems Manager agent
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
 # Remove any previous references of SOCA/EDH to the environment file (if any)
 cp /etc/environment /etc/environment.original.$(date +%s)
-sed -i '/SOCA_/d' /etc/environment
-sed -i '/EDH_/d' /etc/environment
+sed -i '/SOCA_\|EDH_/d' /etc/environment
 log_info "Running Kernel $(uname -r)"
 unset_reboot_required
 
 # Note: Log generated prior to filesystems mount will be automatically copied over the POST_FILESYSTEM_MOUNT_LOGS_FOLDER post filesystems mount for simple troubleshooting
-PRE_FILESYSTEM_MOUNT_LOGS_FOLDER="/root/edh_bootstrap_$(instance_id)/logs"
-POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)"
 EDH_BOOTSTRAP_ASSETS_FOLDER="/root/edh_bootstrap_$(instance_id)"
+PRE_FILESYSTEM_MOUNT_LOGS_FOLDER="${EDH_BOOTSTRAP_ASSETS_FOLDER}/logs"
+POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)"
 
 if [[ ! -d "${EDH_BOOTSTRAP_ASSETS_FOLDER}" ]]; then
     log_info "First user data execution, downloading bootstrap sequence"
     # Retrieve Boostrap sequence from S3
-    {% if context.get("/configuration/Region") in ["us-gov-east-1', 'us-gov-west-1"]  %}
+    {% if context.get("/configuration/Region").startswith("us-gov-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["cn-north-1", "cn-northwest-1"]  %}
+    {% elif context.get("/configuration/Region").startswith("cn-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["eusc-de-east-1"] %}
+    {% elif context.get("/configuration/Region").startswith("eusc-") %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
     {% else %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
     {% endif %}
 
-    log_info "Downloading EDH_BOOTSTRAP_SEQUENCE: {{ context.get("/job/BootstrapScriptsS3Location") }}"
+    # Wait-gate (race guard): the controller renders this login node's 02_setup.sh
+    # and 03_setup_post_reboot.sh (the latter installs the webshell sidecar) into the
+    # bootstrap prefix during its OWN 03_setup -- which can complete AFTER this login
+    # node's ASG has already launched. Syncing a partial prefix leaves the node without
+    # the webshell and fails bootstrap (the LoginNodes ASG only health-checks :22, so a
+    # broken node persists). Poll until both required scripts exist before syncing.
+    _bootstrap_s3_loc="{{ context.get("/job/BootstrapScriptsS3Location") }}"
+    _bootstrap_s3_loc="${_bootstrap_s3_loc%/}/"
+    _gate_deadline=$(( $(date +%s) + 3600 ))
+    until _gate_ls=$(aws_cli s3 ls "${_bootstrap_s3_loc}" --region ${S3_BUCKET_REGION} 2>/dev/null) \
+          && echo "${_gate_ls}" | grep -q " 02_setup.sh$" \
+          && echo "${_gate_ls}" | grep -q " 03_setup_post_reboot.sh$"; do
+        if [[ $(date +%s) -ge ${_gate_deadline} ]]; then
+            exit_fail "Timed out (1h) waiting for controller to publish login-node bootstrap scripts (02_setup.sh + 03_setup_post_reboot.sh) under ${_bootstrap_s3_loc}. Controller 03_setup may have failed."
+        fi
+        log_info "Waiting for controller to publish login-node bootstrap scripts under ${_bootstrap_s3_loc} ..."
+        sleep 30
+    done
+
+    # Downloading EDH_BOOTSTRAP_SEQUENCE
     aws_cli s3 --region ${S3_BUCKET_REGION} sync {{ context.get("/job/BootstrapScriptsS3Location") }} ${EDH_BOOTSTRAP_ASSETS_FOLDER}
 fi
 
@@ -69,12 +90,15 @@ log_info "EC2 UserData script is being executed, checks logs on /var/log/cloud-i
 # Install Required System library/packages
 /bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/install_required_packages.sh >> ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/install_required_packages.sh.log 2>&1
 if [[ "$(get_reboot_required)" == "yes" ]]; then
-    cp /var/log/cloud-init-output.log "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/cloud-init-output-post-install-required-packages-$(date +%s).log" || echo "cloud-init-output not found"
+    cp /var/log/cloud-init-output.log "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/cloud-init-output-post-install-required-packages-$(date +%s).log"
     log_info "Rebooting and re-running user data post install_required_packages"
     cloud_init_rerun_user_data
     reboot
     exit 0 # force cloud-init to stop
 fi
+
+# Wait for BulkSSMWriter to populate the SSM tree before mounting.
+wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
 
 # Mount Filesystems
 /bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh >> ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log 2>&1
@@ -83,26 +107,23 @@ fi
 mkdir -p ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}
 
 # Copy the User Data log into the shared filesystem to simplify troubleshooting
-cp /var/log/messages ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER} || echo "/var/log/messages found on this system"
-cp /var/log/cloud-init-output.log "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/cloud-init-output-post-filesystems-mount-$(date +%s).log" || echo "cloud-init-output not found"
+cp /var/log/messages ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}
+cp /var/log/cloud-init-output.log "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/cloud-init-output-post-filesystems-mount-$(date +%s).log"
 cp -r ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/* ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}
 
-# Final setup script is created and uploaded by the Controller Host
-# Since Login Node(s) is provisioned at SOCA install time, not all parameters are known.
-# The controller will wait for CDK to be complete, then generate the final setup.sh script for the login node and finally upload it to S3
-MAX_ATTEMPTS_FETCH_SETUP=10
+# Wait for the controller to render and upload 02_setup.sh to S3.
 ATTEMPT_FETCH_SETUP=0
 while ! aws s3 ls "{{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh" >/dev/null 2>&1; do
-    if [[ ${ATTEMPT_FETCH_SETUP} -ge ${MAX_ATTEMPTS_FETCH_SETUP} ]]; then
-        exit_fail "Unable to fetch {{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh after 10 attempts."
+    if [[ ${ATTEMPT_FETCH_SETUP} -ge 10 ]]; then
+        exit_fail "Unable to fetch {{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh  after 10 attempts."
     fi
-    log_warning "{{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh does not exist yet, waiting for SOCA Controller to create it (Attempt: $((ATTEMPT_FETCH_SETUP+1)))"
+    log_warning "{{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh or 03_setup_post_reboot.sh does not exist yet, waiting for SOCA Controller to create it (Attempt: $((ATTEMPT_FETCH_SETUP+1)))"
     ATTEMPT_FETCH_SETUP=$((ATTEMPT_FETCH_SETUP + 1))
     sleep 120
 done
 
-# Setup Script is ready, downloading it
-aws_cli s3 --region ${S3_BUCKET_REGION} cp "{{ context.get("/job/BootstrapScriptsS3Location") }}/02_setup.sh" ${EDH_BOOTSTRAP_ASSETS_FOLDER}
+# Setup Scripts are ready, downloading them (this include both 02_setup and 03_setup_post_reboot)
+aws_cli s3 --region ${S3_BUCKET_REGION} sync "{{ context.get("/job/BootstrapScriptsS3Location") }}" ${EDH_BOOTSTRAP_ASSETS_FOLDER}
 
 # Execute final setup
 /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/02_setup.sh" >> "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/02_setup.log" 2>&1

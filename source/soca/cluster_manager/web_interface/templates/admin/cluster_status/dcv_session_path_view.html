@@ -1,0 +1,128 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+Standalone full-page view of the Session Path drill-down.
+
+Reached via the "Pop out" button on the modal in dcv_overview.html. Renders
+the same data as the modal but as a full page in its own browser window so
+the operator can keep it side-by-side with the dashboard.
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    <title>{{ _("Session Path") }} — {{ session_uuid[:8] }} — {{ cluster_id }}</title>
+    <style>
+        body { background: var(--bg, #f5f6f8); }
+        .step-card {
+            border: 2px solid var(--border, #dee2e6);
+            border-radius: 8px;
+            background: var(--card, #fff);
+            padding: 14px;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+        }
+        .step-card.s-ok      { border-color: var(--ok,     #28a745); }
+        .step-card.s-warn    { border-color: var(--warn,   #ffc107); }
+        .step-card.s-danger  { border-color: var(--danger, #dc3545); }
+        .step-card.s-unknown { border-color: var(--muted,  #adb5bd); }
+        .step-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted, #6c757d);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .step-status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            display: inline-block; margin-right: 6px;
+        }
+        .step-status-dot.s-ok      { background: var(--ok,     #28a745); }
+        .step-status-dot.s-warn    { background: var(--warn,   #ffc107); }
+        .step-status-dot.s-danger  { background: var(--danger, #dc3545); }
+        .step-status-dot.s-unknown { background: var(--muted,  #adb5bd); }
+        .step-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .step-stats .label { color: var(--muted, #6c757d); }
+        .step-spark canvas {
+            width: 100%;
+            height: 40px !important;
+            margin-top: 8px;
+        }
+        .arrow-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: var(--muted, #6c757d);
+        }
+        .overall-banner {
+            border-left: 4px solid var(--ok, #28a745);
+            padding: 8px 14px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        .overall-banner.s-warn   { border-left-color: var(--warn,   #ffc107); }
+        .overall-banner.s-danger { border-left-color: var(--danger, #dc3545); }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="mb-0">
+                    <i class="fa-solid fa-route"></i> {{ _("Session Path") }}
+                    <small class="text-muted ms-2">{{ session_uuid }}</small>
+                </h4>
+                <div class="text-muted small">{{ cluster_id }}</div>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                    <i class="fa-solid fa-rotate"></i> {{ _("Refresh") }}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.close()">
+                    <i class="fa-solid fa-xmark"></i> {{ _("Close") }}
+                </button>
+            </div>
+        </div>
+
+        <div id="sessionPathBody"></div>
+    </div>
+
+    <script type="application/json" id="sessionPathData">{{ snapshot_json | safe }}</script>
+
+    <script src="{{ url_for('static', filename='vendor/chart-js/chart.umd.js') }}"></script>
+    <script>
+        // Same renderer as the modal (kept in sync via dcv_overview.html
+        // — when editing the breadcrumb shape, edit BOTH places).
+        // Window-isolated copy so this page works without the parent
+        // dashboard JS loaded.
+        const _DATA = JSON.parse(document.getElementById('sessionPathData').textContent || '{}');
+        document.getElementById('sessionPathBody').innerHTML = window.__renderSessionPathHTML(_DATA);
+        // Render sparklines after the HTML lands.
+        if (typeof Chart !== 'undefined') window.__renderSessionPathSparks(_DATA);
+    </script>
+    <script>
+        // Pull in the shared renderer + sparkline helper from the parent
+        // template by including its <script> body? They live in the modal
+        // page only; we redefine here. To keep the two in sync, both
+        // implementations call window.__renderSessionPathHTML and
+        // window.__renderSessionPathSparks with identical signatures.
+        // The actual implementations live in dcv_overview.html below.
+    </script>
+    {% include 'admin/cluster_status/dcv_session_path_renderer.html' %}
+</body>
+</html>

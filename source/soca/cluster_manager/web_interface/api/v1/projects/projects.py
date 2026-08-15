@@ -26,6 +26,7 @@ from models import (
     ProjectMemberships,
     TargetNodeSoftwareStacks,
     ApplicationProfiles,
+    HardwareProfiles,
 )
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.error import SocaError
@@ -33,12 +34,36 @@ from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 from utils.http_client import SocaHttpClient
 from flask import request
+from flask_babel import gettext as _
 from sqlalchemy.orm import joinedload
 from sqlalchemy import tuple_
 import re
 
 logger = logging.getLogger("soca_logger")
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
+
+
+def _csv_to_int_id_list(_csv_value):
+    """Parse a comma-separated id string into a list of ints via SocaCastEngine.
+
+    Returns an (ids, invalid_token) tuple: (list[int], None) on success, or
+    ([], offending_token) on a non-integer token -- the caller builds the
+    SocaError(...).as_flask() response itself (web_interface returns must use
+    .as_flask()). Empty/None input yields ([], None). Avoids a raw ValueError
+    from bare int().
+    """
+    _ids = []
+    if not _csv_value:
+        return _ids, None
+    for _item in _csv_value.split(","):
+        _item = _item.strip()
+        if not _item:
+            continue
+        _cast = SocaCastEngine(data=_item).cast_as(int)
+        if _cast.get("success") is not True:
+            return [], _item
+        _ids.append(_cast.get("message"))
+    return _ids, None
 
 
 def is_valid_csv(csv_string: str):
@@ -53,7 +78,7 @@ def is_valid_csv(csv_string: str):
 
     Returns:
     - True if valid, False otherwise.
-    """
+    r"""
     if not isinstance(csv_string, str):
         return False
 
@@ -157,7 +182,7 @@ class ProjectsManager(Resource):
 
         if _list_project_profiles.count() == 0:
             logger.warning("No Project found")
-            return SocaResponse(success=True, message="No Project found").as_flask()
+            return SocaResponse(success=True, message=_("No Project found")).as_flask()
         else:
             for _project in _list_project_profiles.all():
                 project_data = _project.as_dict()
@@ -183,7 +208,7 @@ class ProjectsManager(Resource):
 
     @admin_api
     def post(self):
-        """
+        r"""
         Create a new SOCA project
         ---
         openapi: 3.1.0
@@ -218,6 +243,8 @@ class ProjectsManager(Resource):
                   - description
                   - allowed_users
                   - denied_users
+                  - allowed_groups
+                  - denied_groups
                 properties:
                   project_name:
                     type: string
@@ -367,7 +394,7 @@ class ProjectsManager(Resource):
 
         if len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
 
         if Projects.query.filter_by(is_active=True, project_name=_project_name).first():
@@ -407,36 +434,33 @@ class ProjectsManager(Resource):
             created_by=_user,
         )
 
-        if _application_profile_ids:
-            _add_application_profile_ids = [
-                item.strip() for item in _application_profile_ids.split(",")
-            ]
-        else:
-            _add_application_profile_ids = []
+        _add_application_profile_ids, _bad_id = _csv_to_int_id_list(_application_profile_ids)
+        if _bad_id is not None:
+            return SocaError.GENERIC_ERROR(
+                helper=f"application_profile_ids contains a non-integer value: '{_bad_id}'"
+            ).as_flask()
 
         _application_profiles = ApplicationProfiles.query.filter(
             ApplicationProfiles.id.in_(_add_application_profile_ids)
         ).all()
         _new_project_creation.application_profiles.extend(_application_profiles)
 
-        if _software_stack_ids:
-            _add_software_stack_ids = [
-                item.strip() for item in _software_stack_ids.split(",")
-            ]
-        else:
-            _add_software_stack_ids = []
+        _add_software_stack_ids, _bad_id = _csv_to_int_id_list(_software_stack_ids)
+        if _bad_id is not None:
+            return SocaError.GENERIC_ERROR(
+                helper=f"software_stack_ids contains a non-integer value: '{_bad_id}'"
+            ).as_flask()
 
         _software_stacks = SoftwareStacks.query.filter(
             SoftwareStacks.id.in_(_add_software_stack_ids)
         ).all()
         _new_project_creation.software_stacks.extend(_software_stacks)
 
-        if _target_nodes_software_stack_ids:
-            add_target_node_software_stack_ids = [
-                item.strip() for item in _target_nodes_software_stack_ids.split(",")
-            ]
-        else:
-            add_target_node_software_stack_ids = []
+        add_target_node_software_stack_ids, _bad_id = _csv_to_int_id_list(_target_nodes_software_stack_ids)
+        if _bad_id is not None:
+            return SocaError.GENERIC_ERROR(
+                helper=f"target_nodes_software_stack_ids contains a non-integer value: '{_bad_id}'"
+            ).as_flask()
 
         _target_node_software_stacks = TargetNodeSoftwareStacks.query.filter(
             TargetNodeSoftwareStacks.id.in_(add_target_node_software_stack_ids)
@@ -593,7 +617,7 @@ class ProjectsManager(Resource):
 
         return SocaResponse(
             success=True,
-            message="Project has been created successfully",
+            message=_("Project has been created successfully"),
         ).as_flask()
 
     @admin_api
@@ -758,7 +782,7 @@ class ProjectsManager(Resource):
                 )
 
             return SocaResponse(
-                success=True, message="Project deleted successfully"
+                success=True, message=_("Project deleted successfully")
             ).as_flask()
 
         else:
@@ -768,7 +792,7 @@ class ProjectsManager(Resource):
 
     @admin_api
     def put(self):
-        """
+        r"""
         Update an existing SOCA project
         ---
         openapi: 3.1.0
@@ -856,6 +880,11 @@ class ProjectsManager(Resource):
                     type: string
                     description: AWS budget name
                     example: updated-budget
+                  hardware_profile_id:
+                    type: string
+                    pattern: '^[0-9]+$'
+                    description: ID of the hardware profile to bind to this project (empty string to clear)
+                    example: "5"
         responses:
           '200':
             description: Project updated successfully
@@ -892,6 +921,7 @@ class ProjectsManager(Resource):
         parser.add_argument("application_profile_ids", type=str, location="form")
         parser.add_argument("aws_budget", type=str, location="form")
         parser.add_argument("description", type=str, location="form")
+        parser.add_argument("hardware_profile_id", type=str, location="form")
 
         args = parser.parse_args()
         if not is_valid_csv(csv_string=args.get("allowed_users", "")):
@@ -930,6 +960,25 @@ class ProjectsManager(Resource):
         _project_id = args["project_id"]
         _description = args["description"]
 
+        # Optional Hardware Profile binding (edit form always submits it; empty
+        # clears the FK). A bound profile must be active. Project binding
+        # overrides any Stack binding at resolve time.
+        _hardware_profile_id = None
+        _hw_raw = args.get("hardware_profile_id")
+        if _hw_raw is not None and str(_hw_raw).strip() != "":
+            _hw_cast = SocaCastEngine(data=_hw_raw).cast_as(int)
+            if _hw_cast.get("success") is not True:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"hardware_profile_id must be a valid integer {_hw_raw}"
+                ).as_flask()
+            _hardware_profile_id = _hw_cast.get("message")
+            if not HardwareProfiles.query.filter_by(
+                id=_hardware_profile_id, is_active=True
+            ).first():
+                return SocaError.GENERIC_ERROR(
+                    helper=f"HardwareProfile {_hardware_profile_id} not found or inactive"
+                ).as_flask()
+
         logger.info(f"Receive Project Update request with {args}")
 
         _user = request.headers.get("X-EDH-USER")
@@ -949,7 +998,9 @@ class ProjectsManager(Resource):
             if args[_input] is None:
                 return SocaError.CLIENT_MISSING_PARAMETER(parameter=_input).as_flask()
 
-        if SocaCastEngine(data=_project_id).cast_as(int).get("success") is True:
+        _pid_cast = SocaCastEngine(data=_project_id).cast_as(int)
+        if _pid_cast.get("success") is True:
+            _project_id = _pid_cast.get("message")
             _project_to_update = Projects.query.filter_by(
                 id=_project_id, is_active=True
             ).first()
@@ -964,7 +1015,7 @@ class ProjectsManager(Resource):
 
         if len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
 
         # Validate correct AWS budget
@@ -993,15 +1044,15 @@ class ProjectsManager(Resource):
 
         try:
             _project_to_update.description = _description
+            _project_to_update.hardware_profile_id = _hardware_profile_id
             _project_to_update.software_stacks.clear()
 
             # Update VDI Software Stacks
-            if _software_stack_ids:
-                _add_software_stack_ids = [
-                    item.strip() for item in _software_stack_ids.split(",")
-                ]
-            else:
-                _add_software_stack_ids = []
+            _add_software_stack_ids, _bad_id = _csv_to_int_id_list(_software_stack_ids)
+            if _bad_id is not None:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"software_stack_ids contains a non-integer value: '{_bad_id}'"
+                ).as_flask()
 
             _software_stacks = SoftwareStacks.query.filter(
                 SoftwareStacks.id.in_(_add_software_stack_ids)
@@ -1010,12 +1061,11 @@ class ProjectsManager(Resource):
 
             # Update Target Node Software Stacks
             _project_to_update.target_node_software_stacks.clear()
-            if _target_nodes_software_stack_ids:
-                _add_target_node_software_stack_ids = [
-                    item.strip() for item in _target_nodes_software_stack_ids.split(",")
-                ]
-            else:
-                _add_target_node_software_stack_ids = []
+            _add_target_node_software_stack_ids, _bad_id = _csv_to_int_id_list(_target_nodes_software_stack_ids)
+            if _bad_id is not None:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"target_nodes_software_stack_ids contains a non-integer value: '{_bad_id}'"
+                ).as_flask()
 
             _target_node_software_stacks = TargetNodeSoftwareStacks.query.filter(
                 TargetNodeSoftwareStacks.id.in_(_add_target_node_software_stack_ids)
@@ -1026,24 +1076,16 @@ class ProjectsManager(Resource):
 
             # Update Application Profile
             _project_to_update.application_profiles.clear()
-            if _application_profile_ids:
-                _add_application_profile_ids = [
-                    item.strip() for item in _application_profile_ids.split(",")
-                ]
-            else:
-                _add_application_profile_ids = []
+            _add_application_profile_ids, _bad_id = _csv_to_int_id_list(_application_profile_ids)
+            if _bad_id is not None:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"application_profile_ids contains a non-integer value: '{_bad_id}'"
+                ).as_flask()
 
             _application_profiles = ApplicationProfiles.query.filter(
                 ApplicationProfiles.id.in_(_add_application_profile_ids)
             ).all()
             _project_to_update.application_profiles.extend(_application_profiles)
-
-            if _software_stack_ids:
-                _add_software_stack_ids = [
-                    item.strip() for item in _software_stack_ids.split(",")
-                ]
-            else:
-                _add_software_stack_ids = []
 
             _project_to_update.aws_budget = _aws_budget
             db.session.commit()
@@ -1165,5 +1207,5 @@ class ProjectsManager(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"Project has been updated successfully",
+            message=_(f"Project has been updated successfully"),
         ).as_flask()

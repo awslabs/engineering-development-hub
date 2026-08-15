@@ -5,6 +5,8 @@
 <!-- Custom scripts for all pages-->
 <script src="{{ url_for('static', filename='js/app.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/js/bootstrap.bundle.min.js') }}"></script>
+<!-- shared instance-type spec-line formatter (admin + end-user surfaces) -->
+<script src="{{ url_for('static', filename='js/edh_instance_specs.js') }}"></script>
 
 {% if page in ['admin_virtual_desktop_list_all', 'containers_list_images', 'admin_projects_per_user'] %}
     <script src="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.js') }}"></script>

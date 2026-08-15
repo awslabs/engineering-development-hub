@@ -2,13 +2,14 @@
   <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="/">
                 <img src="{{ url_for('static', filename='img/soca_logo.png') }}" 
-                    alt="SOCA Logo" 
+                    alt="{{ _("SOCA Logo") }}"
                     width="30" height="30" 
                     class="d-inline-block align-text-top me-2">
-                <span style="font-weight: 600;"> __SOCA_CLUSTER__NAME__</span>
-                <small class="text-muted" style="padding-left: 0.4rem;"> (EDH version 26.4.0)</small>
+                <span style="font-weight: 600;"> {{ _("__SOCA_CLUSTER__NAME__") }}</span>
+                <small class="text-muted" style="padding-left: 0.4rem;"> {{ _("(EDH version 26.8.0)") }}</small>
             </a>
 
+   
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
 
       <ul class="navbar-nav ml-auto">
@@ -18,13 +19,27 @@
             <img style="height: 50px; width: 50px; cursor: pointer;"
                     src="{{ url_for('static', filename='img/amazonq-logo.svg') }}"
                     onclick="window.open('{{AMAZON_Q_BUSINESS_URL}}', '_blank', 'top=100,right=100,menubar=no,toolbar=no,resizable=yes,scrollbars=yes,width=860,height=900');"
-                    alt="EDH CAE Assistant">
+                    alt="{{ _("EDH CAE Assistant") }}">
            </li>
         {% endif %}
 
-        <li class="nav-item"> 
+        {% set ai_flag = feature_flags.get("AI_ASSISTANT", {}) %}
+        {% set ai_allowed = ai_flag.get("allowed_users", []) %}
+        {% set ai_denied = ai_flag.get("denied_users", []) %}
+        {% set ai_show = ai_flag.get("enabled", False)
+            and (ai_allowed == [] or user in ai_allowed)
+            and user not in ai_denied %}
+        {% if ai_show %}
+        <li class="nav-item">
+            <a class="nav-link" style="font-size: 14px; font-weight: 600;" href="/ai_assistant">
+                <i class="fas fa-robot"></i> {{ _("AI Assistant") }}
+            </a>
+        </li>
+        {% endif %}
+
+        <li class="nav-item">
             <a class="nav-link" style="font-size: 14px; font-weight: 600;" href="https://github.com/awslabs/scale-out-computing-on-aws" target="_blank" rel="noopener,noreferrer">
-                <i class="fab fa-github"></i> Source Code
+                <i class="fab fa-github"></i> {{ _("Source Code") }}
             </a>
         </li>
 
@@ -34,7 +49,7 @@
             href="#"
             data-bs-toggle="modal"
             data-bs-target="#githubWarningModal">
-                <i class="fas fa-exclamation-triangle"></i> Report an issue
+                <i class="fas fa-exclamation-triangle"></i> {{ _("Report an issue") }}
             </a>
         </li>
 
@@ -44,42 +59,41 @@
       
       <div class="modal-header">
         <h5 class="modal-title" id="githubWarningLabel">
-          <i class="fas fa-exclamation-triangle text-warning"></i> External Website Notice
+          <i class="fas fa-exclamation-triangle text-warning"></i> {{ _("External Website Notice") }}
         </h5>
-        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+          <span aria-hidden="true">{{ _("&times;") }}</span>
         </button>
         
       </div>
 
       <div class="modal-body">
         <p>
-          You are about to be redirected to <strong>EDH public GitHub repository</strong>.
+          {{ _("You are about to be redirected to") }} <strong>{{ _("EDH public GitHub repository") }}</strong>.
         </p>
 
         <p>
-          Please <strong>do not include any confidential, sensitive, or customer-specific information</strong>
-          when creating an issue.
+          {% trans warn='<strong>do not include any confidential, sensitive, or customer-specific information</strong>'|safe %}Please {{ warn }} when creating an issue.{% endtrans %}
         </p>
 
         <p>
-          Use this link only to <strong>contact the AWS maintainers</strong> regarding issues with the Engineering Development Hub (EDH) project.
+          {% trans purpose='<strong>contact the AWS maintainers</strong>'|safe %}Use this link only to {{ purpose }} regarding issues with the Engineering Development Hub (EDH) project.{% endtrans %}
         </p>
 
         <p>
-            For internal support, refer to the links provided by your Administrator or contact your AWS account team.
+            {{ _("For internal support, refer to the links provided by your Administrator or contact your AWS account team.") }}
         </p>
       </div>
 
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancel
+          {{ _("Cancel") }}
         </button>
 
         <a href="https://github.com/awslabs/scale-out-computing-on-aws/issues/new"
            target="_blank"
            class="btn btn-warning">
-          Continue to GitHub
+          {{ _("Continue to GitHub") }}
         </a>
       </div>
 
@@ -89,10 +103,32 @@
             
         <li class="nav-item"> 
             <a class="nav-link" style="font-size: 14px; font-weight: 600;"  href="https://awslabs.github.io/engineering-development-hub-documentation/" target="_blank" rel="noopener,noreferrer">
-                <i class="fas fa-book"></i> Documentation
+                <i class="fas fa-book"></i> {{ _("Documentation") }}
             </a>
         </li>
 
+
+        <!-- Language Selector -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" style="font-size: 14px;" href="#" id="langDropdown"
+            role="button" data-bs-toggle="dropdown" aria-label="Select language">
+            {{ languages[current_lang].flag }} {{ languages[current_lang].name }}
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            {% for code, lang in languages.items() %}
+              {% if not lang.get('review_needed') %}
+            <li><a class="dropdown-item {{ 'active' if code == current_lang }}" href="/lang/{{ code }}">{{ lang.flag }} {{ lang.name }}</a></li>
+              {% endif %}
+            {% endfor %}
+            <li><hr class="dropdown-divider"></li>
+            <li style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#betaTranslationModal"><span class="dropdown-header">BETA <i class="fas fa-info-circle text-muted"></i></span></li>
+            {% for code, lang in languages.items() %}
+              {% if lang.get('review_needed') %}
+            <li><a class="dropdown-item {{ 'active' if code == current_lang }}" href="/lang/{{ code }}?beta=1">{{ lang.flag }} {{ lang.name }}</a></li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" style="font-size: 14px; font-weight: 600;" href="#" id="navbarDropdown"
@@ -108,7 +144,7 @@
                 and (login_allowed == [] or user in login_allowed)
                 and user not in login_denied %}
             {% if login_show %}
-            <li><a class="dropdown-item" href="/ssh">My SSH access</a></li>
+            <li><a class="dropdown-item" href="/ssh">{{ _("My SSH access") }}</a></li>
             {% endif %}
 
             {% set account_flag = feature_flags.get("MY_ACCOUNT_MANAGEMENT", {}) %}
@@ -118,7 +154,7 @@
                 and (acct_allowed == [] or user in acct_allowed)
                 and user not in acct_denied %}
             {% if acct_show %}
-            <li><a class="dropdown-item" href="/my_account">My Account</a></li>
+            <li><a class="dropdown-item" href="/my_account">{{ _("My Account") }}</a></li>
             {% endif %}
 
             {% set api_key_flag = feature_flags.get("MY_API_KEY_MANAGEMENT", {}) %}
@@ -128,10 +164,24 @@
                     and (api_allowed == [] or user in api_allowed)
                     and user not in api_denied %}
             {% if api_show %}
-            <li><a class="dropdown-item" href="/my_api_key">My API Key</a></li>
+            <li><a class="dropdown-item" href="/my_api_key">{{ _("My API Key") }}</a></li>
             {% endif %}
+
+            {% set tk_flag = feature_flags.get("MY_API_TOKENS", {}) %}
+            {% set tk_allowed = tk_flag.get("allowed_users", []) %}
+            {% set tk_denied = tk_flag.get("denied_users", []) %}
+            {% set tk_show = tk_flag.get("enabled", False) and (tk_allowed == [] or user in tk_allowed) and user not in tk_denied %}
+            {% if tk_show %}
+                <li><a class="dropdown-item" href="/my_api_tokens">{{ _("My API Tokens") }}</a></li>
+            {% endif %}
+            
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="/logout">Logout</a></li>
+            <li>
+              <form action="/logout" method="post" class="m-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start">{{ _("Logout") }}</button>
+              </form>
+            </li>
           </ul>
         </li>
       </ul>
@@ -139,3 +189,47 @@
     </div>
   </div>
 </nav>
+
+<!-- Beta Translation Modal -->
+<div class="modal fade" id="betaTranslationModal" tabindex="-1" aria-labelledby="betaTranslationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="betaTranslationModalLabel">Beta Translations</h5>
+        <button type="button" class="close"
+            data-bs-dismiss="modal"
+            aria-label="{{ _("Close") }}">
+            <span aria-hidden="true">{{ _("&times;") }}</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>
+            {{ _("These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us.") }}
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Close") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('beta') === '1') {
+        new bootstrap.Modal(document.getElementById('betaTranslationModal')).show();
+        params.delete('beta');
+        var cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', cleanUrl);
+    }
+})();
+</script>
+
+<style>
+/* A right-aligned navbar dropdown (dropdown-menu-end) can extend a few px past
+   the right viewport edge when open, popping a transient horizontal scrollbar
+   (and a cascading vertical one). There is no legitimate horizontal content,
+   so clip horizontal overflow at the page level to eliminate the flicker. */
+body { overflow-x: clip; }
+</style>

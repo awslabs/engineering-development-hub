@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import logging
 import yaml
 import click
 import sys
 import os
 from utils.config import SocaConfig
 from typing import Union
+
+logger = logging.getLogger("soca_logger")
 
 
 def get_cluster_id() -> str:
@@ -54,7 +57,9 @@ def print_output(
             sys.exit(1)
 
         if error:
+            logger.error(message)
             sys.exit(1)
     except Exception as err:
         click.echo(f"Unable to print output because of {err}")
+        logger.error(err)
         sys.exit(1)

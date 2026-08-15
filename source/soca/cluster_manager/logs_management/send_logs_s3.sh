@@ -12,7 +12,9 @@
 
 exec > "$(dirname "$(realpath "$0")")/send_logs_s3.log" 2>&1
 
+set -a  # auto-export vars (bare /etc/environment KEY=value lines are not exported on source)
 source /etc/environment
+set +a
 AWSCLI=$(which aws)
 S3_BUCKET_REGION=$(${AWSCLI} s3api get-bucket-location --bucket ${EDH_INSTALL_BUCKET} --output text)
 

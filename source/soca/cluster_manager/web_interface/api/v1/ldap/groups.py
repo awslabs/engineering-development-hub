@@ -13,6 +13,7 @@
 
 import config
 import ldap
+from flask import request
 from flask_restful import Resource
 import logging
 from decorators import private_api
@@ -20,6 +21,8 @@ import os
 import sys
 from utils.error import SocaError
 from utils.identity_provider_client import SocaIdentityProviderClient
+from utils.validators import Validators
+from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 from utils.config import SocaConfig
 
@@ -37,9 +40,28 @@ class Groups(Resource):
         tags:
           - Group Management
         summary: Retrieve all LDAP groups
-        description: Returns a list of all groups from the configured LDAP directory with their members
+        description: Returns a list of all groups from the configured LDAP directory with their members. Supports optional typeahead mode via the q parameter.
         security:
           - socaAuth: []
+        parameters:
+          - name: q
+            in: query
+            required: false
+            schema:
+              type: string
+              minLength: 2
+              example: "dev"
+            description: Typeahead filter (minimum 2 characters). When provided, returns a small filtered list of matching group names instead of the full directory.
+          - name: max_results
+            in: query
+            required: false
+            schema:
+              type: integer
+              minimum: 1
+              maximum: 200
+              default: 50
+              example: 50
+            description: Maximum number of results to return in typeahead mode. Clamped to 1-200.
         responses:
           '200':
             description: Successfully retrieved all LDAP groups
@@ -121,11 +143,57 @@ class Groups(Resource):
             _filter = "objectClass=group"
             _attr_list = ["cn", "member"]
 
+        # Optional bounded typeahead mode: ?q=<2+ chars> returns a small, cn-only
+        # filtered group list (capped via max_results) for on-demand pickers
+        # instead of the full directory. SOCA creates a private group per user,
+        # so the group count meets/exceeds the user count -- this keeps group
+        # selectors from rendering thousands of entries. No q = unchanged full
+        # {group: {group_dn, members}} mapping.
+        _q = (request.args.get("q") or "").strip()
+        _typeahead = Validators.is_string_length_greater_equal_than(_q, 2)
+        if _typeahead:
+            _cast = SocaCastEngine(request.args.get("max_results", 50)).cast_as(int)
+            _max = _cast.message if _cast.success else 50
+            _max = max(1, min(_max, 200))
+
+            def _esc_term(_t):
+                return (
+                    _t.replace("\\", "\\5c").replace("*", "\\2a")
+                    .replace("(", "\\28").replace(")", "\\29").replace("\x00", "\\00")
+                )
+
+            _cn_clause = "".join(
+                f"(cn=*{_e}*)" for _e in (_esc_term(t) for t in _q.split() if t)
+            )
+            _filter = f"(&({_filter}){_cn_clause})"
+
         all_ldap_groups = {}
         try:
             _soca_identity_client = SocaIdentityProviderClient()
             _soca_identity_client.initialize()
             _soca_identity_client.bind_as_service_account()
+            if _typeahead:
+                _res = _soca_identity_client.search(
+                    base=config.Config.DIRECTORY_GROUP_SEARCH_BASE,
+                    scope=ldap.SCOPE_SUBTREE,
+                    filter=_filter,
+                    attr_list=["cn"],
+                    page_size=200,
+                    max_results=_max,
+                )
+                if not _res.success:
+                    return SocaError.IDENTITY_PROVIDER_ERROR(
+                        helper=f"Unable to search groups because of {_res.message}"
+                    ).as_flask()
+                _results = []
+                for _g in (_res.message or []):
+                    _cn = ((_g[1] or {}).get("cn") or [""])[0]
+                    _cn = _cn.decode("utf-8") if Validators.is_bytes(_cn) else _cn
+                    if _cn:
+                        _results.append({"group": _cn})
+                _results.sort(key=lambda r: r["group"].lower())
+                return SocaResponse(success=True, message=_results).as_flask()
+
             _groups = _soca_identity_client.search(
                 base=config.Config.DIRECTORY_GROUP_SEARCH_BASE,
                 scope=ldap.SCOPE_SUBTREE,

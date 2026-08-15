@@ -12,6 +12,7 @@ from utils.response import SocaResponse
 from utils.error import SocaError
 import tempfile, base64
 from flask import request
+from flask_babel import gettext as _
 from utils.aws.eks_client import SocaEKSClient
 
 import re
@@ -280,7 +281,7 @@ class EKSJob(Resource):
     @private_api
     @feature_flag(flag_name="CONTAINERS_MANAGEMENT_EKS", mode="api")
     def post(self):
-        """
+        r"""
         Submit EKS Job
         ---
         openapi: 3.1.0
@@ -647,7 +648,7 @@ class EKSJob(Resource):
             ).as_flask()
         else:
             return SocaResponse(
-                success=True, message=f"Job {_job_name} submitted successfully."
+                success=True, message=_(f"Job {_job_name} submitted successfully.")
             ).as_flask()
 
     @private_api
@@ -874,5 +875,5 @@ class EKSJob(Resource):
             ).as_flask()
         else:
             return SocaResponse(
-                success=True, message=f"Job {_job_name} deleted successfully."
+                success=True, message=_(f"Job {_job_name} deleted successfully.")
             ).as_flask()

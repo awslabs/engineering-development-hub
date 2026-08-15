@@ -71,6 +71,7 @@ class SoftwareStacksHelper:
         subnet_id: str,
         session_owner: str,
         project: str,
+        extra_allowed_instance_types: list = None,
     ) -> dict:
         # Validate if:
         # 1 - A user can use this AMI
@@ -118,7 +119,18 @@ class SoftwareStacksHelper:
                 _stack_info.get("profile").get("allowed_instance_types")
             )
             try:
-                if instance_type not in _allowed_instance_types.get(_ami_arch, []):
+                # A configured+enabled VDI pool GRANTS its instance type for
+                # this stack even when the type is outside the profile's
+                # traditional allowed_instance_types: the admin provisioning the
+                # pool IS the authorization. The caller (create_virtual_desktop)
+                # passes the stack's enabled pool types as this extension.
+                _pool_granted = {
+                    t for t in (extra_allowed_instance_types or []) if t
+                }
+                if (
+                    instance_type not in _allowed_instance_types.get(_ami_arch, [])
+                    and instance_type not in _pool_granted
+                ):
                     return SocaError.GENERIC_ERROR(
                         helper=f"Instance type {instance_type} is not allowed for this stack"
                     )
@@ -144,20 +156,28 @@ class SoftwareStacksHelper:
             )
 
         if project:
-            _check_budget = SocaHttpClient(
-                endpoint=f"/api/cost_management/budget",
-                headers={
-                    "X-EDH-TOKEN": config.Config.API_ROOT_KEY,
-                },
-            ).get(params={"project_name": project})
-            if _check_budget.get("success") is False:
-                return SocaError.GENERIC_ERROR(helper=f"{_check_budget.get('message')}")
+            try:
+                _check_budget = SocaHttpClient(
+                    endpoint=f"/api/cost_management/budget",
+                    headers={
+                        "X-EDH-TOKEN": config.Config.API_ROOT_KEY,
+                    },
+                ).get(params={"project_name": project})
+            except Exception as err:
+                _check_budget = None
+                logger.warning(
+                    f"Budget check for project {project} errored, allowing launch: {err}"
+                )
+            if not _check_budget or _check_budget.get("success") is not True:
+                logger.warning(
+                    f"Budget check for project {project} unavailable, allowing launch"
+                )
             else:
-                if _check_budget.get("message").get("usage_pct") >= 100:
+                _budget_msg = _check_budget.get("message") or {}
+                if (_budget_msg.get("usage_pct", 0) or 0) >= 100:
                     return SocaError.GENERIC_ERROR(
                         helper="The budget allocation for this project has been exceeded."
                     )
-                else:
-                    logger.info(f"Budget {_check_budget.get('message')} is valid")
+                logger.info(f"Budget {_budget_msg} is valid")
 
         return SocaResponse(success=True, message=True)

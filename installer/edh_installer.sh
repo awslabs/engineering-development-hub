@@ -1,302 +1,539 @@
 #!/bin/bash
 
-shopt -s extglob
-
-#!/usr/bin/bash
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
+shopt -s extglob
 
 if [[ ! "$BASH_VERSION" ]] ; then
     exec /bin/bash "$0" "$@"
 fi
 
+# === Terminal UI helpers =====================================================
+
+NC="\033[0m"
+BOLD="\033[1m"
+DIM="\033[2m"
+RED="\033[1;31m"
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+CYAN="\033[0;36m"
+WHITE="\033[1;37m"
+
+SYMBOL_OK="✓"
+SYMBOL_WARN="⚠"
+SYMBOL_ERR="✗"
+SYMBOL_INFO="›"
+SYMBOL_ARROW="→"
+
+TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+
 function realpath() {
     [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
 }
 
-function run_pip() {
-  if [[ "$QUIET_MODE" = "true" ]]; then
-    pip3 install --upgrade pip --quiet
-    pip3 install -r resources/src/requirements.txt --quiet
-  else
-    pip3 install --upgrade pip
-    pip3 install -r resources/src/requirements.txt
-  fi
+draw_line() {
+    local char="${1:-=}"
+    local width="${2:-$TERM_WIDTH}"
+    printf '%*s' "$width" '' | tr ' ' "$char"
 }
 
-function log_success() { echo -e "${GREEN}${1}${NC}" ;}
-function log_warning() { echo -e "${YELLOW}${1}${NC}" ;}
-function log_error() { echo -e "${RED}${1}${NC}" ;}
+draw_box() {
+    local title="$1"
+    shift
+    local lines=("$@")
+    local width=$((TERM_WIDTH - 4))
 
-# export SOCA_PYTHON variable if your Python3 is located on a different place
-# ex: export SOCA_PYTHON="python3" if this command is added to your $PATH
-# ex: export SOCA_PYTHON="/usr/local/bin/python3" to specify the full path of your Python3 environment
-# After you export SOCA_PYTHON, re-run the installer.
+    echo -e "${CYAN}┌=$(draw_line '=' $((width - 2)))=┐${NC}"
+    if [[ -n "$title" ]]; then
+        local title_plain
+        title_plain=$(echo -e "$title" | sed 's/\x1b\[[0-9;]*m//g')
+        local padding=$(( (width - ${#title_plain}) / 2 ))
+        echo -e "${CYAN}│${NC}$(printf '%*s' "$padding" '')${title}$(printf '%*s' $((width - padding - ${#title_plain})) '')${CYAN}│${NC}"
+        echo -e "${CYAN}├=$(draw_line '=' $((width - 2)))=┤${NC}"
+    fi
+    for line in "${lines[@]}"; do
+        local line_plain
+        line_plain=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
+        local right_pad=$((width - ${#line_plain}))
+        [[ $right_pad -lt 0 ]] && right_pad=0
+        echo -e "${CYAN}│${NC} ${line}$(printf '%*s' "$right_pad" '')${CYAN}│${NC}"
+    done
+    echo -e "${CYAN}└=$(draw_line '=' $((width - 2)))=┘${NC}"
+}
+
+log_step() { echo -e "  ${GREEN}${SYMBOL_OK}${NC} $1"; }
+log_warn() { echo -e "  ${YELLOW}${SYMBOL_WARN}${NC} $1"; }
+log_fail() { echo -e "  ${RED}${SYMBOL_ERR}${NC} $1"; }
+log_info() { echo -e "  ${DIM}${SYMBOL_INFO}${NC} $1"; }
+
+spinner() {
+    local pid=$1
+    local msg="${2:-Working}"
+    local frames=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+    local i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        printf "\r  ${CYAN}%s${NC} %s" "${frames[$((i % 10))]}" "$msg"
+        i=$((i + 1))
+        sleep 0.08
+    done
+    printf "\r"
+}
+
+confirm() {
+    local prompt="$1"
+    local default="${2:-yes}"
+    local hint
+    if [[ "$default" == "yes" ]]; then
+        hint="[Y/n]"
+    else
+        hint="[y/N]"
+    fi
+    while true; do
+        echo -ne "  ${CYAN}?${NC} ${prompt} ${DIM}${hint}${NC} "
+        read -r answer
+        answer="${answer:-$default}"
+        case "${answer,,}" in
+            y|yes) return 0 ;;
+            n|no) return 1 ;;
+            *) echo -e "    ${DIM}Please answer yes or no${NC}" ;;
+        esac
+    done
+}
+
+run_cmd() {
+    local msg="$1"
+    shift
+    if [[ "$EDH_DEBUG" == "1" ]]; then
+        log_info "${msg}"
+        "$@"
+    else
+        "$@" >/dev/null 2>&1 &
+        spinner $! "$msg"
+        wait $!
+    fi
+}
+
+# Portable sha256 of a file (sha256sum on Linux/CloudShell, shasum on macOS).
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+run_cmd_piped() {
+    local msg="$1"
+    local cmd="$2"
+    if [[ "$EDH_DEBUG" == "1" ]]; then
+        log_info "${msg}"
+        eval "$cmd"
+    else
+        eval "$cmd" >/dev/null 2>&1 &
+        spinner $! "$msg"
+        wait $!
+    fi
+}
+
+show_banner() {
+    echo ""
+    echo -e "  ${BOLD}${WHITE}Engineering Development Hub (EDH)${NC}"
+    echo -e "  ${CYAN}$(draw_line '=' 40)${NC}"
+    echo -e "  ${DIM}Source Code${NC}      https://github.com/awslabs/engineering-development-hub"
+    echo -e "  ${DIM}Documentation${NC}   https://awslabs.github.io/engineering-development-hub-documentation/"
+    echo -e "  ${DIM}Silent Mode${NC}     Use ${WHITE}--help${NC} for CLI options"
+    echo -e "  ${DIM}Debug Mode${NC}      Set ${WHITE}EDH_DEBUG=1${NC} for verbose output"
+    echo -e "  ${DIM}Exit${NC}            Press ${WHITE}Ctrl+C${NC} at any time"
+    if [[ "$EDH_DEBUG" == "1" ]]; then
+        echo ""
+        echo -e "  ${YELLOW}${SYMBOL_WARN} Debug mode enabled${NC}"
+    fi
+    echo ""
+}
+
+section_header() {
+    local title="$1"
+    echo ""
+    echo -e "  ${CYAN}$(draw_line '=' 40)${NC}"
+    echo -e "  ${BOLD}${WHITE}${title}${NC}"
+    echo -e "  ${CYAN}$(draw_line '=' 40)${NC}"
+    echo ""
+}
+
+# === Configuration ===========================================================
+
+EDH_DEBUG="${EDH_DEBUG:-${SOCA_DEBUG:-0}}"
+
 SOCA_PYTHON=${SOCA_PYTHON:-$(command -v python3)}
-# Remove prompt when running virtual environment (not recommended)
 SOCA_PYTHON_SKIP_VENV=${SOCA_PYTHON_SKIP_VENV:-"false"}
-
-
-# Determine our running OS
-SYSTEM=$(uname -s)
-
-# Check if we have a supported OS
-CHECK_GLIBC=false
-
-case $SYSTEM in
-    "Linux")
-      log_success "Running on Linux - delaying SOCA_NODE_VERSION until after GLIBC check"
-      CHECK_GLIBC=true
-      ;;
-    "Darwin")
-      log_success "Running on macOS"
-      CHECK_GLIBC=false
-      SOCA_NODE_VERSION=20
-
-      ;;
-    # Add More install OSes here
-    *)
-      log_error "Unsupported installation OS - ${SYSTEM}"
-      SOCA_NODE_VERSION=18
-      exit 1
-      ;;
-esac
-
-if [[ "$CHECK_GLIBC" = true ]]; then
-  log_success "Checking if getconf is available"
-  SYSTEM_GETCONF_BIN=$(command -v getconf)
-
-  if [[ -z "$SYSTEM_GETCONF_BIN" ]]; then
-    log_error "getconf is not installed. Please install it first as part of GLIBC"
-    exit 1
-  else
-    SYSTEM_GLIBC_VERSION=$($SYSTEM_GETCONF_BIN GNU_LIBC_VERSION | head -n 1 | awk '{print $NF}')
-  fi
-
-  if [[ -z "$SYSTEM_GLIBC_VERSION" ]]; then
-    log_error "Unable to determine System GLIBC version with the getconf command."
-    exit 1
-  fi
-
-  case $SYSTEM_GLIBC_VERSION in
-    # AL2 and older
-    2.2[0-7])
-      SOCA_NODE_VERSION=16
-      ;;
-    # Node22 requires GLIBC 2.28+ available on AL2023/others
-    # This will catch all future GLIBC versions thru 2.99 - expand to future Node.js versions as required.
-    2.2[8-9]|2.[3-9][0-9])
-      SOCA_NODE_VERSION=22
-      ;;
-    *)
-      log_warning "Unknown System GLIBC version ${SYSTEM_GLIBC_VERSION}. Defaulting to Node version 16 for compatibility. This may not work properly due to End of Support (EOS) Status."
-      SOCA_NODE_VERSION=16
-      ;;
-  esac
-  log_success "System GLIBC version is ${SYSTEM_GLIBC_VERSION} / Selected Node version: ${SOCA_NODE_VERSION}"
-
-fi
-
-
-# Python3 must be available to build python dependencies on Lambda
 SOCA_PYTHON_VERSION=${SOCA_PYTHON_VERSION:-"3.13"}
-
-# Make it available as env variable as build_lambda_dependency will need it
 export SOCA_PYTHON_VERSION
 
-# Download and Install PyENV if needed
 PYENV_URL="https://pyenv.run"
-
-# Change to "true" for more log
-QUIET_MODE="false"
-
-# Current path
 INSTALLER_DIRECTORY=$(dirname $(realpath "$0"))
-
-# Location of the Python Virtual Environment. It's not recommended to change the value
 PYTHON_VENV="$INSTALLER_DIRECTORY/resources/src/envs/venv-py-installer"
-
-# NVM path
 NODEJS_BIN="https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
-
-# Color
-NC="\033[0m"
-RED="\033[1;31m"
-GREEN="\033[1;32m"
-YELLOW="\033[1;33m"
-
-
 export NVM_DIR="$INSTALLER_DIRECTORY/resources/src/envs/.nvm"
 
 # shellcheck disable=SC2164
 cd "$INSTALLER_DIRECTORY"
 
-log_success "======= Checking system pre-requisites ======="
+show_banner
 
-log_success "Check if PyEnv is installed"
-PYENV=$(command -v pyenv)
-if [[ -z "${PYENV}" ]]; then
-  PYENV_AVAILABLE=false
-else
-  PYENV_AVAILABLE=true
+section_header "System Pre-requisites"
+
+SYSTEM=$(uname -s)
+CHECK_GLIBC=false
+
+case $SYSTEM in
+    "Linux")
+        log_step "Platform: Linux"
+        CHECK_GLIBC=true
+        ;;
+    "Darwin")
+        log_step "Platform: macOS"
+        CHECK_GLIBC=false
+        SOCA_NODE_VERSION=24
+        ;;
+    *)
+        log_fail "Unsupported OS: ${SYSTEM}"
+        exit 1
+        ;;
+esac
+
+if [[ "$CHECK_GLIBC" = true ]]; then
+    SYSTEM_GETCONF_BIN=$(command -v getconf)
+
+    if [[ -z "$SYSTEM_GETCONF_BIN" ]]; then
+        log_fail "getconf is not installed (required for GLIBC detection)"
+        exit 1
+    fi
+
+    SYSTEM_GLIBC_VERSION=$($SYSTEM_GETCONF_BIN GNU_LIBC_VERSION | head -n 1 | awk '{print $NF}')
+
+    if [[ -z "$SYSTEM_GLIBC_VERSION" ]]; then
+        log_fail "Unable to determine GLIBC version"
+        exit 1
+    fi
+
+    case $SYSTEM_GLIBC_VERSION in
+        2.2[0-7])
+            SOCA_NODE_VERSION=16
+            ;;
+        2.2[8-9]|2.[3-9][0-9])
+            SOCA_NODE_VERSION=24
+            ;;
+        *)
+            log_warn "Unknown GLIBC ${SYSTEM_GLIBC_VERSION}, defaulting to Node 16"
+            SOCA_NODE_VERSION=16
+            ;;
+    esac
+    log_step "GLIBC ${SYSTEM_GLIBC_VERSION} ${SYMBOL_ARROW} Node.js ${SOCA_NODE_VERSION}"
 fi
 
-log_success "Verifying Python3 interpreter"
-# shellcheck disable=SC2181
-if [[ -z "$SOCA_PYTHON" ]]; then
-    log_error "Python is not installed. Please download and install it from https://www.python.org/downloads/release/python-3119/"
-    exit 1
+# === Python verification =====================================================
+
+section_header "Python Environment"
+
+PYENV=$(command -v pyenv)
+if [[ -z "${PYENV}" ]]; then
+    PYENV_AVAILABLE=false
 else
-    PYTHON_VERSION=$($SOCA_PYTHON -c "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    # Check if current python shell is using the required version
-    if [[ "$PYTHON_VERSION" != "$SOCA_PYTHON_VERSION" ]]; then
-      log_warning "Your version of Python ($PYTHON_VERSION) does not match the supported version ($SOCA_PYTHON_VERSION)"
-      # If pyenv is installed,
-      if [[ "${PYENV_AVAILABLE}" == true ]]; then
-        log_success "List of Python ${SOCA_PYTHON_VERSION} versions installed via your PyEnv: "
+    PYENV_AVAILABLE=true
+    log_info "PyEnv detected"
+fi
+
+if [[ -z "$SOCA_PYTHON" ]]; then
+    log_fail "Python3 not found. Install from https://www.python.org/downloads/"
+    exit 1
+fi
+
+PYTHON_VERSION=$($SOCA_PYTHON -c "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+
+if [[ "$PYTHON_VERSION" != "$SOCA_PYTHON_VERSION" ]]; then
+    log_warn "Python ${PYTHON_VERSION} detected, but ${SOCA_PYTHON_VERSION} is required"
+
+    if [[ "${PYENV_AVAILABLE}" == true ]]; then
         PYENV_VERSIONS=$($PYENV versions | grep "${SOCA_PYTHON_VERSION}")
-        # Install Python version if not already there
         if [[ -z "$PYENV_VERSIONS" ]]; then
-          read -rp "We could not find any Python3 ${SOCA_PYTHON_VERSION} version, do you want to install it? (yes/no) " INSTALL_PYENV_VERSION
-          case $INSTALL_PYENV_VERSION in
-            yes )
-              $PYENV install "${SOCA_PYTHON_VERSION}"
-            ;;
-            no ) exit 1;;
-            * ) log_error "Please answer yes or no."
-            exit 1 ;;
-          esac
+            if confirm "Install Python ${SOCA_PYTHON_VERSION} via PyEnv?"; then
+                $PYENV install "${SOCA_PYTHON_VERSION}"
+            else
+                exit 1
+            fi
         fi
         $PYENV versions | grep "${SOCA_PYTHON_VERSION}"
-        read -rp "Which version do you want to use? " PYENV_INSTALLED_VERSION
-        $PYENV local "${PYENV_INSTALLED_VERSION}"
-        if [[ $? -ne 0 ]]; then
-          log_error "Incorrect version. Please specify one version listed above."
-          exit 1
+        echo -ne "  ${CYAN}?${NC} Which version to use? "
+        read -r PYENV_INSTALLED_VERSION
+        if ! $PYENV local "${PYENV_INSTALLED_VERSION}"; then
+            log_fail "Invalid version selected"
+            exit 1
         fi
         SOCA_PYTHON=$($PYENV which python3)
-
-      # Pyenv not installed
-      else
-        log_warning "This script must be executing via python $SOCA_PYTHON_VERSION which is not installed. We recommend installing python $SOCA_PYTHON_VERSION via PyEnv"
-        read -rp "Install PyEnv and $SOCA_PYTHON_VERSION (yes/no) " INSTALL_PYENV_AND_VERSION
-          case $INSTALL_PYENV_AND_VERSION in
-            yes )  true
-            ;;
-            no ) log_error "Exiting installer .. please install Python ${SOCA_PYTHON_VERSION} manually or via PyEnv (https://github.com/pyenv/pyenv)"
-              exit 1;;
-            * ) log_error "Please answer yes or no."
-            exit 1 ;;
-          esac
-          curl --silent $PYENV_URL | bash
-          if [[ $? -ne 0 ]]; then
-            log_error "Unable to access PyEnv, fix errors above"
+    else
+        if confirm "Install PyEnv and Python ${SOCA_PYTHON_VERSION}?"; then
+            if ! curl --silent $PYENV_URL | bash; then
+                log_fail "PyEnv installation failed"
+                # flush  $HOME/.pyenv for the next install to avoid the following error:
+                # WARNING: Can not proceed with installation. Kindly remove the '$HOME/.pyenv' directory first.
+                rm -rf "$HOME/.pyenv"
+                exit 1
+            fi
+            export PYENV_ROOT="$HOME/.pyenv"
+            command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+            eval "$(pyenv init -)"
+            PYENV=$(command -v pyenv)
+            log_info "Installing Python ${SOCA_PYTHON_VERSION}..."
+            if ! $PYENV install "${SOCA_PYTHON_VERSION}"; then
+                log_fail "Python installation failed"
+                exit 1
+            fi
+            $PYENV local "${SOCA_PYTHON_VERSION}"
+            SOCA_PYTHON=$($PYENV which python)
+        else
+            log_fail "Python ${SOCA_PYTHON_VERSION} is required"
             exit 1
-          fi
-          export PYENV_ROOT="$HOME/.pyenv"
-          command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init -)"
-          PYENV=$(command -v pyenv)
-          echo "Installing  Python ${SOCA_PYTHON_VERSION} via PyEnv"
-          $PYENV install "${SOCA_PYTHON_VERSION}"
-          if [[ $? -ne 0 ]]; then
-            log_error "Unable to install Python ${SOCA_PYTHON_VERSION} via PyEnv. Consult above errors and try again"
-            exit 1
-          fi
-          $PYENV local "${SOCA_PYTHON_VERSION}"
-          SOCA_PYTHON=$($PYENV which python)
-      fi
-      log_success "$SOCA_PYTHON detected, continuing installation ..."
+        fi
     fi
 fi
 
-# Check if user is already running on a virtual environment
+log_step "Python ${SOCA_PYTHON_VERSION} ${SYMBOL_ARROW} $($SOCA_PYTHON --version 2>&1 | awk '{print $2}')"
+
+# === Virtual environment =====================================================
+
+USING_SOCA_VENV=true
 if [[ -n $VIRTUAL_ENV ]]; then
-  log_warning "=====ATTENTION===="
-  log_warning "You are currently using an existing Python virtual environment."
-  log_warning "To prevent dependencies errors, It's highly recommended to exit your virtual environment first and re-launch the installer"
-  log_warning "SOCA will create its own virtual environment and configure all required dependencies"
-  log_warning "=================="
-  if [[ $SOCA_PYTHON_SKIP_VENV == "false" ]]; then
-    read -rp "Do you want to continue with your existing virtual environment? (yes/no) " EXISTINGVIRTENV
-    case $EXISTINGVIRTENV in
-      yes ) true ;;
-      no ) exit 1;;
-      * ) log_error "Please answer yes or no."
-        exit 1 ;;
-    esac
-  fi
-  sleep 5
+    log_warn "Existing virtual environment detected: ${VIRTUAL_ENV}"
+    log_info "It's recommended to exit your venv and re-launch the installer"
+    if [[ $SOCA_PYTHON_SKIP_VENV == "false" ]]; then
+        if ! confirm "Continue with existing virtual environment?" "no"; then
+            exit 1
+        fi
+    fi
+    USING_SOCA_VENV=false
 else
-  # Check if Python Virtual environment exist
-  # If not, create the venv and install required python libraries
-  if [[ ! -e $PYTHON_VENV/bin/activate ]]; then
-      log_success "No Python virtual environment found. Creating one ..."
-      rm -rf "$PYTHON_VENV"
-      $SOCA_PYTHON -m venv "$PYTHON_VENV"
-      # shellcheck disable=SC1090
-      . "$PYTHON_VENV/bin/activate"
-  else
-    # Load Python environment
-    log_success "Loading Python Virtual Environment"
-    source "$PYTHON_VENV/bin/activate"
-  fi
+    if [[ ! -e $PYTHON_VENV/bin/activate ]]; then
+        log_info "Creating Python virtual environment..."
+        rm -rf "$PYTHON_VENV"
+        $SOCA_PYTHON -m venv "$PYTHON_VENV"
+        # shellcheck disable=SC1090
+        . "$PYTHON_VENV/bin/activate"
+    else
+        # Rebuild venv if requirements.txt changed since last install (stale deps) or EDH_FORCE_VENV_REBUILD=1; else reuse.
+        _req_hash="$(sha256_of resources/src/requirements.txt)"
+        _stored_req_hash=""
+        [[ -f "$PYTHON_VENV/.edh_req_hash" ]] && _stored_req_hash="$(cat "$PYTHON_VENV/.edh_req_hash")"
+        if [[ "${EDH_FORCE_VENV_REBUILD:-0}" == "1" || "$_req_hash" != "$_stored_req_hash" ]]; then
+            if [[ "${EDH_FORCE_VENV_REBUILD:-0}" == "1" ]]; then
+                log_warn "EDH_FORCE_VENV_REBUILD set ${SYMBOL_ARROW} rebuilding virtual environment"
+            else
+                log_warn "requirements.txt changed ${SYMBOL_ARROW} rebuilding virtual environment"
+            fi
+            rm -rf "$PYTHON_VENV"
+            $SOCA_PYTHON -m venv "$PYTHON_VENV"
+            # shellcheck disable=SC1090
+            . "$PYTHON_VENV/bin/activate"
+        else
+            log_step "Loading virtual environment"
+            source "$PYTHON_VENV/bin/activate"
+        fi
+    fi
 fi
 
-# Verify that latest dependency are available
-run_pip
+# === Venv sanity check =======================================================
+# After activation, confirm that VIRTUAL_ENV, python3, and pip3 all resolve
+# to the intended venv. Catches:
+#   - pyenv/conda/homebrew shims ahead of the venv in PATH
+#   - stale venvs where bin/python is a broken symlink
+#   - activate script that partially failed
+#   - a different VIRTUAL_ENV leaking in via the parent shell
+#
+# When the user opted to keep their own venv (USING_SOCA_VENV=false), we
+# log what they're running in but do NOT enforce -- that is their call.
+ACTIVE_VENV="${VIRTUAL_ENV:-}"
+ACTIVE_PY="$(command -v python3 || true)"
+ACTIVE_PIP="$(command -v pip3 || true)"
 
-# Install local NodeJS environment and CDK
+
+if [[ "${AWS_EXECUTION_ENV:-}" == "CloudShell" ]];
+then
+    log_step "Detected AWS CloudShell"
+    USE_CLOUDSHELL=1
+else
+    USE_CLOUDSHELL=0
+fi  
+
+if [[ $USING_SOCA_VENV == "true" ]]; then
+    EXPECTED_PY="$PYTHON_VENV/bin/python3"
+    EXPECTED_PIP="$PYTHON_VENV/bin/pip3"
+    if [[ $ACTIVE_VENV != "$PYTHON_VENV" ]]; then
+        log_fail "Venv activation mismatch: VIRTUAL_ENV=${ACTIVE_VENV:-<unset>}, expected ${PYTHON_VENV}"
+        log_info "This usually means a shim (pyenv, conda, homebrew) took precedence. Unset or deactivate it, then re-run."
+        exit 1
+    fi
+    if [[ $ACTIVE_PY != "$EXPECTED_PY" ]]; then
+        log_fail "python3 resolves to ${ACTIVE_PY:-<not found>}, expected ${EXPECTED_PY}"
+        log_info "Check PATH ordering -- something ahead of the venv is winning."
+        exit 1
+    fi
+    if [[ $ACTIVE_PIP != "$EXPECTED_PIP" ]]; then
+        log_fail "pip3 resolves to ${ACTIVE_PIP:-<not found>}, expected ${EXPECTED_PIP}"
+        log_info "Check PATH ordering -- something ahead of the venv is winning."
+        exit 1
+    fi
+    log_step "Venv sanity: $ACTIVE_VENV"
+else
+    log_warn "Using caller-provided venv (not sanity-checked against SOCA expectations):"
+    log_info "  VIRTUAL_ENV = ${ACTIVE_VENV:-<unset>}"
+    log_info "  python3     = ${ACTIVE_PY:-<not found>}"
+    log_info "  pip3        = ${ACTIVE_PIP:-<not found>}"
+fi
+
+# === Python dependencies =====================================================
+
+if run_cmd_piped "Installing Python dependencies" "pip3 install --upgrade pip && pip3 install -r resources/src/requirements.txt"; then
+    log_step "Python dependencies installed"
+    # Record the requirements fingerprint so the next run can detect drift.
+    sha256_of resources/src/requirements.txt > "$PYTHON_VENV/.edh_req_hash" 2>/dev/null || true
+else
+    log_fail "Failed to install Python dependencies"
+    exit 1
+fi
+
+# === Node.js environment =====================================================
+
+section_header "Node.js Environment"
+
 if [[ ! -d $NVM_DIR ]]; then
-  mkdir -p "$NVM_DIR"
-  log_success "Local NodeJS environment not detected, creating one ..."
-  log_success "Downloading $NODEJS_BIN"
-  curl --silent -o- "$NODEJS_BIN" | bash
-  log_success "Installing Node & NPM via nvm"
-  source "$NVM_DIR/nvm.sh"  # This loads nvm
-  # shellcheck disable=SC1090
-  source "$NVM_DIR/bash_completion"
-  #
-  # Determine the best version of Node to install
-  #
-  echo "Installing Node version ${SOCA_NODE_VERSION}"
-  nvm install "${SOCA_NODE_VERSION}"
-  echo "Installing AWS CDK (latest)"
-  npm install -g aws-cdk
+    mkdir -p "$NVM_DIR"
+    run_cmd_piped "Installing NVM" "curl --silent -o- '$NODEJS_BIN' | bash"
+    source "$NVM_DIR/nvm.sh"
+    # shellcheck disable=SC1090
+    source "$NVM_DIR/bash_completion"
+
+    run_cmd "Installing Node.js ${SOCA_NODE_VERSION}" nvm install "${SOCA_NODE_VERSION}"
+    log_step "Node.js ${SOCA_NODE_VERSION} installed"
+
+    run_cmd "Installing AWS CDK" npm install -g aws-cdk
+    log_step "AWS CDK installed"
 else
-  source "$NVM_DIR/nvm.sh"  # This loads nvm
-  source "$NVM_DIR/bash_completion"
+    source "$NVM_DIR/nvm.sh"
+    source "$NVM_DIR/bash_completion"
+    log_step "NVM loaded (Node.js $(node --version 2>/dev/null || echo 'unknown'))"
 fi
 
-# Check if aws cli (https://aws.amazon.com/cli/) is installed
+# === AWS CLI =================================================================
+
+section_header "AWS Configuration"
+
 PIP3=$(command -v pip3)
-command -v aws > /dev/null
-# shellcheck disable=SC2181
-if [[ $? -ne 0 ]]; then
-    log_success "AWSCLI not detected."
-    while true; do
-    read -rp "Do you want to automatically install AWS CLI and configure it? You will need to valid credentials (access/secret key or IAM instance profile)(yes/no) " AWSCLIINSTALL
-    case $AWSCLIINSTALL in
-        yes ) $PIP3 install awscli
-          log_success "AWS CLI installed. Running 'aws configure' to configure your AWS CLI environment:"
-          aws configure
-          ;;
-        no ) exit 1;;
-        * ) log_error "Please answer yes or no."
-          exit 1;;
-    esac
-  done
+if ! command -v aws > /dev/null 2>&1; then
+    log_warn "AWS CLI not detected"
+    if confirm "Install AWS CLI and configure credentials?"; then
+        run_cmd "Installing AWS CLI" "$PIP3" install awscli
+        log_step "AWS CLI installed"
+        log_info "Running 'aws configure'..."
+        aws configure
+    else
+        exit 1
+    fi
+else
+    log_step "AWS CLI $(aws --version 2>&1 | awk '{print $1}' | cut -d/ -f2)"
 fi
 
-# Set default region while respecting existing environment, fallback to Virginia if not defined (Used by install_soca.py)
-export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$(grep region <"${HOME}/.aws/config" | head -n 1 | awk '{print $3}')}
-if [[ $AWS_DEFAULT_REGION == "" ]]; then
-  export AWS_DEFAULT_REGION="us-east-1"
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$(grep region <"${HOME}/.aws/config" 2>/dev/null | head -n 1 | awk '{print $3}')}
+if [[ -z "$AWS_DEFAULT_REGION" ]]; then
+    if [[ "$USE_CLOUDSHELL" -eq 0  ]]; then
+        # default to use-east-1 for non-cloudshell deployment, just to init awscli
+        export AWS_DEFAULT_REGION="us-east-1"
+    else
+        # when using cloudshell, we must determine the region of the CloudShell environment as we will have to send a hearthbeat to avoid disconnect
+        # There is one final check if AWS_DEFAULT_REGION / .aws/config is not available, which is to read the content of /etc/dnf/vars/awsregion
+        DETECT_AWSREGION="$(cat /etc/dnf/vars/awsregion)"
+        export AWS_DEFAULT_REGION=${DETECT_AWSREGION}
+        if [[ -z "$AWS_DEFAULT_REGION" ]]; then
+            log_fail "Unable to determine CloudShell region, run export AWS_DEFAULT_REGION=<region_name> and try again"
+            exit 1
+        fi
+    fi
+fi
+log_info "Region: ${AWS_DEFAULT_REGION}"
+
+# === Compile translation catalogs (.po → .mo) ================================
+# .mo files are derived artifacts (gitignored) and must be compiled before the
+# installer can load translations via gettext.translation(). Silently falls
+# back to English if compilation fails (non-fatal — English is always bundled).
+#
+# Uses the venv's pybabel CLI entry point explicitly, rather than a PATH
+# lookup or a programmatic call to compile_catalog().run() — the latter has
+# a bug path in Babel 2.17 when locale=None (iterate-all mode) that raises
+# TypeError on os.path.join.
+LOCALE_DIR="$INSTALLER_DIRECTORY/resources/src/locale"
+if [[ -x "$PYTHON_VENV/bin/pybabel" ]]; then
+    VENV_PYBABEL="$PYTHON_VENV/bin/pybabel"
+elif [[ -n $VIRTUAL_ENV && -x "$VIRTUAL_ENV/bin/pybabel" ]]; then
+    VENV_PYBABEL="$VIRTUAL_ENV/bin/pybabel"
+else
+    VENV_PYBABEL="$(command -v pybabel || true)"
 fi
 
-log_success "======= Pre-requisites completed. Launching installer ======="
+if [[ -d $LOCALE_DIR && -n $VENV_PYBABEL ]]; then
+    if "$VENV_PYBABEL" compile -d "$LOCALE_DIR" -D installer >/dev/null 2>&1; then
+        log_step "Translation catalogs compiled"
+    else
+        log_warn "Translation catalog compile failed — installer will run in English"
+        log_info "To diagnose: $VENV_PYBABEL compile -d $LOCALE_DIR -D installer"
+    fi
+elif [[ -d $LOCALE_DIR ]]; then
+    log_warn "pybabel not found — installer will run in English (install: pip install Babel)"
+fi
 
-# Launch actual installer
-resources/src/install_soca.py "$@"
+
+# === AWS CloudShell: session-manager-plugin ==================================
+# AWS_EXECUTION_ENV is set to "CloudShell" inside CloudShell environments.
+if [[ ${USE_CLOUDSHELL} -eq 1 ]]; then
+    if ! command -v session-manager-plugin &>/dev/null; then
+        ARCH=$(uname -m)
+        case "$ARCH" in
+            x86_64)
+                SSM_RPM="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm"
+                ;;
+            aarch64|arm64)
+                SSM_RPM="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_arm64/session-manager-plugin.rpm"
+                ;;
+            *)
+                log_warn "CloudShell: unknown architecture '${ARCH}', skipping session-manager-plugin install"
+                SSM_RPM=""
+                ;;
+        esac
+        if [[ -n "$SSM_RPM" ]]; then
+            log_step "CloudShell detected — installing session-manager-plugin (${ARCH})"
+            sudo dnf install -y "$SSM_RPM"
+        fi
+    else
+        log_step "CloudShell detected — session-manager-plugin already installed"
+    fi
+
+    log_step "Launching CloudShell Keep Alive"
+    python3 -u resources/src/cloudshell_keepalive.py --region "${AWS_DEFAULT_REGION}" >> resources/src/cloudshell_keepalive.log 2>&1 &
+fi
+
+
+
+# === Launch installer ========================================================
+
+echo ""
+echo -e "  ${GREEN}$(draw_line '=' 40)${NC}"
+echo -e "  ${BOLD}${GREEN}${SYMBOL_OK} All pre-requisites validated${NC}"
+echo -e "  ${GREEN}$(draw_line '=' 40)${NC}"
+echo ""
+
+# Always start from a clean synth (installs are rare; never risk stale cdk.out from a prior/failed run).
+rm -rf resources/src/cdk.out
+
+if [[ ${EDH_INSTALLER_LEGACY:-"false"} == "true" ]]; then
+    resources/src/install_soca_legacy.py "$@"
+else
+    resources/src/install_soca.py "$@"
+fi

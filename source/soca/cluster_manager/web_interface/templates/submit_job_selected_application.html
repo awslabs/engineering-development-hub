@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -13,6 +13,7 @@
 
 <body id="page-top">
 {% include 'common/horizontal_menu_bar.html' %}
+{% include 'common/js_i18n.html' %}
 
 <div id="wrapper">
     {% include 'common/vertical_menu_bar.html' %}
@@ -27,7 +28,7 @@
                                   
                                 <div class="card-body">
                                       <h3>{{ profile_name }} </h3> <br>
-                                    <form action="/submit_job/send" method="post">
+                                    <form id="job-submit-form" action="/submit_job/send" method="post">
                                         <div class="form-build"></div>
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="job_script" value="{{ profile_job }}">
@@ -35,8 +36,7 @@
                                                value="{{ profile_interpreter | safe }}">
                                         <input type="hidden" name="input_file_path"
                                                value="{{ input_file_path | safe }}">
-                                        <button type="submit" class="btn btn-success"><i class="fas fa-play"></i> Submit
-                                            job
+                                        <button type="submit" class="btn btn-success"><i class="fas fa-play"></i> {{ _("Submit job") }}
                                         </button>
                                     </form>
                                 </div>
@@ -45,13 +45,12 @@
                         <div class="col-md-6">
                             <div class="card shadow mb-4" style="width: 100%">
                                 <div class="card-body">
-                                    <h3>Cost estimate for your job</h3>
+                                    <h3>{{ _("Cost estimate for your job") }}</h3>
                                     <br>
 
                                     {% if profile_interpreter not in all_schedulers_identifiers %}
                                         <div class="alert alert-warning">
-                                            Cost estimate is not available because this Workflow will generate a
-                                            Linux command and not a qsub file.
+                                            {{ _("Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file.") }}
                                         </div>
 
                                     {% else %}
@@ -59,16 +58,16 @@
                                         <div id="cost_result">
                                             <div class="alert alert-primary">
                                                 <h3>
-                                                    Please fill out the form first
+                                                    {{ _("Please fill out the form first") }}
                                                 </h3>
-                                                Note: If not specified, EDH uses the following default parameters:
+                                                {{ _("Note: If not specified, EDH uses the following default parameters:") }}
                                                 <ul>
-                                                    <li><strong>instance_type</strong>: c5.large</li>
-                                                    <li><strong>scratch_size</strong>: 0 GB</li>
-                                                    <li><strong>root_size</strong>: 10 GB</li>
-                                                    <li><strong>fsx_capacity</strong>: 0 GB</li>
-                                                    <li><strong>vcpus</strong>: 1</li>
-                                                    <li><strong>wall_time</strong>: 60</li>
+                                                    <li><strong>{{ _("instance_type") }}</strong>: c5.large</li>
+                                                    <li><strong>{{ _("scratch_size") }}</strong>: 0 GB</li>
+                                                    <li><strong>{{ _("root_size") }}</strong>: 10 GB</li>
+                                                    <li><strong>{{ _("fsx_capacity") }}</strong>: 0 GB</li>
+                                                    <li><strong>{{ _("vcpus") }}</strong>: 1</li>
+                                                    <li><strong>{{ _("wall_time") }}</strong>: 60</li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -76,26 +75,21 @@
                                         <p>
                                             <a data-bs-toggle="collapse" href="#disclaimer" role="button"
                                                aria-expanded="false" aria-controls="collapseExample">
-                                                Disclaimer: Baseline numbers
+                                                {{ _("Disclaimer: Baseline numbers") }}
                                             </a>
                                         </p>
                                         <div class="collapse" id="disclaimer">
                                             <div class="card card-body">
-                                                <strong>IMPORTANT</strong>These numbers are just an estimate:
+                                                <strong>{{ _("IMPORTANT") }}</strong>{{ _("These numbers are just an estimate:") }}
                                                 <ul>
-                                                    <li>Does not reflect any additional charges such as network or
-                                                        storage
-                                                        transfer or usage of io2 volume (default to gp3)
+                                                    <li>{{ _("Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)") }}
                                                     </li>
-                                                    <li>Compute rate are retrieved for your running region</li>
-                                                    <li>FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3
-                                                        GB/s/TiB
-                                                        burst)
+                                                    <li>{{ _("Compute rate are retrieved for your running region") }}</li>
+                                                    <li>{{ _("FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)") }}
                                                     </li>
-                                                    <li>FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB
-                                                        burst)
+                                                    <li>{{ _("FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)") }}
                                                     </li>
-                                                    <li>EBS/FSx rates as of January 2025 based on us-east-1</li>
+                                                    <li>{{ _("EBS/FSx rates as of January 2025 based on us-east-1") }}</li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -119,6 +113,7 @@
     <i class="fas fa-angle-up"></i>
 </a>
 
+
 <script>
 
     $(document).ready(function () {
@@ -140,7 +135,7 @@
                 const walltime = $("#wall_time").val() || "01:00:00";
                 const vcpus = $("#vcpus").val() || 1;
 
-                $("#cost_result").html('<div><i class="fas fa-spinner fa-5x"></i></div><h3><br> Please wait while we estimate the price of this job ... </h3>'),
+                $("#cost_result").html('<div><i class="fas fa-spinner fa-5x"></i></div><h3><br> ' + i18n.cost_please_wait + ' </h3>'),
 
                     $.get('/api/cost_management/pricing', {
                         "instance_type": instance_type,
@@ -156,35 +151,35 @@
                         const cost_fsx = cost_data.fsx_storage
                         const cost_compute_ondemand = cost_data.compute.estimated_on_demand_cost
 
-                        const cost_response = '<h4>Estimated Cost: $' + cost_data.estimated_total_cost + ' <small>($' + cost_data.estimated_hourly_cost + ' / hour)</small></h4> \
-                          This estimate is based on a simulation time of ' + cost_data.compute.walltime + ' hour(s) with HyperThreading support set to True \
+                        const cost_response = '<h4>' + i18n.cost_estimated + ' $' + cost_data.estimated_total_cost + ' <small>($' + cost_data.estimated_hourly_cost + ' / ' + i18n.cost_hour + ')</small></h4> \
+                          ' + i18n.cost_estimate_based + ' ' + cost_data.compute.walltime + ' ' + i18n.cost_hours_ht + ' \
                          <hr> \
                          <div class="progress" style="height:30px"> \
-                         <div class="progress-bar bg-primary" role="progressbar" style="width: ' + cost_data.compute_pct + '%;height:30px" aria-valuenow="' + cost_data.compute_pct + '" aria-valuemin="0" aria-valuemax="100"> Compute ($' + cost_data.compute.estimated_on_demand_cost + ') </div> \
-                         <div class="progress-bar bg-success" role="progressbar" style="width: ' + cost_data.storage_pct + '%;height:30px" aria-valuenow="' + cost_data.storage_pct + '" aria-valuemin="0" aria-valuemax="100"> Storage ($' + cost_data.estimated_storage_cost + ') </div> \
-                         </div><br><h5>Compute</h5> \
+                         <div class="progress-bar bg-primary" role="progressbar" style="width: ' + cost_data.compute_pct + '%;height:30px" aria-valuenow="' + cost_data.compute_pct + '" aria-valuemin="0" aria-valuemax="100"> ' + i18n.cost_compute + ' ($' + cost_data.compute.estimated_on_demand_cost + ') </div> \
+                         <div class="progress-bar bg-success" role="progressbar" style="width: ' + cost_data.storage_pct + '%;height:30px" aria-valuenow="' + cost_data.storage_pct + '" aria-valuemin="0" aria-valuemax="100"> ' + i18n.cost_storage + ' ($' + cost_data.estimated_storage_cost + ') </div> \
+                         </div><br><h5>' + i18n.cost_compute + '</h5> \
                          <ul style="list-style: none;"> \
-                             <li><strong>Nodes Count</strong> ' + cost_data.compute.nodes + ' </li>\
-                             <li><strong>Instance Type:</strong> ' + cost_data.compute.instance_type + ' </li> \
-                             <li><strong>Requested vCPUs:</strong> ' + cost_data.compute.vcpus + ' </li> \
-                             <li><strong>Estimated Compute OnDemand</strong> $' + cost_data.compute.estimated_on_demand_cost + ' </li> \
+                             <li><strong>' + i18n.cost_nodes_count + '</strong> ' + cost_data.compute.nodes + ' </li>\
+                             <li><strong>' + i18n.cost_instance_type + '</strong> ' + cost_data.compute.instance_type + ' </li> \
+                             <li><strong>' + i18n.cost_requested_vcpus + '</strong> ' + cost_data.compute.vcpus + ' </li> \
+                             <li><strong>' + i18n.cost_estimated_ondemand + '</strong> $' + cost_data.compute.estimated_on_demand_cost + ' </li> \
                           </ul> \
-                         <div class="alert alert-warning"> <strong>You could save money by <a href="https://aws.amazon.com/ec2/pricing/reserved-instances/" target="_blank" rel="noopener,noreferrer"> purchasing Reserved Instances</a></strong> <br> \
-                         Estimated compute price with RI</strong> $' + cost_data.compute.estimated_reserved_cost + ' <br>  </div>\
-                          <hr><h5>Storage</h5> \
+                         <div class="alert alert-warning"> <strong>' + i18n.cost_save_ri + ' <a href="https://aws.amazon.com/ec2/pricing/reserved-instances/" target="_blank" rel="noopener,noreferrer"> ' + i18n.cost_purchasing_ri + '</a></strong> <br> \
+                         <strong>' + i18n.cost_estimated_ri + '</strong> $' + cost_data.compute.estimated_reserved_cost + (cost_data.compute.reserved_price_is_fallback ? ' <br><em>RI pricing unavailable for ' + cost_data.compute.instance_type + ' - using on-demand rate.</em>' : '') + ' <br>  </div>\
+                          <hr><h5>' + i18n.cost_storage + '</h5> \
                           <ul style="list-style: none;"> \
-                         <li><strong>Root Partition (default 40GB if not set):</strong> $' + cost_data.root_size + ' </li>\
-                         <li><strong>Scratch Partition:</strong> ' + scratch_size + ' GB for $' + cost_data.scratch_size + ' </li>\
-                         <li><strong>FSx for Lustre:</strong> ' + fsx_capacity + ' GB for $' + cost_data.fsx_capacity + ' </li> \
-                         <li><strong>Estimated Storage:</strong> $' + cost_data.estimated_storage_cost + ' </li></ul> \
+                         <li><strong>' + i18n.cost_root_partition + '</strong> $' + cost_data.root_size + ' </li>\
+                         <li><strong>' + i18n.cost_scratch_partition + '</strong> ' + scratch_size + ' GB for $' + cost_data.scratch_size + ' </li>\
+                         <li><strong>' + i18n.cost_fsx_lustre + '</strong> ' + fsx_capacity + ' GB for $' + cost_data.fsx_capacity + ' </li> \
+                         <li><strong>' + i18n.cost_estimated_storage + '</strong> $' + cost_data.estimated_storage_cost + ' </li></ul> \
                          <hr> \
-                          <div class="alert alert-warning"> <strong> IMPORTANT </strong>Node Count is based on the number of vCPUs (<strong>not CPUs</strong>) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)</div>'
+                          <div class="alert alert-warning"> <strong> ' + i18n.cost_important_vcpu + '</strong></div>'
 
                         $("#cost_result").html(cost_response);
 
 
                     }).fail(function (data) {
-                        $("#cost_result").html("<div class='alert alert-danger'><h3><i class='fas fa-exclamation-triangle'></i>Unable to estimate cost</h3> <strong>Error:</strong> <br> " + JSON.stringify(data.responseJSON)) + "</div>";
+                        $("#cost_result").html("<div class='alert alert-danger'><h3><i class='fas fa-exclamation-triangle'></i>" + i18n.cost_unable + "</h3> <strong>" + i18n.cost_error + "</strong> <br> " + JSON.stringify(data.responseJSON)) + "</div>";
                     });
             });
         {% endif %}
@@ -195,6 +190,23 @@
 </script>
 
 {% include 'common/footer.html' %}
+
+<script>
+// Prevent accidental double-submit (double-click) creating duplicate HPC jobs.
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('job-submit-form');
+    if (!form) { return; }
+    form.addEventListener('submit', function (e) {
+        if (this.dataset.submitted) { e.preventDefault(); return; }
+        this.dataset.submitted = '1';
+        var btn = this.querySelector('button[type="submit"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ _("Submitting...") }}';
+        }
+    });
+});
+</script>
 
 </body>
 

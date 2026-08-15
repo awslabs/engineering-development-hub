@@ -11,7 +11,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 {% include "templates/windows/common/wrapper_awscli.ps.j2" %}
 
-{% include "templates/windows/common/wrapper_install_package.ps.j2" %}
+{% include "templates/windows/common/file_download.ps.j2" %}
 
 # Require Reboot variable
 $requireReboot = $false

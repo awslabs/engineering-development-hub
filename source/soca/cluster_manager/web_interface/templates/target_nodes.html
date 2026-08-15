@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -9,6 +9,8 @@
 
 <body id="page-top">
 {% include 'common/horizontal_menu_bar.html' %}
+    {% include 'common/js_i18n.html' %}
+
     <div id="wrapper">
         {% include 'common/vertical_menu_bar.html' %}
         <div id="content-wrapper" class="d-flex flex-column">
@@ -18,23 +20,23 @@
                     <div class="card shadow mb-4">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
-                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development.">My Target Nodes <i class="fas fa-question-circle"></i></h3>
+                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development.") }}">{{ _("My Target Nodes") }} <i class="fas fa-question-circle"></i></h3>
 
                                 <div class="d-flex align-items-center ml-auto">
                                     <div id="selectedCardsToDisplay" class="btn-group btn-group-toggle mr-3" data-toggle="buttons">
                                         <label class="btn btn-outline-primary active">
-                                            <input type="radio" name="options" value="all" autocomplete="off" checked onchange="displayCards(this.value)"> All
+                                            <input type="radio" name="options" value="all" autocomplete="off" checked onchange="displayCards(this.value)"> {{ _("All") }}
                                         </label>
                                         <label class="btn btn-outline-primary">
-                                            <input type="radio" name="options" value="windows" autocomplete="off" onchange="displayCards(this.value)"> Windows
+                                            <input type="radio" name="options" value="windows" autocomplete="off" onchange="displayCards(this.value)"> {{ _("Windows") }}
                                         </label>
                                         <label class="btn btn-outline-primary">
-                                            <input type="radio" name="options" value="linux" autocomplete="off" onchange="displayCards(this.value)"> Linux
+                                            <input type="radio" name="options" value="linux" autocomplete="off" onchange="displayCards(this.value)"> {{ _("Linux") }}
                                         </label>
                                     </div>
 
                                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#launchNewTargetNodeModal">
-                                        Launch a New Target Node
+                                        {{ _("Launch a New Target Node") }}
                                     </button>
                                 </div>
                             </div>
@@ -43,7 +45,7 @@
                                 <p class="card-text">
                                     <div class="text-center">
                                         <p class="mt-5">
-                                            You do not have a target node yet. Create one by clicking the button above.
+                                            {{ _("You do not have a target node yet. Create one by clicking the button above.") }}
                                         </p>
                                     </div>
                                 </p>
@@ -63,6 +65,32 @@
                                                     {% else %}
                                                     <i class="fa-brands fa-linux"> </i>
                                                     {% endif %}
+                                                    <span style="display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; min-width:0;">{{ session_data.session_name }}{% if show_session_uuid_tile %}<small class="text-muted" style="font-size:0.68rem; font-weight:400; opacity:0.55;" title="{{ session_data.session_uuid }}">{{ session_data.session_uuid[:8] }}</small>{% endif %}</span>
+                                                        <div class="dropdown">
+                                                            <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                              <i class="fa-solid fa-bars"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu">
+                                                              <li>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is being created") }}"><i class="fa-solid fa-play"></i> {{ _("Start Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is not running yet") }}"><i class="fa-solid fa-pause"></i> {{ _("Pause Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("You must first stop your target node") }}"><i class="fa-solid fa-arrows-up-down-left-right"></i> {{ _("Resize Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> {{ _("Delete Target Node") }}</a>
+                                                                  <li><hr class="dropdown-divider"></li>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> {{ _("Schedule") }}</a>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> {{ _("View Details") }}</a>
+                                                              </li>
+                                                            </ul>
+                                                          </div>
+                                                </h5>
+                                            {% elif session_data.session_state == 'stopping' %}
+                                            {% set DISPLAY_MODALS = ["terminate", "details", "schedule"] %}
+                                                <h5 class="card-header d-flex justify-content-between" style="display: flex; align-items: center; justify-content: space-between">
+                                                    {% if session_data.os_family == "windows" %}
+                                                    <i class="fa-brands fa-windows"> </i>
+                                                    {% else %}
+                                                    <i class="fa-brands fa-linux"> </i>
+                                                    {% endif %}
                                                     {{ session_data.session_name }}
                                                         <div class="dropdown">
                                                             <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -70,13 +98,13 @@
                                                             </button>
                                                             <ul class="dropdown-menu">
                                                               <li>
-                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="Your target node is being created"><i class="fa-solid fa-play"></i> Start Target Node</a>
-                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="Your target node is not running yet"><i class="fa-solid fa-pause"></i> Pause Target Node</a>
-                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="You must first stop your target node"><i class="fa-solid fa-arrows-up-down-left-right"></i> Resize Target Node</a>
-                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> Delete Target Node</a>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is still stopping") }}"><i class="fa-solid fa-play"></i> {{ _("Start Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is already stopping") }}"><i class="fa-solid fa-pause"></i> {{ _("Pause Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("You must wait for your target node to finish stopping") }}"><i class="fa-solid fa-arrows-up-down-left-right"></i> {{ _("Resize Target Node") }}</a>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> {{ _("Delete Target Node") }}</a>
                                                                   <li><hr class="dropdown-divider"></li>
-                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> Schedule</a>
-                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> View Details</a>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> {{ _("Schedule") }}</a>
+                                                                  <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> {{ _("View Details") }}</a>
                                                               </li>
                                                             </ul>
                                                           </div>
@@ -89,20 +117,20 @@
                                                     {% else %}
                                                     <i class="fa-brands fa-linux"> </i>
                                                     {% endif %}
-                                                    {{ session_data.session_name }}
+                                                    <span style="display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; min-width:0;">{{ session_data.session_name }}{% if show_session_uuid_tile %}<small class="text-muted" style="font-size:0.68rem; font-weight:400; opacity:0.55;" title="{{ session_data.session_uuid }}">{{ session_data.session_uuid[:8] }}</small>{% endif %}</span>
                                                     <div class="dropdown">
                                                         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                           <i class="fa-solid fa-bars"></i>
                                                         </button>
                                                         <ul class="dropdown-menu">
                                                           <li>
-                                                              <a class="dropdown-item" style="cursor: pointer" href="/target_nodes/start?session_uuid={{session_data.session_uuid}}"><i class="fa-solid fa-play"></i> Start Target Node</a>
-                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="Your target node is already stopped"><i class="fa-solid fa-pause"></i> Pause Target Node</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#modify-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-arrows-up-down-left-right"></i> Resize Target Node Instance</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> Delete Target Node</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" href="/target_nodes/start?session_uuid={{session_data.session_uuid}}"><i class="fa-solid fa-play"></i> {{ _("Start Target Node") }}</a>
+                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is already stopped") }}"><i class="fa-solid fa-pause"></i> {{ _("Pause Target Node") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#modify-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-arrows-up-down-left-right"></i> {{ _("Resize Target Node Instance") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> {{ _("Delete Target Node") }}</a>
                                                               <li><hr class="dropdown-divider"></li>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> Schedule</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> View Details</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> {{ _("Schedule") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> {{ _("View Details") }}</a>
                                                           </li>
                                                         </ul>
                                                       </div>
@@ -115,20 +143,20 @@
                                                     {% else %}
                                                     <i class="fa-brands fa-linux"> </i>
                                                     {% endif %}
-                                                    {{ session_data.session_name }}
+                                                    <span style="display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; min-width:0;">{{ session_data.session_name }}{% if show_session_uuid_tile %}<small class="text-muted" style="font-size:0.68rem; font-weight:400; opacity:0.55;" title="{{ session_data.session_uuid }}">{{ session_data.session_uuid[:8] }}</small>{% endif %}</span>
                                                     <div class="dropdown">
                                                         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                           <i class="fa-solid fa-bars"></i>
                                                         </button>
                                                         <ul class="dropdown-menu">
                                                           <li>
-                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="Your target node is already running"><i class="fa-solid fa-play"></i> Start Target Node</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#stop-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-pause"></i> Pause Target Node</a>
-                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="You must first pause your target node"><i class="fa-solid fa-arrows-up-down-left-right"></i> Resize Target Node Instance</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> Delete Target Node</a>
+                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("Your target node is already running") }}"><i class="fa-solid fa-play"></i> {{ _("Start Target Node") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#stop-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-pause"></i> {{ _("Pause Target Node") }}</a>
+                                                              <a class="dropdown-item" style="color: #b3bcc5 !important;" data-toggle="tooltip" data-placement="top" title="{{ _("You must first pause your target node") }}"><i class="fa-solid fa-arrows-up-down-left-right"></i> {{ _("Resize Target Node Instance") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#terminate-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-trash-can"></i> {{ _("Delete Target Node") }}</a>
                                                               <li><hr class="dropdown-divider"></li>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> Schedule</a>
-                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> View Details</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#schedule-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-regular fa-clock"></i> {{ _("Schedule") }}</a>
+                                                              <a class="dropdown-item" style="cursor: pointer" data-bs-toggle="modal" data-bs-target="#details-{{ TARGET_NODE_CARD_UUID }}"><i class="fa-solid fa-magnifying-glass"></i> {{ _("View Details") }}</a>
                                                           </li>
                                                         </ul>
                                                       </div>
@@ -155,7 +183,20 @@
                                                         <i class="fa-solid fa-3x fa-hourglass-half"></i>
                                                         <p class="m-0">
                                                             <br>
-                                                            Please wait, your session is starting and will be ready soon.
+                                                            {{ _("Please wait, your session is starting and will be ready soon.") }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {% elif session_data.session_state == 'stopping' %}
+                                            <div class="card-body p-0">
+                                                <div class="alert alert-warning m-0 rounded-0 w-100 h-100" role="alert">
+                                                    <div class="text-center">
+                                                        <i class="fa-solid fa-3x fa-hourglass-half"></i>
+                                                        <p class="m-0">
+                                                            <br>
+                                                            {{ _("Your target node is stopping. This may take a few minutes.") }}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -168,11 +209,11 @@
                                                             <i class="fa-solid fa-3x fa-pause"></i>
                                                             <p class="m-0">
                                                                 <br>
-                                                                Your target node is stopped.
+                                                                {{ _("Your target node is stopped.") }}
                                                             </p>
                                                        </div>
                                                       <hr>
-                                                      The data remains available on the system without incurring compute charges. Storage fees continue to apply.
+                                                      {{ _("The data remains available on the system without incurring compute charges. Storage fees continue to apply.") }}
                                                   </div>
                                             </div>
 
@@ -192,11 +233,11 @@
                                                             <i class="fa-solid fa-3x fa-question"></i>
                                                             <p class="m-0">
                                                                 <br>
-                                                                Unknown session state
+                                                                {{ _("Unknown session state") }}
                                                             </p>
                                                        </div>
                                                       <hr>
-                                                      Detected Session State {{ session_data.session_state }} is not running / pending / stopped / error.
+                                                      Detected Session State {{ session_data.session_state }} is not running / pending / stopping / stopped / error.
                                                   </div>
                                             </div>
                                             {% endif %}
@@ -219,17 +260,17 @@
                                                           <div class="modal-content">
                                                               <div class="modal-header">
                                                                   <h5 class="modal-title">Delete {{ session_data.session_name }}</h5>
-                                                                  <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                      <span aria-hidden="true">&times;</span>
+                                                                  <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                      <span aria-hidden="true">{{ _("&times;") }}</span>
                                                                   </button>
                                                               </div>
                                                               <div class="modal-body">
                                                                   <form method="post" action="/target_nodes/delete">
                                                                       <div class="alert alert-danger">
-                                                                          <strong>Attention</strong> You are about to permanently delete a target note. All data stored on the local partitions will be lost. <br> <br>
+                                                                          <strong>{{ _("Attention") }}</strong> {{ _("You are about to permanently delete a target note. All data stored on the local partitions will be lost.") }} <br> <br>
                                                                           <div class="form-group form-check">
                                                                               <input type="checkbox" class="form-check-input" name="verif" id="verif" required>
-                                                                              <label class="form-check-label" for="verif">I am sure I want to delete this target node</label>
+                                                                              <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this target node") }}</label>
                                                                           </div>
                                                                       </div>
                                                                       <div align="center">
@@ -255,8 +296,8 @@
                                                       <div class="modal-content">
                                                           <div class="modal-header">
                                                               <h5 class="modal-title" id="exampleModalLabel">Stop {{ session_data.session_name }}</h5>
-                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                  <span aria-hidden="true">&times;</span>
+                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                  <span aria-hidden="true">{{ _("&times;") }}</span>
                                                               </button>
                                                           </div>
                                                           <div class="modal-body">
@@ -294,8 +335,8 @@
                                                       <div class="modal-content">
                                                           <div class="modal-header">
                                                               <h5 class="modal-title">Details for {{ session_data.session_name }}</h5>
-                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                  <span aria-hidden="true">&times;</span>
+                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                  <span aria-hidden="true">{{ _("&times;") }}</span>
                                                               </button>
                                                           </div>
                                                           <div class="modal-body">
@@ -318,24 +359,24 @@
                                                       <div class="modal-content">
                                                           <div class="modal-header">
                                                               <h5 class="modal-title">Resize hardware for {{ session_data.session_name }} </h5>
-                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                  <span aria-hidden="true">&times;</span>
+                                                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                  <span aria-hidden="true">{{ _("&times;") }}</span>
                                                               </button>
                                                           </div>
                                                           <div class="modal-body">
                                                                {% if allow_instance_change %}
                                                                    <div class="alert alert-warning">
-                                                                       You are currently using <strong>{{ session_data.instance_type }}</strong> <br>
-                                                                       Changing an instance type does not cause data loss.<br>
-                                                                       Your session will use new hardware as soon as you restart it<br>
-                                                                        <strong>Limitations</strong> <br>
-                                                                        You cannot change hardware if you have enabled Hibernation <br>
-                                                                        It's not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility
+                                                                       {{ _("You are currently using") }} <strong>{{ session_data.instance_type }}</strong> <br>
+                                                                       {{ _("Changing an instance type does not cause data loss.") }}<br>
+                                                                       {{ _("Your session will use new hardware as soon as you restart it") }}<br>
+                                                                        <strong>{{ _("Limitations") }}</strong> <br>
+                                                                        {{ _("You cannot change hardware if you have enabled Hibernation") }} <br>
+                                                                        {{ _("It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility") }}
                                                                    </div>
                                                                    <br>
                                                                    <form method="post" action="/target_nodes/resize">
                                                                       <div class="form-group row">
-                                                                          <label for="instance_type" class="col-sm-3 col-form-label">Resize Target Node Instance</label>
+                                                                          <label for="instance_type" class="col-sm-3 col-form-label">{{ _("Resize Target Node Instance") }}</label>
                                                                           <div class="col-sm-9">
                                                                               <select class="form-control" name='instance_type' id="instance_type">
                                                                                   {% for instance_type in session_data.allowed_instance_types %}
@@ -353,13 +394,13 @@
                                                                                  <i class="fas fa-info-circle"></i>
                                                                              </span>
 
-                                                                             <span class="text">Resize Target Node Instance</span>
+                                                                             <span class="text">{{ _("Resize Target Node Instance") }}</span>
                                                                           </button>
                                                                       </div>
                                                                   </form>
                                                                {% else %}
                                                                    <div class="alert alert-warning">
-                                                                   Your cluster administrator disabled this feature.
+                                                                   {{ _("Your cluster administrator disabled this feature.") }}
                                                                    </div>
                                                                {% endif %}
                                                           </div>
@@ -377,18 +418,18 @@
                                                             <div class="modal-content">
                                                                 <div class="modal-header">
                                                                     <h5 class="modal-title">Schedule for {{ session_data.session_name }} </h5>
-                                                                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                                                                        <span aria-hidden="true">&times;</span>
+                                                                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
+                                                                        <span aria-hidden="true">{{ _("&times;") }}</span>
                                                                     </button>
                                                                 </div>
                                                                 <div class="modal-body">
                                                                     <div class="alert alert-primary">
-                                                                        Automatically start/stop this session based on schedule.<br>
+                                                                        {{ _("Automatically start/stop this session based on schedule.") }}<br>
                                                                     </div>
 
                                                                     <div class="alert alert-warning">
                                                                         <strong>Current Server time is {{ server_time }}</strong> <br>
-                                                                        The server is using <strong>{{ server_timezone_human }}</strong> timezone.
+                                                                        {% trans tz='<strong>' ~ server_timezone_human ~ '</strong>'|safe %}The server is using {{ tz }} timezone.{% endtrans %}
                                                                     </div>
                                                                     <div class="container">
                                                                         <style>
@@ -421,8 +462,8 @@
 
                                                                             <div class="d-flex align-items-center">
                                                                                 <select class="form-control control-select w-25" id="global-ampm-select-{{TARGET_NODE_CARD_UUID}}">
-                                                                                    <option value="24h">24H</option>
-                                                                                    <option value="12h">AM/PM</option>
+                                                                                    <option value="24h">{{ _("24H") }}</option>
+                                                                                    <option value="12h">{{ _("AM/PM") }}</option>
                                                                                 </select>
                                                                             </div>
 
@@ -433,9 +474,9 @@
                                                                                     <div class="d-flex align-items-center">
                                                                                         <h5 class="mb-0 me-2">{{ day | capitalize }}</h5>
                                                                                         <select class="form-control control-select mode-select" id="mode-{{TARGET_NODE_CARD_UUID}}-{{ day }}">
-                                                                                            <option value="custom">Custom</option>
-                                                                                            <option value="stopped">Stopped All Day</option>
-                                                                                            <option value="run">Run All Day</option>
+                                                                                            <option value="custom">{{ _("Custom") }}</option>
+                                                                                            <option value="stopped">{{ _("Stopped All Day") }}</option>
+                                                                                            <option value="run">{{ _("Run All Day") }}</option>
                                                                                         </select>
                                                                                     </div>
                                                                                 </div>
@@ -451,7 +492,7 @@
                                                                             <div align="center">
                                                                                 <button type="submit" id="save-schedule-button-{{TARGET_NODE_CARD_UUID}}"  class="btn btn-primary btn-icon-split">
                                                                                     <span class="icon text-white-50"><i class="far fa-clock"></i></span>
-                                                                                    <span style="margin-top:5px;margin-right:10px; margin-left:10px">Save Schedule</span>
+                                                                                    <span style="margin-top:5px;margin-right:10px; margin-left:10px">{{ _("Save Schedule") }}</span>
                                                                                 </button>
                                                                             </div>
                                                                         </form>
@@ -473,7 +514,7 @@
                                                                                     let minutes = Math.round((value % 1) * 60);
                                     
                                                                                     if (value === 24) {
-                                                                                        return format === '12h' ? '12:00 AM (Next Day)' : '24:00';
+                                                                                        return format === '12h' ? '12:00 AM ' + i18n.next_day : '24:00';
                                                                                     }
                                     
                                                                                     if (format === '12h') {
@@ -586,35 +627,35 @@
                             <div class="modal-dialog modal-xl"  id="modal-dialog-launch">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title" id="LaunchNewDesktop">Launch new Target Node</h5>
-                                        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                                        <h5 class="modal-title" id="LaunchNewDesktop">{{ _("Launch new Target Node") }}</h5>
+                                        <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
                                             <span aria-hidden="true">×</span>
                                         </button>
                                     </div>
                                     <div class="modal-body">
                                         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
                                             <li class="nav-item" role="presentation">
-                                                <a style="cursor: pointer" class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">Standard Launch</a>
+                                                <a style="cursor: pointer" class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">{{ _("Standard Launch") }}</a>
                                             </li>
                                             <li class="nav-item" role="presentation">
-                                                <a style="cursor: pointer" class="nav-link" id="pills-find-by-ami-tab" data-bs-toggle="pill" data-bs-target="#pills-find-by-ami" type="button" role="tab" aria-controls="pills-profile" aria-selected="false">Browse Software Stacks</a>
+                                                <a style="cursor: pointer" class="nav-link" id="pills-find-by-ami-tab" data-bs-toggle="pill" data-bs-target="#pills-find-by-ami" type="button" role="tab" aria-controls="pills-profile" aria-selected="false">{{ _("Browse Software Stacks") }}</a>
                                             </li>
                                         </ul>
                                         <div class="tab-content" id="pills-tabContent">
                                             <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab">
                                                 <form method="POST" action="/target_nodes/create">
                                                     <div class="form-group row">
-                                                        <label for="session_name" data-toggle="tooltip" data-placement="top" title="Pick a simple name to identify your target node session" class="col-sm-2 col-form-label"><i class="fa-solid fa-tag"></i> Session Name</label>
+                                                        <label for="session_name" data-toggle="tooltip" data-placement="top" title="{{ _("Pick a simple name to identify your target node session") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-tag"></i> {{ _("Session Name") }}</label>
                                                         <div class="col-sm-10">
                                                             <input id="session_name" class="form-control" value="My Target Node #{{ CURRENT_SESSION_COUNT + 1 }}" type="text" name="session_name" required maxlength="30">
                                                         </div>
                                                     </div>
 
                                                     <div class="form-group row">
-                                                        <label for="selectAMI" data-toggle="tooltip" data-placement="top" title="Select an image with pre-installed applications or use the default vanilla image" class="col-sm-2 col-form-label"><i class="fa-solid fa-sliders"></i> Software Stack</label>
+                                                        <label for="selectAMI" data-toggle="tooltip" data-placement="top" title="{{ _("Select an image with pre-installed applications or use the default vanilla image") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-sliders"></i> {{ _("Software Stack") }}</label>
                                                         <div class="col-sm-10" id="divSelectAMI">
                                                              <select name="software_stack_id" required class="form-control" id="selectAMI" onchange="updateInstanceTypes()">
-                                                                <option value="" selected disabled>Choose your Software Stack</option>
+                                                                <option value="" selected disabled>{{ _("Choose your Software Stack") }}</option>
                                                                 {% for stack_info in software_stacks %}
                                                                     <option value="{{ stack_info.id }}">ID: {{ stack_info.id }} - {{ stack_info.stack_name }} ({{ stack_info.ami_arch}})  - {{ stack_info.ami_id}} - Created on {{ stack_info.created_on}}</option>
                                                                 {% endfor %}
@@ -624,31 +665,31 @@
                                                     </div>
 
                                                     <div class="form-group row">
-                                                        <label for="selectInstanceType" data-toggle="tooltip" data-placement="top" title="Select the instance type to provision" class="col-sm-2 col-form-label"><i class="fa-solid fa-microchip"></i>  Session Type</label>
+                                                        <label for="selectInstanceType" data-toggle="tooltip" data-placement="top" title="{{ _("Select the instance type to provision") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-microchip"></i>  {{ _("Session Type") }}</label>
                                                         <div class="col-sm-10" id="divSelectInstanceType" style="display: none;">
                                                             <select name="instance_type" required class="form-control" id="selectInstanceType"></select>
-                                                            <small class="form-text text-muted">EC2 Instance Types you are authorized to deploy for this software stack. Manage list via <a href="/admin/target_nodes/profiles">EDH Target Nodes Profiles.</a></small>
+                                                            <small class="form-text text-muted">{{ _("EC2 Instance Types you are authorized to deploy for this software stack. Manage list via") }} <a href="/admin/target_nodes/profiles">{{ _("EDH Target Nodes Profiles.") }}</a></small>
                                                         </div>
                                                     </div>
 
                                                     <div class="form-group row">
-                                                        <label for="project" data-toggle="tooltip" data-placement="top" title="Select the EDH Project and optional AWS Budget for this target node" class="col-sm-2 col-form-label"><i class="fa-solid fa-folder-open"></i> Project</label>
+                                                        <label for="project" data-toggle="tooltip" data-placement="top" title="{{ _("Select the EDH Project and optional AWS Budget for this target node") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-folder-open"></i> {{ _("Project") }}</label>
                                                         <div class="col-sm-10" id="divSelectProject" style="display: none;">
                                                             <select name="project" required class="form-control" id="project"></select>
-                                                            <small class="form-text text-muted">EDH projects you are authorized to use for this stack. Resources will use the assigned budget if specified. Manage list via <a href="/admin/projects">EDH Projects.</a></small>
+                                                            <small class="form-text text-muted">{{ _("EDH projects you are authorized to use for this stack. Resources will use the assigned budget if specified. Manage list via") }} <a href="/admin/projects">{{ _("EDH Projects.") }}</a></small>
                                                         </div>
                                                     </div>
 
                                                     <div class="form-group row">
-                                                        <label for="selectReview" data-toggle="tooltip" data-placement="top" title="Review" class="col-sm-2 col-form-label"><i class="fa-solid fa-check"></i> Review</label>
+                                                        <label for="selectReview" data-toggle="tooltip" data-placement="top" title="{{ _("Review") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-check"></i> {{ _("Review") }}</label>
                                                         <div class="col-sm-10" id="selectReview" style="display: none;">
                                                             <input required id="disk_size" value="100" min="100" class="form-control" type="number" name="disk_size">
-                                                            <small class="form-text text-muted">Storage Size for your main partition (<kbd>/</kbd> for Linux, <kbd>C:</kbd> for Windows)</small>
+                                                            <small class="form-text text-muted">{% trans linux_path="<kbd>/</kbd>"|safe, windows_path="<kbd>C:</kbd>"|safe %}Storage Size for your main partition ({{ linux_path }} for Linux, {{ windows_path }} for Windows){% endtrans %}</small>
 
                                                             <hr>
 
                                                             <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions" aria-expanded="false">
-                                                                View Advanced Options
+                                                                {{ _("View Advanced Options") }}
                                                             </button>
 
                                                             <div class="collapse" id="advancedOptions">
@@ -656,41 +697,41 @@
                                                                 <div>
                                                                     <div class="form-group">
                                                                          <select name="subnet_id" required class="form-control" id="subnet_id"></select>
-                                                                        <small class="form-text text-muted">Launch your virtual desktop in a specific subnet.</small>
+                                                                        <small class="form-text text-muted">{{ _("Launch your virtual desktop in a specific subnet.") }}</small>
                                                                     </div>
                                                                 </div>
                                                                 <select class="form-control" name="tenancy">
-                                                                    <option value="default" selected>Default Tenancy</option>
-                                                                    <option value="dedicated">Dedicated Instance Tenancy</option>
-                                                                    <option value="host">Dedicated Host Tenancy</option>
+                                                                    <option value="default" selected>{{ _("Default Tenancy") }}</option>
+                                                                    <option value="dedicated">{{ _("Dedicated Instance Tenancy") }}</option>
+                                                                    <option value="host">{{ _("Dedicated Host Tenancy") }}</option>
                                                                 </select>
-                                                                <small class="form-text text-muted">Tenancy defines how EC2 instances are distributed across physical hardware.</small>
+                                                                <small class="form-text text-muted">{{ _("Tenancy defines how EC2 instances are distributed across physical hardware.") }}</small>
                                                                 <br>
                                                                 <select class="form-control" name="hibernate">
-                                                                    <option value="false" selected>No</option>
-                                                                    <option value="true">Yes</option>
+                                                                    <option value="false" selected>{{ _("No") }}</option>
+                                                                    <option value="true">{{ _("Yes") }}</option>
                                                                 </select>
-                                                                <small class="form-text text-muted">Enable Hibernation Support. <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html" target="_blank">See Documentation.</a> </small>
+                                                                <small class="form-text text-muted">{{ _("Enable Hibernation Support.") }} <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html" target="_blank">{{ _("See Documentation.") }}</a> </small>
                                                                 <br>
                                                                 <select class="form-control" name="nested_virtualization">
-                                                                    <option value="false" selected>No</option>
-                                                                    <option value="true">Yes</option>
+                                                                    <option value="false" selected>{{ _("No") }}</option>
+                                                                    <option value="true">{{ _("Yes") }}</option>
                                                                 </select>
-                                                                <small class="form-text text-muted">Enable Nested Virtualization. Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i).</small>
+                                                                <small class="form-text text-muted">{{ _("Enable Nested Virtualization. Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i).") }}</small>
                                                                 <br>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                     <div class="d-flex justify-content-center">
-                                                        <button type="submit" class="btn btn-primary px-5 py-3" id="launchButton" style="display: none;">Launch My Target Node</button>
+                                                        <button type="submit" class="btn btn-primary px-5 py-3" id="launchButton" style="display: none;">{{ _("Launch My Target Node") }}</button>
                                                     </div>
                                                 </form>
                                             </div>
 
                                             <div class="tab-pane fade" id="pills-find-by-ami" role="tabpanel" aria-labelledby="pills-find-by-ami-tab">
-                                                <input type="text" id="searchAMIInput" class="form-control" placeholder="Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..." aria-controls="listAllAMIs" />
-                                                <small class="text-muted">Tip: You can use <strong>and</strong> / <strong>or</strong> operators (ex: <kbd>ubuntu AND graviton</kbd> <kbd>windows 11 OR amazon linux</kbd> <kbd>linux AND x86_64</kbd>)</small>
+                                                <input type="text" id="searchAMIInput" class="form-control" placeholder="{{ _("Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ...") }}" aria-controls="listAllAMIs" />
+                                                <small class="text-muted">{% trans and_op='<strong>and</strong>'|safe, or_op='<strong>or</strong>'|safe, ex1='<kbd>ubuntu AND graviton</kbd>'|safe, ex2='<kbd>windows 11 OR amazon linux</kbd>'|safe, ex3='<kbd>linux AND x86_64</kbd>'|safe %}Tip: You can use {{ and_op }} / {{ or_op }} operators (ex: {{ ex1 }} {{ ex2 }} {{ ex3 }}){% endtrans %}</small>
                                                 <hr>
                                                 <div class="row" id="data-grid">
                                                     <!-- Software Stacks will be inserted here dynamically -->
@@ -698,16 +739,16 @@
 
                                                 <!-- Pagination Controls -->
                                                 <div class="d-flex justify-content-between mt-3">
-                                                    <button id="prevPage" class="btn btn-primary">Previous</button>
+                                                    <button id="prevPage" class="btn btn-primary">{{ _("Previous") }}</button>
                                                     <span id="pageInfo" class="align-self-center"></span>
-                                                    <button id="nextPage" class="btn btn-primary">Next</button>
+                                                    <button id="nextPage" class="btn btn-primary">{{ _("Next") }}</button>
                                                 </div>
 
                                             </div>
                                         </div>
                                     </div>
                                     <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Close") }}</button>
                                     </div>
                                 </div>
                             </div>
@@ -782,7 +823,7 @@
                 const findInstancesTypeForArch = getInstanceTypes[selectedAMI.ami_arch];
                 const sortedInstanceTypes = findInstancesTypeForArch.sort();
 
-                selectInstanceType.innerHTML = '<option value="" selected disabled>Choose an Instance Type</option>';
+                selectInstanceType.innerHTML = '<option value="" selected disabled>' + i18n.choose_instance_type + '</option>';
 
                 const groupedInstances = {};
 
@@ -840,7 +881,7 @@
                     itemSelectText: '',
                     shouldSort: false,
                     placeholder: true,
-                    searchPlaceholderValue: 'Type to search an instance type...',
+                    searchPlaceholderValue: i18n.search_instance_type,
                     allowHTML: true,
                     searchResultLimit: -1,
                 });
@@ -850,7 +891,7 @@
                 const choicesData = [];
                 sortedGroupKeys.forEach(group => {
                     choicesData.push({
-                        label: `<span style="color:#000000; font-weight:bold;">=== Instance Family: ${group} ===</span>`,
+                        label: `<span style="color:#000000; font-weight:bold;">=== ${i18n.instance_family}: ${group} ===</span>`,
                         id: group,
                         disabled: true,
                     });
@@ -884,7 +925,7 @@
             selectInstanceType.onchange = function () {
                 if (selectInstanceType.value) {
                     divSelectProject.style.display = 'block';
-                    selectProject.innerHTML = '<option value="" selected disabled>Select an EDH Project</option>';
+                    selectProject.innerHTML = '<option value="" selected disabled>' + i18n.select_project + '</option>';
                     allowedProjects.forEach(projectName => {
                         const option = document.createElement('option');
                         option.value = projectName;
@@ -955,7 +996,7 @@
                                                             if (filteredData.length === 0) {
                                                                 var noDataMessage = `
                                                                     <div class="col-12 text-center">
-                                                                        <h3>No software stack found. Please verify that you’ve been added to the appropriate <a href="/admin/projects">EDH projects</a>. If the issue persists, contact your EDH administrator.</h3>
+                                                                        <h3>{{ _("No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator.") }}</h3>
                                                                     </div>
                                                                 `;
                                                                 gridContainer.append(noDataMessage);
@@ -980,14 +1021,14 @@
                                                                                 <div class="card-body" style="padding: 0.2rem;">
                                                                                     <strong>${item.stack_name}</strong>
                                                                                     <hr>
-                                                                                    <p class="card-text">${item.description || 'No Description Provided'}</p>
+                                                                                    <p class="card-text">${item.description || i18n.no_description}</p>
                                                                                       <small class="text-muted"> <hr> AMI ID: ${item.ami_id} <br> <span>Profile ID: ${item.profile_id} | Stack ID: ${item.stack_id} </span></small>
                                                                                 </div>
                                                                                 <div class="card-footer text-center">
                                                                                     <button type="button" class="btn btn-success select-ami-btn"
                                                                                         data-software-stack-id="${item.stack_id}"
                                                                                         data-arch="${item.ami_arch}">
-                                                                                        Select this Stack
+                                                                                        ${i18n.select_this_stack}
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
@@ -1001,7 +1042,7 @@
                                                             if (totalPages === 0) {
                                                                 totalPages = 1;
                                                             }
-                                                            $("#pageInfo").text(`Page ${currentPage} of ${totalPages}`);
+                                                            $("#pageInfo").text(i18n.page_of_template.replace("%(current)s", currentPage).replace("%(total)s", totalPages));
                                                             $("#prevPage").prop("disabled", currentPage === 1);
                                                             $("#nextPage").prop("disabled", currentPage >= totalPages);
                                                         }
@@ -1149,6 +1190,12 @@
 
         // Select which Desktop card OS to show
         function displayCards(selectedValue) {
+            // Default to "all" when called with no argument (e.g. window.onload),
+            // otherwise an undefined selectedValue throws on .toLowerCase() once a
+            // card is present.
+            if (selectedValue === undefined || selectedValue === null) {
+                selectedValue = "all";
+            }
             var cards = document.querySelectorAll('[data-soca-instance-os-family]');
             var container = document.getElementById('selectedCardsToDisplay');
             var labels = container.querySelectorAll('label');
@@ -1166,7 +1213,7 @@
 
             // Show/hide cards based on selection
             cards.forEach(function(card) {
-                var osFamily = card.getAttribute('data-soca-instance-os-family').toLowerCase();
+                var osFamily = (card.getAttribute('data-soca-instance-os-family') || '').toLowerCase();
 
                 if (selectedValue === "all" || osFamily.includes(selectedValue.toLowerCase())) {
                     card.style.display = "block";

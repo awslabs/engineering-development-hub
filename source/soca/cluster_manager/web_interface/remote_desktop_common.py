@@ -11,20 +11,11 @@
 #  and limitations under the License.                                                                                #
 ######################################################################################################################
 
-import time
 import logging
 from utils.config import SocaConfig
 import utils.aws.boto3_wrapper as utils_boto3
-from utils.cache.client import SocaCacheClient
-from models import SoftwareStacks, VirtualDesktopSessions
-import random
-from botocore.exceptions import ClientError
-from utils.error import SocaError
-import boto3
+from models import VirtualDesktopSessions
 import config
-import botocore
-import fnmatch
-from utils.response import SocaResponse
 
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
 logger = logging.getLogger("soca_logger")
@@ -58,125 +49,6 @@ def max_concurrent_desktop_limit_reached(os_family: str, session_owner: str) -> 
         return True
     else:
         return False
-
-
-def generate_allowed_instances_list(baseos: str, architecture: str) -> list:
-    _start_time = time.perf_counter_ns()
-    _allowed_list: list = []
-    logger.debug(
-        f"Starting generate_allowed_instances_list() for baseOS: {baseos} , architecture: {architecture}"
-    )
-
-    _cache_client = SocaCacheClient(is_admin=True)
-    if not _cache_client.is_enabled().success:
-        logger.error(
-            "Unable to retrieve cache_client from extensions.get_cache_config()"
-        )
-        return _allowed_list
-
-    _now_ms: float = (time.perf_counter_ns() - _start_time) / 1_000_000
-    logger.debug(f"cache client initialization completed in {_now_ms} ms")
-
-    # Check architecture - default to x86_64
-    if architecture.lower() not in {"x86_64", "arm64"}:
-        architecture = "x86_64"
-
-    # the baseOS is generic linux/windows - not a per release/distro
-    if baseos.lower() not in {"linux", "windows"}:
-        baseos = "linux"
-
-    _cache_configuration_key: str = f"dcv/allowed_instance_list_{baseos}_{architecture}"
-    logger.debug(
-        f"Checking for cached instance allow list at key: {_cache_configuration_key}"
-    )
-
-    _conf_ttl = _cache_client.ttl(_cache_configuration_key).message
-    _config_check_ms = (time.perf_counter_ns() - _start_time) / 1_000_000
-    logger.debug(f"Config TTL check completed in {_config_check_ms} ms")
-
-    if _conf_ttl <= 0:
-        _start_api_time: int = time.perf_counter_ns()
-        _allowed_list: list = _generate_allowed_instances_list_aws_api()
-        _api_check_ms: float = (time.perf_counter_ns() - _start_api_time) / 1_000_000
-        logger.debug(f"AWS API polling completed in {_api_check_ms} ms")
-        _redis_pipeline_start: int = time.perf_counter_ns()
-        _cache_client.delete(_cache_configuration_key)
-        _cache_client.rpush(_cache_configuration_key, *_allowed_list)
-        _cache_client.expire(key=_cache_configuration_key, ttl=3600)
-        _redis_pipeline_duration = (
-            time.perf_counter_ns() - _redis_pipeline_start
-        ) / 1_000_000
-        logger.debug(
-            f"Redis instance_type cache pipeline completed in {_redis_pipeline_duration} ms"
-        )
-    else:
-        logger.debug(f"Valid TTL from Redis - {_conf_ttl}")
-        _allowed_list = _cache_client.lrange(
-            _cache_configuration_key, start=0, end=-1
-        ).message
-
-    _duration = (time.perf_counter_ns() - _start_time) / 1_000_000
-    logger.debug(
-        f"Completed instance_list ({len(_allowed_list)} entries) in {_duration} ms"
-    )
-    return _allowed_list
-
-
-def _generate_allowed_instances_list_aws_api() -> list:
-    logger.debug(f"Generating allowed_instances list")
-
-    _allowed_list: list = []
-
-    _config_allowed_list: list = (
-        SocaConfig(key="/configuration/DCVAllowedInstances")
-        .get_value(return_as=list)
-        .get("message")
-    )
-
-    _config_allow_metal: bool = (
-        SocaConfig(key="/configuration/DCVAllowBareMetal")
-        .get_value(return_as=bool)
-        .get("message")
-    )
-
-    _config_allow_prevgen: bool = (
-        SocaConfig(key="/configuration/DCVAllowPreviousGenerations")
-        .get_value(return_as=bool)
-        .get("message")
-    )
-
-    logger.debug(
-        f"Cluster configuration allowed DCV list: {_config_allowed_list}  BareMetal: {_config_allow_metal}, PreviousGeneration: {_config_allow_prevgen}"
-    )
-
-    _filters: list = []
-
-    if not _config_allow_prevgen:
-        _filters.append({"Name": "current-generation", "Values": ["true"]})
-
-    if not _config_allow_metal:
-        _filters.append({"Name": "bare-metal", "Values": ["false"]})
-
-    # Add our instance types from config
-    _filters.append({"Name": "instance-type", "Values": _config_allowed_list})
-
-    _start = time.perf_counter_ns()
-    _ec2_paginator = client_ec2.get_paginator("describe_instance_types")
-    _ec2_iterator = _ec2_paginator.paginate(Filters=_filters)
-
-    _page_count: int = 0
-    for _page in _ec2_iterator:
-        _page_count += 1
-        _instance_list: list = _page.get("InstanceTypes", [])
-        for _instance in _instance_list:
-            _allowed_list.append(_instance.get("InstanceType", "unknown-instance-name"))
-    _duration_ms = (time.perf_counter_ns() - _start) / 1_000_000
-    logger.info(
-        f"Refreshed instances list of {len(_allowed_list)} instances from AWS in {_duration_ms} ms ({_page_count} API pages)"
-    )
-    # TODO - Should these be sorted for the end-user?
-    # For example - display the more recent / newer instance families first in the list
-    return sorted(_allowed_list)
 
 
 def generate_default_dcv_amis() -> dict:

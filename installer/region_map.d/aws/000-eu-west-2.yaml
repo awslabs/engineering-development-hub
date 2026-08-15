@@ -1,30 +1,30 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
 eu-west-2:
   x86_64:
-    amazonlinux2: ami-0ad8de99ac93341e7
-    amazonlinux2023: ami-099400d52583dd8c4
-    rhel10: ami-0038df3d0e7d17c91
+    amazonlinux2: ami-0b020b79f8933e9d1
+    amazonlinux2023: ami-0c8f050e321c2c6e9
+    rhel10: ami-0445a12a08e9ced49
     rhel7: ami-0c1e9b4f894b82051
-    rhel8: ami-0f4561039a3fd82b1
-    rhel9: ami-0fee577c8b1035547
-    rocky8: ami-020c6cfb9f8b61b53
-    rocky9: ami-05a5686f0de7aa5d5
-    ubuntu2204: ami-090f0cf86291c77fa
-    ubuntu2404: ami-0c17cb8e234335014
+    rhel8: ami-0cf3e962181c691c1
+    rhel9: ami-069464cbf08dc03ee
+    rocky8: ami-0722f255e4253a390
+    rocky9: ami-0c5283cba7f33b21b
+    ubuntu2204: ami-0fa24142692dd0fff
+    ubuntu2404: ami-01029182857b20417
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-0a7436d9e9b2ed84a
-    amazonlinux2023: ami-0a9d57c940ece5b5a
-    rhel10: ami-0457de4e1ab31938f
-    rhel8: ami-0a4e416c141e7fbbc
-    rhel9: ami-0e098013b3624f8bf
-    rocky8: ami-0b1f446eaa206a516
-    rocky9: ami-000cf9ebed535f9e3
-    ubuntu2204: ami-00ad7b7a89404377a
-    ubuntu2404: ami-001791914587fb7d6
+    amazonlinux2: ami-0757224e53f439544
+    amazonlinux2023: ami-00af17666195a998c
+    rhel10: ami-038201ed9fe8a69e7
+    rhel8: ami-0091a1801bf03c54e
+    rhel9: ami-01036bf1f16c09d63
+    rocky8: ami-0e55e0c6af31c030c
+    rocky9: ami-0d54ff8c250febecb
+    ubuntu2204: ami-06169e22066fc97f0
+    ubuntu2404: ami-0a1212a771d1c046f
   x86_64_mac:
     macos15: ami-06f260ce829433e8e
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC

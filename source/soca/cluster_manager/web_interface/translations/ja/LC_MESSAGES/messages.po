@@ -1,0 +1,5277 @@
+# Japanese translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-06-02 14:33+0200\nPO-Revision-Date: 2026-03-26 16:41-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: ja\nLanguage-Team: ja <LL@li.org>\nPlural-Forms: nplurals=1; plural=0;\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.16.0\n"
+
+msgid " Download file is disabled. Please contact your SOCA cluster administrator"
+msgstr " ファイルのダウンロードは無効です。SOCA クラスタ管理者に問い合わせてください。"
+
+#, python-format
+msgid "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
+msgstr "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
+
+#, python-format
+msgid "%(link)s enables fully managed support for SFTP, FTPS and FTP to move large amounts of data into AWS."
+msgstr "%(link)s では、SFTP、FTPS、および FTP のフルマネージドサポートが可能になり、大量のデータを AWS に移動できます。"
+
+#, python-format
+msgid "%(link)s is a secure, online service that automates and accelerates moving data between on-premises and AWS storage services."
+msgstr "%(link)s は、オンプレミスと AWS ストレージサービス間のデータ移動を自動化および高速化する安全なオンラインサービスです。"
+
+msgid "&times;"
+msgstr "×"
+
+msgid "(Default Shell) /bin/bash"
+msgstr "(デフォルトシェル) /ビン/バッシュ"
+
+msgid "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file."
+msgstr "(削除しないでください) このエントリには、入力ファイルの絶対パスが自動的に入力されます。"
+
+msgid "(EDH version 26.8.0)"
+msgstr "(EDH バージョン __バージョン__)"
+
+msgid "(EDH)"
+msgstr "(幅)"
+
+msgid "(Next Day)"
+msgstr "(翌日)"
+
+msgid "(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+msgstr "(ホストテナンシーを使用しない場合はオプション) 起動ホスト ID (h-xxx)"
+
+msgid "(Optional) Advanced Customizations"
+msgstr "(オプション) 高度なカスタマイズ"
+
+msgid "(Optional) Description for your Target Node Profile (maximum 500 characters)."
+msgstr "(オプション) ターゲットノードプロファイルの説明 (最大 500 文字)。"
+
+msgid "(Optional) Description for your Virtual Desktop Profile (maximum 500 characters)."
+msgstr "(オプション) 仮想デスクトッププロファイルの説明 (最大 500 文字)。"
+
+msgid "(Optional) Description for your project (maximum 500 characters)."
+msgstr "(オプション) プロジェクトの説明 (最大 500 文字)。"
+
+msgid "(Optional) Description for your project maximum 500 characters."
+msgstr "(オプション) プロジェクトの説明最大 500 文字。"
+
+msgid "(Optional) Description for your software stack (maximum 500 characters)."
+msgstr "（オプション）ソフトウェアスタックの説明（最大 500 文字）。"
+
+msgid "(Optional) Description for your software stack, maximum 500 characters."
+msgstr "（オプション）ソフトウェアスタックの説明。最大 500 文字。"
+
+msgid "(Optional) Description for your template, maximum 500 characters."
+msgstr "(オプション) テンプレートの説明。最大 500 文字。"
+
+msgid "(Optional) User GID"
+msgstr "(オプション) ユーザ GID"
+
+msgid "(Optional) User UID"
+msgstr "(オプション) ユーザ ID"
+
+msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
+msgstr "(オプション) myvar1=myvalue1、myvar2=myvalue2"
+
+#, python-format
+msgid "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+msgstr "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
+
+msgid ", "
+msgstr "、 "
+
+msgid "/root size in GB (default: 10)"
+msgstr "/ルートサイズ (GB 単位) (デフォルト:10)"
+
+msgid "/scratch size in GB (default: 0)"
+msgstr "/スクラッチサイズ (GB 単位) (デフォルト:0)"
+
+msgid "0-9999"
+msgstr "0-9999"
+
+msgid "1-10"
+msgstr "1-10"
+
+msgid "100 Customizable"
+msgstr "100 カスタマイズ可能"
+
+msgid "24H"
+msgstr "24 時間"
+
+msgid "A Target Node Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "ターゲットノードプロファイルは、EC2 インスタンスタイプのリスト、最大ストレージサイズ、および承認されたサブネット ID を制御します。"
+
+msgid "A Virtual Desktop Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
+msgstr "仮想デスクトッププロファイルは、EC2 インスタンスタイプのリスト、最大ストレージサイズ、および承認されたサブネット ID を制御します。"
+
+msgid "A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows."
+msgstr "クラウドワークステーション、クラウドシミュレーション、AI がサポートするエンジニアリングワークフローのための統合プラットフォーム。"
+
+msgid "ADD"
+msgstr "追加"
+
+msgid "AM/PM"
+msgstr "午前/午後"
+
+msgid "AMI ID"
+msgstr "エイミーキッド"
+
+msgid "API Documentation"
+msgstr "API ドキュメンテーション"
+
+msgid "AWS Batch Containers"
+msgstr "AWS バッチコンテナ"
+
+msgid "AWS DataSync"
+msgstr "AWS データ同期"
+
+msgid "AWS Region of the target node"
+msgstr "ターゲットノードの AWS リージョン"
+
+msgid "AWS Transfer"
+msgstr "AWS への移管"
+
+msgid "Access denied"
+msgstr "アクセス拒否"
+
+msgid "Access my Analytics Dashboard"
+msgstr "アナリティクスダッシュボードにアクセスする"
+
+msgid "Access the cluster via Secure Shell (SSH)"
+msgstr "セキュアシェル (SSH) 経由でクラスターにアクセスする"
+
+msgid "Access the cluster via a Web Terminal"
+msgstr "Web ターミナル経由でクラスターにアクセスする"
+
+msgid "Access your cluster via SSH"
+msgstr "SSH 経由でクラスターにアクセスする"
+
+msgid "Action"
+msgstr "アクション"
+
+msgid "Actions"
+msgstr "[アクション]"
+
+msgid "Add"
+msgstr "追加"
+
+msgid "Add Argument"
+msgstr "引数を追加"
+
+msgid "Add New User"
+msgstr "新規ユーザーを追加"
+
+msgid "Add Resource"
+msgstr "[リソースを追加]"
+
+msgid "Add Variable"
+msgstr "[変数を追加]"
+
+msgid "Add a user to your group"
+msgstr "グループにユーザーを追加する"
+
+msgid "Add environment variables for your job"
+msgstr "ジョブに環境変数を追加する"
+
+msgid "Add new user"
+msgstr "新しいユーザーを追加"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job definition(s) you want to onboard."
+msgstr "オンボードしたい AWS Batch ジョブ定義に次のタグ %(tag)s を追加します。"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the AWS Batch job queue(s) you want to onboard."
+msgstr "オンボードしたい AWS Batch ジョブキューに次のタグ %(tag)s を追加します。"
+
+#, python-format
+msgid "Add the following tag %(tag)s to the EKS cluster(s) you want to onboard."
+msgstr "オンボードしたい EKS クラスターに次のタグ %(tag)s を追加します。"
+
+#, python-format
+msgid "Add the following tag to onboard your %(link)s to EDH:"
+msgstr "%(link)sをEDHにオンボードするには、次のタグを追加してください。"
+
+msgid "Add to group"
+msgstr "グループに追加"
+
+msgid "Add user"
+msgstr "ユーザーを追加"
+
+msgid "Add user to your group"
+msgstr "ユーザーをグループに追加"
+
+msgid "Additional documentation and examples can be found here:"
+msgstr "その他のドキュメントと例については、こちらをご覧ください。"
+
+msgid "Additional variables (case-sensitive)"
+msgstr "その他の変数 (大文字と小文字を区別)"
+
+#, python-format
+msgid "Additional variables can be defined on the %(stack_link)s associated to this user data template. Variables can be retrieved via %(var_syntax)s syntax."
+msgstr "このユーザーデータテンプレートに関連付けられた %(stack_link)s には、追加の変数を定義できます。変数は %(var_syntax)s 構文で取得できます。"
+
+msgid "Additionally, your job definition status must be ACTIVE."
+msgstr "さらに、ジョブ定義のステータスは ACTIVE である必要があります。"
+
+msgid "Additionally, your job queue state must be ENABLED and status must be VALID."
+msgstr "さらに、ジョブキューの状態が ENABLED で、ステータスが VALID である必要があります。"
+
+msgid "Admin Section"
+msgstr "管理セクション"
+
+msgid "Admin permissions granted"
+msgstr "管理者権限が付与されました"
+
+msgid "Admin permissions revoked"
+msgstr "管理者権限が取り消されました"
+
+#, python-format
+msgid "Admin username and password can be found on %(u)s and %(pw)s."
+msgstr "管理者のユーザー名とパスワードは、%(u)s と %(pw)s にあります。"
+
+msgid "Advanced Settings"
+msgstr "詳細設定"
+
+msgid "All"
+msgstr "[すべて]"
+
+msgid "All operations have completed. Page will reload automatically in 5 seconds"
+msgstr "すべての操作が完了しました。ページは 5 秒後に自動的に再読み込みされます。"
+
+msgid "All users"
+msgstr "すべてのユーザ"
+
+msgid "Allowed Groups"
+msgstr "許可グループ"
+
+msgid "Allowed Users"
+msgstr "許可ユーザ"
+
+msgid "Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname."
+msgstr "または、WinSCP/FileZillaを使用することもできます。このウェブサイトに記載されている手順を参照し、AWS Transfer エンドポイントをホスト名として使用してください。"
+
+msgid "Always On"
+msgstr "常時オン"
+
+msgid "AlwaysOn"
+msgstr "常時オン"
+
+msgid "Amazon DCV"
+msgstr "アマゾン DCV"
+
+msgid "Amazon EKS Containers"
+msgstr "アマゾンEKSコンテナ"
+
+msgid "AmazonElasticFileSystemClientReadWriteAccess"
+msgstr "Amazon Elastic ファイルシステムクライアントの読み取り/書き込みアクセス"
+
+msgid "Analytics / Budget"
+msgstr "アナリティクス/予算"
+
+msgid "Any script authenticating to SOCA using this key will return"
+msgstr "このキーを使用して SOCA への認証を行うスクリプトはすべて返されます。"
+
+msgid "Application Imported successfully"
+msgstr "アプリケーションが正常にインポートされました"
+
+msgid "Application Profiles"
+msgstr "アプリケーションプロファイル"
+
+msgid "Application deleted successfully"
+msgstr "アプリケーションは正常に削除されました"
+
+msgid "Application not found or user is not authorized."
+msgstr "アプリケーションが見つからないか、ユーザーが承認されていません。"
+
+msgid "Application parameters"
+msgstr "アプリケーションパラメーター"
+
+msgid "Application updated successfully"
+msgstr "アプリケーションが正常に更新されました"
+
+msgid "Applications are loaded in memory and will restart automatically"
+msgstr "アプリケーションはメモリに読み込まれ、自動的に再起動します"
+
+msgid "Architecture (x86_64/ aarch64) of the target node"
+msgstr "ターゲットノードのアーキテクチャ (x86_64/ aarch64)"
+
+msgid "Array Size"
+msgstr "配列サイズ"
+
+msgid "As hostname, enter the following for the Login Node load balancer endpoint:"
+msgstr "ホスト名として、Login Node ロードバランサーエンドポイントに以下を入力します。"
+
+msgid "Assign this desktop to an existing capacity reservation id"
+msgstr "このデスクトップを既存のキャパシティ予約 ID に割り当てる"
+
+msgid "Associated AWS Budget"
+msgstr "関連する AWS 予算"
+
+msgid "Associated Budgets"
+msgstr "関連予算"
+
+msgid "Associated Profile"
+msgstr "関連プロフィール"
+
+msgid "Associated Projects"
+msgstr "関連プロジェクト"
+
+msgid "Attention"
+msgstr "注意"
+
+msgid "Attention: Your job cannot run"
+msgstr "注意:ジョブを実行できません"
+
+msgid "Authentication failed - please refresh the page and try again."
+msgstr "認証に失敗しました。ページを更新して、もう一度試してください。"
+
+msgid "Authentication failed. Close this window and open a new pop-out from the main SSH page."
+msgstr "認証に失敗しました。このウィンドウを閉じて、SSH のメインページから新しいポップアウトを開きます。"
+
+msgid "Authorized"
+msgstr "承認済み"
+
+msgid "Auto-filled with the input file path"
+msgstr "入力ファイルパスが自動入力されます"
+
+msgid "Auto-scroll"
+msgstr "オートスクロール"
+
+msgid "Automatic Provisioning"
+msgstr "自動プロビジョニング"
+
+msgid "Automatic Provisioning (Default)"
+msgstr "自動プロビジョニング (デフォルト)"
+
+msgid "Automatically start/stop this session based on schedule."
+msgstr "スケジュールに基づいてこのセッションを自動的に開始/停止します。"
+
+msgid "Benefits and Features"
+msgstr "利点と機能"
+
+msgid "Both commands will return a JSON object with all information regarding your job."
+msgstr "どちらのコマンドも、ジョブに関するすべての情報を含む JSON オブジェクトを返します。"
+
+msgid "Both commands will return the ID associated to the job you just submitted"
+msgstr "どちらのコマンドも、送信したジョブに関連付けられた ID を返します。"
+
+msgid "Browse Software Stacks"
+msgstr "ソフトウェアスタックを参照"
+
+msgid "Budgets and Cost Management"
+msgstr "予算とコスト管理"
+
+msgid "CPUs"
+msgstr "CPU"
+
+msgid "Cache updated with the latest revision of the folder"
+msgstr "キャッシュはフォルダーの最新リビジョンで更新されました"
+
+msgid "Calculate number of nodes to provision automatically"
+msgstr "自動的にプロビジョニングするノード数の計算"
+
+msgid "Cancel"
+msgstr "[キャンセル]"
+
+msgid "Capacity being provisioned"
+msgstr "プロビジョニング中のキャパシティ"
+
+msgid "Capacity provisioning blocked"
+msgstr "キャパシティプロビジョニングがブロックされました"
+
+msgid "Change group membership"
+msgstr "グループメンバーシップの変更"
+
+msgid "Change my password"
+msgstr "パスワードを変更"
+
+msgid "Changing an instance type does not cause data loss."
+msgstr "インスタンスタイプを変更してもデータは失われません。"
+
+msgid "Check Project Membership"
+msgstr "プロジェクトメンバーシップを確認"
+
+msgid "Check group"
+msgstr "チェックグループ"
+
+msgid "Check group membership"
+msgstr "グループメンバーシップを確認"
+
+msgid "Check project membership for a given user"
+msgstr "特定のユーザーのプロジェクトメンバーシップを確認する"
+
+#, python-format
+msgid "Choose %(ep_type)s depending on your setup. It's recommended to use %(vpc)s for IP restrictions via your security groups. %(pub)s means your AWS Transfer endpoint won't be protected by IP safelist."
+msgstr "セットアップに応じて %(ep_type)s を選択してください。セキュリティグループによる IP 制限には %(vpc)s を使用することをお勧めします。%(pub)s は、AWS Transfer エンドポイントが IP セーフリストによって保護されないことを意味します。"
+
+msgid "Choose AMI launch tenancy setting"
+msgstr "AMI 起動テナンシー設定を選択"
+
+msgid "Choose a EDH software stack for"
+msgstr "次の用途の EDH ソフトウェアスタックを選択してください"
+
+msgid "Choose a friendly name for your AMI."
+msgstr "AMI のわかりやすい名前を選択してください。"
+
+msgid "Choose an Instance Type"
+msgstr "インスタンスタイプを選択"
+
+msgid "Choose an Instance Type supported for this Software Stack"
+msgstr "このソフトウェアスタックでサポートされているインスタンスタイプを選択してください"
+
+msgid "Choose what interpreter you want to use to execute the code below:"
+msgstr "以下のコードを実行するために使用するインタープリターを選択してください。"
+
+msgid "Choose your Operating System"
+msgstr "お使いのオペレーティングシステムを選択してください"
+
+msgid "Choose your Software Stack"
+msgstr "ソフトウェアスタックの選択"
+
+msgid "Clear the buffer (Ctrl+L)"
+msgstr "バッファをクリアする (Ctrl+L)"
+
+#, python-format
+msgid "Click %(start_a)shere%(end_a)s to download it"
+msgstr "Click %(start_a)shere%(end_a)s to download it"
+
+msgid "Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it."
+msgstr "+ をクリックして、新しいターミナルタブを追加します。タブの ⏸ を使用してデタッチ (セッションを実行したままにする) か、× を使用してセッションを終了します。"
+
+msgid "Click connect/open to access the cluster"
+msgstr "クラスターにアクセスするには、[接続/開く] をクリックします"
+
+msgid "Click here to Open Terminal in a separate window"
+msgstr "ターミナルを別のウィンドウで開くにはここをクリック"
+
+msgid "Click here to learn how to Import/Export your Workflow Profiles"
+msgstr "ワークフロープロファイルをインポート/エクスポートする方法については、ここをクリックしてください"
+
+msgid "Click here to learn how to create custom images"
+msgstr "カスタム画像を作成する方法については、ここをクリックしてください"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Closing tabs or this window leaves them running so you can resume later."
+msgstr "タブまたはこのウィンドウを閉じると、タブは実行されたままになるため、後で再開できます。"
+
+msgid "Cluster"
+msgstr "クラスタ"
+
+msgid "Cluster Metrics"
+msgstr "クラスターメトリックス"
+
+msgid "Code Editor"
+msgstr "コードエディター"
+
+msgid "Code Editor is taking longer than expected to load."
+msgstr "コードエディタのロードに予想以上に時間がかかっています。"
+
+msgid "Comma separated value of key=value variable that will be replaced in the user data if present."
+msgstr "key=value 変数のコンマ区切り値。存在する場合、ユーザーデータに置き換えられます。"
+
+msgid "Command Override"
+msgstr "コマンドオーバーライド"
+
+msgid "Company Resources"
+msgstr "会社リソース"
+
+msgid "Compute"
+msgstr "コンピュート"
+
+msgid "Compute Resources"
+msgstr "コンピュートリソース"
+
+msgid "Compute rate are retrieved for your running region"
+msgstr "実行中のリージョンのコンピュートレートが取得されます"
+
+msgid "Configure Job Cost Estimate automatically"
+msgstr "ジョブコスト見積もりを自動的に設定"
+
+msgid "Confirm Delete"
+msgstr "削除を確認"
+
+msgid "Confirm New Password"
+msgstr "新しいパスワードを確認"
+
+msgid "Confirm Password"
+msgstr "[パスワードを確認]"
+
+msgid "Confirm Terminate"
+msgstr "終了を確認"
+
+msgid "Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:"
+msgstr "次のようなコマンドラインからお気に入りの FTP アプリケーションを使用して AWS Transfer エンドポイントに接続します。"
+
+msgid "Connected"
+msgstr "接続済み"
+
+msgid "Connecting..."
+msgstr "接続中..."
+
+msgid "Connection String"
+msgstr "接続文字列"
+
+msgid "Consumable Resource Override"
+msgstr "消耗品リソースオーバーライド"
+
+msgid "Contact your EDH administrator if you want to add Analytics capability to your cluster."
+msgstr "クラスターに Analytics 機能を追加する場合は、EDH 管理者に問い合わせてください。"
+
+msgid "Container Overrides"
+msgstr "コンテナオーバーライド"
+
+msgid "Continue to GitHub"
+msgstr "GitHub に進む"
+
+msgid "Control AWS resource deployment authorization via AWS Budget"
+msgstr "AWS バジェットによる AWS リソースデプロイ承認の管理"
+
+msgid "Cost Control and Budgets"
+msgstr "コスト管理と予算"
+
+msgid "Cost Management"
+msgstr "コスト管理"
+
+msgid "Cost estimate for your job"
+msgstr "仕事にかかる費用の見積もり"
+
+msgid "Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file."
+msgstr "このワークフローはqsubファイルではなくLinuxコマンドを生成するため、コスト見積もりはできません。"
+
+msgid "Could not check group membership: "
+msgstr "グループメンバーシップを確認できませんでした: "
+
+msgid "Could not delete group: "
+msgstr "グループを削除できませんでした: "
+
+msgid "Could not delete user: "
+msgstr "ユーザーを削除できませんでした: "
+
+msgid "Could not locate the directory. Did you delete it ?"
+msgstr "ディレクトリが見つかりませんでした。削除しましたか?"
+
+msgid "Could not locate the directory: "
+msgstr "ディレクトリが見つかりませんでした: "
+
+msgid "Create Account"
+msgstr "アカウント作成"
+
+msgid "Create EDH Project"
+msgstr "EDH プロジェクトを作成"
+
+msgid "Create Folder"
+msgstr "フォルダーの作成"
+
+msgid "Create Group"
+msgstr "[グループを作成]"
+
+msgid "Create User Data template"
+msgstr "ユーザーデータテンプレートの作成"
+
+msgid "Create a \"mynewgroup.ldif\" text file."
+msgstr "「mynewgroup.ldif」テキストファイルを作成します。"
+
+msgid "Create a group"
+msgstr "グループを作成"
+
+msgid "Create a new EDH Project"
+msgstr "新規 EDH プロジェクトの作成"
+
+msgid "Create a new Target Node Profile"
+msgstr "新しいターゲットノードプロファイルの作成"
+
+msgid "Create a new User Data Template"
+msgstr "新しいユーザーデータテンプレートを作成する"
+
+msgid "Create a new Virtual Desktop Profile"
+msgstr "新しい仮想デスクトッププロファイルを作成する"
+
+msgid "Create a new Workflow Profile"
+msgstr "新しいワークフロープロファイルを作成する"
+
+msgid "Create a new group"
+msgstr "新しいグループを作成"
+
+msgid "Create a new queue"
+msgstr "新しいキューを作成する"
+
+msgid "Create a queue"
+msgstr "キューを作成する"
+
+msgid "Create new EDH Project"
+msgstr "新規 EDH プロジェクトの作成"
+
+msgid "Create new Queue"
+msgstr "新しいキューを作成"
+
+msgid "Create new Target Node Profile"
+msgstr "新しいターゲットノードプロファイルの作成"
+
+msgid "Create new User Data Template"
+msgstr "新しいユーザーデータテンプレートの作成"
+
+msgid "Create new Virtual Desktop Profile"
+msgstr "新しい仮想デスクトッププロファイルの作成"
+
+msgid "Create new Workflow Profile"
+msgstr "新しいワークフロープロファイルの作成"
+
+msgid "Create this Workflow Profile"
+msgstr "このワークフロープロファイルを作成"
+
+msgid "Created"
+msgstr "作成されました"
+
+msgid "Created On"
+msgstr "作成日"
+
+msgid "Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account."
+msgstr "Active Directory でのユーザーの作成には、最大 1 分かかる場合があります。EDH が新しいアカウントを作成している間は、ページを更新しないでください。"
+
+msgid "Custom"
+msgstr "カスタム"
+
+msgid "Custom Consumable Resources"
+msgstr "カスタム消耗品リソース"
+
+msgid "DANGER ZONE - Reset my API key"
+msgstr "デンジャーゾーン-API キーをリセット"
+
+msgid "DCV Session Type."
+msgstr "DCV セッションタイプ。"
+
+msgid "Data Transfer to/from EDH"
+msgstr "EDH への/からのデータ転送"
+
+msgid "Date"
+msgstr "日付"
+
+msgid "Dedicated Host Tenancy"
+msgstr "専用ホストテナンシー"
+
+msgid "Dedicated Host Tenancy (host)"
+msgstr "専用ホストテナンシー (ホスト)"
+
+msgid "Dedicated Instance Tenancy"
+msgstr "専用インスタンステナンシー"
+
+msgid "Dedicated Instance Tenancy (instance)"
+msgstr "専用インスタンステナンシー (インスタンス)"
+
+msgid "Default Tenancy"
+msgstr "デフォルトテナンシー"
+
+msgid "Default Tenancy (default)"
+msgstr "デフォルトテナンシー (デフォルト)"
+
+msgid "Define custom consumable resources beyond vCPU and Memory."
+msgstr "vCPU やメモリ以外のカスタム消耗品リソースを定義できます。"
+
+msgid "Define environment variables as key-value pairs."
+msgstr "環境変数をキーと値のペアとして定義します。"
+
+msgid "Delete"
+msgstr "[削除]"
+
+msgid "Delete Desktop"
+msgstr "デスクトップを削除"
+
+msgid "Delete Group"
+msgstr "グループを削除"
+
+msgid "Delete Job"
+msgstr "ジョブを削除"
+
+msgid "Delete Project"
+msgstr "[プロジェクトを削除]"
+
+msgid "Delete Queue"
+msgstr "キューを削除"
+
+msgid "Delete Target Node"
+msgstr "ターゲットノードを削除"
+
+msgid "Delete Target Node Profile"
+msgstr "ターゲットノードプロファイルの削除"
+
+msgid "Delete User"
+msgstr "ユーザーを削除"
+
+msgid "Delete User Data Template"
+msgstr "ユーザーデータテンプレートの削除"
+
+msgid "Delete Virtual Desktop Profile"
+msgstr "仮想デスクトッププロファイルの削除"
+
+msgid "Delete Workflow Profile"
+msgstr "ワークフロープロファイルの削除"
+
+msgid "Delete a group"
+msgstr "グループを削除する"
+
+msgid "Delete a job"
+msgstr "ジョブを削除する"
+
+msgid "Delete a queue"
+msgstr "キューを削除する"
+
+msgid "Delete an existing Workflow Profile"
+msgstr "既存のワークフロープロファイルを削除する"
+
+msgid "Delete file"
+msgstr "ファイル削除"
+
+msgid "Delete group"
+msgstr "グループを削除"
+
+msgid "Delete the folder"
+msgstr "フォルダを削除する"
+
+msgid "Delete this file"
+msgstr "このファイルを削除"
+
+msgid "Delete user"
+msgstr "ユーザーを削除"
+
+msgid "Deleted user"
+msgstr "削除済みユーザ"
+
+#, python-format
+msgid "Deleting a virtual desktop will NOT delete content from %(owner_path)s partition"
+msgstr "仮想デスクトップを削除しても、%(owner_path)s パーティションのコンテンツは削除されません"
+
+msgid "Deleting a virtual desktop will delete content stored on your local partition (ex:"
+msgstr "仮想デスクトップを削除すると、ローカルパーティションに保存されているコンテンツが削除されます (例:"
+
+msgid "Deleting group may cause access issue. Make sure your group is no longer in use before deleting it"
+msgstr "グループを削除すると、アクセスに問題が生じる可能性があります。グループを削除する前に、グループが使用されていないことを確認してください。"
+
+msgid "Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data"
+msgstr "ユーザーを削除すると、ユーザーはクラスターにアクセスできなくなりますが、関連する $HOME ディレクトリとデータは削除されません"
+
+msgid "Denied Groups"
+msgstr "拒否グループ"
+
+msgid "Denied Users"
+msgstr "拒否されたユーザ"
+
+msgid "Deny takes precedence over allow"
+msgstr "拒否は許可より優先されます"
+
+msgid "Description"
+msgstr "[説明]"
+
+msgid "Description of your Project"
+msgstr "プロジェクトの説明"
+
+msgid "Description of your Software Stack"
+msgstr "ソフトウェアスタックの説明"
+
+msgid "Description of your Target Node Profile"
+msgstr "ターゲットノードプロファイルの説明"
+
+msgid "Description of your User Data Template"
+msgstr "ユーザーデータテンプレートの説明"
+
+msgid "Description of your Virtual Desktop Profile"
+msgstr "仮想デスクトッププロファイルの説明"
+
+msgid "Detach (session keeps running)"
+msgstr "デタッチ (セッションは継続して実行)"
+
+msgid "Detached"
+msgstr "デタッチド"
+
+msgid "Disable Auto-Refresh"
+msgstr "自動更新を無効にする"
+
+msgid "Disclaimer: Baseline numbers"
+msgstr "免責事項:ベースライン番号"
+
+msgid "Disconnected"
+msgstr "切断されました"
+
+msgid "Do not close the page while uploading."
+msgstr "アップロード中はページを閉じないでください。"
+
+msgid "Do not use spaces"
+msgstr "スペースは使わないでください"
+
+msgid "Do you want to limit how long the job will be running?"
+msgstr "ジョブの実行時間を制限しますか?"
+
+msgid "Do you want to limit your job to Reserved Instance only?"
+msgstr "ジョブをリザーブドインスタンスのみに制限しますか?"
+
+msgid "Do you want to specify a thumbnail (this will be scaled to 150*150px)?"
+msgstr "サムネイル (150*150px に拡大されます) を指定しますか?"
+
+msgid "Documentation"
+msgstr "ドキュメンテーション"
+
+msgid "Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)"
+msgstr "ネットワークやストレージの転送、io2ボリューム（デフォルトはgp3）の使用などの追加料金は一切反映されません"
+
+msgid "Download FileZilla"
+msgstr "Zillaファイルをダウンロード"
+
+msgid "Download PuTTY"
+msgstr "PuTTY をダウンロード"
+
+#, python-format
+msgid "Download PuttyGEN from %(puttygen_link)s, then convert the key you have downloaded on step1 to %(fmt)s format"
+msgstr "PuttyGen を %(puttygen_link)s からダウンロードし、ステップ 1 でダウンロードしたキーを %(fmt)s 形式に変換します"
+
+msgid "Download Session File"
+msgstr "セッションファイルをダウンロード"
+
+msgid "Download all"
+msgstr "すべてダウンロード"
+
+msgid "Download file is disabled. Please contact your cluster administrator"
+msgstr "ファイルのダウンロードは無効です。クラスター管理者に問い合わせてください。"
+
+msgid "Download my private key"
+msgstr "プライベートキーをダウンロードする"
+
+msgid "Download selected"
+msgstr "選択したものをダウンロード"
+
+msgid "Download selected files"
+msgstr "選択したファイルをダウンロード"
+
+msgid "Download this file"
+msgstr "このファイルをダウンロードする"
+
+#, python-format
+msgid "Download your %(kind)s SSH key"
+msgstr "あなたの %(kind)s SSH キーをダウンロードしてください"
+
+msgid "Download your client here."
+msgstr "こちらからクライアントをダウンロードしてください。"
+
+msgid "Drag & Drop form components based on your own requirements."
+msgstr "独自の要件に基づいてフォームコンポーネントをドラッグアンドドロップします。"
+
+msgid "Drag and Drop files to upload or click"
+msgstr "ファイルをドラッグアンドドロップしてアップロードするか、クリックしてください"
+
+msgid "EBS/FSx rates as of January 2025 based on us-east-1"
+msgstr "米国東部に基づく 2025 年 1 月時点の EBS/FSX レート"
+
+msgid "EC2 Instance Types you are authorized to deploy for this software stack. Manage list via"
+msgstr "このソフトウェアスタックにデプロイする権限がある EC2 インスタンスタイプ。リストは次の方法で管理します。"
+
+msgid "EC2 instance type to provision"
+msgstr "プロビジョニングする EC2 インスタンスタイプ"
+
+msgid "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision"
+msgstr "プロビジョニングする EC2 インスタンスタイプ。これを vcpu と一緒に使用して、プロビジョニングするノード数を計算します。"
+
+msgid "EDH - Engineering Development Hub"
+msgstr "EDH-エンジニアリング開発ハブ"
+
+msgid "EDH APIs"
+msgstr "EDH API"
+
+msgid "EDH Analytics module is not enabled on your EDH environment."
+msgstr "お使いの EDH 環境では EDH 分析モジュールが有効になっていません。"
+
+msgid "EDH CAE Assistant"
+msgstr "EDH CAE アシスタント"
+
+msgid "EDH Profiles"
+msgstr "EDH プロファイル"
+
+msgid "EDH Projects"
+msgstr "EDH プロジェクト"
+
+#, python-format
+msgid "EDH Projects let you control visibility for your %(vd_link)s and %(tn_link)s."
+msgstr "EDH プロジェクトでは、%(vd_link)s と %(tn_link)s の可視性を制御できます。"
+
+msgid "EDH Projects."
+msgstr "EDHプロジェクト。"
+
+msgid "EDH Public Documentation"
+msgstr "EDH パブリックドキュメンテーション"
+
+msgid "EDH Software Stacks"
+msgstr "EDH ソフトウェアスタック"
+
+msgid "EDH Target Nodes Profiles."
+msgstr "EDH ターゲットノードプロファイル。"
+
+msgid "EDH Terminal"
+msgstr "EDH ターミナル"
+
+msgid "EDH VDI Profiles."
+msgstr "EDH VDI プロファイル。"
+
+msgid "EDH includes a Floating Licenses-enabled script which calculate the number of licenses for a given feature and only start to provision capacity when enough licenses are available"
+msgstr "EDHには、特定の機能のライセンス数を計算し、十分なライセンスがある場合にのみ容量のプロビジョニングを開始するフローティングライセンス対応スクリプトが含まれています。"
+
+msgid "EDH is built entirely on top of AWS and can be customized by users as needed. More importantly, the entire codebase is open-source and available on GitHub"
+msgstr "EDH は完全に AWS 上に構築されており、必要に応じてユーザーがカスタマイズできます。さらに重要なのは、コードベース全体がオープンソースで、GitHub で利用できることです。"
+
+msgid "EDH projects"
+msgstr "EDH プロジェクト"
+
+msgid "EDH projects you are authorized to use for this stack. Resources will use the assigned budget if specified. Manage list via"
+msgstr "このスタックに使用することが許可されている EDH プロジェクト。リソースは、指定されていれば割り当てられた予算を使用します。リストは次の方法で管理します。"
+
+msgid "EDH public GitHub repository"
+msgstr "EDH パブリック GitHub リポジトリ"
+
+msgid "EDH reserved variables"
+msgstr "EDH 予約変数"
+
+msgid "EDH tried to restart the session automatically, but was unable to do so. Please contact your EDH administrator for further troubleshooting."
+msgstr "EDH はセッションを自動的に再開しようとしましたが、再開できませんでした。詳細なトラブルシューティングについては、EDH 管理者に問い合わせてください。"
+
+msgid "EDIT"
+msgstr "編集"
+
+msgid "EKS Cluster"
+msgstr "EKS クラスター"
+
+msgid "EKS Namespace"
+msgstr "EKS 名前空間"
+
+msgid "EKS Namespace to launch your job on"
+msgstr "ジョブを開始するための EKS 名前空間"
+
+msgid "Each line is one argument."
+msgstr "各行は 1 つの引数です。"
+
+msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations"
+msgstr "LSF、OpenPBS、PBSPro、Slurmのジョブを簡単に送信し、HPCシミュレーションのコンピューティング、ストレージ、およびオペレーティングシステムの要件をシームレスにカスタマイズできます"
+
+msgid "Edit"
+msgstr "[編集]"
+
+msgid "Edit EDH Project"
+msgstr "EDH プロジェクトの編集"
+
+msgid "Edit File"
+msgstr "[ファイルを編集]"
+
+msgid "Edit Project"
+msgstr "[プロジェクトを編集]"
+
+msgid "Edit SOCA User Data Template"
+msgstr "SOCA ユーザーデータテンプレートの編集"
+
+msgid "Edit Software Stack"
+msgstr "ソフトウェアスタックの編集"
+
+msgid "Edit Target Node Profile"
+msgstr "ターゲットノードプロファイルの編集"
+
+msgid "Edit User Data Template"
+msgstr "ユーザーデータテンプレートの編集"
+
+msgid "Edit Virtual Desktop Profile"
+msgstr "仮想デスクトッププロファイルの編集"
+
+msgid "Edit Workflow Profile"
+msgstr "ワークフロープロファイルの編集"
+
+msgid "Edit an existing Workflow Profile"
+msgstr "既存のワークフロープロファイルを編集する"
+
+#, python-format
+msgid "Edit the test template below to match the variables you have created on your form or simply write code that cannot be changed by the user. To read values from your form, use %(jinja_link)s syntax (e.g. if your form input name is %(my_param)s, retrieve the value via %(my_param_ref)s)"
+msgstr "フォームで作成した変数に合わせて以下のテストテンプレートを編集するか、ユーザーが変更できないコードを記述してください。フォームから値を読み取るには、%(jinja_link)s 構文を使用します (たとえば、フォームの入力名が %(my_param)s の場合は、%(my_param_ref)s 経由で値を取得します)。"
+
+msgid "Edit this file (text file only)"
+msgstr "このファイルを編集 (テキストファイルのみ)"
+
+msgid "Email"
+msgstr "電子メール"
+
+msgid "Embeeded Development"
+msgstr "組み込み開発"
+
+msgid "Enable Auto-Refresh"
+msgstr "自動更新を有効にする"
+
+msgid "Enable Hibernation Support."
+msgstr "ハイバネーションサポートを有効にする。"
+
+msgid "Enable Nested Virtualization. Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)."
+msgstr "ネスト仮想化を有効にします。第 8 世代の AWS インスタンスタイプファミリー (c8i、r8i、m8i など) が必要です。"
+
+msgid "Enable Sudo Access"
+msgstr "Sudo アクセスを有効にする"
+
+msgid "End session (terminates tmux)"
+msgstr "セッションを終了する (tmux を終了する)"
+
+msgid "End this terminal session? The remote tmux will be terminated."
+msgstr "このターミナルセッションを終了しますか?リモート tmux は終了します。"
+
+msgid "Engineering Development Hub"
+msgstr "エンジニアリング開発ハブ"
+
+msgid "Enter friendly AMI Name"
+msgstr "わかりやすい AMI 名を入力してください"
+
+msgid "Enter one environment variable per line in KEY=VALUE format."
+msgstr "KEY=VALUE 形式で 1 行に 1 つの環境変数を入力します。"
+
+msgid "Enter shell code here"
+msgstr "ここにシェルコードを入力してください"
+
+msgid "Enter value"
+msgstr "値を入力"
+
+msgid "Entering the Danger Zone"
+msgstr "危険地帯に入る"
+
+msgid "Entering the danger zone"
+msgstr "危険区域に入る"
+
+msgid "Environment Variables"
+msgstr "環境変数"
+
+msgid "Error during"
+msgstr "エラー中"
+
+msgid "Error uploading file!"
+msgstr "ファイルのアップロード中にエラーが発生しました!"
+
+msgid "Error while creating "
+msgstr "作成中のエラー "
+
+msgid "Error, could not connect to your virtual desktop."
+msgstr "エラー。仮想デスクトップに接続できませんでした。"
+
+msgid "Error, this path probably does not exist. "
+msgstr "エラー。このパスはおそらく存在しません。 "
+
+msgid "Error:"
+msgstr "エラー:"
+
+msgid "Error: "
+msgstr "エラー: "
+
+msgid "Estimated Compute OnDemand"
+msgstr "推定コンピュートオンデマンド"
+
+msgid "Estimated Cost:"
+msgstr "推定費用:"
+
+msgid "Estimated Storage:"
+msgstr "推定ストレージ容量:"
+
+msgid "Estimated compute price with RI"
+msgstr "RI を使用した場合の推定コンピューティング料金"
+
+msgid "Example:"
+msgstr "例:"
+
+msgid "Example: Create a new LDAP group"
+msgstr "例:新しい LDAP グループの作成"
+
+msgid "Example: Delete Operation"
+msgstr "例:削除操作"
+
+msgid "Example: How to submit/query and delete a job via HTTP API"
+msgstr "例:HTTP API を使用してジョブを送信/クエリし、削除する方法"
+
+msgid "Example: Modify Operation"
+msgstr "例:操作の変更"
+
+msgid "Execution timeout"
+msgstr "実行タイムアウト"
+
+msgid "Explore your Filesystem"
+msgstr "ファイルシステムを調べる"
+
+msgid "Export"
+msgstr "[エクスポート]"
+
+msgid "Export existing Workflow Profile"
+msgstr "既存のワークフロープロファイルのエクスポート"
+
+msgid "External Website Notice"
+msgstr "外部ウェブサイト通知"
+
+msgid "FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "FSx パーシステント・ベースライン:(50 MB/秒/TiB ベースライン、最大 1.3 GB/TiB バースト)"
+
+msgid "FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB burst)"
+msgstr "FSx スクラッチベースライン:(200 MB/秒/TiB ベースライン、最大 1.3 GB/TiB バースト)"
+
+msgid "FSx for Lustre size in GB (default: 0)"
+msgstr "FSx のラスターサイズ (GB 単位) (デフォルト:0)"
+
+msgid "FSx for Lustre:"
+msgstr "光沢用FSx:"
+
+msgid "Failed to load earlier content"
+msgstr "以前のコンテンツを読み込めませんでした"
+
+msgid "Failure to do so will result in your profile remaining hidden from users."
+msgstr "そうしないと、プロフィールがユーザーに表示されなくなります。"
+
+msgid "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "この EDH クラスターでは機能を使用できません。管理者に連絡して有効にしてください。"
+
+msgid "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+msgstr "この機能はこの EDH クラスターでは使用できません。管理者に連絡して有効にしてください。"
+
+msgid "File Explorer"
+msgstr "ファイルエクスプローラー"
+
+msgid "File Updated."
+msgstr "ファイルが更新されました。"
+
+msgid "File appears to be binary and cannot be tailed"
+msgstr "ファイルはバイナリのようで、テールできません"
+
+msgid "File does not exist or is not a regular file"
+msgstr "ファイルは存在しないか、通常のファイルではありません"
+
+#, python-brace-format
+msgid "File is too large to tail (max {max_mb:.0f} MB). Use download instead."
+msgstr "ファイルが大きすぎて末尾まで残りません (最大 {max_mb: .0f} MB)。代わりにダウンロードを使用してください。"
+
+msgid "File removed"
+msgstr "ファイルが削除されました"
+
+msgid "File rotated"
+msgstr "ファイルがローテーションされました"
+
+msgid "File rotated; earlier history is unavailable"
+msgstr "ファイルはローテーションされました。以前の履歴は使用できません"
+
+msgid "File truncated"
+msgstr "ファイルが切り捨てられました"
+
+msgid "File(s) will be uploaded under"
+msgstr "ファイルは下にアップロードされます"
+
+msgid "Filter"
+msgstr "[フィルター]"
+
+msgid "Finally valid your group has been created correctly using"
+msgstr "ついに有効になりました。以下を使用してグループが正しく作成されました。"
+
+msgid "Folder Name"
+msgstr "フォルダ名"
+
+msgid "Folder removed."
+msgstr "フォルダが削除されました。"
+
+msgid "For Linux user data, we recommend starting the script with:"
+msgstr "Linux ユーザーデータの場合は、次のコードでスクリプトを開始することをお勧めします。"
+
+msgid "For Windows user data, we recommend starting the script with:"
+msgstr "Windows ユーザーデータの場合は、次のコードでスクリプトを開始することをお勧めします。"
+
+#, python-format
+msgid "For example, %(ex_var)s on your user data will automatically be replaced with \"test123\" if you configure %(ex_assign)s on the Software Stack associated to this User Data."
+msgstr "たとえば、このユーザーデータに関連付けられたソフトウェアスタックで %(ex_assign)s を設定すると、ユーザーデータの %(ex_var)s は自動的に「test123」に置き換えられます。"
+
+msgid "For internal support, refer to the links provided by your Administrator or contact your AWS account team."
+msgstr "内部サポートについては、管理者から提供されたリンクを参照するか、AWS アカウントチームにお問い合わせください。"
+
+msgid "For the best performance, use the dedicated client application."
+msgstr "最高のパフォーマンスを得るには、専用のクライアントアプリケーションを使用してください。"
+
+msgid "Force your job to run on a specific instance type"
+msgstr "特定のインスタンスタイプでジョブを強制的に実行する"
+
+msgid "Friendly Name for your project"
+msgstr "プロジェクトのわかりやすい名前"
+
+msgid "Friendly Name for your template"
+msgstr "テンプレートのわかりやすい名前"
+
+msgid "Friendly name for your User Data template"
+msgstr "ユーザーデータテンプレートのわかりやすい名前"
+
+msgid "GPUs"
+msgstr "GPU"
+
+msgid "General Options"
+msgstr "一般オプション"
+
+msgid "Generate temporary password"
+msgstr "仮パスワードを生成"
+
+#, python-format
+msgid "Generating a new API key will invalidate the previous key (%(token)s %(show_btn)s)."
+msgstr "新しい API キーを生成すると、以前のキー (%(token)s %(show_btn)s) が無効になります。"
+
+msgid "Get Started"
+msgstr "始めよう"
+
+msgid "Grant Admin permission"
+msgstr "管理者権限を付与"
+
+msgid "Grant user Admin permission"
+msgstr "ユーザーに管理者権限を付与"
+
+msgid "Grant/Revoke Admin permissions"
+msgstr "管理者権限の付与/取り消し"
+
+msgid "Group "
+msgstr "[グループ] "
+
+msgid "Group ID"
+msgstr "グループ ID"
+
+msgid "Group created successfully"
+msgstr "グループが正常に作成されました"
+
+msgid "Group deleted successfully"
+msgstr "グループは正常に削除されました"
+
+msgid "Group name"
+msgstr "グループ名"
+
+msgid "Group update successfully"
+msgstr "グループが正常に更新されました"
+
+msgid "Group updated successfully"
+msgstr "グループが正常に更新されました"
+
+msgid "Group: "
+msgstr "グループ: "
+
+msgid "Groups Management"
+msgstr "グループ管理"
+
+msgid "Groups Permissions"
+msgstr "グループ権限"
+
+msgid "Groups: OU=Group,DC=soca,DC=local"
+msgstr "グループ:OU=グループ、DC=SOCA、DC=ローカル"
+
+msgid "HTTP 401/Unauthorized"
+msgstr "HTTP 401/無許可"
+
+msgid "Hello"
+msgstr "こんにちは"
+
+msgid "Here are some documentation to help you transfer files from/to Engineering Development Hub:"
+msgstr "エンジニアリング開発ハブとの間でファイルを転送する際に役立つドキュメントは次のとおりです。"
+
+msgid "Hibernation will not cause any data loss"
+msgstr "ハイバネーションによってデータが失われることはありません"
+
+msgid "High Performance Computing"
+msgstr "ハイパフォーマンスコンピューティング"
+
+msgid "Home Directory"
+msgstr "ホームディレクトリ"
+
+msgid "Host"
+msgstr "ホスト"
+
+msgid "Host in this queue will stay online until an admin decide to manually turn them off"
+msgstr "このキュー内のホストは、管理者が手動で無効にするまでオンラインのままになります"
+
+msgid "Host(s)"
+msgstr "ホスト"
+
+msgid "Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete."
+msgstr "このキュー内のホストは、キューに入っているジョブの数に基づいて自動的にプロビジョニングされます。ホストは特定のジョブ ID に制限され、ジョブが完了するとすぐに自動的に終了します。"
+
+msgid "How do you want to name this Workflow Profile?"
+msgstr "このワークフロープロファイルにどのような名前を付けますか?"
+
+msgid "How many Virtual CPUs do you want?"
+msgstr "必要な仮想 CPU の数はいくつですか?"
+
+msgid "How much storage do you want (SSD under /scratch)"
+msgstr "どのくらいのストレージが必要ですか (SSD アンダー/スクラッチ)"
+
+msgid "How to interact with EDH APIs"
+msgstr "EDH API とのインタラクション方法"
+
+msgid "I am sure I want to"
+msgstr "きっとしたい"
+
+#, python-format
+msgid "I am sure I want to %(action)s Admin permission to this user"
+msgstr "このユーザーに%(action)sの管理者権限を与えたいのは確かです"
+
+#, python-format
+msgid "I am sure I want to %(verb)s this user from my group"
+msgstr "私のグループのこのユーザーを%(verb)sにしたいと確信しています"
+
+msgid "I am sure I want to delete this Target Node Profile"
+msgstr "このターゲットノードプロファイルを削除したいのは確かです"
+
+msgid "I am sure I want to delete this User Data Template from EDH"
+msgstr "このユーザーデータテンプレートを EDH から削除したいのは確かです"
+
+msgid "I am sure I want to delete this Virtual Desktop Profile"
+msgstr "この仮想デスクトッププロファイルを削除したいのは確かです"
+
+msgid "I am sure I want to delete this group"
+msgstr "このグループを削除したいのは確かです"
+
+msgid "I am sure I want to delete this project from EDH"
+msgstr "このプロジェクトを EDH から削除したいのは確かです"
+
+msgid "I am sure I want to delete this queue"
+msgstr "このキューを削除したいのは確かです"
+
+msgid "I am sure I want to delete this target node"
+msgstr "このターゲットノードを削除したいのは確かです"
+
+msgid "I am sure I want to delete this user"
+msgstr "このユーザーを削除したいのは確かです"
+
+msgid "I am sure I want to delete this virtual desktop"
+msgstr "この仮想デスクトップを削除したいのは確かです"
+
+msgid "I am sure I want to reset the password for this user"
+msgstr "このユーザーのパスワードをリセットしたいのは確かです"
+
+msgid "I am sure I want to unregister this Software Stack from EDH"
+msgstr "このソフトウェアスタックを EDH から登録解除したいと思っています"
+
+msgid "I am sure I want to unregister this Software Stack from SOCA"
+msgstr "このソフトウェアスタックを SOCA から登録解除したいと思っています"
+
+msgid "I understand I will need to update my scripts with the new key to prevent any outage"
+msgstr "機能停止を防ぐために、スクリプトを新しいキーで更新する必要があることを理解しています"
+
+msgid "I want to delete this Workflow Profile"
+msgstr "このワークフロープロファイルを削除したい"
+
+msgid "IMPORTANT"
+msgstr "重要"
+
+msgid "IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)"
+msgstr "重要:ノード数は、マシンあたりのvCPU (CPUではない) の数に基づいています。(例:c6i.xlarge には物理 CPU が 2 つありますが、仮想 CPU は 4 つあります。8 個の vCPU をリクエストした場合、EDH は 2 つのインスタンスをプロビジョニングします。8 つの論理コアが必要な場合は、ht_support=false を使用して、16 個の仮想 CPU を搭載した 1 台の EC2 マシンをリクエストすることをお勧めします)。"
+
+msgid "Id"
+msgstr "Id"
+
+#, python-format
+msgid "If %(it)s and %(vc)s parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the %(nd)s resource manually."
+msgstr "%(it)s および %(vc)s パラメーターが指定されている場合、EDH はプロビジョニングするノードの数を自動的に計算します。それ以外の場合は、%(nd)s リソースを手動で定義する必要があります。"
+
+msgid "If force_ri is True, the job must ONLY run on Reserved Instance. If there is not enough RI, job will stay in the queue. Parameter is ignored if you use Spot"
+msgstr "force_ri が True の場合、ジョブはリザーブドインスタンスでのみ実行する必要があります。RI が十分でない場合、ジョブはキューに残ります。スポットを使用する場合、パラメーターは無視されます。"
+
+msgid "If present, autofilled with the input file name"
+msgstr "存在する場合、入力ファイル名が自動入力されます"
+
+msgid "If the page stays blank, the code-server service may not be running on this cluster."
+msgstr "ページが空白のままの場合は、コードサーバーサービスがこのクラスターで実行されていない可能性があります。"
+
+#, python-format
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit %(cfg)s and add:"
+msgstr "何分間操作しないでセッションを自動的に終了させたくない場合は、%(cfg)sを編集して以下を追加してください。"
+
+msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, go to Connection and add \"3\" as \"Seconds between KeepAlive\\"
+msgstr "操作がない状態が数分続いた後にセッションが自動的に終了しないようにするには、「接続」に移動し、「キープアライブ間の秒数\\」に「3」を追加します"
+
+msgid "If you think your key has been compromised, reset it using the link available at the bottom of the page."
+msgstr "キーが侵害されたと思われる場合は、ページの下部にあるリンクを使用してキーをリセットしてください。"
+
+msgid "Image"
+msgstr "[イメージ]"
+
+msgid "Image Digest"
+msgstr "イメージダイジェスト"
+
+msgid "Image ID (start with ami-xxx or) or AMI alias (/service/aws/...)"
+msgstr "イメージ ID (ami-xxx またはで始まる) または AMI エイリアス (/service/aws/...)"
+
+msgid "Image ID (start with ami-xxx)"
+msgstr "イメージ ID (ami-xxx で始まる)"
+
+msgid "Image ID (start with ami-xxx) or AMI alias (/aws/service/...)"
+msgstr "イメージ ID (ami-xxx で始まる) または AMI エイリアス (/aws/service/...)"
+
+msgid "Image Tag"
+msgstr "イメージタグ"
+
+msgid "Image URI"
+msgstr "イメージ URI"
+
+msgid "Import"
+msgstr "インポート"
+
+msgid "Import Workflow Profile"
+msgstr "ワークフロープロファイルのインポート"
+
+msgid "Import/Export"
+msgstr "インポート/エクスポート"
+
+msgid "Import/Export existing EDH Workflow Profile"
+msgstr "既存の EDH ワークフロープロファイルのインポート/エクスポート"
+
+msgid "Important"
+msgstr "重要"
+
+msgid "Important Info about your User Data"
+msgstr "ユーザーデータに関する重要な情報"
+
+msgid "Important:"
+msgstr "重要:"
+
+msgid "Important: Active Directory"
+msgstr "重要:アクティブディレクトリ"
+
+#, python-format
+msgid "In the %(section)s section click %(action)s"
+msgstr "「%(section)s」セクションで、「%(action)s」をクリックします"
+
+msgid "Info"
+msgstr "情報"
+
+msgid "Input location"
+msgstr "入力場所"
+
+msgid "Instance Family"
+msgstr "インスタンスファミリー"
+
+msgid "Instance ID of the target node"
+msgstr "ターゲットノードのインスタンス ID"
+
+msgid "Instance Type"
+msgstr "インスタンスタイプ"
+
+msgid "Instance Type:"
+msgstr "インスタンスタイプ:"
+
+msgid "Instance type (default: c5.large)"
+msgstr "インスタンスタイプ (デフォルト:c5.large)"
+
+msgid "Instance type of the target node"
+msgstr "ターゲットノードのインスタンスタイプ"
+
+msgid "Instructions for Linux/Mac"
+msgstr "リナックス/マック用の説明書"
+
+msgid "Instructions for Windows"
+msgstr "ウィンドウズ用説明書"
+
+msgid "Invalid feature flag configuration"
+msgstr "機能フラグの設定が無効です"
+
+msgid "Invalid file identifier"
+msgstr "ファイル識別子が無効です"
+
+msgid "Invalid graphical sessions"
+msgstr "グラフィカルセッションが無効です"
+
+msgid "It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility"
+msgstr "ドライバーの互換性がないため、GPU 以外のインスタンスと GPU インスタンスの間でアップグレード/ダウングレードすることは推奨されません。"
+
+msgid "JOB CANNOT START"
+msgstr "ジョブを開始できません"
+
+msgid "Jinja templating"
+msgstr "ジンジャ・テンプレート作成"
+
+msgid "Job Definition"
+msgstr "ジョブの定義"
+
+msgid "Job Dependencies"
+msgstr "ジョブの依存関係"
+
+msgid "Job Details"
+msgstr "ジョブの詳細"
+
+msgid "Job Directory"
+msgstr "ジョブディレクトリ"
+
+msgid "Job ID"
+msgstr "ジョブ ID"
+
+msgid "Job ID is required to delete a Batch job."
+msgstr "Batch ジョブを削除するには、ジョブ ID が必要です。"
+
+msgid "Job Info"
+msgstr "求人情報"
+
+msgid "Job Name"
+msgstr "[ジョブ名]"
+
+msgid "Job Overrides"
+msgstr "ジョブオーバーライド"
+
+msgid "Job Queue"
+msgstr "ジョブキュー"
+
+msgid "Job State"
+msgstr "ジョブの状態"
+
+msgid "Job Status Legend"
+msgstr "ジョブ・ステータス・レジェンド"
+
+msgid "Job attempts"
+msgstr "仕事の試み"
+
+msgid "Job completed are automatically removed after 1 hour."
+msgstr "完了したジョブは 1 時間後に自動的に削除されます。"
+
+msgid "Job is finished or in invalid state"
+msgstr "ジョブは終了したか、無効な状態です"
+
+msgid "Jump to live (End)"
+msgstr "ライブに移動 (終了)"
+
+msgid "Jump to start of file (Home)"
+msgstr "ファイルの先頭へジャンプ (Home)"
+
+msgid "Jumping to start..."
+msgstr "ジャンプして開始..."
+
+msgid "KEY"
+msgstr "キー"
+
+msgid "Key"
+msgstr "キー"
+
+msgid "Key File"
+msgstr "キーファイル"
+
+msgid "Keyboard shortcuts"
+msgstr "キーボードショートカット"
+
+msgid "Keyboard shortcuts (?)"
+msgstr "キーボードショートカット (?)"
+
+msgid "LSF"
+msgstr "LSF"
+
+msgid "Large (8 vCPUs, 32 GB RAM)"
+msgstr "大規模 (仮想CPU8個、メモリ32ギガバイト)"
+
+msgid "Last 12 hours"
+msgstr "過去 12 時間"
+
+msgid "Last 2 days"
+msgstr "過去 2 日間"
+
+msgid "Last 24 hours"
+msgstr "過去 24 時間"
+
+msgid "Last 30 days"
+msgstr "過去 30 日間"
+
+msgid "Last 6 hours"
+msgstr "過去 6 時間"
+
+msgid "Last 7 days"
+msgstr "過去 7 日間"
+
+msgid "Last Modified"
+msgstr "最終更新日"
+
+msgid "Launch Batch Job"
+msgstr "バッチジョブを起動"
+
+msgid "Launch Container"
+msgstr "起動コンテナ"
+
+msgid "Launch EKS Container"
+msgstr "EKS コンテナを起動"
+
+msgid "Launch Host ID"
+msgstr "ホスト ID を起動"
+
+msgid "Launch Host if using Dedicated Host Tenancy"
+msgstr "専用ホストテナンシーを使用している場合はホストを起動する"
+
+msgid "Launch My Desktop"
+msgstr "マイデスクトップを起動"
+
+msgid "Launch My Target Node"
+msgstr "マイターゲットノードを起動する"
+
+msgid "Launch Tenancy"
+msgstr "テナントを起動"
+
+msgid "Launch a New Container"
+msgstr "新しいコンテナを起動する"
+
+msgid "Launch a New Target Node"
+msgstr "新しいターゲットノードを起動する"
+
+msgid "Launch a New Virtual Desktop"
+msgstr "新しい仮想デスクトップを起動する"
+
+msgid "Launch a new Job"
+msgstr "新しいジョブを開始する"
+
+msgid "Launch new Target Node"
+msgstr "新しいターゲットノードを起動する"
+
+msgid "Launch new Virtual Desktop"
+msgstr "新しい仮想デスクトップを起動する"
+
+msgid "Launch your virtual desktop in a specific subnet."
+msgstr "特定のサブネットで仮想デスクトップを起動します。"
+
+msgid "Leave blank to remove access"
+msgstr "空白のままにしてアクセスを削除する"
+
+msgid "Leave everything else as default."
+msgstr "それ以外はすべてデフォルトのままにします。"
+
+msgid "Let us assume you want to submit a simple job on the default OpenPBS"
+msgstr "デフォルトの OpenPBS で簡単なジョブを送信したいと仮定します。"
+
+msgid "Limitations"
+msgstr "制限事項"
+
+msgid "Linux"
+msgstr "リナックス"
+
+msgid "List all Virtual Desktops"
+msgstr "すべての仮想デスクトップを一覧表示"
+
+msgid "List all active Virtual Desktops"
+msgstr "すべてのアクティブな仮想デスクトップを一覧表示"
+
+msgid "List all your AWS Batch jobs."
+msgstr "すべての AWS Batch ジョブを一覧表示します。"
+
+msgid "List all your container images stored on one or more Amazon Elastic Container Registry (ECR)."
+msgstr "1 つ以上の Amazon エラスティックコンテナレジストリ (ECR) に保存されているすべてのコンテナイメージを一覧表示します。"
+
+msgid "List all your containers running on one or more Amazon Elastic Kubernetes Services (EKS)."
+msgstr "1 つ以上の Amazon Elastic Kubernetes サービス (EKS) で実行されているすべてのコンテナを一覧表示します。"
+
+msgid "List of allowed groups"
+msgstr "許可されたグループのリスト"
+
+msgid "List of allowed instance type/family"
+msgstr "許可されているインスタンスタイプ/ファミリーのリスト"
+
+msgid "List of allowed subnets"
+msgstr "許可されたサブネットのリスト"
+
+msgid "List of allowed users"
+msgstr "許可されたユーザーのリスト"
+
+msgid "List of allowed/denied users or group"
+msgstr "許可/拒否されたユーザーまたはグループのリスト"
+
+msgid "List of authorized Application Profiles"
+msgstr "承認済みアプリケーションプロファイルのリスト"
+
+msgid "List of authorized Target node stacks"
+msgstr "承認されたターゲットノードスタックのリスト"
+
+msgid "List of authorized Virtual Desktop Software Stacks"
+msgstr "認定仮想デスクトップソフトウェアスタックのリスト"
+
+msgid "List of authorized subnets"
+msgstr "許可されたサブネットのリスト"
+
+msgid "List of denied groups"
+msgstr "拒否されたグループのリスト"
+
+msgid "List of denied users"
+msgstr "拒否されたユーザーのリスト"
+
+msgid "List of instance type or family allowed"
+msgstr "許可されるインスタンスタイプまたはファミリーのリスト"
+
+msgid "List of users of "
+msgstr "のユーザー一覧 "
+
+msgid "List your Windows or Linux Virtual Desktops. Provision machines connected to your EDH environment that can mount shared or local filers"
+msgstr "Windows または Linux の仮想デスクトップを一覧表示します。共有ファイラーまたはローカルファイラーをマウントできる EDH 環境に接続されたマシンをプロビジョニングします。"
+
+msgid "Live file tail"
+msgstr "ライブファイルテール"
+
+msgid "Load earlier content (PageUp)"
+msgstr "以前のコンテンツを読み込む (PageUp)"
+
+msgid "Loading earlier content..."
+msgstr "以前のコンテンツを読み込んでいます..."
+
+msgid "Login"
+msgstr "ログイン"
+
+msgid "Logon Type"
+msgstr "ログオンタイプ"
+
+msgid "Logout"
+msgstr "ログアウト"
+
+msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+msgstr "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+
+msgid "MY_ENV"
+msgstr "MY_ENV"
+
+#, python-format
+msgid "Make sure to have established connectivity between AWS and your corporate network (e.g. via %(peering)s, %(direct)s, %(vpn)s or similar) if you are planning to access the analytic dashboard URL from your corporate machines."
+msgstr "会社のマシンから分析ダッシュボードのURLにアクセスする予定がある場合は、AWSと企業ネットワーク間の接続（%(peering)s、%(direct)s、%(vpn)sなど）が確立されていることを確認してください。"
+
+msgid "Make sure to have uploaded your data to EDH first to prevent data loss"
+msgstr "データの損失を防ぐために、最初にデータをEDHにアップロードしてください"
+
+msgid "Make sure your Amazon Machine Images (AMI) are available in your current region:"
+msgstr "Amazon マシンイメージ (AMI) が現在のリージョンで利用可能であることを確認してください。"
+
+msgid "Malformed file identifier"
+msgstr "不正な形式のファイル識別子"
+
+msgid "Manage EDH Projects"
+msgstr "EDH プロジェクトの管理"
+
+msgid "Manage Software Stacks"
+msgstr "ソフトウェアスタックの管理"
+
+msgid "Manage Target Node Profiles"
+msgstr "ターゲットノードプロファイルの管理"
+
+msgid "Manage User Data Templates"
+msgstr "ユーザーデータテンプレートの管理"
+
+msgid "Manage User Data template"
+msgstr "ユーザーデータ管理テンプレート"
+
+msgid "Manage Virtual Desktop Profiles"
+msgstr "仮想デスクトッププロファイルの管理"
+
+msgid "Manage your Virtual Desktops"
+msgstr "仮想デスクトップの管理"
+
+msgid "Manage your Virtual Targets"
+msgstr "バーチャルターゲットの管理"
+
+msgid "Max runtime (default: 01:00:00)"
+msgstr "最大ランタイム (デフォルト:01:00:00)"
+
+msgid "Maximum EBS Root Disk size (in GB)"
+msgstr "EBS ルートディスクの最大サイズ (GB 単位)"
+
+msgid "Maximum EBS storage the user will be able to provision for their target node"
+msgstr "ユーザーがターゲットノードにプロビジョニングできる EBS ストレージの最大数"
+
+msgid "Maximum EBS storage the user will be able to provision for their virtual desktop"
+msgstr "ユーザーが仮想デスクトップにプロビジョニングできる EBS ストレージの最大容量"
+
+msgid "Maximum of 5 consumable resources allowed."
+msgstr "消費可能な資源は最大5個です。"
+
+msgid "Medium (4 vCPUs, 16 GB RAM)"
+msgstr "中規模 (仮想CPU4個、メモリ16ギガバイト)"
+
+msgid "Members: (choose all that apply)"
+msgstr "メンバー:(該当するものをすべて選択してください)"
+
+msgid "Memory (GB)"
+msgstr "メモリ (GB)"
+
+msgid "Memory in GB"
+msgstr "GB 単位のメモリ"
+
+msgid "Menu"
+msgstr "メニュー"
+
+msgid "Missing file identifier"
+msgstr "ファイル識別子が見つかりません"
+
+msgid "Missing files? Refresh folder cache"
+msgstr "ファイルが見つからない？フォルダキャッシュを更新"
+
+msgid "Missing profile_id"
+msgstr "プロファイル ID が見つかりません"
+
+msgid "Missing project_id"
+msgstr "プロジェクト ID が見つかりません"
+
+msgid "Missing required parameters (app and input_file)."
+msgstr "必須パラメーター (アプリと input_file) が見つかりません。"
+
+msgid "Missing software_stack_id"
+msgstr "ソフトウェアスタックIDが見つかりません"
+
+msgid "Missing template_id"
+msgstr "テンプレートIDが見つかりません"
+
+msgid "Must be a valid EDH group"
+msgstr "有効な EDH グループでなければなりません"
+
+msgid "Must be a valid EDH user"
+msgstr "有効な EDH ユーザーである必要があります"
+
+msgid "My API Key"
+msgstr "マイ API キー"
+
+msgid "My API Key (Developer mode)"
+msgstr "マイ API キー (開発者モード)"
+
+msgid "My AWS Batch Job"
+msgstr "私の AWS バッチジョブ"
+
+msgid "My AWS Batch Jobs"
+msgstr "私の AWS バッチジョブ"
+
+msgid "My Account"
+msgstr "マイアカウント"
+
+msgid "My Amazon EKS Containers"
+msgstr "私のアマゾン EKS コンテナ"
+
+msgid "My Amazon EKS Job"
+msgstr "私のアマゾン EKS ジョブ"
+
+msgid "My Batch Jobs"
+msgstr "マイバッチジョブ"
+
+msgid "My Container Images"
+msgstr "マイコンテナイメージ"
+
+msgid "My EKS Containers"
+msgstr "私の EKS コンテナ"
+
+msgid "My HPC Jobs"
+msgstr "私の HPC ジョブ"
+
+msgid "My LDAP Group"
+msgstr "マイLDAPグループ"
+
+msgid "My Profile"
+msgstr "マイプロフィール"
+
+msgid "My SSH access"
+msgstr "私の SSH アクセス"
+
+msgid "My Target Nodes"
+msgstr "マイターゲットノード"
+
+msgid "My Virtual Desktops"
+msgstr "マイ仮想デスクトップ"
+
+msgid "Name"
+msgstr "[名前]"
+
+msgid "Name for your project"
+msgstr "プロジェクトの名前"
+
+msgid "Name for your template"
+msgstr "テンプレートの名前"
+
+msgid "Name for your user data template"
+msgstr "ユーザーデータテンプレートの名前"
+
+msgid "Name of the AWS Batch Job Definition to use"
+msgstr "使用する AWS Batch ジョブ定義の名前"
+
+msgid "Name of the AWS Batch Job Queue to use"
+msgstr "使用する AWS Batch ジョブキューの名前"
+
+msgid "Name of the EKS cluster to use"
+msgstr "使用する EKS クラスターの名前"
+
+msgid "Name of the current EDH user requesting the target node"
+msgstr "ターゲットノードをリクエストしている現在の EDH ユーザーの名前"
+
+msgid "Name of the current SOCA user requesting the target node"
+msgstr "ターゲットノードをリクエストしている現在の SOCA ユーザーの名前"
+
+msgid "Name of your job"
+msgstr "ジョブの名前"
+
+msgid "Name of your profile"
+msgstr "プロフィールの名前"
+
+msgid "Namespace"
+msgstr "名前空間"
+
+msgid "Navigate file"
+msgstr "ファイルナビゲート"
+
+msgid "New Password"
+msgstr "新しいパスワード"
+
+msgid "New terminal tab (Ctrl+Shift+T)"
+msgstr "新しいターミナルタブ (Ctrl+Shift+T)"
+
+msgid "Next"
+msgstr "[次へ]"
+
+msgid "No"
+msgstr "いいえ"
+
+msgid "No AMI found"
+msgstr "AMI が見つかりません"
+
+msgid "No Budget"
+msgstr "予算なし"
+
+msgid "No Description Provided"
+msgstr "説明は提供されていません"
+
+msgid "No Project found"
+msgstr "プロジェクトが見つかりません"
+
+msgid "No Target Node Profiles found"
+msgstr "ターゲットノードプロファイルが見つかりません"
+
+msgid "No User Data Template Found"
+msgstr "ユーザーデータテンプレートが見つかりません"
+
+msgid "No Virtual Desktop Profiles found"
+msgstr "仮想デスクトッププロファイルが見つかりません"
+
+msgid "No custom AMI found. Create one first"
+msgstr "カスタム AMI が見つかりません。最初に 1 つ作成してください。"
+
+msgid "No files in this directory"
+msgstr "このディレクトリにはファイルはありません"
+
+msgid "No image"
+msgstr "画像なし"
+
+msgid "No links have been configured by your EDH Administrators"
+msgstr "EDH 管理者によってリンクが設定されていません"
+
+msgid "No more than 1 day"
+msgstr "1 日以内"
+
+msgid "No more than 1 hour"
+msgstr "1 時間以内"
+
+msgid "No more than 1 month"
+msgstr "1 か月以内"
+
+msgid "No more than 5 hours"
+msgstr "5 時間以内"
+
+msgid "No open terminals."
+msgstr "ターミナルが開いていません。"
+
+msgid "No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator."
+msgstr "ソフトウェアスタックが見つかりません。適切な EDH プロジェクトに追加されていることを確認してください。問題が解決しない場合は、EDH 管理者に問い合わせてください。"
+
+msgid "Nodes Count"
+msgstr "ノード数"
+
+msgid "None"
+msgstr "[なし]"
+
+msgid "Not authorized"
+msgstr "未承認"
+
+msgid "Note:"
+msgstr "注記:"
+
+#, python-format
+msgid "Note: AWS Batch Job Definitions clusters must have the tag %(tag)s and be %(status)s to be visible on EDH"
+msgstr "注:AWS バッチジョブ定義クラスターが EDH に表示されるには、%(tag)s タグと %(status)s タグが必要です"
+
+#, python-format
+msgid "Note: AWS Batch Job Queues must have the tag %(tag)s, state must be %(state)s and status must be %(status)s to be visible on EDH"
+msgstr "注:AWS Batch ジョブキューには %(tag)s というタグが付いていなければならず、状態は %(state)s、ステータスは %(status)s でなければなりません。"
+
+#, python-format
+msgid "Note: EKS clusters must have the tag %(tag)s to be visible on EDH"
+msgstr "注:EDH で表示するには、EKS クラスターに %(tag)s というタグが必要です"
+
+msgid "Note: If not specified, EDH uses the following default parameters:"
+msgstr "注:指定しない場合、EDH は次のデフォルトパラメータを使用します。"
+
+msgid "Note: Your Analytics Dashboard URL is"
+msgstr "注:アナリティクスダッシュボードの URL は"
+
+msgid "Notes:"
+msgstr "メモ:"
+
+msgid "Number of CPUs to request for your job"
+msgstr "ジョブ用にリクエストする CPU の数"
+
+msgid "Number of EC2 instance will automatically be calculated based on Instance Type and vCPUs count"
+msgstr "EC2 インスタンスの数は、インスタンスタイプと vCPU 数に基づいて自動的に計算されます"
+
+msgid "Number of GPU to allocate"
+msgstr "割り当てる GPU の数"
+
+msgid "Number of vCPUs (default: 1)"
+msgstr "仮想CPUの数 (デフォルト:1)"
+
+msgid "Number of vCPUs to allocate to the simulation"
+msgstr "シミュレーションに割り当てる vCPU の数"
+
+msgid "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision"
+msgstr "シミュレーションに割り当てる vCPU の数。これを instance_type と一緒に使用して、プロビジョニングするノードの数を計算します。"
+
+msgid "Once connected, simply drag & drop to upload/download files."
+msgstr "接続したら、ドラッグアンドドロップするだけでファイルをアップロード/ダウンロードできます。"
+
+#, python-format
+msgid "Once you have created your Target Node Software Stack, please ensure that it is %(link)s"
+msgstr "ターゲットノードソフトウェアスタックを作成したら、それが %(link)s であることを確認してください"
+
+#, python-format
+msgid "Once you have created your Virtual Desktop Software Stack, please ensure that it is %(link)s"
+msgstr "仮想デスクトップソフトウェアスタックを作成したら、それが %(link)s であることを確認してください"
+
+#, python-format
+msgid "Once you have created your Workflow Profile, please ensure that it is %(link)s Failure to do so will result in your profile remaining hidden from users."
+msgstr "ワークフロープロファイルを作成したら、%(link)sであることを確認してください。そうしないと、プロファイルがユーザーに表示されなくなります。"
+
+msgid "Only images that have tags are shown in the repository table. Untagged images are not displayed."
+msgstr "タグが付いた画像のみがリポジトリテーブルに表示されます。タグ付けされていない画像は表示されません。"
+
+msgid "Only users with sudo permissions can access this page"
+msgstr "sudo 権限を持つユーザーだけがこのページにアクセスできます"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created and click %(btn)s and enter the following information."
+msgstr "AWS コンソールを開き、%(service)s という名前のサービスに移動し、作成したサーバーを選択して %(btn)s をクリックし、次の情報を入力します。"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s select the server you have created, and retrieve the %(ep)s under %(details)s."
+msgstr "AWS コンソールを開き、%(service)s という名前のサービスに移動し、作成したサーバーを選択し、%(details)s の下にある %(ep)s を取得します。"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(action)s"
+msgstr "AWS コンソールを開き、%(service)s という名前のサービスに移動し、%(action)s をクリックします。"
+
+#, python-format
+msgid "Open AWS Console and navigate to the service named %(service)s then click %(menu)s on the left sidebar and finally click %(btn)s"
+msgstr "AWS コンソールを開き、%(service)s という名前のサービスに移動し、左側のサイドバーで %(menu)s をクリックし、最後に %(btn)s をクリックします。"
+
+msgid "Open FileZilla and select File > Site Manager to create a new Site"
+msgstr "FileZillaを開き、[ファイル] > [サイトマネージャー] を選択して新しいサイトを作成します"
+
+msgid "Open a SSH Terminal"
+msgstr "SSH ターミナルを開く"
+
+msgid "Open in Browser"
+msgstr "ブラウザで開く"
+
+msgid "Open in a separate window"
+msgstr "別ウインドウで開く"
+
+msgid "OpenPBS"
+msgstr "PBS を開く"
+
+msgid "Operating System"
+msgstr "オペレーティングシステム"
+
+msgid "Option1: Browser access"
+msgstr "オプション 1: ブラウザへのアクセス"
+
+msgid "Option2: Native Application"
+msgstr "オプション 2: ネイティブアプリケーション"
+
+msgid "Optional"
+msgstr "[オプション]"
+
+msgid "Optional: Enable KeepAlive"
+msgstr "オプション:キープアライブを有効にする"
+
+msgid "Other Shells"
+msgstr "その他のシェル"
+
+msgid "Output connection information to user"
+msgstr "接続情報をユーザーに出力"
+
+msgid "Override Entry Point"
+msgstr "オーバーライドエントリポイント"
+
+msgid "Override your container entrypoint"
+msgstr "コンテナのエントリポイントをオーバーライドする"
+
+msgid "Override your container runtime arguments"
+msgstr "コンテナのランタイム引数をオーバーライドする"
+
+msgid "Owner"
+msgstr "オーナー"
+
+msgid "PENDING"
+msgstr "保留中です"
+
+#, python-format
+msgid "Page %(current)s of %(total)s"
+msgstr "%(current)s ページまたは %(total)s ページ"
+
+msgid "Parameters used to estimate the simulation cost:"
+msgstr "シミュレーションコストの見積もりに使用されるパラメーター:"
+
+msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
+msgstr "一部の CPU を使用できます (例:0.5 = 半分のCPU)"
+
+msgid "Partial GBs allowed (e.g. 2.5 = 2.5 GB RAM)"
+msgstr "パーシャル GB まで使用可能 (例:2.5 = 2.5 GB RAM)"
+
+msgid "Password"
+msgstr "[パスワード]"
+
+msgid "Password does not match"
+msgstr "パスワードが一致しません"
+
+msgid "Password for "
+msgstr "のパスワード "
+
+msgid "Password updated correctly"
+msgstr "パスワードは正しく更新されました"
+
+msgid "Path to the solver executable/binary"
+msgstr "ソルバー実行ファイル/バイナリへのパス"
+
+msgid "Path to the solver executable/binary. It is usually located within the bin folder of your installation directory"
+msgstr "ソルバー実行ファイル/バイナリへのパス。通常はインストールディレクトリの bin フォルダにあります。"
+
+msgid "Pause"
+msgstr "一時停止"
+
+msgid "Pause Desktop"
+msgstr "デスクトップを一時停止"
+
+msgid "Pause Target Node"
+msgstr "ターゲットノードを一時停止"
+
+msgid "Pause or resume (Space)"
+msgstr "一時停止または再開 (スペース)"
+
+msgid "People: OU=People,DC=soca,DC=local"
+msgstr "人々:OU = 人々、DC = SOCA、DC = ローカル"
+
+msgid "Pick a simple name to identify your graphical session"
+msgstr "グラフィカルセッションを識別できるシンプルな名前を選んでください"
+
+msgid "Pick a simple name to identify your target node session"
+msgstr "ターゲットノードセッションを識別するための簡単な名前を選択してください"
+
+#, python-format
+msgid "Please %(warn)s when creating an issue."
+msgstr "問題を作成するときは %(warn)s をお願いします。"
+
+msgid "Please fill out the form first"
+msgstr "最初にフォームに記入してください"
+
+msgid "Please select an image to run your job"
+msgstr "ジョブを実行するイメージを選択してください"
+
+msgid "Please wait ..."
+msgstr "しばらくお待ちください..."
+
+msgid "Please wait to 15 minutes after launching a new login node before being able to spawn terminal session on it"
+msgstr "新しいログインノードを起動してからターミナルセッションを起動できるようになるまで 15 分ほどお待ちください"
+
+msgid "Please wait while we estimate the price of this job ..."
+msgstr "この仕事の価格を見積もりますので、しばらくお待ちください..."
+
+msgid "Please wait, your session is starting and will be ready soon."
+msgstr "セッションが開始され、まもなく準備が整います。しばらくお待ちください。"
+
+msgid "Pod(s) IP(s)"
+msgstr "ポッド (複数可) IP"
+
+msgid "Pop-out window was blocked by the browser. Please allow popups for this site."
+msgstr "ポップアウトウィンドウがブラウザによってブロックされました。このサイトのポップアップを許可してください。"
+
+msgid "Port"
+msgstr "ポート"
+
+msgid "Prepare the input"
+msgstr "入力を準備する"
+
+msgid "Prepare the request"
+msgstr "リクエストを準備する"
+
+msgid "Previous"
+msgstr "前へ"
+
+msgid "Private DNS of the target node"
+msgstr "ターゲットノードのプライベート DNS"
+
+msgid "Private IP of the target node"
+msgstr "ターゲットノードのプライベート IP"
+
+msgid "Profile associated to this stack"
+msgstr "このスタックに関連するプロファイル"
+
+#, python-format
+msgid "Profile associated with this stack (%(link)s)"
+msgstr "このスタックに関連付けられたプロファイル (%(link)s)"
+
+msgid "Profile name"
+msgstr "プロファイル名"
+
+msgid "Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ..."
+msgstr "許可される EC2 インスタンスタイプ、サブネット ID、最大ストレージなどのリストを制御するプロファイル"
+
+msgid "Profile updated successfully"
+msgstr "プロファイルが正常に更新されました"
+
+msgid "Project"
+msgstr "[プロジェクト]"
+
+msgid "Project Name"
+msgstr "[プロジェクト名]"
+
+msgid "Project deleted successfully"
+msgstr "プロジェクトは正常に削除されました"
+
+msgid "Project has been created successfully"
+msgstr "プロジェクトは正常に作成されました"
+
+msgid "Project has been updated successfully"
+msgstr "プロジェクトは正常に更新されました"
+
+msgid "Projects"
+msgstr "プロジェクト"
+
+msgid "Projects and Role Based ACLs"
+msgstr "プロジェクトとロールベースの ACL"
+
+msgid "Protocol"
+msgstr "プロトコル"
+
+msgid "Query a job"
+msgstr "ジョブをクエリーする"
+
+msgid "Queue"
+msgstr "キュー"
+
+msgid "Queue 1 (Low Priority)"
+msgstr "キュー 1 (低優先度)"
+
+msgid "Queue 2 (High Priority)"
+msgstr "キュー 2 (高優先度)"
+
+msgid "Queue name"
+msgstr "キュー名"
+
+msgid "REMOVE"
+msgstr "削除する"
+
+msgid "RUNNING"
+msgstr "実行中"
+
+msgid "Recommended Parameters"
+msgstr "推奨パラメーター"
+
+#, python-format
+msgid "Refer to %(link)s documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH."
+msgstr "現在のファイラーとEDHの間で安全で信頼性の高い高速ファイル転送を設定する方法については、%(link)sのドキュメントを参照してください。"
+
+#, python-format
+msgid "Refer to %(link)s page for a list of EC2 instances"
+msgstr "EC2 インスタンスのリストについては、%(link)s ページを参照してください。"
+
+#, python-format
+msgid "Refresh (%(countdown)ss)"
+msgstr "Refresh (%(countdown)ss)"
+
+msgid "Regenerate new key"
+msgstr "新しいキーを再生成"
+
+msgid "Register Software Stack"
+msgstr "ソフトウェアスタックの登録"
+
+msgid "Register Software Stack in EDH"
+msgstr "EDH へのソフトウェアスタックの登録"
+
+msgid "Register a new Software Stack (AMI) to EDH"
+msgstr "EDH への新しいソフトウェアスタック (AMI) の登録"
+
+msgid "Register a new Target Node Software Stack (AMI) to EDH"
+msgstr "新しいターゲットノードソフトウェアスタック (AMI) を EDH に登録する"
+
+msgid "Remove"
+msgstr "[削除]"
+
+msgid "Remove a user from your group"
+msgstr "グループからユーザーを削除する"
+
+msgid "Remove from group"
+msgstr "グループから削除"
+
+msgid "Remove user"
+msgstr "ユーザーを削除"
+
+msgid "Remove user to your group"
+msgstr "ユーザーをグループから削除する"
+
+msgid "Removing a software stack will not impact existing virtual desktops"
+msgstr "ソフトウェアスタックを削除しても、既存の仮想デスクトップには影響しません"
+
+msgid "Removing the Software Stack from EDH will not remove the AMI from your AWS account"
+msgstr "EDH からソフトウェアスタックを削除しても、AWS アカウントから AMI は削除されません"
+
+msgid "Report an issue"
+msgstr "問題を報告する"
+
+msgid "Repository Name"
+msgstr "リポジトリ名"
+
+msgid "Request to delete job was successful. The job will be removed from the queue shortly"
+msgstr "ジョブの削除リクエストが成功しました。ジョブはまもなくキューから削除されます。"
+
+msgid "Requested vCPUs:"
+msgstr "リクエストされた vCPU:"
+
+msgid "Reset Password"
+msgstr "パスワードリセット"
+
+msgid "Reset user password"
+msgstr "ユーザーパスワードのリセット"
+
+msgid "Resize Desktop Instance"
+msgstr "デスクトップインスタンスのサイズを変更"
+
+msgid "Resize Target Node"
+msgstr "ターゲットノードのサイズを変更"
+
+msgid "Resize Target Node Instance"
+msgstr "ターゲットノードインスタンスのサイズを変更"
+
+msgid "Resource Type (e.g., GPU, FPGA)"
+msgstr "リソースタイプ (GPU、FPGA など)"
+
+msgid "Resources"
+msgstr "リソース"
+
+msgid "Resume streaming"
+msgstr "ストリーミングを再開"
+
+msgid "Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...)."
+msgstr "各項目がユーザーに割り当てられた1つの公開鍵の値であるリストを返します (id_rsa.pub、id_edcsa.pubなど)。"
+
+msgid "Review"
+msgstr "レビュー"
+
+msgid "Review HPC parameters"
+msgstr "HPC パラメータを確認"
+
+msgid "Revoke Admin permission"
+msgstr "管理者権限を取り消す"
+
+msgid "Revoke user Admin permission"
+msgstr "ユーザーの管理者権限を取り消す"
+
+msgid "Role"
+msgstr "役割"
+
+msgid "Root Disk Size (in GB)"
+msgstr "ルートディスクサイズ (GB 単位)"
+
+msgid "Root Partition (default 40GB if not set):"
+msgstr "ルートパーティション (設定しない場合はデフォルトは 40 GB):"
+
+msgid "Run"
+msgstr "実行"
+
+msgid "Run All Day"
+msgstr "終日実行"
+
+msgid "Run, test, and emulate embedded ECUs and target hardware directly in the cloud."
+msgstr "組み込みECUとターゲットハードウェアをクラウドで直接実行、テスト、エミュレートします。"
+
+msgid "Runtime Arguments"
+msgstr "ランタイム引数"
+
+msgid "SFTP"
+msgstr "SFTP"
+
+msgid "SFTP (SSH File Transfer Protocol) - file transfer over Secure Shell"
+msgstr "SFTP (SSH ファイル転送プロトコル)-セキュアシェル経由のファイル転送"
+
+msgid "SFTP (easiest)"
+msgstr "SFTP (最も簡単)"
+
+msgid "SOCA Logo"
+msgstr "ソカロゴ"
+
+msgid "SOCA cannot access your home directory. Please ask an admin to set your folder ACLs to 750"
+msgstr "SOCA はホームディレクトリにアクセスできません。管理者にフォルダ ACL を 750 に設定するよう依頼してください。"
+
+msgid "SSH Client Access"
+msgstr "SSH クライアントアクセス"
+
+msgid "SSH Public Key"
+msgstr "SSH パブリックキー"
+
+msgid "Save Schedule"
+msgstr "スケジュールを保存"
+
+msgid "Save changes"
+msgstr "変更を保存"
+
+msgid "Save the settings and click connect"
+msgstr "設定を保存し、[接続] をクリックします"
+
+msgid "Save your session"
+msgstr "セッションを保存する"
+
+msgid "Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at"
+msgstr "AWS のスケールアウトコンピューティングは OpenLDAP を使用しており、LDIF を使用してディレクトリを直接操作できます。LDIF に慣れていない場合は、次の URL にあるカスタムラッパーを使用できます。"
+
+msgid "Schedule"
+msgstr "スケジュール"
+
+msgid "Scheduler"
+msgstr "スケジューラー"
+
+msgid "Scheduler ID"
+msgstr "スケジューラー ID"
+
+#, python-format
+msgid "Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use %(normal)s queue). Refer to %(more_link)s"
+msgstr "スケジューラパラメータはオプションです。設定しない場合、ジョブはキューに設定されているデフォルト設定を使用します (キューが指定されていない場合、ジョブは %(normal)s キューを使用します)。%(more_link)s を参照してください。"
+
+msgid "Scheduling priority"
+msgstr "スケジュールの優先度"
+
+msgid "Scratch Partition:"
+msgstr "スクラッチパーティション:"
+
+msgid "Search"
+msgstr "検索"
+
+msgid "Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..."
+msgstr "AMI ID、AMI 名、オペレーティングシステム、アーキテクチャ (x86_64/arm64) で検索..."
+
+msgid "Search for a file or a folder"
+msgstr "ファイルまたはフォルダを検索する"
+
+msgid "Search for an image tag, digest ..."
+msgstr "画像タグ、ダイジェストを検索..."
+
+msgid "Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks."
+msgstr "エンジニアリングワークロードと高負荷コンピューティングタスク向けに設計された、安全でスケーラブルなクラウドベースのワークステーション。"
+
+msgid "See Documentation."
+msgstr "ドキュメンテーションを参照してください。"
+
+msgid "Select"
+msgstr "[選択]"
+
+#, python-format
+msgid "Select %(choice)s as identity provider"
+msgstr "アイデンティティープロバイダーとして %(choice)s を選択"
+
+#, python-format
+msgid "Select %(domain)s as Domain"
+msgstr "ドメインとして %(domain)s を選択"
+
+#, python-format
+msgid "Select %(entity)s as Trusted Entity Type and select %(use_case)s as Use Case"
+msgstr "信頼済みエンティティタイプとして %(entity)s を選択し、ユースケースとして %(use_case)s を選択します。"
+
+#, python-format
+msgid "Select %(role)s and use the latest %(policy)s available"
+msgstr "%(role)s を選択し、入手可能な最新の %(policy)s を使用してください"
+
+msgid "Select a Project to see details."
+msgstr "プロジェクトを選択すると、詳細が表示されます。"
+
+#, python-format
+msgid "Select a Role name (for example %(name)s) and save it"
+msgstr "ロール名 (たとえば、%(name)s) を選択して保存します"
+
+msgid "Select a User Data Template to see details."
+msgstr "ユーザーデータテンプレートを選択すると、詳細が表示されます。"
+
+msgid "Select a profile to see details."
+msgstr "プロファイルを選択すると詳細が表示されます。"
+
+msgid "Select a stack to see details."
+msgstr "スタックを選択すると詳細が表示されます。"
+
+msgid "Select an EDH Project"
+msgstr "EDH プロジェクトを選択"
+
+msgid "Select an image (jpg or png) to use as thumbnail"
+msgstr "サムネイルとして使用する画像 (jpg または png) を選択する"
+
+msgid "Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail"
+msgstr "サムネイルとして使用する画像 (jpg または png) を選択します。既存のサムネイルを使用するには空白のままにしておきます。"
+
+msgid "Select an image with pre-installed applications or use the default vanilla image"
+msgstr "アプリケーションがプリインストールされているイメージを選択するか、デフォルトのバニライメージを使用してください"
+
+msgid "Select group:"
+msgstr "グループを選択:"
+
+msgid "Select image baseOS"
+msgstr "イメージベースOSを選択"
+
+msgid "Select the AWS managed policy named"
+msgstr "という名前の AWS 管理ポリシーを選択します"
+
+msgid "Select the EDH Project and optional AWS Budget for this target node"
+msgstr "このターゲットノードの EDH プロジェクトとオプションの AWS 予算を選択してください"
+
+msgid "Select the EDH Projects and optional AWS Budget for this desktop"
+msgstr "このデスクトップの EDH プロジェクトとオプションの AWS 予算を選択してください"
+
+msgid "Select the Workflow Profile to delete"
+msgstr "削除するワークフロープロファイルを選択してください"
+
+msgid "Select the Workflow Profile to edit"
+msgstr "編集するワークフロープロファイルを選択してください"
+
+msgid "Select the instance type to deploy your job on"
+msgstr "ジョブをデプロイするインスタンスタイプを選択してください"
+
+msgid "Select the instance type to provision"
+msgstr "プロビジョニングするインスタンスタイプを選択してください"
+
+msgid "Select the operating system for your virtual desktop"
+msgstr "仮想デスクトップのオペレーティングシステムを選択してください"
+
+msgid "Select this Stack"
+msgstr "このスタックを選択"
+
+msgid "Select user:"
+msgstr "ユーザーを選択:"
+
+msgid "Select your Workflow"
+msgstr "ワークフローを選択してください"
+
+msgid "ServerAliveCountMax 2"
+msgstr "サーバーアライブカウント最大 2"
+
+msgid "ServerAliveInterval 10"
+msgstr "サーバー有効間隔 10"
+
+msgid "Session Name"
+msgstr "セッション名"
+
+msgid "Session Type"
+msgstr "セッションタイプ"
+
+msgid "Setup your AWS Batch Job"
+msgstr "AWS Batch ジョブをセットアップする"
+
+msgid "Setup your Amazon EKS Job"
+msgstr "Amazon EKS ジョブをセットアップする"
+
+msgid "Show"
+msgstr "ショー"
+
+msgid "Size"
+msgstr "サイズ"
+
+msgid "Size (MB)"
+msgstr "サイズ (MB)"
+
+msgid "Size of the memory to request for your job"
+msgstr "ジョブに要求するメモリのサイズ"
+
+msgid "Slurm"
+msgstr "スラム"
+
+msgid "Small (2 vCPUs, 8GB RAM)"
+msgstr "小規模 (仮想CPU×2、メモリ容量8 GB)"
+
+msgid "Software Stack"
+msgstr "ソフトウェアスタック"
+
+msgid "Software Stack Description"
+msgstr "ソフトウェアスタックの説明"
+
+msgid "Software Stack Name"
+msgstr "ソフトウェアスタック名"
+
+msgid "Software Stack removed from SOCA"
+msgstr "ソフトウェアスタックが SOCA から削除されました"
+
+msgid "Sorry this feature has been disabled by your Administrator."
+msgstr "申し訳ありませんが、この機能は管理者によって無効にされています。"
+
+msgid "Sorry this page requires admin privileges."
+msgstr "申し訳ありませんが、このページには管理者権限が必要です。"
+
+msgid "Sorry we could not access this location due to a permission error. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "申し訳ありませんが、権限エラーによりこの場所にアクセスできませんでした。最近権限を変更した場合は、同期に最大 10 分ほどかかりますのでご了承ください。"
+
+msgid "Sorry you cannot download more than 40 files in a single call"
+msgstr "申し訳ありませんが、1回の呼び出しで40を超えるファイルをダウンロードすることはできません"
+
+#, python-brace-format
+msgid "Sorry, the maximum archive size is {:.2f} MB. Your archive was {:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "申し訳ありませんが、アーカイブの最大サイズは {: .2f} MB です。アーカイブは {: .2f} MB でした。この問題を回避するには、小さいアーカイブを作成するか、ファイルを個別にダウンロードするか、SFTP を使用するか、許可されている最大アーカイブサイズを編集してください。"
+
+#, python-brace-format
+msgid "Sorry, the maximum archive size is {max_size:.2f} MB. Your archive was {actual_size:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
+msgstr "申し訳ありませんが、アーカイブの最大サイズは {max_size: .2f} MB です。アーカイブは {actual_size: .2f} MB でした。この問題を回避するには、小さいアーカイブを作成するか、ファイルを個別にダウンロードするか、SFTP を使用するか、許可されている最大アーカイブサイズを編集してください。"
+
+msgid "Source Code"
+msgstr "[ソースコード]"
+
+msgid "Specify whether or not your job requires GPUs"
+msgstr "ジョブに GPU が必要かどうかを指定してください"
+
+msgid "Stack Info"
+msgstr "スタック情報"
+
+msgid "Stack Type"
+msgstr "スタックタイプ"
+
+msgid "Standard Launch"
+msgstr "スタンダード・ローンチ"
+
+msgid "Start Desktop"
+msgstr "デスクトップを起動"
+
+msgid "Start Target Node"
+msgstr "ターゲットノードを起動"
+
+msgid "Start a new terminal on an EDH Login Node"
+msgstr "EDH ログインノードで新しいターミナルを起動する"
+
+msgid "Starting Code Editor..."
+msgstr "コードエディタを起動中..."
+
+msgid "Status"
+msgstr "ステータス"
+
+msgid "Step 1: Configure AWS Transfer"
+msgstr "ステップ 1: AWS 転送を設定する"
+
+msgid "Step 2: Create IAM role for your AWS Transfer Users"
+msgstr "ステップ 2: AWS 転送ユーザー用の IAM ロールを作成する"
+
+msgid "Step 3: Download PEM Key File (Public)"
+msgstr "ステップ 3: PEM キーファイルのダウンロード (公開)"
+
+msgid "Step 4: Download your PEM key File (Private)"
+msgstr "ステップ 4: PEM キーファイルのダウンロード (プライベート)"
+
+msgid "Step 5: Register your AWS Transfer Users"
+msgstr "ステップ 5: AWS 転送ユーザーを登録する"
+
+msgid "Step 6: Test"
+msgstr "ステップ 6: テスト"
+
+msgid "Step1:"
+msgstr "ステップ 1:"
+
+msgid "Step1: Design the form"
+msgstr "ステップ 1: フォームをデザインする"
+
+msgid "Step2: Configure FileZilla"
+msgstr "ステップ 2: FileZillaをコンフィグレーションする"
+
+msgid "Step2: Convert your SSH key"
+msgstr "ステップ 2: SSH キーを変換する"
+
+msgid "Step2: Design the job script"
+msgstr "ステップ 2: ジョブスクリプトをデザインする"
+
+msgid "Step2: Modify key permission"
+msgstr "ステップ 2: キー権限の変更"
+
+msgid "Step3: Configure PuTTY"
+msgstr "ステップ 3: PuTTY を設定して下さい"
+
+msgid "Step3: Connect and transfer file to FileZilla"
+msgstr "ステップ3: FileZillaにファイルを接続して転送する"
+
+msgid "Step3: Connect to the cluster via the login node(s)"
+msgstr "ステップ 3: ログインノード経由でクラスターに接続する"
+
+msgid "Stick to bottom when new data arrives"
+msgstr "新しいデータが届いたら一番下に留まる"
+
+msgid "Stopped All Day"
+msgstr "終日停止"
+
+msgid "Stopping an instance will not cause any data loss"
+msgstr "インスタンスを停止してもデータは失われません"
+
+msgid "Storage"
+msgstr "ストレージ"
+
+#, python-format
+msgid "Storage Size for your main partition (%(linux_path)s for Linux, %(windows_path)s for Windows)"
+msgstr "メインパーティションのストレージサイズ (Linuxの場合は%(linux_path)s、ウィンドウズの場合は %(windows_path)s)"
+
+msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
+msgstr "アイドル/最大時間が経過すると、ストリームは自動的に閉じます。ロングウォッチにはポップアウトを使用してください。"
+
+msgid "Submit AWS Batch Job"
+msgstr "AWS バッチジョブを送信"
+
+msgid "Submit Amazon EKS Job"
+msgstr "アマゾン EKS ジョブを送信"
+
+msgid "Submit a New Batch Job"
+msgstr "新しいバッチジョブを送信"
+
+msgid "Submit a job"
+msgstr "求人を提出する"
+
+msgid "Submit job"
+msgstr "ジョブを送信"
+
+msgid "Subnets must be from the list of private subnets configured on EDH"
+msgstr "サブネットは EDH で設定されたプライベートサブネットのリストにある必要があります"
+
+msgid "Successfully deactivated"
+msgstr "正常に非アクティブ化されました"
+
+#, python-format
+msgid "Support Exact Instance Type (%(example)s)"
+msgstr "正確なインスタンスタイプ (%(example)s) をサポート"
+
+#, python-format
+msgid "Support Instance Family (%(example)s)"
+msgstr "サポートインスタンスファミリー (%(example)s)"
+
+msgid "Support for network license"
+msgstr "ネットワークライセンスのサポート"
+
+msgid "Supported Variables (case-sensitive)"
+msgstr "サポートされている変数 (大文字と小文字を区別)"
+
+msgid "Supported variables (case-sensitive)"
+msgstr "サポートされている変数 (大文字と小文字を区別)"
+
+msgid "Tail"
+msgstr "しっぽ"
+
+msgid "Tail (live view)"
+msgstr "テール (ライブビュー)"
+
+msgid "Target Node"
+msgstr "ターゲットノード"
+
+msgid "Target Node Profile removed from SOCA"
+msgstr "ターゲットノードプロファイルが SOCA から削除されました"
+
+msgid "Target Node Software Stack"
+msgstr "ターゲットノードソフトウェアスタック"
+
+msgid "Target Node Stacks"
+msgstr "ターゲットノードスタック"
+
+msgid "Target Nodes"
+msgstr "ターゲットノード"
+
+msgid "Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development."
+msgstr "ターゲットノードは EC2 Amazon マシンイメージ (AMI) で、EDH 固有の変更 (例:ファイルシステムのマウントなし、AD/OpenLDAP ジョインなし、パッケージがインストールされていない、など) はありません。これらのノードは、組み込み開発で使用されるような特殊なオペレーティングシステムやハイパーバイザーと連携するように設計されています。"
+
+msgid "Technical Details"
+msgstr "技術的詳細"
+
+msgid "Template Name"
+msgstr "[テンプレート名]"
+
+msgid "Tenancy defines how EC2 instances are distributed across physical hardware."
+msgstr "テナンシーは、EC2 インスタンスを物理ハードウェア全体に分散する方法を定義します。"
+
+msgid "Terminate"
+msgstr "終了"
+
+msgid "Terminate Job"
+msgstr "ジョブを終了"
+
+msgid "The IAM role you have created (ex: TransferEFSClient)"
+msgstr "作成した IAM ロール (例:転送クライアント)"
+
+msgid "The Posix GID of your user you have retrieved via `id` command"
+msgstr "`id` コマンドで取得したユーザーの Posix GID"
+
+msgid "The Posix UID of your user you have retrieved via `id` command"
+msgstr "`id` コマンドで取得したユーザーの Posix UID"
+
+msgid "The content of your SSH public key retrieved during Step 3"
+msgstr "ステップ 3 で取得した SSH 公開鍵の内容"
+
+msgid "The data remains available on the system without incurring compute charges. Storage fees continue to apply."
+msgstr "データは、コンピューティング料金を発生させずにシステム上で引き続き使用できます。ストレージ料金は引き続き適用されます。"
+
+msgid "The maximum size (in GB) of the root disk a user can specify"
+msgstr "ユーザーが指定できるルートディスクの最大サイズ (GB 単位)"
+
+msgid "The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
+msgstr "このイメージのルートディスクの最小サイズ (GB 単位)。EBS サイズが小さいインスタンスをプロビジョニングするとエラーが発生します。"
+
+#, python-format
+msgid "The server is using %(tz)s timezone."
+msgstr "サーバーは %(tz)s タイムゾーンを使用しています。"
+
+msgid "Then run the following command to create your group"
+msgstr "次に、次のコマンドを実行してグループを作成します。"
+
+msgid "These numbers are just an estimate:"
+msgstr "これらの数値はあくまでも推定値です。"
+
+msgid "These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us."
+msgstr "これらの翻訳はAIの助けを借りて生成されたものであり、不正確な表現や不自然な表現が含まれている可能性があります。あなたがネイティブスピーカーで、翻訳の改善を手伝いたいと思っているなら、ぜひご協力ください！私たちにご連絡ください。"
+
+msgid "This API has been disabled by your Administrator"
+msgstr "この API は管理者によって無効にされています"
+
+msgid "This API key is only available to you. Do not share it externally as this key is used to authorize requests on your behalf."
+msgstr "この API キーはユーザーのみが使用できます。このキーはユーザーに代わってリクエストを承認するために使用されるため、外部と共有しないでください。"
+
+msgid "This action cannot be reversed."
+msgstr "このアクションは元に戻せません。"
+
+msgid "This estimate is based on a simulation time of"
+msgstr "この見積もりは、以下のシミュレーション時間に基づいています。"
+
+#, python-format
+msgid "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+msgstr "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
+
+msgid "This file is too big to be compressed via web. Download file separately or use SFTP."
+msgstr "このファイルは大きすぎて Web 経由で圧縮できません。ファイルを個別にダウンロードするか、SFTP を使用してください。"
+
+msgid "This folder already exist, choose a different name"
+msgstr "このフォルダは既に存在します。別の名前を選択してください"
+
+msgid "This is a Linux script (will use /bin/bash)"
+msgstr "これは Linux スクリプトです (/bin/bash を使用します)"
+
+msgid "This is a Linux script (will use /bin/csh)"
+msgstr "これは Linux スクリプトです (/bin/csh を使用します)"
+
+msgid "This is a Linux script (will use /bin/sh)"
+msgstr "これは Linux スクリプトです (/bin/sh を使用します)"
+
+msgid "This is a Linux script (will use /bin/zsh)"
+msgstr "これは Linux スクリプトです (/bin/zsh を使用します)"
+
+msgid "This is the last tab. Close the window?"
+msgstr "これが最後のタブです。ウィンドウを閉じる？"
+
+msgid "This location is not cached"
+msgstr "この場所はキャッシュされません"
+
+msgid "This page will automatically refresh when the state of your virtual desktops changes."
+msgstr "このページは、仮想デスクトップの状態が変わると自動的に更新されます。"
+
+#, python-format
+msgid "This session will automatically pause <strong>after %(n)s hour</strong> of inactivity.This session will automatically pause <strong>after %(n)s hours</strong> of inactivity."
+msgstr "<strong>このセッションは、<strong>非アクティブ状態が%(n)s時間続くと自動的に一時停止します</strong>。このセッションは、非アクティブ状態が%(n)s時間続くと自動的に一時停止します。</strong>"
+
+msgid "This will generate a temporary password for a given user"
+msgstr "これにより、特定のユーザーの一時パスワードが生成されます。"
+
+msgid "Thumbnail (150px * 150px)"
+msgstr "サムネイル (150 ピクセル* 150 ピクセル)"
+
+msgid "Thumbnail to use (150px * 150px)"
+msgstr "使用するサムネイル (150 ピクセル × 150 ピクセル)"
+
+msgid "Time in seconds"
+msgstr "時間 (秒)"
+
+#, python-brace-format
+msgid "Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
+msgstr "管理者が設定したタイムゾーン {Config.Config.Timezone} は存在しません。デフォルトは UTC です。サポートされているタイムゾーンの全リストについては、https://en.wikipedia.org/wiki/List_of_tz_database_time_zones を参照してください。"
+
+#, python-format
+msgid "Tip: You can use %(and_op)s / %(or_op)s operators (ex: %(ex1)s %(ex2)s %(ex3)s)"
+msgstr "ヒント:%(and_op)s /%(or_op)s 演算子を使用できます (例:%(ex1)s %(ex2)s %(ex3)s)"
+
+msgid "To prevent outage, you must update all your scripts (if any) with the new key"
+msgstr "機能停止を防ぐには、すべてのスクリプト (存在する場合) を新しいキーで更新する必要があります"
+
+msgid "Toggle light/dark theme (T)"
+msgstr "ライト/ダークテーマの切り替え (T)"
+
+msgid "Token has expired. As a security measure we have refreshed your token. Please re-submit your request again."
+msgstr "トークンの有効期限が切れています。セキュリティ対策として、トークンを更新しました。リクエストを再送信してください。"
+
+msgid "Too many active tail sessions. Close one and try again."
+msgstr "アクティブなテールセッションが多すぎます。1 つ閉じてからやり直してください。"
+
+msgid "Type"
+msgstr "タイプ"
+
+msgid "Type to search an instance type..."
+msgstr "タイプしてインスタンスタイプを検索してください..."
+
+msgid "Type:"
+msgstr "タイプ:"
+
+msgid "URI of the Image to deploy on your pod"
+msgstr "ポッドにデプロイするイメージの URI"
+
+msgid "Unable to access the file. Please try again:  "
+msgstr "ファイルにアクセスできません。もう一度試してください:  "
+
+msgid "Unable to create file. Check logs for additional info"
+msgstr "ファイルを作成できません。詳細についてはログを確認してください。"
+
+msgid "Unable to create new user. API returned error: "
+msgstr "新しいユーザーを作成できません。API がエラーを返しました: "
+
+msgid "Unable to delete "
+msgstr "削除できません "
+
+#, python-brace-format
+msgid "Unable to delete Batch job {job_id}."
+msgstr "バッチジョブ {job_id} を削除できません。"
+
+msgid "Unable to describe instance type. See logs for additional details."
+msgstr "インスタンスタイプを記述できません。詳細についてはログを参照してください。"
+
+msgid "Unable to determine vCPU count for instance type. See logs for additional details."
+msgstr "インスタンスタイプの vCPU 数を判断できません。詳細についてはログを参照してください。"
+
+msgid "Unable to download "
+msgstr "ダウンロードできません "
+
+msgid "Unable to download file. Did you remove it?"
+msgstr "ファイルをダウンロードできません。削除しましたか?"
+
+msgid "Unable to edit application. See logs for additional details."
+msgstr "アプリケーションを編集できません。詳細についてはログを参照してください。"
+
+msgid "Unable to estimate cost"
+msgstr "費用を見積もることができません"
+
+msgid "Unable to extract input file information. See logs for additional details"
+msgstr "入力ファイル情報を抽出できません。詳細についてはログを参照してください。"
+
+msgid "Unable to extract profile information. See logs for additional details"
+msgstr "プロファイル情報を抽出できません。詳細についてはログを参照してください。"
+
+#, python-format
+msgid "Unable to find any %(link)s onboarded to this EDH environment."
+msgstr "この EDH 環境にオンボーディングされている %(link)s が見つかりません。"
+
+msgid "Unable to find any AWS Batch Job Definition onboarded to this EDH environment."
+msgstr "この EDH 環境にオンボードされた AWS Batch ジョブ定義が見つかりません。"
+
+msgid "Unable to find any AWS Batch Job Queues onboarded to this EDH environment."
+msgstr "この EDH 環境にオンボーディングされた AWS Batch ジョブキューが見つかりません。"
+
+msgid "Unable to generate download link. Check the logs for more information"
+msgstr "ダウンロードリンクを生成できません。詳細についてはログを確認してください。"
+
+msgid "Unable to generate job script. See logs for additional details"
+msgstr "ジョブスクリプトを生成できません。詳細についてはログを参照してください。"
+
+#, python-brace-format
+msgid "Unable to list AWS Batch jobs due to {error}"
+msgstr "{error} が原因で AWS Batch ジョブを一覧表示できません"
+
+msgid "Unable to list all_users: "
+msgstr "すべてのユーザーを一覧表示できません: "
+
+msgid "Unable to list applications. See logs for additional details"
+msgstr "アプリケーションを一覧表示できません。詳細についてはログを参照してください。"
+
+msgid "Unable to list applications. See logs for additional details."
+msgstr "アプリケーションを一覧表示できません。詳細についてはログを参照してください。"
+
+msgid "Unable to list groups: "
+msgstr "グループを一覧表示できません: "
+
+msgid "Unable to list your clusters images"
+msgstr "クラスターのイメージを一覧表示できません"
+
+msgid "Unable to list your container images"
+msgstr "コンテナイメージを一覧表示できません"
+
+msgid "Unable to locate  the download archive, please try again"
+msgstr "ダウンロードアーカイブが見つかりません。もう一度試してください"
+
+msgid "Unable to locate the download archive, please try again"
+msgstr "ダウンロードアーカイブが見つかりません。もう一度試してください"
+
+msgid "Unable to preview this file via web"
+msgstr "このファイルを Web 経由でプレビューできません"
+
+msgid "Unable to read file"
+msgstr "ファイルを読み込めません"
+
+msgid "Unable to read the job script. See logs for additional details."
+msgstr "ジョブスクリプトを読み込めません。詳細についてはログを参照してください。"
+
+msgid "Unable to reset password. Error: "
+msgstr "パスワードをリセットできません。エラー: "
+
+msgid "Unable to reset your password. Error: "
+msgstr "パスワードをリセットできません。エラー: "
+
+msgid "Unable to retrieve API key for user. See logs for additional details."
+msgstr "ユーザーの API キーを取得できません。詳細についてはログを参照してください。"
+
+msgid "Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue parameters and check logs for more details"
+msgstr "すべてのスケジューラでジョブを取得することができません。ユーザー/スケジューラー/キューのパラメーターを確認し、詳細についてはログを確認してください。"
+
+msgid "Unable to retrieve this virtual desktop."
+msgstr "この仮想デスクトップを取得できません。"
+
+msgid "Unable to stat file"
+msgstr "ファイルを統計できません"
+
+#, python-brace-format
+msgid "Unable to submit AWS Batch job due to {error}"
+msgstr "{error} が原因で AWS Batch ジョブを送信できません"
+
+msgid "Unable to update group: "
+msgstr "グループを更新できません: "
+
+msgid "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+msgstr "このファイルを入力として使用できません (ファイルが削除されたか、アクセスする権限がない可能性があります)。"
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars"
+msgstr "お客様の Amazon イメージの一意の ID。ami-で始まる 8 ～ 21 文字の有効な画像である必要があります"
+
+msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)"
+msgstr "お客様の Amazon イメージの一意の ID。ami-または AMI エイリアス (/aws/service/...) で始まる有効なイメージである必要があります"
+
+msgid "Unknown session state"
+msgstr "不明なセッション状態"
+
+msgid "Unregister Software Stack from EDH"
+msgstr "EDH からのソフトウェアスタックの登録解除"
+
+msgid "Unregister Software Stack from SOCA"
+msgstr "SOCA からのソフトウェアスタックの登録解除"
+
+msgid "Update Password"
+msgstr "パスワードの更新"
+
+msgid "Update Project"
+msgstr "[プロジェクトを更新]"
+
+msgid "Update Software Stack"
+msgstr "ソフトウェアスタックの更新"
+
+msgid "Update Target Node Profile"
+msgstr "ターゲットノードプロファイルの更新"
+
+msgid "Update User Data Template"
+msgstr "ユーザーデータテンプレートの更新"
+
+msgid "Update Virtual Desktop Profile"
+msgstr "仮想デスクトッププロファイルの更新"
+
+msgid "Update this Workflow Profile"
+msgstr "このワークフロープロファイルを更新"
+
+msgid "Update your password"
+msgstr "パスワードを更新する"
+
+msgid "Upload file(s)"
+msgstr "ファイルをアップロード"
+
+#, python-format
+msgid "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %(start_a)sEDH SFTP solution%(end_a)s for larger files or edit the configuration files."
+msgstr "アップロードは %(size)s GB に制限され、%(minutes)s 分のタイムアウトに制限されています。サイズの大きいファイルには %(start_a)sEDH SFTP ソリューション %(end_a)s を使用するか、設定ファイルを編集してください。"
+
+msgid "Upload your content to EDH"
+msgstr "コンテンツを EDH にアップロード"
+
+#, python-format
+msgid "Use %(hidden)s fields to hardcode values. Otherwise, defaults will be applied."
+msgstr "%(hidden)s フィールドを使用して値をハードコードします。それ以外の場合は、デフォルトが適用されます。"
+
+#, python-format
+msgid "Use %(star)s to allow all users"
+msgstr "%(star)s を使用してすべてのユーザーに許可する"
+
+#, python-format
+msgid "Use %(star)s to deny all"
+msgstr "すべて拒否するには %(star)s を使用してください"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds)"
+msgstr "HH: MM: SS 形式を使用 (時:分:秒)"
+
+msgid "Use HH:MM:SS format (hours:minutes:seconds). For example 90 minutes is 00:90:00 or 01:30:00"
+msgstr "HH: MM: SS 形式 (時:分:秒) を使用してください。たとえば、90 分は 00:90:00 または 01:30:00 です。"
+
+msgid "Use as workflow input"
+msgstr "ワークフロー入力として使用"
+
+#, python-format
+msgid "Use this link only to %(purpose)s regarding issues with the Engineering Development Hub (EDH) project."
+msgstr "このリンクは、エンジニアリング開発ハブ (EDH) プロジェクトの問題に関する %(purpose)s にのみ使用してください。"
+
+msgid "Used to calculate the number of node(s) to provision"
+msgstr "プロビジョニングするノード数の計算に使用"
+
+msgid "Used to calculate the number of nodes to provision"
+msgstr "プロビジョニングするノード数の計算に使用"
+
+msgid "Used to estimate cost"
+msgstr "コストの見積もりに使用"
+
+msgid "User"
+msgstr "ユーザ"
+
+msgid "User "
+msgstr "ユーザ "
+
+msgid "User Data"
+msgstr "ユーザーデータ"
+
+msgid "User Data Template Description"
+msgstr "ユーザーデータテンプレートの説明"
+
+msgid "User Data Template Name"
+msgstr "ユーザーデータテンプレート名"
+
+msgid "User Data Template deleted successfully"
+msgstr "ユーザーデータテンプレートは正常に削除されました"
+
+msgid "User Data Template has been updated successfully"
+msgstr "ユーザーデータテンプレートは正常に更新されました"
+
+msgid "User Data Templates"
+msgstr "ユーザーデータテンプレート"
+
+msgid "User Data Variables"
+msgstr "ユーザーデータ変数"
+
+#, python-format
+msgid "User Data associated with this stack (%(link)s)"
+msgstr "このスタックに関連するユーザーデータ (%(link)s)"
+
+msgid "User Data script runs during the instance initial boot"
+msgstr "ユーザーデータスクリプトはインスタンスの初回起動時に実行されます"
+
+msgid "User Data template has been created successfully"
+msgstr "ユーザーデータテンプレートは正常に作成されました"
+
+msgid "User Data to be executed on the EC2 host"
+msgstr "EC2 ホストで実行されるユーザーデータ"
+
+msgid "User ID"
+msgstr "ユーザ ID"
+
+msgid "User Membership"
+msgstr "ユーザーメンバーシップ"
+
+msgid "User code to be executed AFTER the solver command"
+msgstr "ソルバーコマンドの後に実行されるユーザーコード"
+
+msgid "User code to be executed BEFORE the solver command"
+msgstr "ソルバーコマンドの前に実行するユーザーコード"
+
+msgid "User created"
+msgstr "ユーザー作成"
+
+msgid "User created but unable to generate API token: "
+msgstr "ユーザーは作成されましたが、API トークンを生成できません: "
+
+msgid "User data is limited to 16 KB"
+msgstr "ユーザーデータは16 KBに制限されています"
+
+msgid "User data script is operating system-specific: Linux requires a Bash script, while Windows expects a PowerShell script."
+msgstr "ユーザーデータスクリプトはオペレーティングシステムによって異なります。LinuxではBashスクリプトが必要ですが、WindowsではPowerShellスクリプトが必要です。"
+
+msgid "User data supports"
+msgstr "ユーザーデータサポート"
+
+msgid "User(s) in your group:"
+msgstr "グループ内のユーザー:"
+
+msgid "User-Data templates are assigned to EDH Target Nodes"
+msgstr "ユーザーデータテンプレートは EDH ターゲットノードに割り当てられます"
+
+msgid "User: "
+msgstr "ユーザ: "
+
+msgid "Username"
+msgstr "ユーザー名"
+
+msgid "Users Management"
+msgstr "ユーザー管理"
+
+msgid "Users Permissions"
+msgstr "ユーザー権限"
+
+msgid "Users in denied groups will be denied even if individually allowed"
+msgstr "拒否されたグループのユーザーは、個別に許可された場合でも拒否されます"
+
+msgid "Users in your group can access (read-only) your $HOME directory by default."
+msgstr "グループのユーザーは、デフォルトで $HOME ディレクトリにアクセス (読み取り専用) できます。"
+
+msgid "Users/Groups Permissions"
+msgstr "ユーザー/グループの権限"
+
+msgid "Using Bash"
+msgstr "バッシュを使う"
+
+msgid "Using Python"
+msgstr "Python を使う"
+
+msgid "VALUE"
+msgstr "価値"
+
+msgid "VDI Profile"
+msgstr "VDI プロファイル"
+
+msgid "VDI Profile removed from SOCA"
+msgstr "VDI プロファイルが SOCA から削除されました"
+
+msgid "Value"
+msgstr "価値"
+
+msgid "Value (e.g., 1, 2)"
+msgstr "値 (例:1、2)"
+
+msgid "Value:"
+msgstr "価値:"
+
+msgid "Via EDH Web Portal"
+msgstr "EDH ウェブポータル経由"
+
+msgid "Via command line (CLI)"
+msgstr "コマンドライン (CLI) 経由"
+
+msgid "View Advanced Options"
+msgstr "詳細オプションを表示"
+
+msgid "View Details"
+msgstr "詳細を表示"
+
+msgid "View HTTP API documentation"
+msgstr "HTTP API ドキュメントを表示する"
+
+msgid "View my jobs"
+msgstr "私の仕事を見る"
+
+msgid "View/Manage Authorized Application Profiles"
+msgstr "承認済みアプリケーションプロファイルの表示/管理"
+
+msgid "View/Manage Authorized Target Nodes Stacks"
+msgstr "承認されたターゲットノードスタックの表示/管理"
+
+msgid "View/Manage Authorized Virtual Desktops Stacks"
+msgstr "承認された仮想デスクトップスタックの表示/管理"
+
+msgid "Virtual Desktop"
+msgstr "仮想デスクトップ"
+
+msgid "Virtual Desktop Software Stack"
+msgstr "仮想デスクトップソフトウェアスタック"
+
+msgid "Virtual Desktop Stacks"
+msgstr "仮想デスクトップスタック"
+
+msgid "Virtual Desktops"
+msgstr "仮想デスクトップ"
+
+msgid "We have generated a test template for you, customize it as needed or"
+msgstr "テストテンプレートを生成しました。必要に応じてカスタマイズするか、"
+
+msgid "Web Terminal"
+msgstr "ウェブターミナル"
+
+msgid "WebSocket connection failed. Check that the webshell service is running on Login Nodes."
+msgstr "WebSocket 接続が失敗しました。Webshell サービスがログインノードで実行中であることを確認します。"
+
+msgid "WebSocket error"
+msgstr "ウェブソケットエラー"
+
+msgid "What input file do you want to use? Navigate to the folder where your input file is located then click 'Use as Simulation Input'"
+msgstr "どの入力ファイルを使用しますか?<hr>入力ファイルが保存されているフォルダに移動し、[シミュレーション入力として使用] をクリックします。"
+
+msgid "What queue do you want to use?"
+msgstr "どのキューを使いたいですか?"
+
+msgid "What type of instance do you want to use?"
+msgstr "どのタイプのインスタンスを使用しますか?"
+
+msgid "What version of the solver do you want to use?"
+msgstr "どのバージョンのソルバーを使いたいですか?"
+
+msgid "What workflow do you want to run?"
+msgstr "どのワークフローを実行したいですか?"
+
+msgid "Windows"
+msgstr "Windows"
+
+msgid "Workflow Profile input file (JSON)"
+msgstr "ワークフロープロファイル入力ファイル (JSON)"
+
+msgid "Workflow Profile name"
+msgstr "ワークフロープロファイル名"
+
+msgid "Workflows Management"
+msgstr "ワークフロー管理"
+
+msgid "Wrap"
+msgstr "ラップ"
+
+msgid "Wrap long lines"
+msgstr "長い行を折り返す"
+
+msgid "X-EDH-TOKEN and set the value to"
+msgstr "X-EDH-TOKENを選択し、値を次のように設定します"
+
+msgid "X-EDH-USER and set the value to"
+msgstr "X-EDH-USER を選択し、値を次のように設定します"
+
+msgid "Yes"
+msgstr "はい"
+
+msgid "You are about to be redirected to"
+msgstr "リダイレクトされようとしています"
+
+msgid "You are about to permanently delete"
+msgstr "完全に削除しようとしています"
+
+msgid "You are about to permanently delete a target note. All data stored on the local partitions will be lost."
+msgstr "ターゲットノートを完全に削除しようとしています。ローカルパーティションに保存されているデータはすべて失われます。"
+
+msgid "You are about to remove this job from your EKS cluster."
+msgstr "このジョブを EKS クラスターから削除しようとしています。"
+
+msgid "You are about to terminate this AWS Batch job:"
+msgstr "この AWS Batch ジョブを終了しようとしています:"
+
+msgid "You are currently using"
+msgstr "現在使用しています"
+
+msgid "You are not authorized to access this file"
+msgstr "このファイルにアクセスする権限がありません"
+
+msgid "You are not authorized to access this location and/or this path is restricted by the Administrator. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "この場所にアクセスする権限がないか、管理者によってこのパスが制限されています。最近権限を変更した場合は、同期に最大 10 分ほどかかりますのでご了承ください。"
+
+msgid "You are not authorized to download some files (double check if your user own ALL files in this directory)."
+msgstr "一部のファイルをダウンロードする権限がありません (ユーザーがこのディレクトリのすべてのファイルを所有しているかどうかを再確認してください)。"
+
+msgid "You are not authorized to download this file or this file is no longer available on the filesystem"
+msgstr "このファイルをダウンロードする権限がないか、このファイルはファイルシステムで使用できなくなっています"
+
+#, python-brace-format
+msgid "You are not authorized to upload in this location ({path}). If you recently changed the permissions, please allow up to 10 minutes for sync"
+msgstr "この場所 ({path}) にアップロードする権限がありません。最近権限を変更した場合は、同期に最大 10 分ほどかかりますので、しばらくお待ちください。"
+
+msgid "You are not the job owner"
+msgstr "あなたはジョブの所有者ではありません"
+
+#, python-format
+msgid "You can create %(link)s to provision your virtual desktop faster."
+msgstr "%(link)s を作成すると、仮想デスクトップをより迅速にプロビジョニングできます。"
+
+msgid "You can have multiple Software Stacks using the same Target Node Profile."
+msgstr "同じターゲットノードプロファイルを使用して複数のソフトウェアスタックを作成できます。"
+
+msgid "You can have multiple Software Stacks using the same Virtual Desktop Profile."
+msgstr "同じ仮想デスクトッププロファイルを使用して複数のソフトウェアスタックを作成できます。"
+
+msgid "You can interact with your EDH cluster (create users, groups, queue, submit jobs, view jobs etc.) via a simple REST interface."
+msgstr "簡単な REST インターフェイスを介して EDH クラスターを操作できます (ユーザー、グループの作成、キュー、ジョブの送信、ジョブの表示など)。"
+
+msgid "You can not manage your own Admin permissions."
+msgstr "自分の管理者権限を管理することはできません。"
+
+msgid "You can not reset your own password using this tool. Please visit 'My Account' section for that"
+msgstr "このツールを使用して自分のパスワードをリセットすることはできません。そのためには、「マイアカウント」セクションをご覧ください。"
+
+msgid "You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>"
+msgstr "独自の変数名を使用できますが、<strong>次の変数を使用する場合は自動化が事前に設定されていることに注意してください</strong>。"
+
+msgid "You cannot change hardware if you have enabled Hibernation"
+msgstr "ハイバネーションを有効にしている場合、ハードウェアを変更することはできません"
+
+msgid "You cannot delete a Target Node Profile if it's being associated to an existing target node."
+msgstr "既存のターゲットノードに関連付けられているターゲットノードプロファイルを削除することはできません。"
+
+msgid "You cannot delete a Virtual Desktop Profile if it's being associated to an existing virtual desktop."
+msgstr "既存の仮想デスクトップに関連付けられている仮想デスクトッププロファイルは削除できません。"
+
+msgid "You cannot delete default profile."
+msgstr "デフォルトプロファイルは削除できません。"
+
+msgid "You cannot delete your own account."
+msgstr "自分のアカウントを削除することはできません。"
+
+msgid "You cannot delete your own group."
+msgstr "自分のグループを削除することはできません。"
+
+msgid "You could save money by"
+msgstr "次の方法でお金を節約できます"
+
+msgid "You do not have a target node yet. Create one by clicking the button above."
+msgstr "ターゲットノードはまだありません。上のボタンをクリックして作成してください。"
+
+msgid "You do not have a virtual desktop yet. Create one by clicking the button above."
+msgstr "仮想デスクトップはまだありません。上のボタンをクリックして作成してください。"
+
+msgid "You do not have any running EDH Login Nodes. Please launch at least 1 login node before being able to use Web Terminal."
+msgstr "実行中の EDH ログインノードはありません。Web ターミナルを使用する前に、少なくとも 1 つのログインノードを起動してください。"
+
+msgid "You do not have permission to read this file"
+msgstr "このファイルを読む権限がありません"
+
+msgid "You do not have the permission to delete this file. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "このファイルを削除する権限がありません。最近権限を変更した場合は、同期に最大 10 分ほどかかりますのでご了承ください。"
+
+msgid "You do not have the permission to delete this folder. If you recently changed the permissions, please allow up to 10 minutes for sync."
+msgstr "このフォルダを削除する権限がありません。最近権限を変更した場合は、同期に最大 10 分ほどかかりますのでご了承ください。"
+
+msgid "You do not have the permission to download this file"
+msgstr "このファイルをダウンロードする権限がありません"
+
+msgid "You made it that far? Congrats from the SOCA team!"
+msgstr "そこまでたどり着いたの？SOCA チームの皆さん、おめでとうございます！"
+
+msgid "You must first pause your target node"
+msgstr "まず、ターゲットノードを一時停止する必要があります"
+
+msgid "You must first pause your virtual desktop"
+msgstr "最初に仮想デスクトップを一時停止する必要があります"
+
+msgid "You must first stop your target node"
+msgstr "まず、ターゲットノードを停止する必要があります"
+
+msgid "You must specify cpus and instance_type parameters"
+msgstr "cpus パラメーターと instance_type パラメーターを指定する必要があります"
+
+msgid "You will also need to pass the Base64 encoded string as payload. See below for examples:"
+msgstr "また、Base64 でエンコードされた文字列をペイロードとして渡す必要があります。例については以下を参照してください。"
+
+msgid "You will need to specify three headers:"
+msgstr "次の 3 つのヘッダーを指定する必要があります。"
+
+#, python-format
+msgid "You will need to update %(pkg)s to add instances released after the date of your EDH installation"
+msgstr "EDH のインストール日以降にリリースされたインスタンスを追加するには、%(pkg)s を更新する必要があります。"
+
+#, python-format
+msgid "You will need your user UID/GID. You can retrieve this value by typing %(cmd)s on any EDH nodes (Linux). In the example below, the UID is 5001 and GID is also 5001"
+msgstr "ユーザーの UID/GID が必要になります。この値は、任意の EDH ノード (Linux) で「%(cmd)s」と入力することで取得できます。以下の例では、UID は 5001 で、GID も 5001 です。"
+
+msgid "You won't be charged for the compute time while your session is stopped"
+msgstr "セッションが停止している間は、コンピューティング時間に対して課金されません。"
+
+msgid "Your API key:"
+msgstr "あなたの API キー:"
+
+#, python-format
+msgid "Your Analytics endpoint %(emphasis)s. You can access it via your EDH Virtual Desktops (Linux or Windows)."
+msgstr "アナリティクスエンドポイント %(emphasis)sEDH 仮想デスクトップ (Linux または Windows) 経由でアクセスできます。"
+
+msgid "Your EDH environment must be using Amazon EFS to use AWS Transfer"
+msgstr "AWS 転送を使用するには、お使いの EDH 環境が Amazon EFS を使用している必要があります"
+
+msgid "Your Software Stack has been updated successfully"
+msgstr "ソフトウェアスタックは正常に更新されました"
+
+msgid "Your Target Node Profile has been updated successfully"
+msgstr "ターゲットノードプロファイルが正常に更新されました"
+
+msgid "Your Target Node is about to be terminated"
+msgstr "ターゲットノードが終了されようとしています"
+
+msgid "Your Target Node session has been initiated. It will be ready shortly"
+msgstr "ターゲットノードセッションが開始されました。まもなく準備が整います。"
+
+msgid "Your User Data Template has been removed  successfully"
+msgstr "ユーザーデータテンプレートは正常に削除されました"
+
+msgid "Your Virtual Desktop Profile has been updated successfully"
+msgstr "仮想デスクトッププロファイルは正常に更新されました"
+
+msgid "Your Virtual Desktop is about to be terminated"
+msgstr "仮想デスクトップが終了されようとしています"
+
+msgid "Your Virtual Desktop session has been initiated. It will be ready within 20 minutes."
+msgstr "仮想デスクトップセッションが開始されました。20 分以内に準備が整います。"
+
+msgid "Your cluster administrator disabled this feature."
+msgstr "クラスター管理者がこの機能を無効にしました。"
+
+msgid "Your desktop is about to be stopped as requested"
+msgstr "デスクトップが要求どおりに停止されようとしています"
+
+msgid "Your desktop is about to be terminated as requested"
+msgstr "デスクトップは要求どおりに終了されようとしています"
+
+msgid "Your desktop is starting"
+msgstr "デスクトップが起動しています"
+
+msgid "Your desktop will be stopped soon."
+msgstr "デスクトップは間もなく停止します。"
+
+msgid "Your endpoint use the following syntax:"
+msgstr "エンドポイントは次の構文を使用します。"
+
+msgid "Your job was deleted successfully"
+msgstr "ジョブは正常に削除されました"
+
+msgid "Your job was submitted successfully"
+msgstr "ジョブは正常に送信されました"
+
+msgid "Your job will stay in the queue until the issue is fixed."
+msgstr "問題が修正されるまで、ジョブはキューに残ります。"
+
+msgid "Your password has been changed successfully."
+msgstr "パスワードは正常に変更されました。"
+
+msgid "Your profile has been created successfully"
+msgstr "プロファイルは正常に作成されました"
+
+msgid "Your profile has been deleted successfully"
+msgstr "あなたのプロフィールは正常に削除されました"
+
+msgid "Your project has been created successfully"
+msgstr "プロジェクトは正常に作成されました"
+
+msgid "Your project has been removed  successfully"
+msgstr "プロジェクトは正常に削除されました"
+
+msgid "Your project has been updated successfully"
+msgstr "プロジェクトは正常に更新されました"
+
+msgid "Your schedule has been updated successfully"
+msgstr "スケジュールは正常に更新されました"
+
+#, python-format
+msgid "Your session will be automatically deleted <strong>after %(n)s hour</strong> if you do not restart it.Your session will be automatically deleted <strong>after %(n)s hours</strong> if you do not restart it."
+msgstr "セッションを再開しない場合、セッションは <strong>%(n)s 時間後に自動的に削除されます</strong>。再開しない場合、セッションは <strong>%(n)s 時間後に自動的に削除されます</strong>。"
+
+msgid "Your session will use new hardware as soon as you restart it"
+msgstr "セッションは、再起動するとすぐに新しいハードウェアを使用します"
+
+msgid "Your software stack has been removed  successfully"
+msgstr "ソフトウェアスタックは正常に削除されました"
+
+msgid "Your target node is about to be stopped as requested"
+msgstr "ターゲットノードが要求どおりに停止されようとしています"
+
+msgid "Your target node is already running"
+msgstr "ターゲットノードは既に実行中です"
+
+msgid "Your target node is already stopped"
+msgstr "ターゲットノードはすでに停止しています"
+
+msgid "Your target node is being created"
+msgstr "ターゲットノードを作成中です"
+
+msgid "Your target node is not running yet"
+msgstr "ターゲットノードはまだ実行されていません"
+
+msgid "Your target node is starting"
+msgstr "ターゲットノードが起動しています"
+
+msgid "Your target node is stopped."
+msgstr "ターゲットノードは停止しています。"
+
+msgid "Your target node schedule has been updated"
+msgstr "ターゲットノードのスケジュールが更新されました"
+
+msgid "Your target node will be stopped soon."
+msgstr "ターゲットノードはまもなく停止します。"
+
+msgid "Your target note is about to be terminated as requested"
+msgstr "ターゲットノートはリクエストされたとおりに終了されようとしています"
+
+msgid "Your user data template has been created successfully"
+msgstr "ユーザーデータテンプレートは正常に作成されました"
+
+msgid "Your user data template has been updated successfully"
+msgstr "ユーザーデータテンプレートは正常に更新されました"
+
+msgid "Your virtual desktop has been updated"
+msgstr "仮想デスクトップが更新されました"
+
+msgid "Your virtual desktop is already running"
+msgstr "仮想デスクトップはすでに実行されています"
+
+msgid "Your virtual desktop is already stopped"
+msgstr "仮想デスクトップはすでに停止しています"
+
+msgid "Your virtual desktop is being created"
+msgstr "仮想デスクトップを作成中です"
+
+msgid "Your virtual desktop is not running yet"
+msgstr "仮想デスクトップはまだ動作していません"
+
+msgid "Your virtual desktop is starting"
+msgstr "仮想デスクトップを起動しています"
+
+msgid "Your virtual desktop is stopped."
+msgstr "仮想デスクトップが停止しました。"
+
+msgid "Your virtual desktop schedule has been updated"
+msgstr "仮想デスクトップのスケジュールが更新されました"
+
+msgid "Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed."
+msgstr "ワークスペースには、EDH ファイルシステムに保存されているすべてのデータが含まれています。デフォルトでは、/apps と /data はすべての EDH ノードから共有され、アクセスできます。必要に応じて追加のファイルシステムをマウントできます。"
+
+msgid "__SOCA_CLUSTER__NAME__"
+msgstr "__SOCA_CLUSTER__名前__"
+
+msgid "all"
+msgstr "すべて"
+
+msgid "and close it with"
+msgstr "で閉じます"
+
+msgid "app_profile file is missing."
+msgstr "アプリ_プロファイルファイルが見つかりません。"
+
+msgid "base64"
+msgstr "base64"
+
+msgid "breadcrumb"
+msgstr "ブレッドクラム"
+
+msgid "clear the buffer"
+msgstr "バッファをクリア"
+
+msgid "click here for manual reload"
+msgstr "手動リロードはここをクリック"
+
+msgid "click here to start from scratch."
+msgstr "ここをクリックしてゼロから始めましょう。"
+
+msgid "close the modal"
+msgstr "モーダルを閉じる"
+
+msgid "closed"
+msgstr "終了しました"
+
+msgid "comma separated list of job ids e,g: 1,2,3"
+msgstr "コンマで区切られたジョブ ID のリスト (例:1,2,3)"
+
+msgid "connecting"
+msgstr "接続する"
+
+msgid "cpus must be a valid integer"
+msgstr "cpus は有効な整数でなければなりません"
+
+msgid "cr-123456abc"
+msgstr "cr-123456 abc"
+
+msgid "create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags."
+msgstr "仮想ターゲット、仮想デスクトップ、コンピュートノードの予算を1か所で作成、監視、管理できます。自動 AWS コスト配分タグにより完全な可視性が得られます。"
+
+msgid "disconnected"
+msgstr "切断されました"
+
+msgid "e.g. --epochs"
+msgstr "例：--エポック"
+
+msgid "e.g. /bin/bash"
+msgstr "例:/bin/bash"
+
+msgid "e.g. argument"
+msgstr "例:引数"
+
+msgid "encode function:"
+msgstr "エンコード機能:"
+
+msgid "error"
+msgstr "エラー"
+
+msgid "example: c6g.metal"
+msgstr "例:c6g. メタル"
+
+msgid "file rotated, stream ending"
+msgstr "ファイルローテーション、ストリーム終了"
+
+msgid "file truncated, resuming"
+msgstr "ファイルの切り捨て、再開中"
+
+msgid "file_path"
+msgstr "ファイルパス"
+
+msgid "from the filesystem."
+msgstr "ファイルシステムから。"
+
+msgid "fsx_capacity"
+msgstr "capacity"
+
+msgid "has been uploaded to EDH"
+msgstr "EDH にアップロードされました"
+
+msgid "hour"
+msgstr "時間"
+
+msgid "hour(s) with HyperThreading support set to True"
+msgstr "ハイパースレッディングサポートが True に設定されている時間"
+
+msgid "idle"
+msgstr "アイドル状態です"
+
+msgid "input_file is a reserved name on EDH. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name"
+msgstr "入力ファイルはEDHでは予約された名前です。この値は、ユーザーが指定した入力場所に自動的に置き換えられます。必ず指定してください。また、パラメータ名は input_name でなければなりません。"
+
+msgid "insert timestamp checkpoint"
+msgstr "タイムスタンプチェックポイントを挿入"
+
+msgid "instance_type"
+msgstr "インスタンスタイプ"
+
+msgid "is HTML tag for new line"
+msgstr "改行用の HTML タグです"
+
+msgid "is running but EDG could not validate your session via"
+msgstr "は実行中ですが、EDG は経由でセッションを検証できませんでした"
+
+msgid "jump to live"
+msgstr "ジャンプ・トゥ・ライブ"
+
+msgid "jump to start"
+msgstr "ジャンプして開始"
+
+msgid "live"
+msgstr "ライブ"
+
+msgid "load earlier"
+msgstr "早く読み込む"
+
+msgid "loading"
+msgstr "ロードします"
+
+msgid "no file specified"
+msgstr "ファイルが指定されていません"
+
+msgid "pause or resume"
+msgstr "一時停止または再開"
+
+msgid "paused"
+msgstr "一時停止しました"
+
+msgid "pending"
+msgstr "保留中"
+
+msgid "profile_name is missing."
+msgstr "プロファイル名が見つかりません。"
+
+msgid "purchasing Reserved Instances"
+msgstr "リザーブドインスタンスの購入"
+
+msgid "root_size"
+msgstr "root_size"
+
+msgid "rotated"
+msgstr "回転した"
+
+msgid "running"
+msgstr "実行しています"
+
+#, python-brace-format
+msgid "s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com"
+msgstr "s-{ユニークID}-.server.transfer。{AWS_REGION} .amazonaws.com"
+
+msgid "scheduler_id and job_id must be specified"
+msgstr "スケジューラーIDとジョブIDを指定する必要があります"
+
+msgid "scratch_size"
+msgstr "スクラッチサイズ"
+
+msgid "since last mark"
+msgstr "最後のマークから"
+
+msgid "stopped"
+msgstr "停止しました"
+
+msgid "stream ended"
+msgstr "ストリーム終了"
+
+msgid "this user from the group"
+msgstr "グループのこのユーザー"
+
+msgid "this user to my group"
+msgstr "このユーザーをマイグループに"
+
+msgid "this user to the group"
+msgstr "このユーザーをグループに"
+
+msgid "toggle theme"
+msgstr "テーマの切り替え"
+
+msgid "toggle this help"
+msgstr "このヘルプを切り替える"
+
+msgid "toggle wrap"
+msgstr "トグルラップ"
+
+msgid "upload because of"
+msgstr "アップロードする理由"
+
+msgid "upload was canceled"
+msgstr "アップロードはキャンセルされました"
+
+msgid "vCPUs"
+msgstr "vCPU"
+
+msgid "vcpus"
+msgstr "vCPU"
+
+msgid "wall_time"
+msgstr "ウォールタイム"
+
+msgid "wall_time must use HH:MM:SS format and only use valid numbers"
+msgstr "wall_time は HH: MM: SS 形式を使用し、有効な数値のみを使用する必要があります"
+
+#, python-brace-format
+msgid "{entry.name} returned an error and cannot be displayed: {err}"
+msgstr "{entry.name} がエラーを返したため表示できません:{err}"
+
+msgid "──── Schedulers ───────"
+msgstr "──── スケジューラー ─────"
+
+msgid "──── System Interpreters ───────"
+msgstr "──── システムインタプリタ ──────"
+
+msgid "🎉 SOCA YEAH 🌴"
+msgstr "🎉 ソカうん 🌴"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                    want to"
+#~ msgstr ""
+#~ "私は確信してる\n"
+#~ " したい"
+
+#~ msgid ""
+#~ "Upload your content to\n"
+#~ "                                                    EDH"
+#~ msgstr ""
+#~ "コンテンツをアップロードする\n"
+#~ " EDH"
+
+#~ msgid ""
+#~ "for larger files or edit the\n"
+#~ "                                                configuration files."
+#~ msgstr ""
+#~ "大きなファイルの場合、または編集する\n"
+#~ " 設定ファイル。"
+
+#~ msgid ""
+#~ "Entering the danger\n"
+#~ ""
+#~ "                                                                                "
+#~ "zone"
+#~ msgstr ""
+#~ "危険への突入\n"
+#~ " ゾーン"
+
+#~ msgid ""
+#~ "from the\n"
+#~ ""
+#~ "                                                                                "
+#~ "filesystem."
+#~ msgstr ""
+#~ "から\n"
+#~ " ファイルシステム。"
+
+#~ msgid ""
+#~ "This file is too big and cannot be previewed via the web\n"
+#~ "                                                            interface."
+#~ msgstr ""
+#~ "このファイルは大きすぎるため、Web でプレビューできません\n"
+#~ " インターフェイス。"
+
+#~ msgid ""
+#~ "or\n"
+#~ "                                                            open it via"
+#~ msgstr ""
+#~ "または\n"
+#~ " 経由で開く"
+
+#~ msgid ""
+#~ "to\n"
+#~ "                                                        download"
+#~ " your Linux private key if needed)"
+#~ msgstr ""
+#~ "に\n"
+#~ " Linux プライベートキーをダウンロードする (必要な場合)"
+
+#~ msgid ""
+#~ "on any EDH nodes (Linux).\n"
+#~ "                                           In the "
+#~ "example below, the UID is 5001 and"
+#~ " GID is also 5001"
+#~ msgstr ""
+#~ "任意の EDH ノード (Linux) で使用できます。\n"
+#~ " 以下の例では、UID は 5001 で、GID も 5001 です。"
+
+#~ msgid ""
+#~ "Add user to your\n"
+#~ "                                                    group"
+#~ msgstr ""
+#~ "ユーザーに追加\n"
+#~ " グループ"
+
+#~ msgid ""
+#~ ".\n"
+#~ "                                        You can "
+#~ "access it via your EDH Virtual "
+#~ "Desktops (Linux or Windows)."
+#~ msgstr ""
+#~ "。\n"
+#~ " お使いの EDH 仮想デスクトップ (Linux または Windows) 経由でアクセスできます。"
+
+#~ msgid ""
+#~ "Make sure to have established "
+#~ "connectivity between AWS and your "
+#~ "corporate\n"
+#~ "                                        network (e.g. via"
+#~ msgstr ""
+#~ "AWS と貴社の間の接続が確立されていることを確認してください\n"
+#~ " ネットワーク (例:経由)"
+
+#~ msgid ""
+#~ "AWS Direct\n"
+#~ "                                        Connect"
+#~ msgstr ""
+#~ "AWS ダイレクト\n"
+#~ " 接続"
+
+#~ msgid ""
+#~ "or similar) if you are planning to"
+#~ " access the analytic dashboard URL "
+#~ "from your\n"
+#~ "                                        corporate machines."
+#~ msgstr ""
+#~ "または同様の方法) から分析ダッシュボードの URL にアクセスする予定がある場合\n"
+#~ " 企業用マシン。"
+
+#~ msgid ""
+#~ "Access\n"
+#~ "                                            my Analytics Dashboard"
+#~ msgstr ""
+#~ "アクセス\n"
+#~ " マイ・アナリティクス・ダッシュボード"
+
+#~ msgid ""
+#~ "Contact your EDH administrator if you"
+#~ " want to add Analytics capability to"
+#~ " your\n"
+#~ "                                        cluster."
+#~ msgstr ""
+#~ "Analytics 機能を追加したい場合は、EDH 管理者に問い合わせてください。\n"
+#~ " クラスタ。"
+
+#~ msgid ""
+#~ "This API key is only available to you.\n"
+#~ "                            Do not share it"
+#~ " externally as this key is used "
+#~ "to authorize requests on your behalf."
+#~ msgstr ""
+#~ "この API キーはユーザーのみが使用できます。\n"
+#~ " このキーはユーザーに代わってリクエストを承認するために使用されるため、外部と共有しないでください。"
+
+#~ msgid ""
+#~ "If you think your key has been "
+#~ "compromised, reset it using the link "
+#~ "available at the bottom\n"
+#~ "                            of the page."
+#~ msgstr ""
+#~ "キーが不正利用されたと思われる場合は、下部にあるリンクを使用してキーをリセットしてください。\n"
+#~ " ページの。"
+
+#~ msgid ""
+#~ "You can interact with your EDH "
+#~ "cluster (create users, groups, queue, "
+#~ "submit jobs,\n"
+#~ "                                    view jobs etc.)"
+#~ " via a simple REST interface."
+#~ msgstr ""
+#~ "EDHクラスターを操作できます（ユーザー、グループの作成、キュー、ジョブの送信、\n"
+#~ " シンプルな REST インターフェイスを介してジョブの表示など。"
+
+#~ msgid ""
+#~ "Generating a new API key will invalidate the previous key\n"
+#~ "                                    ("
+#~ msgstr ""
+#~ "新しい API キーを生成すると、以前のキーは無効になります\n"
+#~ " ("
+
+#~ msgid ""
+#~ "HTTP\n"
+#~ "                                        401/Unauthorized"
+#~ msgstr ""
+#~ "HTTP\n"
+#~ " 401/無許可"
+
+#~ msgid ""
+#~ "To prevent outage, you must update "
+#~ "all your scripts (if any) with the"
+#~ " new\n"
+#~ "                                        key"
+#~ msgstr ""
+#~ "機能停止を防ぐには、すべてのスクリプト（存在する場合）を新しいスクリプトで更新する必要があります\n"
+#~ " キー"
+
+#~ msgid ""
+#~ "I understand I will need to\n"
+#~ "                                                update my"
+#~ " scripts with the new key to "
+#~ "prevent any outage"
+#~ msgstr ""
+#~ "必要になることはわかっています\n"
+#~ " 機能停止を防ぐために、スクリプトを新しいキーで更新してください。"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of\n"
+#~ "                                inactivity, go to"
+#~ " Connection and add \"3\" as "
+#~ "\"Seconds between KeepAlive\\"
+#~ msgstr ""
+#~ "セッションが数分後に自動的に終了しないようにするには\n"
+#~ " アクティブでない場合は、「接続」に移動し、「キープアライブ間の秒数\\」に「3」を追加してください"
+
+#~ msgid ""
+#~ "Submit\n"
+#~ "                                            job"
+#~ msgstr ""
+#~ "送信\n"
+#~ " ジョブ"
+
+#~ msgid ""
+#~ "Cost estimate is not available because this Workflow will generate a\n"
+#~ "                                            Linux command"
+#~ " and not a qsub file."
+#~ msgstr ""
+#~ "このワークフローでは次のものが生成されるため、コスト見積もりはありません\n"
+#~ " Linux コマンドであり、qsub ファイルではありません。"
+
+#~ msgid ""
+#~ "Does not reflect any additional charges such as network or\n"
+#~ "                                                        storage\n"
+#~ "                                                        transfer"
+#~ " or usage of io2 volume (default "
+#~ "to gp3)"
+#~ msgstr ""
+#~ "ネットワーク料金やネットワーク料金などの追加料金は一切反映されません\n"
+#~ " ストレージ\n"
+#~ " io2 ボリュームの転送または使用 (デフォルトは gp3)"
+
+#~ msgid ""
+#~ "FSx Persistent Baseline: (50 MB/s/TiB baseline, up to 1.3\n"
+#~ "                                                        GB/s/TiB\n"
+#~ "                                                        burst)"
+#~ msgstr ""
+#~ "FSx パーシステント・ベースライン:(50 MB/秒/TiB ベースライン、最大 1.3 まで)\n"
+#~ " ギガバイト/TiB\n"
+#~ " バースト)"
+
+#~ msgid ""
+#~ "FSx Scratch Baseline: (200 MB/s/TiB baseline, up to 1.3 GB/s/TiB\n"
+#~ "                                                        burst)"
+#~ msgstr ""
+#~ "FSx スクラッチベースライン:(200 MB/秒/TiB ベースライン、最大 1.3 GB/TiB)\n"
+#~ " バースト)"
+
+#~ msgid ""
+#~ "Create new\n"
+#~ "                                    Workflow Profile"
+#~ msgstr ""
+#~ "新規作成\n"
+#~ " ワークフロープロファイル"
+
+#~ msgid ""
+#~ "click\n"
+#~ "                                                            here"
+#~ " to start from scratch."
+#~ msgstr ""
+#~ "クリック\n"
+#~ " ここからゼロから始めましょう。"
+
+#~ msgid ""
+#~ "parameters are specified, EDH will automatically\n"
+#~ ""
+#~ "                                                                    "
+#~ "calculate the number of node(s) to "
+#~ "provision. Otherwise, you must define "
+#~ "the"
+#~ msgstr ""
+#~ "パラメータが指定されると、EDHは自動的に\n"
+#~ " プロビジョニングするノードの数を計算します。それ以外の場合は、以下を定義する必要があります。"
+
+#~ msgid ""
+#~ "Edit the test template below to match the variables you have created\n"
+#~ "                                                        on\n"
+#~ "                                                        your "
+#~ "form or simply write code that "
+#~ "cannot be changed by the user.\n"
+#~ "                                                        To "
+#~ "read values from your form, use"
+#~ msgstr ""
+#~ "作成した変数と一致するように、以下のテストテンプレートを編集します。\n"
+#~ " オン\n"
+#~ " フォームを作成するか、ユーザーが変更できないコードを記述してください。\n"
+#~ " フォームから値を読み取るには、"
+
+#~ msgid ""
+#~ "syntax\n"
+#~ "                                                        (e.g."
+#~ " if your form input name is"
+#~ msgstr ""
+#~ "構文\n"
+#~ " (例えば、フォームの入力名が"
+
+#~ msgid ""
+#~ ",\n"
+#~ "                                                        retrieve"
+#~ " the value via"
+#~ msgstr ""
+#~ "、\n"
+#~ " 次の方法で値を取得する"
+
+#~ msgid ""
+#~ "Scheduler parameters are optional. If not set, your job will use the\n"
+#~ "                                                        default\n"
+#~ "                                                        settings"
+#~ " configured for your queue (if no "
+#~ "queue is specified, the\n"
+#~ "                                                        job\n"
+#~ "                                                        will use"
+#~ msgstr ""
+#~ "スケジューラパラメータはオプションです。設定しない場合、ジョブは以下を使用します。\n"
+#~ " デフォルト\n"
+#~ " キューに設定された設定 (キューが指定されていない場合、\n"
+#~ " ジョブ\n"
+#~ " 使う"
+
+#~ msgid ""
+#~ "this link for\n"
+#~ "                                                            more."
+#~ msgstr ""
+#~ "このリンクは\n"
+#~ " もっと。"
+
+#~ msgid ""
+#~ "How do you want to name this\n"
+#~ "                                                                "
+#~ "Workflow Profile?"
+#~ msgstr ""
+#~ "これにどのような名前を付けますか\n"
+#~ " ワークフロープロファイル?"
+
+#~ msgid ""
+#~ "Select an\n"
+#~ ""
+#~ "                                                                    "
+#~ "image (jpg or png) to use as "
+#~ "thumbnail. Leave blank to\n"
+#~ ""
+#~ "                                                                    "
+#~ "use the existing thumbnail"
+#~ msgstr ""
+#~ "選択してください\n"
+#~ " サムネイルとして使用する画像 (jpg または png)。空白のままにしておくと\n"
+#~ " 既存のサムネイルを使う。"
+
+#~ msgid ""
+#~ "Update this\n"
+#~ "                                                                "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "これを更新\n"
+#~ " ワークフロープロファイル"
+
+#~ msgid ""
+#~ "Do you want to specify a thumbnail\n"
+#~ "                                                                "
+#~ "(this will be scaled to 150*150px)?"
+#~ msgstr ""
+#~ "サムネイルを指定しますか?\n"
+#~ " (このサイズは 150*150 ピクセルに拡大されます)?"
+
+#~ msgid ""
+#~ "Select\n"
+#~ ""
+#~ "                                                                        "
+#~ "an image (jpg or png) to use "
+#~ "as thumbnail"
+#~ msgstr ""
+#~ "[選択]\n"
+#~ " サムネイルとして使用する画像 (jpg または png)"
+
+#~ msgid ""
+#~ "Create this\n"
+#~ "                                                                "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "これを作成\n"
+#~ " ワークフロープロファイル"
+
+#~ msgid ""
+#~ "I want to delete\n"
+#~ "                                                    this "
+#~ "Workflow Profile"
+#~ msgstr ""
+#~ "削除したい\n"
+#~ " このワークフロープロファイル"
+
+#~ msgid ""
+#~ "Import/Export existing EDH\n"
+#~ "                                            Workflow Profile"
+#~ msgstr ""
+#~ "既存の EDH のインポート/エクスポート\n"
+#~ " ワークフロープロファイル"
+
+#~ msgid ""
+#~ "Click\n"
+#~ "                                                here to"
+#~ " learn how to Import/Export your "
+#~ "Workflow Profiles"
+#~ msgstr ""
+#~ "クリック\n"
+#~ " ワークフロープロファイルをインポート/エクスポートする方法については、こちらをご覧ください。"
+
+#~ msgid ""
+#~ "Create\n"
+#~ "                                    a group"
+#~ msgstr ""
+#~ "作成\n"
+#~ " グループ"
+
+#~ msgid ""
+#~ "Delete\n"
+#~ "                                    a group"
+#~ msgstr ""
+#~ "[削除]\n"
+#~ " グループ"
+
+#~ msgid ""
+#~ "Check\n"
+#~ "                                    group membership"
+#~ msgstr ""
+#~ "[チェック]\n"
+#~ " グループメンバーシップ"
+
+#~ msgid ""
+#~ "Change\n"
+#~ "                                    group membership"
+#~ msgstr ""
+#~ "変更\n"
+#~ " グループメンバーシップ"
+
+#~ msgid ""
+#~ "Deleting group may cause access issue."
+#~ " Make sure your group is no "
+#~ "longer in\n"
+#~ "                                            use before deleting it"
+#~ msgstr ""
+#~ "グループを削除すると、アクセスに問題が生じる可能性があります。グループが参加していないことを確認してください。\n"
+#~ " 削除する前に使用してください。"
+
+#~ msgid ""
+#~ "I am sure I want to delete\n"
+#~ "                                                    this group"
+#~ msgstr ""
+#~ "削除したいのは確かです\n"
+#~ " このグループ"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                                            want to"
+#~ msgstr ""
+#~ "私は確信してる\n"
+#~ " したい"
+
+#~ msgid ""
+#~ "I am\n"
+#~ "                                                            sure"
+#~ " I want to"
+#~ msgstr ""
+#~ "私は\n"
+#~ " 確かにしたい"
+
+#~ msgid ""
+#~ "this user from the\n"
+#~ "                                                            group"
+#~ msgstr ""
+#~ "このユーザーの\n"
+#~ " グループ"
+
+#~ msgid ""
+#~ "Remove\n"
+#~ "                                                            user"
+#~ msgstr ""
+#~ "[削除]\n"
+#~ " ユーザー"
+
+#~ msgid ""
+#~ "Create\n"
+#~ "                                a queue"
+#~ msgstr ""
+#~ "作成\n"
+#~ " キュー"
+
+#~ msgid ""
+#~ "Delete\n"
+#~ "                                a queue"
+#~ msgstr ""
+#~ "[削除]\n"
+#~ " キュー"
+
+#~ msgid ""
+#~ "Hosts in this queue will be "
+#~ "provisioned automatically based on the "
+#~ "number of\n"
+#~ "                                        queued jobs. "
+#~ "Hosts are restricted to a given "
+#~ "job ID and are automatically\n"
+#~ "                                        terminated as "
+#~ "soon as the job complete."
+#~ msgstr ""
+#~ "このキュー内のホストは、以下の数に基づいて自動的にプロビジョニングされます。\n"
+#~ " キューに入っているジョブ。ホストは特定のジョブ ID に制限され、自動的に割り当てられます。\n"
+#~ " ジョブが完了するとすぐに終了します。"
+
+#~ msgid ""
+#~ "Host in this queue will stay "
+#~ "online until an admin decide to "
+#~ "manually turn them\n"
+#~ "                                        off"
+#~ msgstr ""
+#~ "このキュー内のホストは、管理者が手動で切り替えることを決定するまでオンラインのままになります\n"
+#~ " オフ"
+
+#~ msgid ""
+#~ "I am sure I want to delete this\n"
+#~ "                                                queue"
+#~ msgstr ""
+#~ "これを削除したいのは確かです\n"
+#~ " キュー"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                reset the"
+#~ " password for this user"
+#~ msgstr ""
+#~ "きっとしたい\n"
+#~ " このユーザーのパスワードをリセットします。"
+
+#~ msgid ""
+#~ "Generate temporary\n"
+#~ "                                                password"
+#~ msgstr ""
+#~ "一時生成\n"
+#~ " パスワード"
+
+#~ msgid ""
+#~ "Grant user Admin\n"
+#~ "                                                permission"
+#~ msgstr ""
+#~ "ユーザー管理者を付与\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "I am sure I want\n"
+#~ "                                                        to"
+#~ msgstr ""
+#~ "きっと欲しい\n"
+#~ " に"
+
+#~ msgid ""
+#~ "Grant Admin\n"
+#~ "                                                        permission"
+#~ msgstr ""
+#~ "助成金管理者\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "Revoke user Admin\n"
+#~ "                                                permission"
+#~ msgstr ""
+#~ "ユーザー管理者を取り消す\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "I am sure I\n"
+#~ "                                                        want to"
+#~ msgstr ""
+#~ "私は確信してる\n"
+#~ " したい"
+
+#~ msgid ""
+#~ "Admin permission to this\n"
+#~ "                                                        user"
+#~ msgstr ""
+#~ "これに対する管理者権限\n"
+#~ " ユーザー"
+
+#~ msgid ""
+#~ "Revoke Admin\n"
+#~ "                                                        permission"
+#~ msgstr ""
+#~ "管理者権限を取り消す\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "Scale-Out Computing on AWS uses "
+#~ "OpenLDAP and you can interact with "
+#~ "your directory\n"
+#~ "                                    using LDIF "
+#~ "directly. If you are not familiar "
+#~ "with LDIF, you can use our custom"
+#~ "\n"
+#~ "                                    wrapper available at"
+#~ msgstr ""
+#~ "AWS のスケールアウトコンピューティングは OpenLDAP を使用しており、ディレクトリを操作できます\n"
+#~ " LDIF を直接使用する。LDIF に慣れていない場合は、当社のカスタムを使用できます。\n"
+#~ " ラッパーは次の場所で入手できます。"
+
+#~ msgid ""
+#~ "Add\n"
+#~ "                                    new user"
+#~ msgstr ""
+#~ "追加\n"
+#~ " 新規ユーザ"
+
+#~ msgid ""
+#~ "Creating a user on Active Directory can take up to 1 minute. Do not\n"
+#~ "                                                refresh "
+#~ "the page while EDH is creating a"
+#~ " new account."
+#~ msgstr ""
+#~ "Active Directory でのユーザーの作成には、最大 1 分かかる場合があります。しないでください。\n"
+#~ " EDH が新規アカウントを作成している間は、ページを更新してください。"
+
+#~ msgid ""
+#~ ". If using a\n"
+#~ "                                                    new/custom"
+#~ " shell, make sure your shell is "
+#~ "installed on all compute\n"
+#~ "                                                    nodes"
+#~ msgstr ""
+#~ "。を使用する場合\n"
+#~ " 新規/カスタムシェル。シェルがすべてのコンピュートにインストールされていることを確認してください。\n"
+#~ " ノード"
+
+#~ msgid ""
+#~ "Deleting user will prevent user to "
+#~ "access the cluster but does not "
+#~ "remove\n"
+#~ "                                            associated "
+#~ "$HOME directory and data"
+#~ msgstr ""
+#~ "ユーザーを削除すると、ユーザーはクラスターにアクセスできなくなりますが、削除はされません\n"
+#~ " 関連する $HOME ディレクトリとデータ"
+
+#~ msgid ""
+#~ "I am sure I want to delete\n"
+#~ "                                                    this user"
+#~ msgstr ""
+#~ "削除したいのは確かです\n"
+#~ " このユーザー"
+
+#~ msgid ""
+#~ "I am sure I want\n"
+#~ "                                                    to "
+#~ "reset the password for this user"
+#~ msgstr ""
+#~ "きっと欲しい\n"
+#~ " このユーザーのパスワードをリセットするには"
+
+#~ msgid ""
+#~ "Generate temporary\n"
+#~ "                                                    password"
+#~ msgstr ""
+#~ "一時生成\n"
+#~ " パスワード"
+
+#~ msgid ""
+#~ "Grant user Admin\n"
+#~ "                                                    permission"
+#~ msgstr ""
+#~ "ユーザー管理者を付与\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "Grant Admin\n"
+#~ "                                                            permission"
+#~ msgstr ""
+#~ "助成金管理者\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "Revoke user Admin\n"
+#~ "                                                    permission"
+#~ msgstr ""
+#~ "ユーザー管理者を取り消す\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "Admin permission to\n"
+#~ "                                                            this user"
+#~ msgstr ""
+#~ "への管理者権限\n"
+#~ " このユーザー"
+
+#~ msgid ""
+#~ "Revoke Admin\n"
+#~ "                                                            permission"
+#~ msgstr ""
+#~ "管理者権限を取り消す\n"
+#~ " 許可"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this project from EDH"
+#~ msgstr ""
+#~ "きっとしたい\n"
+#~ " このプロジェクトを EDH から削除する"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this Target Node Profile"
+#~ msgstr ""
+#~ "きっとしたい\n"
+#~ " このターゲットノードプロファイルを削除します。"
+
+#~ msgid ""
+#~ "I am sure I want to\n"
+#~ "                                                        delete"
+#~ " this Virtual Desktop Profile"
+#~ msgstr ""
+#~ "きっとしたい\n"
+#~ " この仮想デスクトッププロファイルを削除する"
+
+#~ msgid ""
+#~ "Click\n"
+#~ "                            here to learn how to create custom images"
+#~ msgstr ""
+#~ "クリック\n"
+#~ " カスタムイメージの作成方法については、こちらをご覧ください。"
+
+#~ msgid ""
+#~ "AMI\n"
+#~ "                                                    ID"
+#~ msgstr ""
+#~ "AMI\n"
+#~ " ID"
+
+#~ msgid ""
+#~ "Launch Host\n"
+#~ "                                                    ID"
+#~ msgstr ""
+#~ "ホストを起動\n"
+#~ " ID"
+
+#~ msgid ""
+#~ "Select an\n"
+#~ "                                                        image"
+#~ " (jpg or png) to use as "
+#~ "thumbnail. Leave blank to\n"
+#~ "                                                        use "
+#~ "the existing thumbnail"
+#~ msgstr ""
+#~ "選択してください\n"
+#~ " サムネイルとして使用する画像 (jpg または png)。空白のままにしておくと\n"
+#~ " 既存のサムネイルを使う。"
+
+#~ msgid ""
+#~ "What input file do you want to "
+#~ "use? <hr> Navigate to the folder "
+#~ "where your input file is located "
+#~ "then click 'Use as Simulation Input' "
+#~ "icon: <i class='fas fa-microchip fa-"
+#~ "lg'  style='color: grey'></i>"
+#~ msgstr ""
+#~ "どの入力ファイルを使用しますか?<hr>入力ファイルが保存されているフォルダに移動し、[シミュレーション入力として使用] "
+#~ "アイコンをクリックします。<i class='fas fa-microchip fa-"
+#~ "lg' style='color: grey'></i>"
+
+#~ msgid "You are not authorized to tail this file"
+#~ msgstr "このファイルを末尾に表示する権限がありません"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of inactivity, go"
+#~ " to Connection and add \"3\" as "
+#~ "\"Seconds between KeepAlive\\"
+#~ msgstr "操作がない状態が数分続いた後にセッションが自動的に終了しないようにするには、「接続」に移動し、「キープアライブ間の秒数\\」に「3」を追加します"
+
+#~ msgid ", retrieve the value via"
+#~ msgstr "、次の方法で値を取得します"
+
+#~ msgid ", state must be"
+#~ msgstr "、状態は"
+
+#~ msgid ", then convert the key you have downloaded on step1 to"
+#~ msgstr "次に、手順1でダウンロードしたキーを次のように変換します。"
+
+#~ msgid "--Other Shells --"
+#~ msgstr "--その他のシェル--"
+
+#~ msgid "--epochs"
+#~ msgstr "--エポック"
+
+#~ msgid "-c"
+#~ msgstr "-c"
+
+#~ msgid ""
+#~ ". If using a new/custom shell, "
+#~ "make sure your shell is installed "
+#~ "on all compute nodes"
+#~ msgstr "。新規/カスタムシェルを使用する場合は、シェルがすべてのコンピュートノードにインストールされていることを確認してください。"
+
+#~ msgid ". Leave everything else as default."
+#~ msgstr "。それ以外はすべてデフォルトのままにします。"
+
+#~ msgid ". You can access it via your EDH Virtual Desktops (Linux or Windows)."
+#~ msgstr "。お使いの EDH 仮想デスクトップ (Linux または Windows) 経由でアクセスできます。"
+
+#~ msgid "/bin/bash"
+#~ msgstr "/ビン/バッシュ"
+
+#~ msgid "/bin/bash is the preferred shell"
+#~ msgstr "/bin/bash が推奨シェルです"
+
+#~ msgid ": 0 GB"
+#~ msgstr ": 0 ギガバイト"
+
+#~ msgid ": 10 GB"
+#~ msgstr ": 10 ギガバイト"
+
+#~ msgid ": c5.large"
+#~ msgstr ": C5. ラージ"
+
+#~ msgid "AWS Direct Connect"
+#~ msgstr "AWS ダイレクトコネクト"
+
+#~ msgid "AWS Service"
+#~ msgstr "AWS サービス"
+
+#~ msgid "AWS Transfer Family"
+#~ msgstr "AWS トランスファーファミリー"
+
+#~ msgid "AWS VPC Peering"
+#~ msgstr "AWS VPC ピアリング"
+
+#~ msgid "AWS VPN"
+#~ msgstr "AWS VPN"
+
+#~ msgid "Add User"
+#~ msgstr "ユーザーを追加"
+
+#~ msgid "Add the following tag"
+#~ msgstr "次のタグを追加します"
+
+#~ msgid "Add the following tag to onboard your"
+#~ msgstr "次のタグを追加してオンボードしてください"
+
+#~ msgid "Additional variables can be defined on the"
+#~ msgstr "その他の変数は、上で定義できます。"
+
+#~ msgid "Admin permission to this user"
+#~ msgstr "このユーザーへの管理者権限"
+
+#~ msgid "Admin username and password can be found on"
+#~ msgstr "管理者のユーザー名とパスワードは次の場所にあります。"
+
+#~ msgid "Amazon EC2 Instance types"
+#~ msgstr "アマゾン EC2 インスタンスタイプ"
+
+#~ msgid "Amazon EFS"
+#~ msgstr "アマゾン EFS"
+
+#~ msgid "Amazon Elastic Kubernetes Service cluster (EKS)"
+#~ msgstr "Amazon Elastic Kubernetes サービスクラスター (EKS)"
+
+#~ msgid "C:"
+#~ msgstr "C:"
+
+#~ msgid "Choose"
+#~ msgstr "選択"
+
+#~ msgid "Click"
+#~ msgstr "クリック"
+
+#~ msgid "Create Role"
+#~ msgstr "ロールを作成"
+
+#~ msgid "Create Server"
+#~ msgstr "[サーバーを作成]"
+
+#~ msgid "Create a new role"
+#~ msgstr "新しいロールを作成"
+
+#~ msgid "Create server"
+#~ msgstr "サーバーを作成"
+
+#~ msgid "Deleting a virtual desktop will NOT delete content from"
+#~ msgstr "仮想デスクトップを削除しても、コンテンツは削除されません"
+
+#~ msgid "Download PuttyGEN from"
+#~ msgstr "PuttyGen を以下からダウンロードしてください"
+
+#~ msgid "Download your"
+#~ msgstr "ダウンロードする"
+
+#~ msgid "EDH Optimized image"
+#~ msgstr "EDH 最適化イメージ"
+
+#~ msgid "EDH SFTP solution"
+#~ msgstr "EDH SFTP ソリューション"
+
+#~ msgid ""
+#~ "Edit the test template below to "
+#~ "match the variables you have created "
+#~ "on your form or simply write code"
+#~ " that cannot be changed by the "
+#~ "user. To read values from your "
+#~ "form, use"
+#~ msgstr "フォームで作成した変数に合わせて以下のテストテンプレートを編集するか、ユーザーが変更できないコードを記述してください。フォームから値を読み取るには、以下を使用してください。"
+
+#~ msgid "Endpoint"
+#~ msgstr "終点"
+
+#~ msgid "Endpoint Details"
+#~ msgstr "エンドポイント詳細"
+
+#~ msgid "Endpoint type"
+#~ msgstr "エンドポイントタイプ"
+
+#~ msgid "For example,"
+#~ msgstr "たとえば、"
+
+#~ msgid "Generating a new API key will invalidate the previous key ("
+#~ msgstr "新しい API キーを生成すると、以前のキーは無効になります ("
+
+#~ msgid "IAM"
+#~ msgstr "IAM"
+
+#~ msgid "If"
+#~ msgstr "もし"
+
+#~ msgid ""
+#~ "If you do not want your session"
+#~ " to be automatically closed after a"
+#~ " couple of minutes of inactivity, "
+#~ "edit"
+#~ msgstr "何分間操作しないでセッションを自動的に終了させたくない場合は、編集してください"
+
+#~ msgid "In the"
+#~ msgstr "の中に"
+
+#~ msgid "Jinja2 templating"
+#~ msgstr "ジンジャ2 テンプレート作成"
+
+#~ msgid ""
+#~ "Make sure to have established "
+#~ "connectivity between AWS and your "
+#~ "corporate network (e.g. via"
+#~ msgstr "AWS と社内ネットワーク間の接続が確立されていることを確認してください (例:"
+
+#~ msgid "Note: AWS Batch Job Definitions clusters must have the tag"
+#~ msgstr "注:AWS Batch ジョブ定義クラスターにはタグが必要です"
+
+#~ msgid "Note: AWS Batch Job Queues must have the tag"
+#~ msgstr "注:AWS Batch ジョブキューにはタグが必要です"
+
+#~ msgid "Note: EKS clusters must have the tag"
+#~ msgstr "注:EKS クラスターにはタグが必要です"
+
+#~ msgid ""
+#~ "Once you have created your Target "
+#~ "Node Software Stack, please ensure that"
+#~ " it is"
+#~ msgstr "ターゲットノードソフトウェアスタックを作成したら、それが次のとおりであることを確認してください"
+
+#~ msgid ""
+#~ "Once you have created your Virtual "
+#~ "Desktop Software Stack, please ensure "
+#~ "that it is"
+#~ msgstr "仮想デスクトップソフトウェアスタックを作成したら、それが次のとおりであることを確認してください。"
+
+#~ msgid "Once you have created your Workflow Profile, please ensure that it is"
+#~ msgstr "ワークフロープロファイルを作成したら、それが次のとおりであることを確認してください"
+
+#~ msgid "Open AWS Console and navigate to the service named"
+#~ msgstr "AWS Console を開き、という名前のサービスに移動します"
+
+#~ msgid "Page"
+#~ msgstr "ページ"
+
+#~ msgid "Please"
+#~ msgstr "お願いします"
+
+#~ msgid "Profile associated with this stack"
+#~ msgstr "このスタックに関連付けられているプロファイル"
+
+#~ msgid "Profile associated with this stack ("
+#~ msgstr "このスタックに関連するプロファイル ("
+
+#~ msgid "Publicly accessible"
+#~ msgstr "公開アクセス可能"
+
+#~ msgid "Refer to"
+#~ msgstr "を参照してください"
+
+#~ msgid "Refresh ("
+#~ msgstr "更新 ("
+
+#~ msgid "Review and create"
+#~ msgstr "確認して作成"
+
+#~ msgid "Roles"
+#~ msgstr "役割"
+
+#~ msgid "SSH key"
+#~ msgstr "SSH キー"
+
+#~ msgid ""
+#~ "Scheduler parameters are optional. If "
+#~ "not set, your job will use the "
+#~ "default settings configured for your "
+#~ "queue (if no queue is specified, "
+#~ "the job will use"
+#~ msgstr ""
+#~ "スケジューラパラメータはオプションです。設定しない場合、ジョブはキューに設定されているデフォルト設定を使用します "
+#~ "(キューが指定されていない場合、ジョブは次の設定を使用します)。"
+
+#~ msgid "Select a Role name (for example"
+#~ msgstr "ロール名を選択します (例:"
+
+#~ msgid "Service Managed"
+#~ msgstr "サービスマネージド"
+
+#~ msgid "Storage Size for your main partition ("
+#~ msgstr "メインパーティションのストレージサイズ ("
+
+#~ msgid "Support Exact Instance Type ("
+#~ msgstr "正確なインスタンスタイプをサポート ("
+
+#~ msgid "Support Instance Family ("
+#~ msgstr "サポートインスタンスファミリー ("
+
+#~ msgid "Target Nodes Software stacks"
+#~ msgstr "ターゲットノードソフトウェアスタック"
+
+#~ msgid "The server is using"
+#~ msgstr "サーバーが使用しています"
+
+#~ msgid "This file is too big and cannot be previewed via the web interface."
+#~ msgstr "このファイルは大きすぎるため、Web インターフェイスでプレビューできません。"
+
+#~ msgid "This session will automatically pause"
+#~ msgstr "このセッションは自動的に一時停止します"
+
+#~ msgid "Tip: You can use"
+#~ msgstr "ヒント:使用できます"
+
+#~ msgid "Transfer"
+#~ msgstr "転送"
+
+#~ msgid "TransferEFSClient"
+#~ msgstr "転送クライアント"
+
+#~ msgid "TransferSecurityPolicy"
+#~ msgstr "セキュリティポリシーの転送"
+
+#~ msgid "Unable to find any"
+#~ msgstr "何も見つかりません"
+
+#~ msgid "Unable to find any and"
+#~ msgstr "何も見つからず"
+
+#~ msgid "Use"
+#~ msgstr "使用"
+
+#~ msgid "Use this link only to"
+#~ msgstr "このリンクは次の目的にのみ使用してください"
+
+#~ msgid "User Data associated with this stack"
+#~ msgstr "このスタックに関連するユーザーデータ"
+
+#~ msgid "VPC hosted"
+#~ msgstr "VPC がホストされています"
+
+#~ msgid "Virtual Desktop Software stacks"
+#~ msgstr "仮想デスクトップソフトウェアスタック"
+
+#~ msgid "You can create"
+#~ msgstr "作成できます"
+
+#~ msgid "You can use your own variable names, however note"
+#~ msgstr "独自の変数名を使用することもできますが、注意してください。"
+
+#~ msgid "You will need to update"
+#~ msgstr "更新する必要があります"
+
+#~ msgid "You will need your user UID/GID. You can retrieve this value by typing"
+#~ msgstr "ユーザーの UID/GID が必要になります。この値は、次のように入力すると取得できます。"
+
+#~ msgid "Your Analytics endpoint"
+#~ msgstr "アナリティクスエンドポイント"
+
+#~ msgid "Your session will be automatically deleted"
+#~ msgstr "セッションは自動的に削除されます"
+
+#~ msgid "after"
+#~ msgstr "後"
+
+#~ msgid "and"
+#~ msgstr "そして"
+
+#~ msgid "and add:"
+#~ msgstr "そして、以下を追加します。"
+
+#~ msgid "and be"
+#~ msgstr "そして"
+
+#~ msgid "and enter the following information."
+#~ msgstr "次の情報を入力します。"
+
+#~ msgid "and save it"
+#~ msgstr "そしてそれを保存してください"
+
+#~ msgid "and status must be"
+#~ msgstr "そしてステータスは"
+
+#~ msgid "and use the latest"
+#~ msgstr "そして最新のものを使う"
+
+#~ msgid "as Domain"
+#~ msgstr "ドメインとして"
+
+#~ msgid "as Trusted Entity Type and select"
+#~ msgstr "信頼されたエンティティタイプとして選択してください"
+
+#~ msgid "as Use Case"
+#~ msgstr "ユースケースとして"
+
+#~ msgid "as identity provider"
+#~ msgstr "ID プロバイダーとして"
+
+#~ msgid "assigned to at least one EDH Project."
+#~ msgstr "少なくとも 1 つの EDH プロジェクトに割り当てられています。"
+
+#~ msgid "associated to this user data template. Variables can be retrieved via"
+#~ msgstr "このユーザーデータテンプレートに関連付けられています。変数は次の方法で取得できます。"
+
+#~ msgid "available"
+#~ msgstr "使用可能です"
+
+#~ msgid "boto3"
+#~ msgstr "ボト3"
+
+#~ msgid "c6i.*"
+#~ msgstr "6インチ。*"
+
+#~ msgid "c6i.xlarge"
+#~ msgstr "C6i.xlarge"
+
+#~ msgid "cli (via SSH)"
+#~ msgstr "CLI (SSH 経由)"
+
+#~ msgid "contact the AWS maintainers"
+#~ msgstr "AWS の保守担当者に問い合わせる"
+
+#~ msgid "depending on your setup. Its recommended to use"
+#~ msgstr "セットアップによって異なります。使用することをお勧めします。"
+
+#~ msgid ""
+#~ "do not include any confidential, "
+#~ "sensitive, or customer-specific information"
+#~ msgstr "機密情報、機密情報、または顧客固有の情報は含めないでください"
+
+#~ msgid ""
+#~ "documentation to learn how to setup "
+#~ "a secure, reliable, high‐speed file "
+#~ "transfer between your current filers and"
+#~ " EDH."
+#~ msgstr "現在のファイラーとEDHの間で安全で信頼性の高い高速ファイル転送を設定する方法を説明するドキュメント。"
+
+#~ msgid "download a copy"
+#~ msgstr "コピーをダウンロードする"
+
+#~ msgid "echo Hello"
+#~ msgstr "エコーハロー"
+
+#~ msgid ""
+#~ "enables fully managed support for SFTP,"
+#~ " FTPS and FTP to move large "
+#~ "amounts of data into AWS."
+#~ msgstr "SFTP、FTPS、FTPS、FTPのフルマネージドサポートが可能になり、大量のデータを AWS に移動できます。"
+
+#~ msgid "fields to hardcode values. Otherwise, defaults will be applied."
+#~ msgstr "値をハードコードするフィールド。それ以外の場合は、デフォルトが適用されます。"
+
+#~ msgid "for IP restrictions via your security groups."
+#~ msgstr "セキュリティグループによる IP 制限用"
+
+#~ msgid "for Linux,"
+#~ msgstr "リナックスでは、"
+
+#~ msgid "for Windows)"
+#~ msgstr "ウィンドウズ用)"
+
+#~ msgid "for larger files or edit the configuration files."
+#~ msgstr "大きなファイルの場合、または構成ファイルを編集します。"
+
+#~ msgid "format"
+#~ msgstr "フォーマット"
+
+#~ msgid "grant"
+#~ msgstr "付与"
+
+#~ msgid "here"
+#~ msgstr "ここに"
+
+#~ msgid "hidden"
+#~ msgstr "非表示"
+
+#~ msgid "https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"
+#~ msgstr "https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html"
+
+#~ msgid "id {user}"
+#~ msgstr "ID {ユーザー}"
+
+#~ msgid "if you do not restart it."
+#~ msgstr "再起動しない場合。"
+
+#~ msgid ""
+#~ "is a secure, online service that "
+#~ "automates and accelerates moving data "
+#~ "between on-premises and AWS storage "
+#~ "services."
+#~ msgstr "は、オンプレミスと AWS ストレージサービス間のデータ移動を自動化および高速化する安全なオンラインサービスです。"
+
+#~ msgid "is only accessible from within your VPC"
+#~ msgstr "VPC 内からのみアクセスできます"
+
+#~ msgid "linux AND x86_64"
+#~ msgstr "リナックスと x86_64"
+
+#~ msgid "means your AWS Transfer endpoint wont be protected by IP safelist."
+#~ msgstr "は、AWS Transfer エンドポイントが IP セーフリストによって保護されないことを意味します。"
+
+#~ msgid "my_param"
+#~ msgstr "my_param"
+
+#~ msgid "nodes"
+#~ msgstr "ノード"
+
+#~ msgid "normal"
+#~ msgstr "ノーマル"
+
+#~ msgid "of"
+#~ msgstr "の"
+
+#~ msgid "of inactivity."
+#~ msgstr "無活動の。"
+
+#~ msgid ""
+#~ "on any EDH nodes (Linux). In the"
+#~ " example below, the UID is 5001 "
+#~ "and GID is also 5001"
+#~ msgstr "任意の EDH ノード (Linux) で使用できます。以下の例では、UID は 5001 で、GID も 5001 です。"
+
+#~ msgid "on the Software Stack associated to this User Data."
+#~ msgstr "このユーザーデータに関連するソフトウェアスタック上にあります。"
+
+#~ msgid "on the left sidebar and finally click"
+#~ msgstr "左側のサイドバーで、最後にクリックします"
+
+#~ msgid "onboarded to this EDH environment."
+#~ msgstr "このEDH環境にオンボーディングされました。"
+
+#~ msgid "operators (ex:"
+#~ msgstr "演算子 (例:"
+
+#~ msgid "or"
+#~ msgstr "または"
+
+#~ msgid "or open it via"
+#~ msgstr "または次の方法で開きます"
+
+#~ msgid ""
+#~ "or similar) if you are planning to"
+#~ " access the analytic dashboard URL "
+#~ "from your corporate machines."
+#~ msgstr "または同様の方法) 会社のマシンから分析ダッシュボードの URL にアクセスする予定がある場合。"
+
+#~ msgid "page for a list of EC2 instances"
+#~ msgstr "EC2 インスタンスのリストのページ"
+
+#~ msgid ""
+#~ "parameters are specified, EDH will "
+#~ "automatically calculate the number of "
+#~ "node(s) to provision. Otherwise, you "
+#~ "must define the"
+#~ msgstr "パラメータを指定すると、EDH はプロビジョニングするノードの数を自動的に計算します。それ以外の場合は、以下を定義する必要があります。"
+
+#~ msgid "partition"
+#~ msgstr "パーティション"
+
+#~ msgid "ppk"
+#~ msgstr "ppk"
+
+#~ msgid "public"
+#~ msgstr "パブリック"
+
+#~ msgid "queue). Refer to"
+#~ msgstr "キュー)。を参照してください。"
+
+#~ msgid "regarding issues with the Engineering Development Hub (EDH) project."
+#~ msgstr "エンジニアリング開発ハブ（EDH）プロジェクトの問題について。"
+
+#~ msgid "remote desktop (DCV)"
+#~ msgstr "リモートデスクトップ (DCV)"
+
+#~ msgid "resource manually."
+#~ msgstr "リソースは手動で行います。"
+
+#~ msgid "revoke"
+#~ msgstr "取り消す"
+
+#~ msgid "s"
+#~ msgstr "s"
+
+#~ msgid "s)"
+#~ msgstr "s)"
+
+#~ msgid "section click"
+#~ msgstr "セクションクリック"
+
+#~ msgid "see Target Nodes Profiles"
+#~ msgstr "「ターゲットノードプロファイル」を参照"
+
+#~ msgid "see User Data Templates"
+#~ msgstr "「ユーザーデータテンプレート」を参照"
+
+#~ msgid "see Virtual Desktop Profiles"
+#~ msgstr "「仮想デスクトッププロファイル」を参照"
+
+#~ msgid "select the server you have created and click"
+#~ msgstr "作成したサーバーを選択し、をクリックします"
+
+#~ msgid "select the server you have created, and retrieve the"
+#~ msgstr "作成したサーバーを選択し、取得します"
+
+#~ msgid ""
+#~ "some automation are pre-configured for"
+#~ " you when you use the following "
+#~ "variables:"
+#~ msgstr "次の変数を使用すると、一部の自動化が事前に設定されます。"
+
+#~ msgid "syntax (e.g. if your form input name is"
+#~ msgstr "構文 (例:フォーム入力名が"
+
+#~ msgid "syntax."
+#~ msgstr "構文。"
+
+#~ msgid "then click"
+#~ msgstr "次にクリック"
+
+#~ msgid "this link for more."
+#~ msgstr "詳細については、このリンクを参照してください。"
+
+#~ msgid "this user from my group"
+#~ msgstr "私のグループのこのユーザー"
+
+#~ msgid "timezone."
+#~ msgstr "タイムゾーン。"
+
+#~ msgid "to"
+#~ msgstr "に"
+
+#~ msgid "to EDH:"
+#~ msgstr "EDH へ:"
+
+#~ msgid "to add instances released after the date of your EDH installation"
+#~ msgstr "EDH のインストール日以降にリリースされたインスタンスを追加するには"
+
+#~ msgid "to allow all users"
+#~ msgstr "すべてのユーザーに許可する"
+
+#~ msgid "to be visible on EDH"
+#~ msgstr "EDHで表示されるようにする"
+
+#~ msgid "to deny all"
+#~ msgstr "すべて拒否するには"
+
+#~ msgid "to download it"
+#~ msgstr "ダウンロードするには"
+
+#~ msgid "to download your Linux private key if needed)"
+#~ msgstr "(必要に応じて Linux プライベートキーをダウンロードする)"
+
+#~ msgid "to provision your virtual desktop faster."
+#~ msgstr "仮想デスクトップをより迅速にプロビジョニングできます。"
+
+#~ msgid "to the AWS Batch job definition(s) you want to onboard."
+#~ msgstr "オンボードしたい AWS Batch ジョブ定義に移動します。"
+
+#~ msgid "to the AWS Batch job queue(s) you want to onboard."
+#~ msgstr "オンボードしたい AWS Batch ジョブキューに移動します。"
+
+#~ msgid "to the EKS cluster(s) you want to onboard."
+#~ msgstr "オンボードしたい EKS クラスターへ。"
+
+#~ msgid "ubuntu AND graviton"
+#~ msgstr "ウブントゥとグラビトン"
+
+#~ msgid "under"
+#~ msgstr "下"
+
+#~ msgid "when creating an issue."
+#~ msgstr "課題を作成するとき。"
+
+#~ msgid "will automatically be replaced with \"test123\" if you configure"
+#~ msgstr "設定すると自動的に「test123」に置き換えられます"
+
+#~ msgid "windows 11 OR amazon linux"
+#~ msgstr "ウィンドウズ 11 またはアマゾンリナックス"
+
+#~ msgid "~/.ssh/config"
+#~ msgstr "~/.ssh/config"
+
+#~ msgid ""
+#~ "This session will automatically pause "
+#~ "<strong>after %(n)s hour</strong> of "
+#~ "inactivity.This session will automatically "
+#~ "pause <strong>after %(n)s hours</strong> of"
+#~ " inactivity."
+#~ msgstr "<strong>このセッションは、<strong>非アクティブ状態が%(n)s時間続くと自動的に一時停止します</strong>。このセッションは、非アクティブ状態が%(n)s時間続くと自動的に一時停止します。</strong>"
+
+#~ msgid ""
+#~ "Your session will be automatically "
+#~ "deleted <strong>after %(n)s hour</strong> if"
+#~ " you do not restart it.Your session"
+#~ " will be automatically deleted "
+#~ "<strong>after %(n)s hours</strong> if you "
+#~ "do not restart it."
+#~ msgstr ""
+#~ "セッションを再開しない場合、セッションは <strong>%(n)s "
+#~ "時間後に自動的に削除されます</strong>。再開しない場合、セッションは <strong>%(n)s "
+#~ "時間後に自動的に削除されます</strong>。"
+
+#~ msgid "Close tab (session keeps running)"
+#~ msgstr "タブを閉じる (セッションは実行し続ける)"
+
+#~ msgid "Pop Out"
+#~ msgstr "ポップアウト"
+
+#~ msgid "Start a new terminal"
+#~ msgstr "新しいターミナルを起動する"
+
+#~ msgid "Toggle sidebar"
+#~ msgstr "サイドバーの切り替え"
+
+#~ msgid "You are connected to a login node as user"
+#~ msgstr "ログインノードにユーザーとして接続しています"
+
+#~ msgid ""
+#~ "Your sessions use tmux - closing "
+#~ "tabs or this window leaves them "
+#~ "running so you can resume later."
+#~ msgstr "セッションではtmuxを使用します。タブを閉じると、このウィンドウは実行されたままになり、後で再開できます。"
+
+

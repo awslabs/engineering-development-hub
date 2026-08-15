@@ -27,9 +27,32 @@ from flask import (
 from requests import post, get
 from utils.http_client import SocaHttpClient
 from utils.validators import Validators
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+import re
 
 logger = logging.getLogger("soca_logger")
+
+
+def validate_safe_redirect(url: str | None) -> str | None:
+    """
+    Validate that a redirect URL is a safe, same-origin relative path.
+    Returns the URL if safe, None otherwise.
+    """
+    logger.info(f"Received fwd url {url}")
+    if not url:
+        return None
+    _parsed = urlparse(url)
+    if _parsed.scheme or _parsed.netloc:
+        return None
+    
+    # Only allow a clean path with safe characters
+    if not re.match(r"^/[a-zA-Z0-9_\-./~?&=%#@]*$", url):
+        return None
+    
+    if "/.." in url:
+        return None
+    return _parsed.path
+
 index = Blueprint("index", __name__, template_folder="templates")
 
 
@@ -57,6 +80,30 @@ def api_docs():
 @index.route("/", methods=["GET"])
 @login_required
 def home():
+    # Honor the user's default landing-page preference: redirect away from the
+    # dashboard if they chose a specific page. "home" (default) falls through
+    # and renders the dashboard, so there is no redirect loop. Best-effort: any
+    # preference-store error leaves the user on the dashboard.
+    try:
+        from utils import user_pref_store as _user_prefs
+
+        _landing_resp = _user_prefs.resolve_pref(
+            session["user"], "default_landing_page"
+        )
+        _landing = (
+            _landing_resp.message.get("value") if _landing_resp.success else None
+        )
+        _landing_routes = {
+            "virtual_desktops": "/virtual_desktops",
+            "file_browser": "/file_explorer",
+            "jobs": "/submit_job",
+            "my_account": "/my_account",
+        }
+        if _landing in _landing_routes:
+            return redirect(_landing_routes[_landing])
+    except Exception as _landing_err:
+        logger.warning(f"default_landing_page resolve failed: {_landing_err}")
+
     sudoers = session["sudoers"]
     _custom_links = config.Config.INDEX_PAGE_CUSTOM_LINKS
     _valid_links = []
@@ -93,7 +140,8 @@ def home():
 
 @index.route("/login", methods=["GET"])
 def login():
-    redirect_url = request.args.get("fwd", None)
+    redirect_url = validate_safe_redirect(request.args.get("fwd", None))
+
     _custom_links = config.Config.LOGIN_PAGE_CUSTOM_LINKS
     _valid_links = []
     if Validators.is_list(value=_custom_links):
@@ -130,9 +178,11 @@ def login():
         return render_template("login.html", custom_links=_valid_links, redirect=redirect_url)
 
 
-@index.route("/logout", methods=["GET"])
+@index.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    _user = session.get("user", "unknown-user")
+    logger.info(f"User {_user} logged out")
     session.clear()
     return redirect("/")
 
@@ -146,39 +196,80 @@ def robots():
 
 @index.route("/auth", methods=["POST"])
 def authenticate():
+    """Authenticate a user and establish a Flask session.
+
+    Content-negotiated response shape:
+      - Browser callers (default Accept) get the original UX: 302 redirect
+        to "/" or `redirect_path` on success, 302 to "/login" with a flash
+        on failure. Status codes are 302 in both cases for backwards
+        compatibility with the HTML login page.
+      - JSON callers (Accept: application/json or X-Requested-With:
+        XMLHttpRequest) get real HTTP status codes:
+            200 {"success": True, "user": ..., "redirect": ...}     on success
+            401 {"success": False, "message": "Invalid credentials"} on bad creds
+            400 {"success": False, "message": "user/password required"} on missing fields
+
+    Both paths use the same backend LDAP authentication call, so the only
+    difference is the response shape.
+    """
     user = request.form.get("user")
     password = request.form.get("password")
-    redirect_path = request.form.get("redirect")
-    logger.info(f"Received login request for: {user}")
-    if user is not None and password is not None:
-        check_auth = SocaHttpClient(
-            endpoint="/api/ldap/authenticate",
-            headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-        ).post(data={"user": user, "password": password})
-        logger.info(f"Check Auth for {user} response: {check_auth}")
-        if not check_auth.success:
-            flash(check_auth.message)
-            return redirect("/login")
-        else:
-            session["user"] = user.lower()
-            logger.info("User authenticated, checking sudo permissions")
-            check_sudo_permission = SocaHttpClient(
-                endpoint="/api/ldap/sudo",
-                headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-            ).get(params={"user": user})
+    redirect_path = validate_safe_redirect(request.form.get("redirect"))
 
-            if check_sudo_permission.success:
-                session["sudoers"] = True
-            else:
-                session["sudoers"] = False
+    _wants_json = (
+        request.accept_mimetypes.best == "application/json"
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    )
 
-            if redirect_path is not None:
-                return redirect(redirect_path)
-            else:
-                return redirect("/")
+    logger.info(f"Received login request for: {user} (json_client={_wants_json})")
 
-    else:
+    if user is None or password is None:
+        if _wants_json:
+            return (
+                {"success": False, "message": "user and password are required"},
+                400,
+            )
         return redirect("/login")
+
+    check_auth = SocaHttpClient(
+        endpoint="/api/ldap/authenticate",
+        headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
+    ).post(data={"user": user, "password": password})
+    logger.info(f"Check Auth for {user} response: {check_auth}")
+
+    if not check_auth.success:
+        if _wants_json:
+            return (
+                {"success": False, "message": str(check_auth.message)},
+                401,
+            )
+        # i18n: message is a dynamic auth API response — translate at the API layer
+        flash(check_auth.message)
+        return redirect("/login")
+
+    # Success path — populate the session
+    session["user"] = user.lower()
+    logger.info("User authenticated, checking sudo permissions")
+    check_sudo_permission = SocaHttpClient(
+        endpoint="/api/ldap/sudo",
+        headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
+    ).get(params={"user": user})
+    session["sudoers"] = bool(check_sudo_permission.success)
+
+    _target = redirect_path if redirect_path is not None else "/"
+
+    if _wants_json:
+        return (
+            {
+                "success": True,
+                "user": session["user"],
+                "sudoers": session["sudoers"],
+                "redirect": _target,
+            },
+            200,
+        )
+
+    return redirect(_target)
 
 
 @index.route("/oauth", methods=["GET"])
@@ -204,5 +295,6 @@ def oauth():
         else:
             return redirect(cognito_root_url)
     else:
+        # i18n: message is a dynamic SSO API response — translate at the API layer
         flash(str(sso_auth["message"]), "error")
         return redirect("/login")

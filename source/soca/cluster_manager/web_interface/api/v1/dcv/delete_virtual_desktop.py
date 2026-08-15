@@ -12,7 +12,8 @@
 ######################################################################################################################
 
 from flask_restful import Resource, reqparse
-from flask import request
+from flask import request, session
+from flask_babel import gettext as _
 import logging
 from datetime import datetime, timezone
 from utils.response import SocaResponse
@@ -21,10 +22,25 @@ from utils.error import SocaError
 from models import db, VirtualDesktopSessions
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.aws.cloudformation_client import SocaCfnClient
+from helpers import vdi_pool_allocator
 
 
 logger = logging.getLogger("soca_logger")
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
+
+
+def _cfn_stack_exists(stack_name):
+    """True if a CloudFormation stack with this name exists. Pool-served
+    desktops have NO stack (the instance was claimed from a pool ASG, not
+    launched via CFN), so this is how we route their deletion to a direct
+    instance terminate instead of delete_stack."""
+    if not stack_name:
+        return False
+    try:
+        _cfn = utils_boto3.get_boto(service_name="cloudformation").message
+        return bool(_cfn.describe_stacks(StackName=stack_name).get("Stacks"))
+    except Exception:
+        return False
 
 
 class DeleteVirtualDesktop(Resource):
@@ -208,9 +224,21 @@ class DeleteVirtualDesktop(Resource):
         if user is None:
             return SocaError.CLIENT_MISSING_HEADER(header="X-EDH-USER").as_flask()
 
-        _check_session = VirtualDesktopSessions.query.filter_by(
-            session_owner=user, session_uuid=session_uuid, is_active=True
-        ).first()
+        # Admin can delete any user's session. Admin is either the programmatic
+        # root key (API_ROOT_KEY) or a sudoers user in the web session.
+        # Regular users can only delete their own.
+        import config
+        token = request.headers.get("X-EDH-TOKEN", "")
+        is_admin = token == config.Config.API_ROOT_KEY or session.get("sudoers", False) is True
+        if is_admin:
+            logger.info(f"Admin delete: actor={user!r} session_uuid={session_uuid}")
+            _check_session = VirtualDesktopSessions.query.filter_by(
+                session_uuid=session_uuid, is_active=True
+            ).first()
+        else:
+            _check_session = VirtualDesktopSessions.query.filter_by(
+                session_owner=user, session_uuid=session_uuid, is_active=True
+            ).first()
         if _check_session:
             _stack_name = _check_session.stack_name
             # Terminate instance
@@ -218,13 +246,89 @@ class DeleteVirtualDesktop(Resource):
                 f"Found session {_check_session} about to delete {_check_session.session_name} and associated CloudFormation {_check_session.stack_name}"
             )
 
-            logger.info(f"Deleting DCV CloudFormation Stack {_stack_name}")
-            _delete_stack = SocaCfnClient(stack_name=_stack_name).delete_stack()
-            if _delete_stack.get("success") is False:
-                return SocaError.AWS_API_ERROR(
-                    service_name="cloudformation",
-                    helper=f"Unable to delete cloudformation stack ({_stack_name}) due to {_delete_stack.get('message')}",
-                ).as_flask()
+            # Best-effort broker closeSession BEFORE terminating the instance,
+            # while the agent is still alive so the broker can close cleanly.
+            # Non-fatal: a broker hiccup must never block the user's delete.
+            # If this is skipped/fails, the broker's unreachable-session reaper
+            # (seconds-before-deleting-sessions-unreachable-server) is the net.
+            try:
+                from utils.dcv_broker_client import DcvBrokerClient
+                _broker = DcvBrokerClient()
+                # Broker keys deleteSessions on its OWN session Id, not the
+                # SOCA uuid (the uuid is the broker session Name). Resolve it
+                # while the agent is still alive (describeSessions still lists it).
+                _sess = _broker.find_session_by_name(session_uuid)
+                if _sess:
+                    _close = _broker.delete_session(
+                        session_id=_sess["Id"],
+                        owner=_sess.get("Owner", _check_session.session_owner),
+                    )
+                    if _close.success:
+                        logger.info(f"Broker closeSession ok for {session_uuid}")
+                    else:
+                        logger.warning(
+                            f"Broker closeSession failed for {session_uuid} (reaper will reclaim): {_close.message}"
+                        )
+                else:
+                    logger.info(
+                        f"Broker has no session matching {session_uuid}; nothing to close"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Broker closeSession raised for {session_uuid} (reaper will reclaim): {e}"
+                )
+
+            # Session sharing: revoke any active grants on this session so guest
+            # access does not outlive the desktop. Best-effort, non-fatal.
+            try:
+                from helpers import dcv_session_sharing_store
+                _grant_svc = dcv_session_sharing_store.get_grant_service()
+                if _grant_svc and _check_session.authentication_token:
+                    _n = _grant_svc.revoke_all_for_session(
+                        _check_session.authentication_token, revoked_by="system"
+                    )
+                    if _n:
+                        logger.info(
+                            f"Revoked {_n} session-sharing grant(s) on deleted session {session_uuid}"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Session-sharing grant revoke raised for {session_uuid} (non-fatal): {e}"
+                )
+
+            # Pool-served desktops have no CloudFormation stack -- the instance
+            # was claimed from a pool ASG and detached. Terminate it directly.
+            # Regular VDIs are torn down via their CFN stack as before.
+            if _check_session.instance_id and not _cfn_stack_exists(_stack_name):
+                logger.info(
+                    f"Pool-served desktop (no CFN stack); terminating instance "
+                    f"{_check_session.instance_id} directly"
+                )
+                try:
+                    client_ec2.terminate_instances(
+                        InstanceIds=[_check_session.instance_id]
+                    )
+                except Exception as e:
+                    return SocaError.AWS_API_ERROR(
+                        service_name="ec2",
+                        helper=f"Unable to terminate pool desktop instance "
+                        f"{_check_session.instance_id}: {e}",
+                    ).as_flask()
+                # Free the ledger row now (don't wait for the reaper sweep).
+                # Best-effort: the reaper is the backstop if this no-ops.
+                vdi_pool_allocator.release_claim(
+                    _check_session.software_stack_id,
+                    _check_session.instance_type,
+                    _check_session.instance_id,
+                )
+            else:
+                logger.info(f"Deleting DCV CloudFormation Stack {_stack_name}")
+                _delete_stack = SocaCfnClient(stack_name=_stack_name).delete_stack()
+                if _delete_stack.get("success") is False:
+                    return SocaError.AWS_API_ERROR(
+                        service_name="cloudformation",
+                        helper=f"Unable to delete cloudformation stack ({_stack_name}) due to {_delete_stack.get('message')}",
+                    ).as_flask()
 
             logger.debug("Stack deleted successfully, updating database")
             try:
@@ -245,7 +349,7 @@ class DeleteVirtualDesktop(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Your Virtual Desktop is about to be terminated",
+                message=_(f"Your Virtual Desktop is about to be terminated"),
             ).as_flask()
 
         else:

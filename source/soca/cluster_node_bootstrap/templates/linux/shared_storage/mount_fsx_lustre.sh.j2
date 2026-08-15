@@ -115,7 +115,11 @@
 
       for ((LIFECYCLE_VERIFICATION=1; LIFECYCLE_VERIFICATION<=30; LIFECYCLE_VERIFICATION++)); do
           log_info "Verifying if ${MOUNT_TARGET} is in AVAILABLE state ..."
-          if [[ $(aws_cli fsx describe-file-systems --file-system-ids "${MOUNT_TARGET_ID}" --query FileSystems[].Lifecycle --output text) == "AVAILABLE" ]]; then
+          # --no-cache: this is a polling loop waiting for lifecycle
+          # transition (CREATING -> AVAILABLE). A cached CREATING
+          # response would loop for 30 minutes then fail, even after
+          # the filesystem became AVAILABLE.
+          if [[ $(aws_cli --no-cache fsx describe-file-systems --file-system-ids "${MOUNT_TARGET_ID}" --query FileSystems[].Lifecycle --output text) == "AVAILABLE" ]]; then
             break
           else
             log_warning "FSx Lustre Not available yet .. trying again in 60 seconds, attempt ${LIFECYCLE_VERIFICATION}"

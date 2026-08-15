@@ -1,0 +1,121 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Install & Configure DCV Session Manager Agent on VDI hosts
+# When high_scale mode is enabled, each DCV host runs the SM Agent
+# which registers with the broker so the gateway can route sessions.
+
+function install_dcv_session_manager_agent () {
+
+  local MACHINE=$(uname -m)
+
+  log_info "Installing DCV Session Manager Agent for high-scale mode"
+
+  mkdir -p "${EDH_BOOTSTRAP_ASSETS_FOLDER}/dcvsmagent"
+  pushd "${EDH_BOOTSTRAP_ASSETS_FOLDER}/dcvsmagent"
+
+  if ! verify_package_installed "nice-dcv-session-manager-agent"; then
+
+    {% if context.get("/job/BaseOS") == "amazonlinux2" %}
+      {% set SM_AGENT_OS = "al2" %}
+    {% elif context.get("/job/BaseOS") == "amazonlinux2023" %}
+      {% set SM_AGENT_OS = "al2023" %}
+    {% elif context.get("/job/BaseOS") in ("rhel7", "centos7") %}
+      {% set SM_AGENT_OS = "al2" %}
+    {% elif context.get("/job/BaseOS") in ("rhel8", "rocky8") %}
+      {% set SM_AGENT_OS = "el8" %}
+    {% elif context.get("/job/BaseOS") in ("rhel9", "rocky9") %}
+      {% set SM_AGENT_OS = "el9" %}
+    {% elif context.get("/job/BaseOS") == "ubuntu2204" %}
+      {% set SM_AGENT_OS = "ubuntu2204" %}
+    {% elif context.get("/job/BaseOS") == "ubuntu2404" %}
+      {% set SM_AGENT_OS = "ubuntu2404" %}
+    {% else %}
+      exit_fail "Unrecognized Base OS for DCV SM Agent"
+    {% endif %}
+
+    if [[ ${MACHINE} == "x86_64" ]]; then
+      local SM_AGENT_URL="{{ context.get("/system/dcv/session_manager_agent/" ~ SM_AGENT_OS ~ "/x86_64/url") }}"
+      local SM_AGENT_HASH="{{ context.get("/system/dcv/session_manager_agent/" ~ SM_AGENT_OS ~ "/x86_64/sha256") }}"
+    elif [[ ${MACHINE} == "aarch64" ]]; then
+      local SM_AGENT_URL="{{ context.get("/system/dcv/session_manager_agent/" ~ SM_AGENT_OS ~ "/aarch64/url") }}"
+      local SM_AGENT_HASH="{{ context.get("/system/dcv/session_manager_agent/" ~ SM_AGENT_OS ~ "/aarch64/sha256") }}"
+    else
+      exit_fail "Unrecognized machine type for DCV SM Agent: ${MACHINE}"
+    fi
+
+    log_info "Downloading DCV SM Agent from ${SM_AGENT_URL}"
+
+    {% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+        file_download --download-url="${SM_AGENT_URL}" --save-as="nice-dcv-session-manager-agent.deb" --sha256-checksum="${SM_AGENT_HASH}"
+        if ! packages_install_file ./nice-dcv-session-manager-agent.deb; then
+            exit_fail "Unable to install DCV Session Manager Agent. See logs for details"
+        fi
+    {% else %}
+        file_download --download-url="${SM_AGENT_URL}" --save-as="nice-dcv-session-manager-agent.rpm" --sha256-checksum="${SM_AGENT_HASH}"
+        if ! packages_install_file ./nice-dcv-session-manager-agent.rpm; then
+            exit_fail "Unable to install DCV Session Manager Agent. See logs for details"
+        fi
+    {% endif %}
+
+  else
+    log_info "DCV SM Agent already installed, skipping"
+  fi
+
+  # Read broker endpoint from SSM config
+  local BROKER_HOST="{{ context.get("/dcv/BrokerHost") }}"
+  local BROKER_AGENT_PORT="{{ context.get("/dcv/BrokerAgentPort", "8445") }}"
+  local DCV_SESSION_OWNER="${EDH_DCV_SESSION_OWNER}"
+  local EDH_CLUSTER_ID="{{ context.get("/configuration/ClusterId") }}"
+
+  # Configure agent (DCV 2025.0 SM Agent expects TOML 0.1 schema with
+  # quoted strings; tags are read from per-key files in tags_folder, not from
+  # agent.conf).
+  local TIMESTAMP=$(date +%s)
+  if [[ -f /etc/dcv-session-manager-agent/agent.conf ]]; then
+    mv /etc/dcv-session-manager-agent/agent.conf /etc/dcv-session-manager-agent/agent.conf.${TIMESTAMP}
+  fi
+
+  cat > /etc/dcv-session-manager-agent/agent.conf << AGENT_EOF
+version = '0.1'
+
+[agent]
+broker_host = '${BROKER_HOST}'
+broker_port = ${BROKER_AGENT_PORT}
+tls_strict = false
+
+[log]
+level = 'info'
+directory = '/var/log/dcv-session-manager-agent'
+AGENT_EOF
+
+  chmod 640 /etc/dcv-session-manager-agent/agent.conf
+  chown dcvsmagent:dcvsmagent /etc/dcv-session-manager-agent/agent.conf
+
+  # Tag files: each file is one TOML key=value pair. Filename is informational.
+  local TAGS_DIR=/etc/dcv-session-manager-agent/tags
+  mkdir -p "${TAGS_DIR}"
+  echo "cluster = '${EDH_CLUSTER_ID}'"           > "${TAGS_DIR}/cluster"
+  echo "owner = '${DCV_SESSION_OWNER}'"          > "${TAGS_DIR}/owner"
+  echo "instance = '$(instance_id)'"             > "${TAGS_DIR}/instance"
+  chown -R dcvsmagent:dcvsmagent "${TAGS_DIR}"
+  chmod 640 "${TAGS_DIR}"/*
+
+  # Ensure the agent waits for networking on every boot (prevents 0.0.0.0
+  # server-id binding when the unit starts before the interface is up).
+  mkdir -p /etc/systemd/system/dcv-session-manager-agent.service.d
+  cat > /etc/systemd/system/dcv-session-manager-agent.service.d/network.conf <<'DROPIN'
+[Unit]
+After=network-online.target
+Wants=network-online.target
+DROPIN
+  systemctl daemon-reload
+
+  systemctl enable dcv-session-manager-agent
+  systemctl start dcv-session-manager-agent
+
+  log_info "DCV Session Manager Agent installed and started"
+  popd
+}
+install_dcv_session_manager_agent
+# End: Install & Configure DCV Session Manager Agent

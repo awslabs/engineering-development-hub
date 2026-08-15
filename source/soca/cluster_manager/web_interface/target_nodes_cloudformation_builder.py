@@ -14,7 +14,6 @@
 import os
 import sys
 import random
-import re
 from troposphere import Base64, GetAtt
 from troposphere import Ref, Template, Sub
 from troposphere import Tags as base_Tags  # without PropagateAtLaunch
@@ -85,7 +84,7 @@ def main(**launch_parameters):
         t = Template()
         t.set_version("2010-09-09")
         t.set_description(
-            "(SOCA) - Base template to deploy Target nodes version 26.4.0"
+            "(SOCA) - Base template to deploy Target nodes version 26.8.0"
         )
         allow_anonymous_data_collection = launch_parameters["DefaultMetricCollection"]
         # Launch Actual Capacity
@@ -208,15 +207,6 @@ def main(**launch_parameters):
 
         lt.LaunchTemplateData = ltd
         t.add_resource(lt)
-
-        # The session name may contain chars that are not permitted
-        # in troposphere for the object. We have already sanitized
-        # for the most part - but - and _ may still appear here.
-        _session_name: str = re.sub(
-            pattern=r"[-_=]+",
-            repl="",
-            string=str(launch_parameters["session_name"])[:32],
-        )[:32]
 
         if launch_parameters.get("nested_virtualization") is True:
             _nested_virt_cr = CustomResourceNestedVirtLauncher("NestedVirtLauncher")

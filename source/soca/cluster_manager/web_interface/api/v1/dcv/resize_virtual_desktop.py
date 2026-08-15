@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from models import db, VirtualDesktopSessions, SoftwareStacks, VirtualDesktopProfiles
@@ -257,7 +258,7 @@ class ResizeVirtualDesktop(Resource):
 
             return SocaResponse(
                 success=True,
-                message="Your virtual desktop has been updated",
+                message=_("Your virtual desktop has been updated"),
             ).as_flask()
 
         else:

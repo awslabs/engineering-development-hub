@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -20,22 +20,26 @@
 
                 <div class="col-md-10">
                     <div class="alert alert-warning">
-                        Make sure your Amazon Machine Images (AMI) are available in your current region:
+                        {{ _("Make sure your Amazon Machine Images (AMI) are available in your current region:") }}
                         <strong>{{ region_name }}</strong> <br>
                         <a target="_blank" rel="noopener,noreferrer"
-                           href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/architecture/reduce-compute-node-launch-time-with-custom-ami/">Click
-                            here to learn how to create custom images</a>
+                           href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/architecture/reduce-compute-node-launch-time-with-custom-ami/">{{ _("Click here to learn how to create custom images") }}</a>
                     </div>
+                    <ul class="nav nav-tabs mb-3" id="stackEditTabs" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" id="tab-image-link" data-bs-toggle="tab" href="#tab-image" role="tab" aria-controls="tab-image" aria-selected="true">{{ _("Image & Settings") }}</a></li>
+                        <li class="nav-item"><a class="nav-link" id="tab-pooling-link" data-bs-toggle="tab" href="#tab-pooling" role="tab" aria-controls="tab-pooling" aria-selected="false">{{ _("Pooling") }}</a></li>
+                    </ul>
+                    <div class="tab-content" id="stackEditTabContent">
+                    <div class="tab-pane fade show active" id="tab-image" role="tabpanel" aria-labelledby="tab-image-link">
                             <div class="card shadow mb-4">
                               
                                     <div class="card-body">
-                                           <h3>Edit Software Stack</h3>
+                                           <h3>{{ _("Edit Software Stack") }}</h3>
                                         <form action="/admin/virtual_desktops/software_stacks/edit/update" method="post" enctype="multipart/form-data">
                                             <div class="form-group">
                                                 <label for="ami_id" data-toggle="tooltip" data-placement="top"
-                                                       title="Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars">AMI
-                                                    ID</label>
-                                                <input id="ami_id" placeholder="Image ID (start with ami-xxx or) or AMI alias (/service/aws/...)"
+                                                       title="{{ _("Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars") }}">{{ _("AMI ID") }}</label>
+                                                <input id="ami_id" placeholder="{{ _("Image ID (start with ami-xxx or) or AMI alias (/service/aws/...)") }}"
                                                        class="form-control"
                                                        type="text"
                                                        value="{{ software_stack_info.ami_id }}"
@@ -44,9 +48,9 @@
 
                                             <div class="form-group">
                                                 <label for="stack_name" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose a friendly name for your AMI.">Software Stack Name
+                                                       title="{{ _("Choose a friendly name for your AMI.") }}">{{ _("Software Stack Name") }}
                                                 </label>
-                                                <input id="stack_name" placeholder="Enter friendly AMI Name"
+                                                <input id="stack_name" placeholder="{{ _("Enter friendly AMI Name") }}"
                                                        class="form-control" type="text"
                                                        disabled
                                                        value="{{ software_stack_info.stack_name }}">
@@ -54,15 +58,15 @@
 
                                             <div class="form-group">
                                                 <label for="description" data-toggle="tooltip" data-placement="top"
-                                                       title="Description of your Software Stack">Software Stack Description
+                                                       title="{{ _("Description of your Software Stack") }}">{{ _("Software Stack Description") }}
                                                 </label>
-                                                <textarea id="description" placeholder="(Optional) Description for your software stack, maximum 500 characters."
+                                                <textarea id="description" placeholder="{{ _("(Optional) Description for your software stack, maximum 500 characters.") }}"
                                                           class="form-control" rows="3"  name="description">{{ software_stack_info.description }}</textarea>
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="base_os" data-toggle="tooltip" data-placement="top"
-                                                       title="Select image baseOS">Operating System</label>
+                                                       title="{{ _("Select image baseOS") }}">{{ _("Operating System") }}</label>
                                                 <select class="form-control" id="base_os" name="base_os">
                                                     {% for base_os in supported_base_os %}
                                                             <option value="{{base_os}}" {% if base_os == software_stack_info.ami_base_os %} selected {% endif %}>{{base_os}}</option>
@@ -72,16 +76,16 @@
 
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
-                                                       for="root_size">Root Disk Size (in GB)</label>
+                                                       title="{{ _("The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error") }}"
+                                                       for="root_size">{{ _("Root Disk Size (in GB)") }}</label>
                                                 <input type="number" min=0 value={{ software_stack_info.ami_root_disk_size }} id="root_size" class="form-control"
                                                        required name="root_size">
                                             </div>
 
                                              <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="List of allowed instance type/family"
-                                                       for="virtual_desktop_profile_id">Profile associated to this stack</label>
+                                                       title="{{ _("List of allowed instance type/family") }}"
+                                                       for="virtual_desktop_profile_id">{{ _("Profile associated to this stack") }}</label>
                                                 <select class="form-control" required id="virtual_desktop_profile_id" name="virtual_desktop_profile_id">
                                                    {% for profile_id, profile_info in profiles.items() %}
                                                     <option value="{{profile_id}}" {% if profile_id|int == software_stack_info.virtual_desktop_profile_id %} selected {% endif %}> {{ profile_info.profile_name }}</option>
@@ -89,26 +93,50 @@
                                                 </select>
                                              </div>
 
+                                             <div class="form-group">
+                                                <label data-toggle="tooltip" data-placement="top"
+                                                       title="{{ _("Optional Hardware Profile (USB device allowlist) bound to this stack. A Project binding overrides this Stack binding.") }}"
+                                                       for="hardware_profile_id">{% trans link='<a target="_blank" href="/admin/virtual_desktops/hardware_profiles">manage Hardware Profiles</a>'|safe %}Hardware Profile ({{ link }}){% endtrans %}</label>
+                                                <select class="form-control" id="hardware_profile_id" name="hardware_profile_id">
+                                                    <option value="">{{ _("None (no hardware profile)") }}</option>
+                                                   {% for hp in hardware_profiles %}
+                                                    <option value="{{ hp.id }}" {% if hp.id == software_stack_info.hardware_profile_id %} selected {% endif %}> {{ hp.profile_name }}</option>
+                                                 {% endfor %}
+                                                </select>
+                                             </div>
+
+                                             <div class="form-group">
+                                                <label data-toggle="tooltip" data-placement="top"
+                                                       title="{{ _("EBS fast-restore acceleration for desktops built from this stack. Inherit = use the cluster default; Off = lazy load; 100-300 MiB/s = pre-fetch the root volume on launch (faster first boot/resume, higher for larger stacks).") }}"
+                                                       for="volume_acceleration">{{ _("Volume Acceleration (Fast-Restore)") }}</label>
+                                                <select class="form-control" id="volume_acceleration" name="volume_acceleration">
+                                                    <option value="" {% if not software_stack_info.volume_acceleration %} selected {% endif %}>{{ _("Inherit cluster default") }}</option>
+                                                    <option value="off" {% if software_stack_info.volume_acceleration == 'off' %} selected {% endif %}>{{ _("Off (lazy load)") }}</option>
+                                                    <option value="100" {% if software_stack_info.volume_acceleration == '100' %} selected {% endif %}>{{ _("100 MiB/s (balanced)") }}</option>
+                                                    <option value="200" {% if software_stack_info.volume_acceleration == '200' %} selected {% endif %}>{{ _("200 MiB/s") }}</option>
+                                                    <option value="300" {% if software_stack_info.volume_acceleration == '300' %} selected {% endif %}>{{ _("300 MiB/s (fastest)") }}</option>
+                                                </select>
+                                             </div>
+
                                             <div class="form-group">
                                                 <label for="launch_tenancy" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose AMI launch tenancy setting">Launch Tenancy</label>
+                                                       title="{{ _("Choose AMI launch tenancy setting") }}">{{ _("Launch Tenancy") }}</label>
                                                 <select class="form-control" name='launch_tenancy' id="launch_tenancy">
-                                                    <option value="default" {% if 'default' == software_stack_info.launch_tenancy %} selected {% endif %}>Default Tenancy (default)</option>
-                                                    <option value="dedicated" {% if 'dedicated' == software_stack_info.launch_tenancy %} selected {% endif %}>Dedicated Instance Tenancy (instance)</option>
-                                                    <option value="host" {% if 'host' == software_stack_info.launch_tenancy %} selected {% endif %}>Dedicated Host Tenancy (host)</option>
+                                                    <option value="default" {% if 'default' == software_stack_info.launch_tenancy %} selected {% endif %}>{{ _("Default Tenancy (default)") }}</option>
+                                                    <option value="dedicated" {% if 'dedicated' == software_stack_info.launch_tenancy %} selected {% endif %}>{{ _("Dedicated Instance Tenancy (instance)") }}</option>
+                                                    <option value="host" {% if 'host' == software_stack_info.launch_tenancy %} selected {% endif %}>{{ _("Dedicated Host Tenancy (host)") }}</option>
                                                 </select>
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="launch_host" data-toggle="tooltip" data-placement="top"
-                                                       title="Launch Host if using Dedicated Host Tenancy">Launch Host
-                                                    ID</label>
+                                                       title="{{ _("Launch Host if using Dedicated Host Tenancy") }}">{{ _("Launch Host ID") }}</label>
                                                 {% if software_stack_info.launch_host == 0 %}
-                                                    <input id="launch_host" placeholder="(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+                                                    <input id="launch_host" placeholder="{{ _("(Optional if not using Host Tenancy) Launch Host ID (h-xxx)") }}"
                                                            class="form-control" type="text"
                                                            name="launch_host">
                                                 {% else %}
-                                                 <input id="launch_host" placeholder="(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+                                                 <input id="launch_host" placeholder="{{ _("(Optional if not using Host Tenancy) Launch Host ID (h-xxx)") }}"
                                                            class="form-control" type="text"
                                                            name="launch_host" value="{{software_stack_info.launch_host}}">
                                                 {% endif %}
@@ -117,13 +145,11 @@
 
                                             <div class="form-group">
                                                  <label data-toggle="tooltip" data-placement="top"
-                                                       title="Thumbnail to use (150px * 150px)">Thumbnail (150px * 150px)
+                                                       title="{{ _("Thumbnail to use (150px * 150px)") }}">{{ _("Thumbnail (150px * 150px)") }}
                                                     </label>
                                                 <div class="custom-file">
                                                     <input type="file" class="custom-file-input" id="thumbnail" name="thumbnail" accept="image/png, image/jpeg, image/jpg">
-                                                    <label class="custom-file-label">Select an
-                                                        image (jpg or png) to use as thumbnail. Leave blank to
-                                                        use the existing thumbnail</label>
+                                                    <label class="custom-file-label">{{ _("Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail") }}</label>
                                                 </div>
                                                 <script>
                                                     $(".custom-file-input").on("change", function () {
@@ -137,12 +163,664 @@
                                                 <input type="hidden" name="csrf_token"
                                                        value="{{ csrf_token() }}">
                                                 <input type="hidden" name="software_stack_id" value="{{ software_stack_info.id }}">
-                                                <button type="submit" class="btn btn-primary">Update Software Stack
+                                                <button type="submit" class="btn btn-primary">{{ _("Update Software Stack") }}
                                                 </button>
                                             </div>
                                         </form>
                                     </div>
                                 </div>
+                    </div><!-- /tab-image -->
+                    <div class="tab-pane fade" id="tab-pooling" role="tabpanel" aria-labelledby="tab-pooling-link">
+
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <h3>{{ _("VDI Pooling") }}</h3>
+                            <p class="text-muted">{{ _("Pre-provision and maintain a fleet of prepared desktops for faster time-to-desktop. The EDH PoolController provisions the AWS resources automatically.") }}</p>
+                            {% if software_stack_info.ami_arch %}
+                            <p class="small mb-3">
+                                <span class="badge badge-dark" style="font-size:90%">{{ _("Architecture") }}: {{ software_stack_info.ami_arch }}</span>
+                                <span class="text-muted">{{ _("locked to this stack's AMI — only matching-architecture instance types are selectable.") }}</span>
+                            </p>
+                            {% endif %}
+                            <form id="pool-form" action="/admin/virtual_desktops/software_stacks/edit/pool" method="post">
+                                <div class="form-group form-check">
+                                    <input type="checkbox" class="form-check-input" id="pool_enabled">
+                                    <label class="form-check-label" for="pool_enabled">{{ _("Enable pooling for this software stack") }}</label>
+                                </div>
+
+                                <div id="pool-parked-warning" class="alert alert-warning" style="display:none;"></div>
+
+                                <label>{{ _("Instance types") }}</label>
+                                <div id="pool-entries-body" class="row"></div>
+                                <button type="button" class="btn btn-sm btn-secondary mb-3" id="pool-add-entry">{{ _("+ Add instance type") }}</button>
+                                <ul class="text-muted small">
+                                    <li><strong>{{ _("Hot") }}</strong>: {{ _("running, broker-registered instances kept idle for instant assignment.") }}</li>
+                                    <li><strong>{{ _("Warm") }}</strong>: {{ _("pre-warmed stopped instances (EBS only); start in ~30s when claimed with available capacity.") }}</li>
+                                    <li style="display:none"><strong>{{ _("On-Demand floor") }}</strong>: {{ _("minimum guaranteed On-Demand instances; 0 up to the Hot count.") }}</li>
+                                    <li style="display:none"><strong>{{ _("On-Demand above base") }}</strong>: {{ _("of the capacity above the floor, the portion that is On-Demand (the rest is Spot). 0 to 100, where 100 means all On-Demand.") }}</li>
+                                </ul>
+
+                                <div class="card mb-3">
+                                    <div class="card-header" id="pool-advanced-toggle" style="cursor:pointer;">{{ _("Advanced options") }} &#9662;</div>
+                                    <div id="pool-advanced" style="display:none;">
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="pool_state">{{ _("Warm pool state") }}</label>
+                                                <select class="form-control" id="pool_state">
+                                                    <option value="Stopped">{{ _("Stopped (EBS only, default)") }}</option>
+                                                    <option value="Hibernated">{{ _("Hibernated (faster resume, larger EBS)") }}</option>
+                                                </select>
+                                            </div>
+                                            <hr>
+                                            <div class="form-group form-check">
+                                                <input type="checkbox" class="form-check-input" id="pool_cr_enabled">
+                                                <label class="form-check-label" for="pool_cr_enabled">{{ _("Reserved capacity via a Capacity Reservation group (spans multiple instance types/AZs)") }}</label>
+                                            </div>
+                                            <div class="form-group" id="pool_cr_group_arn_group" style="display:none">
+                                                <label for="pool_cr_group_arn">{{ _("Capacity Reservation group ARN") }}</label>
+                                                <input type="text" class="form-control" id="pool_cr_group_arn" placeholder="arn:aws:resource-groups:REGION:ACCOUNT:group/NAME">
+                                            </div>
+                                            <div class="form-group form-check" id="pool_cr_fallback_group" style="display:none">
+                                                <input type="checkbox" class="form-check-input" id="pool_cr_fallback">
+                                                <label class="form-check-label" for="pool_cr_fallback">{{ _("Fall back to On-Demand when the reservation is full (unchecked = hard-fail, enforces the reservation as a cap)") }}</label>
+                                            </div>
+                                            <p class="text-muted small">{{ _("For a single instance type backed by exactly one Capacity Reservation, set its Capacity Reservation id directly on that instance-type card above instead.") }}</p>
+                                            <div class="form-group form-check">
+                                                <input type="checkbox" class="form-check-input" id="pool_backfill">
+                                                <label class="form-check-label" for="pool_backfill">{{ _("Backfill on claim (keep pool at depth)") }}</label>
+                                            </div>
+                                            <div class="form-group form-check">
+                                                <input type="checkbox" class="form-check-input" id="pool_allow_recycle">
+                                                <label class="form-check-label" for="pool_allow_recycle">{{ _("Allow recycle (return sanitized desktops to the pool — admin risk acceptance)") }}</label>
+                                            </div>
+                                            <div class="form-group form-check">
+                                                <input type="checkbox" class="form-check-input" id="pool_recycle_on_lt">
+                                                <label class="form-check-label" for="pool_recycle_on_lt">{{ _("Auto-recycle pool on launch template change (uniform fleet — brief cold launches during refresh)") }}</label>
+                                            </div>
+                                            <div class="form-group form-check" style="display:none">
+                                                <input type="checkbox" class="form-check-input" id="pool_hint">
+                                                <label class="form-check-label" for="pool_hint">{{ _("Show users an interruptible/lower-cost hint when applicable") }}</label>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="pool_prov_to">{{ _("Provisioning timeout (seconds, blank = cluster default)") }}</label>
+                                                <input type="number" min="1" class="form-control" id="pool_prov_to">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="pool_conn_to">{{ _("Connect-abandon timeout (seconds, blank = cluster default)") }}</label>
+                                                <input type="number" min="1" class="form-control" id="pool_conn_to">
+                                            </div>
+                                            <hr>
+                                            <div class="form-group">
+                                                <label for="pool_timezone">{{ _("Schedule timezone (blank = no schedule; hot stays constant)") }}</label>
+                                                <input type="text" class="form-control" id="pool_timezone" placeholder="America/Chicago">
+                                            </div>
+                                            <label>{{ _("Active-hours windows (outside these, hot drains to 0; warm unchanged)") }}</label>
+                                            <table class="table table-sm">
+                                                <thead><tr><th>{{ _("Days") }}</th><th>{{ _("Start") }}</th><th>{{ _("End") }}</th><th></th></tr></thead>
+                                                <tbody id="pool-windows-body"></tbody>
+                                            </table>
+                                            <button type="button" class="btn btn-sm btn-secondary" id="pool-add-window">{{ _("+ Add window") }}</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="software_stack_id" value="{{ software_stack_info.id }}">
+                                <input type="hidden" name="pool_config" id="pool_config_input">
+                                <button type="submit" id="pool-save-btn" class="btn btn-primary">{{ _("Save Pool Configuration") }}</button>
+                            </form>
+                        </div>
+                    </div>
+                    </div><!-- /tab-pooling -->
+                    </div><!-- /tab-content -->
+                    <script>
+                    (function () {
+                        const existing = {{ pool_config | tojson }} || {};
+                        const entriesBody = document.getElementById('pool-entries-body');
+                        const windowsBody = document.getElementById('pool-windows-body');
+
+                        let _peFallbackCounter = 0;
+
+                        function addEntryRow(e) {
+                            e = e || {};
+                            const col = document.createElement('div');
+                            col.className = 'col-12 col-md-6 col-xl-4 mb-3 pe-card';
+                            const _crFallbackId = 'pe-cr-fallback-' + (_peFallbackCounter++);
+                            col.innerHTML =
+                                '<div class="card shadow-sm h-100"><div class="card-body p-3">' +
+                                  '<div class="d-flex align-items-center mb-1" style="gap:8px">' +
+                                    '<div class="pe-type-wrap flex-grow-1"><input class="form-control pe-type" type="text" placeholder="g6f.large" autocomplete="off"><span class="pe-ok-icon">\u2713</span></div>' +
+                                    '<div class="form-check form-switch mb-0" title="{{ _("Enable / disable this instance type") }}"><input class="form-check-input pe-enabled" type="checkbox" role="switch"></div>' +
+                                    '<button type="button" class="btn btn-link text-danger p-0 pe-del" title="{{ _("Remove") }}" style="font-size:18px;line-height:1;text-decoration:none">&times;</button>' +
+                                  '</div>' +
+                                  '<div class="pe-spec small text-muted mb-2"></div>' +
+                                  '<div class="pe-label-wrap mb-2"><input class="form-control form-control-sm pe-label" type="text" maxlength="24" placeholder="{{ _("Label (optional)") }}"></div>' +
+                                  '<div class="d-flex" style="gap:18px">' +
+                                    '<div class="pe-stepper" title="{{ _("Always-on instances kept ready for instant assignment") }}">' +
+                                      '<div class="small text-muted mb-1">{{ _("Hot") }}</div>' +
+                                      '<div class="pe-step">' +
+                                        '<button type="button" class="pe-dec">\u2212</button>' +
+                                        '<input class="pe-hot pe-num" type="number" min="0" value="0">' +
+                                        '<button type="button" class="pe-inc">+</button>' +
+                                      '</div>' +
+                                    '</div>' +
+                                    '<div class="pe-stepper" title="{{ _("Pre-warmed stopped instances; ~30s to start when claimed") }}">' +
+                                      '<div class="small text-muted mb-1">{{ _("Warm") }}</div>' +
+                                      '<div class="pe-step">' +
+                                        '<button type="button" class="pe-dec">\u2212</button>' +
+                                        '<input class="pe-warm pe-num" type="number" min="0" value="0">' +
+                                        '<button type="button" class="pe-inc">+</button>' +
+                                      '</div>' +
+                                    '</div>' +
+                                  '</div>' +
+                                  '<div class="pe-cr-wrap mt-2"><input class="form-control form-control-sm pe-cr-id" type="text" placeholder="{{ _("Capacity Reservation id (cr-..., optional)") }}"></div>' +
+                                  '<div class="form-check mt-1"><input type="checkbox" class="form-check-input pe-cr-fallback" id="' + _crFallbackId + '"><label class="form-check-label small" for="' + _crFallbackId + '">{{ _("Fall back to On-Demand when this reservation is full") }}</label></div>' +
+                                  '<input type="hidden" class="pe-odbase" value="0"><input type="hidden" class="pe-odpct" value="100">' +
+                                '</div></div>';
+                            col.querySelector('.pe-type').value = e.instance_type || '';
+                            col.querySelector('.pe-label').value = e.label || '';
+                            col.querySelector('.pe-enabled').checked = (e.enabled !== false);
+                            col.querySelector('.pe-hot').value = (e.hot_count != null) ? e.hot_count : 0;
+                            col.querySelector('.pe-warm').value = (e.warm_count != null) ? e.warm_count : 0;
+                            col.querySelector('.pe-odbase').value = (e.on_demand_base_count != null) ? e.on_demand_base_count : 0;
+                            col.querySelector('.pe-odpct').value = (e.on_demand_percentage_above_base != null) ? e.on_demand_percentage_above_base : 100;
+                            col.querySelector('.pe-cr-id').value = e.capacity_reservation_id || '';
+                            col.querySelector('.pe-cr-fallback').checked = e.odcr_fallback_to_od_when_full !== false;
+                            var _del = col.querySelector('.pe-del');
+                            var _isNew = !e.instance_type;
+                            if (_isNew) col.dataset.new = '1';
+                            var _confirmTimer = null;
+                            _del.addEventListener('click', function () {
+                                if (col.dataset.new) {
+                                    if (_del.dataset.confirming) {
+                                        clearTimeout(_confirmTimer);
+                                        col.remove();
+                                        if (window._poolUpdateSaveState) window._poolUpdateSaveState();
+                                    } else {
+                                        _del.dataset.confirming = '1';
+                                        _del.innerHTML = '<span style="font-size:12px;font-weight:600;color:#d63384">{{ _("Remove?") }}</span>';
+                                        _del.title = '{{ _("Click again to confirm removal") }}';
+                                        _del.classList.remove('text-danger');
+                                        col.style.background = '#fce4ec';
+                                        col.querySelector('.card').style.borderColor = '#e91e63';
+                                        _confirmTimer = setTimeout(function () {
+                                            delete _del.dataset.confirming;
+                                            _del.textContent = '\u00d7';
+                                            _del.title = '{{ _("Remove") }}';
+                                            _del.classList.add('text-danger');
+                                            col.style.background = '';
+                                            col.querySelector('.card').style.borderColor = '';
+                                        }, 6000);
+                                    }
+                                    return;
+                                }
+                                var removing = col.classList.toggle('pe-removing');
+                                if (removing) {
+                                    _del.title = '{{ _("Scheduled for removal on next Save — click to undo") }}';
+                                    col.title = '{{ _("Scheduled for removal on next Save") }}';
+                                } else {
+                                    _del.title = '{{ _("Remove") }}';
+                                    col.removeAttribute('title');
+                                }
+                                if (window._poolUpdateSaveState) window._poolUpdateSaveState();
+                            });
+                            entriesBody.appendChild(col);
+                            if (window._poolUpdateSaveState) window._poolUpdateSaveState();
+                        }
+                        function addWindowRow(w) {
+                            w = w || {};
+                            const tr = document.createElement('tr');
+                            tr.innerHTML =
+                                '<td><input class="form-control pw-days" type="text" placeholder="Mon-Fri"></td>' +
+                                '<td><input class="form-control pw-start" type="text" placeholder="07:00"></td>' +
+                                '<td><input class="form-control pw-end" type="text" placeholder="19:00"></td>' +
+                                '<td><button type="button" class="btn btn-sm btn-danger pw-del">&times;</button></td>';
+                            tr.querySelector('.pw-days').value = w.days || '';
+                            tr.querySelector('.pw-start').value = w.start || '';
+                            tr.querySelector('.pw-end').value = w.end || '';
+                            tr.querySelector('.pw-del').addEventListener('click', function () { tr.remove(); });
+                            windowsBody.appendChild(tr);
+                        }
+
+                        document.getElementById('pool_enabled').checked = !!existing.enabled;
+                        document.getElementById('pool_state').value = existing.pool_state || 'Stopped';
+                        document.getElementById('pool_allow_recycle').checked = !!existing.allow_recycle;
+                        document.getElementById('pool_recycle_on_lt').checked = !!existing.recycle_on_lt_change;
+                        document.getElementById('pool_backfill').checked = existing.backfill_on_claim !== false;
+                        document.getElementById('pool_hint').checked = existing.show_interruptible_hint !== false;
+                        document.getElementById('pool_prov_to').value = existing.provisioning_timeout_seconds || '';
+                        document.getElementById('pool_conn_to').value = existing.connect_abandon_timeout_seconds || '';
+                        const crEnabled = document.getElementById('pool_cr_enabled');
+                        const crGroupArnGroup = document.getElementById('pool_cr_group_arn_group');
+                        const crFallbackGroup = document.getElementById('pool_cr_fallback_group');
+                        function refreshCrTargetVisibility() {
+                            const _on = crEnabled.checked;
+                            crGroupArnGroup.style.display = _on ? 'block' : 'none';
+                            crFallbackGroup.style.display = _on ? 'block' : 'none';
+                        }
+                        document.getElementById('pool_cr_fallback').checked = existing.capacity_reservation_fallback_to_od !== false;
+                        crEnabled.checked = !!existing.capacity_reservation_group_arn;
+                        document.getElementById('pool_cr_group_arn').value = existing.capacity_reservation_group_arn || '';
+                        refreshCrTargetVisibility();
+                        crEnabled.addEventListener('change', refreshCrTargetVisibility);
+                        const sched = existing.schedule || {};
+                        document.getElementById('pool_timezone').value = sched.timezone || '';
+                        (existing.entries || []).forEach(addEntryRow);
+                        (sched.windows || []).forEach(addWindowRow);
+
+                        document.getElementById('pool-add-entry').addEventListener('click', function () { addEntryRow(); });
+                        document.getElementById('pool-add-window').addEventListener('click', function () { addWindowRow(); });
+                        // Hot/Warm stepper buttons (+/-) -- delegated; clamps at 0
+                        entriesBody.addEventListener('click', function (ev) {
+                            var btn = ev.target.closest('.pe-inc, .pe-dec');
+                            if (!btn) return;
+                            var inp = btn.parentNode.querySelector('.pe-num');
+                            if (!inp) return;
+                            var v = parseInt(inp.value || '0', 10); if (isNaN(v)) v = 0;
+                            v += btn.classList.contains('pe-inc') ? 1 : -1;
+                            if (v < 0) v = 0;
+                            inp.value = v;
+                        });
+                        document.getElementById('pool-advanced-toggle').addEventListener('click', function () {
+                            var _a = document.getElementById('pool-advanced');
+                            _a.style.display = (_a.style.display === 'none' || !_a.style.display) ? 'block' : 'none';
+                        });
+
+                        // Warn when pooling is off but enabled types still carry capacity (nothing provisions).
+                        function updateParkedWarning() {
+                            var banner = document.getElementById('pool-parked-warning');
+                            if (!banner) return;
+                            var enabled = document.getElementById('pool_enabled').checked;
+                            var types = 0, hot = 0, warm = 0;
+                            entriesBody.querySelectorAll('.pe-card').forEach(function (tr) {
+                                if (tr.classList.contains('pe-removing')) return;
+                                if (!tr.querySelector('.pe-enabled').checked) return;
+                                var h = parseInt(tr.querySelector('.pe-hot').value || '0', 10) || 0;
+                                var w = parseInt(tr.querySelector('.pe-warm').value || '0', 10) || 0;
+                                if (h + w > 0) { types += 1; hot += h; warm += w; }
+                            });
+                            if (!enabled && types > 0) {
+                                banner.innerHTML = '<strong>{{ _("Pooling is disabled for this software stack.") }}</strong> ' +
+                                    types + ' {{ _("configured instance type(s) carry capacity") }} (' + hot + ' {{ _("hot") }} / ' + warm + ' {{ _("warm") }}). ' +
+                                    '{{ _("Nothing will provision until you enable pooling above.") }}';
+                                banner.style.display = 'block';
+                            } else {
+                                banner.style.display = 'none';
+                            }
+                        }
+                        document.getElementById('pool_enabled').addEventListener('change', updateParkedWarning);
+                        entriesBody.addEventListener('input', updateParkedWarning);
+                        entriesBody.addEventListener('change', updateParkedWarning);
+                        entriesBody.addEventListener('click', updateParkedWarning);
+                        updateParkedWarning();
+
+                        document.getElementById('pool-form').addEventListener('submit', function (ev) {
+                            // Gate: block submit if any instance-type card is unresolved.
+                            var _blocked = false;
+                            entriesBody.querySelectorAll('.pe-card:not(.pe-removing) .pe-type').forEach(function (el) {
+                                if (el.value.trim() && !el.classList.contains('is-valid')) {
+                                    el.classList.add('is-invalid');
+                                    _blocked = true;
+                                }
+                            });
+                            if (_blocked) { ev.preventDefault(); updatePoolSaveState(); return; }
+                            const entries = [];
+                            entriesBody.querySelectorAll('.pe-card').forEach(function (tr) {
+                                if (tr.classList.contains('pe-removing')) return;  // marked for removal -> omit -> reconciler drains/tombstones
+                                const t = tr.querySelector('.pe-type').value.trim();
+                                if (!t) return;
+                                entries.push({
+                                    instance_type: t,
+                                    label: tr.querySelector('.pe-label').value.trim(),
+                                    enabled: tr.querySelector('.pe-enabled').checked,
+                                    hot_count: parseInt(tr.querySelector('.pe-hot').value || '0', 10),
+                                    warm_count: parseInt(tr.querySelector('.pe-warm').value || '0', 10),
+                                    on_demand_base_count: parseInt(tr.querySelector('.pe-odbase').value || '0', 10),
+                                    on_demand_percentage_above_base: parseInt(tr.querySelector('.pe-odpct').value || '100', 10),
+                                    capacity_reservation_id: tr.querySelector('.pe-cr-id').value.trim() || null,
+                                    odcr_fallback_to_od_when_full: tr.querySelector('.pe-cr-fallback').checked
+                                });
+                            });
+                            const windows = [];
+                            windowsBody.querySelectorAll('tr').forEach(function (tr) {
+                                const d = tr.querySelector('.pw-days').value.trim();
+                                const s = tr.querySelector('.pw-start').value.trim();
+                                const en = tr.querySelector('.pw-end').value.trim();
+                                if (d || s || en) windows.push({ days: d, start: s, end: en });
+                            });
+                            const tz = document.getElementById('pool_timezone').value.trim();
+                            const payload = {
+                                enabled: document.getElementById('pool_enabled').checked,
+                                pool_state: document.getElementById('pool_state').value,
+                                allow_recycle: document.getElementById('pool_allow_recycle').checked,
+                                recycle_on_lt_change: document.getElementById('pool_recycle_on_lt').checked,
+                                backfill_on_claim: document.getElementById('pool_backfill').checked,
+                                show_interruptible_hint: document.getElementById('pool_hint').checked,
+                                capacity_reservation_group_arn: document.getElementById('pool_cr_enabled').checked ? document.getElementById('pool_cr_group_arn').value.trim() : null,
+                                capacity_reservation_fallback_to_od: document.getElementById('pool_cr_fallback').checked,
+                                provisioning_timeout_seconds: document.getElementById('pool_prov_to').value || null,
+                                connect_abandon_timeout_seconds: document.getElementById('pool_conn_to').value || null,
+                                schedule: tz ? { timezone: tz, windows: windows } : null,
+                                entries: entries
+                            };
+                            document.getElementById('pool_config_input').value = JSON.stringify(payload);
+                        });
+                    })();
+                    </script>
+                    <!-- Realtime label validation (denylist mirrors server _is_label)
+                         + AJAX instance-type typeahead with spec hints. The server
+                         remains authoritative (vdi_pool_config + pool.py reject at
+                         submit); this is fast UX feedback only. -->
+                    <style>
+                        .it-typeahead-box{position:absolute;z-index:1080;background:#fff;border:1px solid #ced4da;border-radius:4px;max-height:260px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:320px;font-size:12px}
+                        .it-ta-item{padding:5px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0}
+                        .it-ta-item:hover,.it-ta-item.active{background:#eef4ff}
+                        .it-ta-item-disabled{opacity:0.45;cursor:default;pointer-events:none}
+                        .it-ta-type{font-family:monospace;font-weight:600;margin-right:12px}
+                        .it-ta-specs{color:#6c757d}
+                        .pe-label.is-invalid,.pe-type.is-invalid{border-color:#dc3545}
+                        .pe-type.is-valid{border-color:#198754;background:#f6fff9}
+                        .pe-type-wrap{position:relative}
+                        .pe-ok-icon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:#198754;font-weight:700;display:none;pointer-events:none}
+                        .pe-type-wrap.is-ok .pe-ok-icon{display:block}
+                        .pe-type-wrap.is-ok .pe-type{padding-right:26px}
+                        .pe-label-err{color:#dc3545;font-size:11px}
+                        .pe-type-ok{color:#198754;font-size:11px}
+                        .pe-type-err{color:#dc3545;font-size:11px}
+                        .pe-step{display:inline-flex;align-items:stretch;border:1px solid #ced4da;border-radius:7px;overflow:hidden;height:32px;background:#fff}
+                        .pe-step .pe-dec,.pe-step .pe-inc{border:0;background:#f4f6f8;width:30px;padding:0;font-size:16px;line-height:1;color:#495057;cursor:pointer;display:flex;align-items:center;justify-content:center}
+                        .pe-step .pe-dec:hover,.pe-step .pe-inc:hover{background:#e6eaee}
+                        .pe-step .pe-dec:active,.pe-step .pe-inc:active{background:#dfe4e9}
+                        .pe-step .pe-dec{border-right:1px solid #e3e7ea}
+                        .pe-step .pe-inc{border-left:1px solid #e3e7ea}
+                        .pe-step .pe-num{border:0;width:42px;text-align:center;font-weight:600;font-size:14px;color:#212529;background:transparent;-moz-appearance:textfield}
+                        .pe-step .pe-num:focus{outline:none;box-shadow:none}
+                        .pe-step .pe-num::-webkit-outer-spin-button,.pe-step .pe-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+                        .pe-spec{height:30px;line-height:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+                        .pe-card.pe-removing .card{border:2px dashed #dc3545!important;background:#ffecec}
+                        .pe-card.pe-card-invalid .card{border:2px solid #dc3545!important}
+                        .pe-type{font-weight:600}
+                        .pe-type::placeholder{font-weight:400;font-style:italic;color:#adb5bd;opacity:1}
+                    </style>
+                    <script>
+                    (function () {
+                        const body = document.getElementById('pool-entries-body');
+                        if (!body) return;
+
+                        // Architecture this stack's AMI is pinned to (x86_64/arm64).
+                        // Drives the typeahead hard-filter + realtime mismatch flag.
+                        // Server (pool.py) remains the authoritative arch guard.
+                        const POOL_AMI_ARCH = ({{ software_stack_info.ami_arch | tojson }} || '').trim();
+
+                        // ---- realtime label validation (mirror server denylist) ----
+                        const LABEL_BAD = /[<>&"'\x00-\x1f\x7f]/;
+                        body.addEventListener('input', function (ev) {
+                            const el = ev.target;
+                            if (!el.classList || !el.classList.contains('pe-label')) return;
+                            const v = el.value || '';
+                            let msg = '';
+                            if (v.length > 24) msg = 'Label must be \u2264 24 characters';
+                            else if (LABEL_BAD.test(v)) msg = 'Label cannot contain < > & " \' or control characters';
+                            el.classList.toggle('is-invalid', !!msg);
+                            let hint = el.parentNode.querySelector('.pe-label-err');
+                            if (msg) {
+                                if (!hint) { hint = document.createElement('div'); hint.className = 'pe-label-err'; el.parentNode.appendChild(hint); }
+                                hint.textContent = msg;
+                            } else if (hint) { hint.remove(); }
+                        });
+
+                        // ---- instance-type typeahead ----
+                        let taBox = null, taInput = null, taTimer = null, taItems = [], taActive = -1;
+                        function closeTa() { if (taBox) { taBox.remove(); taBox = null; } taInput = null; taItems = []; taActive = -1; }
+                        // Spec line is rendered by the shared formatter in
+                        // static/js/edh_instance_specs.js so the admin card grid
+                        // and the end-user launch modal never drift apart.
+                        function specLine(s) {
+                            return (typeof edhFormatInstanceSpecs === 'function')
+                                ? edhFormatInstanceSpecs(s) : '';
+                        }
+                        function markTypeValid(el) {
+                            el.classList.add('is-valid'); el.classList.remove('is-invalid');
+                            var w = el.closest('.pe-type-wrap'); if (w) w.classList.add('is-ok');
+                            const err = el.parentNode.querySelector('.pe-type-err');
+                            if (err) err.remove();
+                            var card = el.closest('.pe-card'); if (card) card.classList.remove('pe-card-invalid');
+                            updatePoolSaveState();
+                        }
+                        function markTypeArchErr(el, arch) {
+                            el.classList.add('is-invalid'); el.classList.remove('is-valid');
+                            var w = el.closest('.pe-type-wrap'); if (w) w.classList.remove('is-ok');
+                            let err = el.parentNode.querySelector('.pe-type-err');
+                            if (!err) { err = document.createElement('div'); err.className = 'pe-type-err'; el.parentNode.appendChild(err); }
+                            err.textContent = 'needs ' + arch + ' (this stack\u2019s AMI)';
+                            var card = el.closest('.pe-card'); if (card) card.classList.add('pe-card-invalid');
+                            updatePoolSaveState();
+                        }
+                        function clearTypeValid(el) {
+                            el.classList.remove('is-valid'); el.classList.remove('is-invalid');
+                            var w = el.closest('.pe-type-wrap'); if (w) w.classList.remove('is-ok');
+                            const err = el.parentNode.querySelector('.pe-type-err');
+                            if (err) err.remove();
+                            var card = el.closest('.pe-card'); if (card) card.classList.remove('pe-card-invalid');
+                            updatePoolSaveState();
+                        }
+                        function updatePoolSaveState() {
+                            var _btn = document.getElementById('pool-save-btn');
+                            if (!_btn) return;
+                            var _anyBad = false;
+                            body.querySelectorAll('.pe-card:not(.pe-removing)').forEach(function (card) {
+                                var _el = card.querySelector('.pe-type');
+                                var _cr = card.querySelector('.pe-cr-id');
+                                if (!_el) return;
+                                var _v = (_el.value || '').trim();
+                                var _typeOk = _v && _el.classList.contains('is-valid');
+                                var _crOk = !_cr || !_cr.classList.contains('is-invalid');
+                                var _cardOk = _typeOk && _crOk;
+                                card.classList.toggle('pe-card-invalid', !_cardOk);
+                                if (!_cardOk) _anyBad = true;
+                            });
+                            _btn.disabled = _anyBad;
+                            _btn.classList.toggle('btn-primary', !_anyBad);
+                            _btn.classList.toggle('btn-secondary', _anyBad);
+                        }
+                        window._poolUpdateSaveState = updatePoolSaveState;
+                        body.addEventListener('focusout', function (ev) {
+                            var el = ev.target;
+                            if (!el || !el.classList || !el.classList.contains('pe-type')) return;
+                            var _v = (el.value || '').trim();
+                            if (_v && !el.classList.contains('is-valid')) {
+                                el.classList.add('is-invalid');
+                            }
+                            updatePoolSaveState();
+                        });
+                        body.addEventListener('focusin', function (ev) {
+                            var el = ev.target;
+                            if (!el || !el.classList || !el.classList.contains('pe-type')) return;
+                            if (el.classList.contains('is-invalid') && (el.value || '').trim()) {
+                                fetchTypes(el);
+                            }
+                        });
+                        // CR-ID validation: accept cr-<17 hex>, or a CR group ARN, or empty.
+                        var CR_ID_RE = /^cr-[0-9a-f]{17}$/;
+                        var CR_ARN_RE = /^arn:aws:ec2:[a-z0-9-]+:\d{12}:capacity-reservation-group\/.+$/;
+                        function _validateCrId(el) {
+                            var _v = (el.value || '').trim();
+                            var _ok = !_v || CR_ID_RE.test(_v) || CR_ARN_RE.test(_v);
+                            el.classList.toggle('is-invalid', !_ok);
+                            el.classList.toggle('is-valid', !!(_v && _ok));
+                            var card = el.closest('.pe-card');
+                            if (card) card.classList.toggle('pe-card-invalid', !_ok);
+                            updatePoolSaveState();
+                        }
+                        body.addEventListener('focusout', function (ev) {
+                            var el = ev.target;
+                            if (!el || !el.classList || !el.classList.contains('pe-cr-id')) return;
+                            _validateCrId(el);
+                        });
+                        body.addEventListener('input', function (ev) {
+                            var el = ev.target;
+                            if (!el || !el.classList || !el.classList.contains('pe-cr-id')) return;
+                            _validateCrId(el);
+                        });
+                        function usedTypes(exceptInput) {
+                            // types already held by OTHER cards (ignoring cards marked for removal)
+                            var set = {};
+                            body.querySelectorAll('.pe-card').forEach(function (card) {
+                                if (card.classList.contains('pe-removing')) return;
+                                var inp = card.querySelector('.pe-type');
+                                if (!inp || inp === exceptInput) return;
+                                var v = (inp.value || '').trim().toLowerCase();
+                                if (v) set[v] = true;
+                            });
+                            return set;
+                        }
+                        function markTypeDup(el) {
+                            el.classList.add('is-invalid'); el.classList.remove('is-valid');
+                            var w = el.closest('.pe-type-wrap'); if (w) w.classList.remove('is-ok');
+                            var err = el.parentNode.querySelector('.pe-type-err');
+                            if (!err) { err = document.createElement('div'); err.className = 'pe-type-err'; el.parentNode.appendChild(err); }
+                            err.textContent = '{{ _("Already added — one card per instance type") }}';
+                            var card = el.closest('.pe-card'); if (card) card.classList.add('pe-card-invalid');
+                            updatePoolSaveState();
+                        }
+                        function renderTa(input, results) {
+                            closeTaKeepInput();
+                            taInput = input;
+                            if (!results.length) return;
+                            taBox = document.createElement('div');
+                            taBox.className = 'it-typeahead-box';
+                            const r = input.getBoundingClientRect();
+                            taBox.style.left = (window.scrollX + r.left) + 'px';
+                            taBox.style.top = (window.scrollY + r.bottom) + 'px';
+                            results.forEach(function (s) {
+                                const it = document.createElement('div');
+                                it.className = 'it-ta-item' + (s.disabled ? ' it-ta-item-disabled' : '');
+                                it.innerHTML = '<span class="it-ta-type"></span> <span class="it-ta-specs"></span>';
+                                it.querySelector('.it-ta-type').textContent = s.type;
+                                it.querySelector('.it-ta-specs').textContent = s.disabled ? '{{ _("(already in pool)") }}' : specLine(s.specs);
+                                if (!s.disabled) {
+                                    it.addEventListener('mousedown', function (e) {
+                                        e.preventDefault();
+                                        input.value = s.type;
+                                        markTypeValid(input);
+                                        var _c = input.closest('.pe-card'); var _sp = _c && _c.querySelector('.pe-spec');
+                                        if (_sp) _sp.textContent = specLine(s.specs);
+                                        closeTa();
+                                    });
+                                }
+                                taBox.appendChild(it);
+                            });
+                            taItems = Array.prototype.slice.call(taBox.querySelectorAll('.it-ta-item:not(.it-ta-item-disabled)'));
+                            document.body.appendChild(taBox);
+                        }
+                        function closeTaKeepInput() { if (taBox) { taBox.remove(); taBox = null; } taItems = []; taActive = -1; }
+                        var _taCache = {};
+                        function fetchTypes(input) {
+                            const q = (input.value || '').trim();
+                            if (q.length < 1) { closeTa(); return; }
+                            let url = '/admin/virtual_desktops/instance_types?q=' + encodeURIComponent(q) + '&limit=25';
+                            if (POOL_AMI_ARCH) url += '&arch=' + encodeURIComponent(POOL_AMI_ARCH);
+                            var _cacheKey = url;
+                            function _resolve(results) {
+                                var used = usedTypes(input);
+                                var _display = results.map(function (s) {
+                                    var _dup = !!used[(s.type || '').toLowerCase()];
+                                    return { type: s.type, specs: s, disabled: _dup };
+                                });
+                                renderTa(input, _display);
+                                const v = (input.value || '').trim().toLowerCase();
+                                if (v && used[v]) { markTypeDup(input); return; }
+                                var _m = v ? results.find(function (s) { return (s.type || '').toLowerCase() === v; }) : null;
+                                if (_m) {
+                                    markTypeValid(input);
+                                    var _c = input.closest('.pe-card'); var _sp = _c && _c.querySelector('.pe-spec');
+                                    if (_sp) _sp.textContent = specLine(_m);
+                                } else {
+                                    if (v) {
+                                        input.classList.add('is-invalid'); input.classList.remove('is-valid');
+                                        var _w2 = input.closest('.pe-type-wrap'); if (_w2) _w2.classList.remove('is-ok');
+                                        var _card2 = input.closest('.pe-card'); if (_card2) _card2.classList.add('pe-card-invalid');
+                                        updatePoolSaveState();
+                                    } else {
+                                        clearTypeValid(input);
+                                    }
+                                    if (POOL_AMI_ARCH && v.indexOf('.') > 0) checkArchMismatch(input, v);
+                                }
+                            }
+                            if (_taCache[_cacheKey]) { _resolve(_taCache[_cacheKey]); return; }
+                            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                                .then(function (r) { return r.ok ? r.json() : null; })
+                                .then(function (j) {
+                                    if (!j) return;
+                                    var results = (j && j.message) ? j.message : (Array.isArray(j) ? j : []);
+                                    _taCache[_cacheKey] = results;
+                                    _resolve(results);
+                                })
+                                .catch(function () { /* typeahead is best-effort */ });
+                        }
+                        function checkArchMismatch(input, v) {
+                            const url = '/admin/virtual_desktops/instance_types?q=' + encodeURIComponent(v) + '&limit=25';
+                            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                                .then(function (r) { return r.ok ? r.json() : null; })
+                                .then(function (j) {
+                                    if (!j) return;
+                                    const all = (j && j.message) ? j.message : (Array.isArray(j) ? j : []);
+                                    // Only flag if the unfiltered set has this exact type (real type,
+                                    // wrong arch) and the field still holds that value.
+                                    if ((input.value || '').trim().toLowerCase() === v &&
+                                        all.some(function (s) { return (s.type || '').toLowerCase() === v; })) {
+                                        markTypeArchErr(input, POOL_AMI_ARCH);
+                                    }
+                                })
+                                .catch(function () { /* best-effort */ });
+                        }
+                        body.addEventListener('input', function (ev) {
+                            const el = ev.target;
+                            if (!el.classList || !el.classList.contains('pe-type')) return;
+                            clearTypeValid(el);
+                            clearTimeout(taTimer);
+                            taTimer = setTimeout(function () { fetchTypes(el); }, 200);
+                        });
+                        body.addEventListener('keydown', function (ev) {
+                            const el = ev.target;
+                            if (!el.classList || !el.classList.contains('pe-type') || !taBox) return;
+                            if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                                ev.preventDefault();
+                                if (taActive >= 0 && taItems[taActive]) taItems[taActive].classList.remove('active');
+                                taActive += (ev.key === 'ArrowDown') ? 1 : -1;
+                                if (taActive < 0) taActive = taItems.length - 1;
+                                if (taActive >= taItems.length) taActive = 0;
+                                if (taItems[taActive]) { taItems[taActive].classList.add('active'); taItems[taActive].scrollIntoView({ block: 'nearest' }); }
+                            } else if (ev.key === 'Enter' && taActive >= 0 && taItems[taActive]) {
+                                ev.preventDefault();
+                                el.value = taItems[taActive].querySelector('.it-ta-type').textContent;
+                                markTypeValid(el);
+                                closeTa();
+                            } else if (ev.key === 'Escape') {
+                                closeTa();
+                            }
+                        });
+                        function prefillSpec(input) {
+                            var v = (input.value || '').trim(); if (!v) return;
+                            var url = '/admin/virtual_desktops/instance_types?q=' + encodeURIComponent(v) + '&limit=25';
+                            if (POOL_AMI_ARCH) url += '&arch=' + encodeURIComponent(POOL_AMI_ARCH);
+                            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                                .then(function (r) { return r.ok ? r.json() : null; })
+                                .then(function (j) {
+                                    if (!j) return;
+                                    var results = (j && j.message) ? j.message : (Array.isArray(j) ? j : []);
+                                    var m = results.find(function (s) { return (s.type || '').toLowerCase() === v.toLowerCase(); });
+                                    var c = input.closest('.pe-card'); var sp = c && c.querySelector('.pe-spec');
+                                    if (m) { if (sp) sp.textContent = specLine(m); markTypeValid(input); }
+                                }).catch(function () { /* best-effort */ });
+                        }
+                        // Pre-warm spec sublines + validation for rows loaded from saved config
+                        body.querySelectorAll('.pe-type').forEach(function (inp) { if ((inp.value || '').trim()) prefillSpec(inp); });
+                        document.addEventListener('click', function (ev) {
+                            if (taBox && ev.target !== taInput && !taBox.contains(ev.target)) closeTa();
+                        });
+                    })();
+                    </script>
 
 
                     <a class="scroll-to-top rounded" href="#page-top">

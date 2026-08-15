@@ -1,30 +1,30 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
 ap-northeast-2:
   x86_64:
-    amazonlinux2: ami-0cd8e347970579475
-    amazonlinux2023: ami-0b818a04bc9c2133c
-    rhel10: ami-0e6c9f238f178db37
+    amazonlinux2: ami-072882a708e8e80bd
+    amazonlinux2023: ami-091c87ff6d6a3f749
+    rhel10: ami-0c4b27b3846ca6bfa
     rhel7: ami-00a8dd1293ad66f06
-    rhel8: ami-03439f5ccc1eeb443
-    rhel9: ami-02a93b8a3b331dc5b
-    rocky8: ami-05d54bac15231e6fa
-    rocky9: ami-06b18c6a9a323f75f
-    ubuntu2204: ami-04d25ae66444b2b10
-    ubuntu2404: ami-04f851a80be515079
+    rhel8: ami-0d8d22d1be1ef76ad
+    rhel9: ami-0437aa8a93f89e3c7
+    rocky8: ami-0516c1f2c7053c6b1
+    rocky9: ami-0514e5d311a74d68a
+    ubuntu2204: ami-0195f90f654bc4d8e
+    ubuntu2404: ami-05fa22e12f2cb12aa
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-0971e1487cad0d06b
-    amazonlinux2023: ami-0d1ae7d9137336663
-    rhel10: ami-0fc2fec733555bc36
-    rhel8: ami-0d9a4fbad4a21167f
-    rhel9: ami-003fb1fdda4f99f27
-    rocky8: ami-02dcfe91e6aa408f
-    rocky9: ami-00ae06c981dd2a581
-    ubuntu2204: ami-067069a366ec13118
-    ubuntu2404: ami-05d7ff9706f910b7d
+    amazonlinux2: ami-0ea02762ccbceefe3
+    amazonlinux2023: ami-0295839ad8d8df73f
+    rhel10: ami-0e69bd2ca3f148df0
+    rhel8: ami-06beca8bb67d8b3bc
+    rhel9: ami-0520ad73e459a0b66
+    rocky8: ami-0fd8ccb9fa4305529
+    rocky9: ami-01f5ca2d3216359ac
+    ubuntu2204: ami-0a195fc97fbdb0635
+    ubuntu2404: ami-04e3ca2324a305ad0
   x86_64_mac:
     macos15: ami-0447ac841298def68
-# SOCA AMI List for commercial partition generated 2026-02-27 08:45:15 UTC
+# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC

@@ -1,0 +1,513 @@
+#!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# DCV streaming metrics collector. Runs on every DCV server (Linux + Windows
+# share this script — Windows wraps it via Scheduled Task, Linux via
+# systemd timer). Polls the local DCV CLI for per-session streaming
+# quality counters and publishes them to CloudWatch.
+#
+# Why this exists:
+#   The DCV Session Manager Broker reports session lifecycle (create /
+#   delete / state) but does NOT relay streaming quality counters from
+#   the DCV server. Frame loss, network latency, and bandwidth are only
+#   observable on the DCV host itself via `dcv describe-session
+#   <session-id> --json`. Without this collector that signal is invisible
+#   to ops.
+#
+# Output:
+#   Namespace: EDH/DCVStreaming
+#   Metrics  : FrameLossRate, NetworkLatencyMs, BandwidthInBps,
+#              BandwidthOutBps, FrameQuality, DegradedSession,
+#              ActiveSessions
+#   Per-metric dimensions emitted (so we can aggregate or drill in):
+#     {ClusterId} only            -- fleet rollup
+#     {ClusterId, InstanceId}     -- per-host
+#     {ClusterId, SessionOwner}   -- per-user (no SessionId; cardinality)
+#
+# Counter handling:
+#   DCV exposes monotonic cumulative counters for num-frames-sent and
+#   num-frames-lost. We persist the previous snapshot in
+#   {STATE_DIR}/dcv_streaming_metrics.json and compute deltas. On the
+#   first run after boot we emit only gauges (latency, bandwidth) and
+#   skip frame loss until two snapshots exist.
+#
+# Cadence: 60s (matched to CloudWatch metric resolution)
+#
+# Cost guard:
+#   - At most N_SESSIONS * 3 dimension combinations per cycle
+#   - Active VDI hosts cap at ~50 concurrent sessions per dcvsmagent
+#   - Worst case: 150 datapoints/min/host, well below CW PutMetricData
+#     limits (1000 datapoints/req, 150 TPS account-level)
+
+import argparse
+import json
+import logging
+import os
+import platform
+import shutil
+import socket
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+try:
+    import boto3
+    from botocore.config import Config
+except ImportError as err:
+    sys.stderr.write(f"FATAL: boto3 not installed: {err}\n")
+    sys.exit(2)
+
+NAMESPACE = "EDH/DCVStreaming"
+STATE_DIR_LINUX = Path("/var/lib/edh/dcv_streaming")
+STATE_DIR_WINDOWS = Path(r"C:\ProgramData\EDH\dcv_streaming")
+DEGRADED_FRAME_LOSS_THRESHOLD = 0.05   # 5%
+DEGRADED_LATENCY_MS = 100              # 100ms p?? — DCV reports a single number
+LOG = logging.getLogger("dcv_streaming")
+
+
+def _is_windows():
+    return platform.system() == "Windows"
+
+
+def _state_dir():
+    return STATE_DIR_WINDOWS if _is_windows() else STATE_DIR_LINUX
+
+
+def _state_file():
+    return _state_dir() / "dcv_streaming_metrics.json"
+
+
+def _instance_id():
+    """Read the EC2 instance id via IMDSv2. Returns 'unknown' on failure
+    so a misconfigured host still publishes (with a placeholder dim)."""
+    try:
+        import urllib.request
+        token_req = urllib.request.Request(
+            "http://169.254.169.254/latest/api/token",
+            method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
+        )
+        token = urllib.request.urlopen(token_req, timeout=2).read().decode()
+        id_req = urllib.request.Request(
+            "http://169.254.169.254/latest/meta-data/instance-id",
+            headers={"X-aws-ec2-metadata-token": token},
+        )
+        return urllib.request.urlopen(id_req, timeout=2).read().decode()
+    except Exception as err:
+        LOG.warning("IMDSv2 instance-id lookup failed: %s", err)
+        return "unknown"
+
+
+def _region():
+    """Detect region from IMDSv2 (works on EC2). Fall back to env."""
+    try:
+        import urllib.request
+        token_req = urllib.request.Request(
+            "http://169.254.169.254/latest/api/token",
+            method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
+        )
+        token = urllib.request.urlopen(token_req, timeout=2).read().decode()
+        rgn_req = urllib.request.Request(
+            "http://169.254.169.254/latest/meta-data/placement/region",
+            headers={"X-aws-ec2-metadata-token": token},
+        )
+        return urllib.request.urlopen(rgn_req, timeout=2).read().decode()
+    except Exception:
+        return os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+
+
+def _dcv_cmd():
+    """Resolve the dcv CLI binary path for the running OS."""
+    if _is_windows():
+        # Standard install path. Allow override via env for test rigs.
+        return os.environ.get(
+            "DCV_CLI",
+            r"C:\Program Files\NICE\DCV\Server\bin\dcv.exe",
+        )
+    return shutil.which("dcv") or "/usr/bin/dcv"
+
+
+def _run_dcv(args, timeout=10):
+    """Run the dcv CLI with the given args. Returns parsed JSON or None.
+    Tolerant: any non-zero exit, parse failure, or timeout returns None
+    so the collector doesn't crash on transient broker/agent issues."""
+    cmd = [_dcv_cmd()] + args
+    try:
+        out = subprocess.check_output(
+            cmd,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+            text=True,
+        )
+    except subprocess.CalledProcessError as err:
+        LOG.warning("dcv %s failed (rc=%s): %s", " ".join(args), err.returncode, err.output)
+        return None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as err:
+        LOG.warning("dcv %s could not run: %s", " ".join(args), err)
+        return None
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError as err:
+        LOG.warning("dcv %s returned non-JSON: %s", " ".join(args), err)
+        return None
+
+
+def _list_sessions():
+    """Return a list of session-id strings for active sessions."""
+    data = _run_dcv(["list-sessions", "--json"])
+    if not data:
+        return []
+    # DCV CLI returns either a list of objects or a dict with a sessions key.
+    if isinstance(data, list):
+        return [s.get("id") or s.get("session-id") for s in data if isinstance(s, dict)]
+    if isinstance(data, dict) and "sessions" in data:
+        return [s.get("id") or s.get("session-id") for s in data["sessions"] if isinstance(s, dict)]
+    return []
+
+
+def _describe_session(session_id):
+    """Return the parsed JSON for a single session, or None."""
+    if not session_id:
+        return None
+    return _run_dcv(["describe-session", session_id, "--json"])
+
+
+def _list_connections(session_id):
+    """
+    Return the parsed JSON list of active client connections for a
+    session. Each entry carries:
+        id, username, user-agent, client-mode, client-address,
+        connection-time, last-interaction-time, first-frame-time,
+        transport ("websocket" | "quic" | "http" | "dvtc")
+    Returns [] on failure or no connections so callers can iterate
+    safely.
+    """
+    if not session_id:
+        return []
+    data = _run_dcv(["list-connections", session_id, "--json"])
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict) and "connections" in data:
+        return data["connections"] or []
+    return []
+
+
+def _load_state():
+    """Load previous-cycle counters from state file. Empty dict on miss."""
+    p = _state_file()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text())
+    except Exception as err:
+        LOG.warning("failed to load state file %s: %s", p, err)
+        return {}
+
+
+def _save_state(state):
+    """Persist counters atomically. Best-effort — collector continues
+    even if persistence fails; we just lose the next-cycle delta."""
+    p = _state_file()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state))
+        tmp.replace(p)
+    except Exception as err:
+        LOG.warning("failed to save state file %s: %s", p, err)
+
+
+def _extract_counters(session):
+    """
+    Pull the streaming-quality counters from a `dcv describe-session`
+    payload. The exact field names vary across DCV versions; we try
+    several keys and return None for anything missing.
+    """
+    if not isinstance(session, dict):
+        return {}
+    sid = session.get("id") or session.get("session-id")
+    owner = session.get("owner") or session.get("Owner") or "unknown"
+
+    # Preferred location in DCV 2024+: under `streaming` or top-level
+    s = session.get("streaming") or session.get("Streaming") or {}
+
+    def _g(*keys):
+        """Try a list of camelCase / kebab-case / snake_case keys."""
+        for k in keys:
+            for src in (s, session):
+                if isinstance(src, dict) and src.get(k) is not None:
+                    return src.get(k)
+        return None
+
+    return {
+        "session_id": sid,
+        "owner": owner,
+        "frames_sent": _g("num-frames-sent", "numFramesSent", "frames_sent"),
+        "frames_lost": _g("num-frames-lost", "numFramesLost", "frames_lost"),
+        "latency_ms": _g("network-latency-milliseconds", "networkLatencyMs", "network_latency_ms"),
+        "bw_in":  _g("bandwidth-in", "bandwidthIn", "bandwidth_in_bps"),
+        "bw_out": _g("bandwidth-out", "bandwidthOut", "bandwidth_out_bps"),
+        "frame_quality": _g("frame-quality", "frameQuality", "frame_quality"),
+    }
+
+
+def _delta(prev, curr):
+    """Subtract counters and clamp negatives to 0 (handles counter
+    resets after session restart)."""
+    if prev is None or curr is None:
+        return None
+    try:
+        d = float(curr) - float(prev)
+        return d if d >= 0 else 0
+    except (TypeError, ValueError):
+        return None
+
+
+def _frame_loss_rate(d_lost, d_sent):
+    if d_lost is None or d_sent is None:
+        return None
+    if d_sent <= 0:
+        return 0.0
+    return float(d_lost) / float(d_sent)
+
+
+def collect(cluster_id, instance_id, now_iso):
+    """One cycle. Returns (datapoints_to_publish, new_state)."""
+    session_ids = _list_sessions()
+    state = _load_state()
+    new_state = {"timestamp": now_iso, "sessions": {}}
+    datapoints = []
+
+    # Always emit the host-level ActiveSessions metric (even when 0)
+    # so the dashboard can show "fleet has N hosts reporting".
+    datapoints.append({
+        "MetricName": "ActiveSessions",
+        "Dimensions": [
+            {"Name": "ClusterId",  "Value": cluster_id},
+            {"Name": "InstanceId", "Value": instance_id},
+        ],
+        "Value": len(session_ids),
+        "Unit": "Count",
+    })
+
+    # Per-host transport breakdown: tally active connections by their
+    # transport (websocket / quic / http / dvtc / unknown). Emitted as
+    # both per-host and fleet-level. Always include a 0-value sample
+    # for the canonical four transports so dashboard charts can render
+    # a stacked bar even when one transport has no connections.
+    canonical_transports = ("websocket", "quic", "http", "dvtc")
+    transport_count = {t: 0 for t in canonical_transports}
+    transport_count["unknown"] = 0
+    sleeping_sessions = 0      # sessions with 0 active connections
+
+    degraded_count = 0
+    for sid in session_ids:
+        sess = _describe_session(sid)
+        c = _extract_counters(sess)
+        if not c.get("session_id"):
+            continue
+
+        # Tally connections by transport for this session
+        conns = _list_connections(c["session_id"])
+        if not conns:
+            sleeping_sessions += 1
+        for conn in conns:
+            t = (conn.get("transport") or "unknown").lower()
+            if t not in transport_count:
+                t = "unknown"
+            transport_count[t] += 1
+
+        new_state["sessions"][c["session_id"]] = {
+            "frames_sent": c["frames_sent"],
+            "frames_lost": c["frames_lost"],
+        }
+
+        prev = (state.get("sessions") or {}).get(c["session_id"]) or {}
+        d_sent = _delta(prev.get("frames_sent"), c["frames_sent"])
+        d_lost = _delta(prev.get("frames_lost"), c["frames_lost"])
+        floss = _frame_loss_rate(d_lost, d_sent)
+
+        is_degraded = False
+        if floss is not None and floss > DEGRADED_FRAME_LOSS_THRESHOLD:
+            is_degraded = True
+        if c.get("latency_ms") is not None and float(c["latency_ms"]) > DEGRADED_LATENCY_MS:
+            is_degraded = True
+        if is_degraded:
+            degraded_count += 1
+
+        # Per-session metrics: emit at fleet, host, and owner granularity
+        # (no SessionId dimension to keep cardinality bounded)
+        common_dims = [
+            {"Name": "ClusterId",     "Value": cluster_id},
+            {"Name": "InstanceId",    "Value": instance_id},
+            {"Name": "SessionOwner",  "Value": c.get("owner") or "unknown"},
+        ]
+
+        if floss is not None:
+            datapoints.append({
+                "MetricName": "FrameLossRate",
+                "Dimensions": common_dims,
+                "Value": floss,
+                "Unit": "None",
+            })
+        if c.get("latency_ms") is not None:
+            datapoints.append({
+                "MetricName": "NetworkLatencyMs",
+                "Dimensions": common_dims,
+                "Value": float(c["latency_ms"]),
+                "Unit": "Milliseconds",
+            })
+        if c.get("bw_in") is not None:
+            datapoints.append({
+                "MetricName": "BandwidthInBps",
+                "Dimensions": common_dims,
+                "Value": float(c["bw_in"]),
+                "Unit": "Bytes/Second",
+            })
+        if c.get("bw_out") is not None:
+            datapoints.append({
+                "MetricName": "BandwidthOutBps",
+                "Dimensions": common_dims,
+                "Value": float(c["bw_out"]),
+                "Unit": "Bytes/Second",
+            })
+        if c.get("frame_quality") is not None:
+            datapoints.append({
+                "MetricName": "FrameQuality",
+                "Dimensions": common_dims,
+                "Value": float(c["frame_quality"]),
+                "Unit": "None",
+            })
+
+    # Fleet-level DegradedSession count for the fleet-wide alarm. Emitted
+    # even when 0 so the alarm has data to evaluate.
+    datapoints.append({
+        "MetricName": "DegradedSessions",
+        "Dimensions": [{"Name": "ClusterId", "Value": cluster_id}],
+        "Value": degraded_count,
+        "Unit": "Count",
+    })
+    datapoints.append({
+        "MetricName": "ActiveSessions",
+        "Dimensions": [{"Name": "ClusterId", "Value": cluster_id}],
+        "Value": len(session_ids),
+        "Unit": "Count",
+    })
+
+    # Sessions with no active connections — sessions that exist in the
+    # broker but no client is currently connected. Useful for spotting
+    # forgotten sessions (e.g. screen-locked + idle).
+    datapoints.append({
+        "MetricName": "SleepingSessions",
+        "Dimensions": [
+            {"Name": "ClusterId",  "Value": cluster_id},
+            {"Name": "InstanceId", "Value": instance_id},
+        ],
+        "Value": sleeping_sessions,
+        "Unit": "Count",
+    })
+    datapoints.append({
+        "MetricName": "SleepingSessions",
+        "Dimensions": [{"Name": "ClusterId", "Value": cluster_id}],
+        "Value": sleeping_sessions,
+        "Unit": "Count",
+    })
+
+    # Active connections by transport. Emit both per-host and fleet-level
+    # for the canonical transport set so dashboard charts can stack them
+    # cleanly even when one transport is currently unused.
+    for transport, count in transport_count.items():
+        # Skip "unknown" if always 0 to keep noise down
+        if transport == "unknown" and count == 0:
+            continue
+        datapoints.append({
+            "MetricName": "ActiveConnections",
+            "Dimensions": [
+                {"Name": "ClusterId", "Value": cluster_id},
+                {"Name": "InstanceId", "Value": instance_id},
+                {"Name": "Transport", "Value": transport},
+            ],
+            "Value": count,
+            "Unit": "Count",
+        })
+        datapoints.append({
+            "MetricName": "ActiveConnections",
+            "Dimensions": [
+                {"Name": "ClusterId", "Value": cluster_id},
+                {"Name": "Transport", "Value": transport},
+            ],
+            "Value": count,
+            "Unit": "Count",
+        })
+
+    return datapoints, new_state
+
+
+def publish(cw, datapoints):
+    """Send datapoints to CloudWatch in batches of 1000 (the API limit).
+    Returns the number of datapoints accepted."""
+    if not datapoints:
+        return 0
+    accepted = 0
+    BATCH = 1000
+    for i in range(0, len(datapoints), BATCH):
+        chunk = datapoints[i:i + BATCH]
+        try:
+            cw.put_metric_data(Namespace=NAMESPACE, MetricData=chunk)
+            accepted += len(chunk)
+        except Exception as err:
+            LOG.error("PutMetricData chunk %d-%d failed: %s", i, i + len(chunk), err)
+    return accepted
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--cluster-id", required=True, help="EDH cluster id (Fleet Name)")
+    p.add_argument("--region", default=None, help="AWS region (default: IMDS)")
+    p.add_argument("--once", action="store_true", help="Run one cycle and exit (default)")
+    p.add_argument("--verbose", action="store_true")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Collect and print datapoints; do NOT call CloudWatch")
+    args = p.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s [dcv_streaming] %(message)s",
+    )
+
+    region = args.region or _region()
+    instance_id = _instance_id()
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+    LOG.info("collecting cluster=%s instance=%s region=%s host=%s",
+             args.cluster_id, instance_id, region, socket.gethostname())
+
+    datapoints, new_state = collect(args.cluster_id, instance_id, now)
+    LOG.info("collected %d datapoints across %d sessions",
+             len(datapoints), len(new_state.get("sessions") or {}))
+
+    _save_state(new_state)
+
+    if args.dry_run:
+        for dp in datapoints:
+            LOG.info("DRY %s = %s %s (dims=%s)",
+                     dp["MetricName"], dp["Value"], dp.get("Unit", ""),
+                     {d["Name"]: d["Value"] for d in dp["Dimensions"]})
+        return 0
+
+    cw = boto3.client(
+        "cloudwatch",
+        region_name=region,
+        config=Config(retries={"mode": "standard", "max_attempts": 5}),
+    )
+    accepted = publish(cw, datapoints)
+    LOG.info("published %d/%d datapoints", accepted, len(datapoints))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

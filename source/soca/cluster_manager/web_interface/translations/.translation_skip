@@ -1,0 +1,66 @@
+# SOCA Translation Skip List
+# Strings listed here will NOT be auto-translated by update_translations.py
+# This preserves your manually tuned translations.
+#
+# Format:
+#   - One msgid per line (exact match)
+#   - Trailing * for prefix match: "Submit*" skips "Submit", "Submit Job", etc.
+#   - Lines starting with # are comments
+#   - Blank lines are ignored
+#
+# Examples:
+# Submit Job
+# Error during*
+
+AMI
+Amazon
+Amazon Linux
+Amazon Machine Images
+Amazon Web Services
+Application Profiles
+AWS Batch
+Cluster
+EDH
+(EDH)
+EDH VERSION
+EDH VERSION 26.8.0
+Elastic Load Balancer
+Embeeded Development
+Engineering Development Hub
+Engineering Development Hub (EDH)
+load balancer
+loadbalancer
+Login Node*
+login node*
+login node(s)*
+Login node(s)*
+Login Nodes*
+login nodes*
+OpenLDAP
+OpenPBS
+Red Hat Enterprise Linux
+Rocky
+Rocky Linux
+Scale Out Computing on AWS
+Scale-Out Computing on AWS (SOCA)
+Scheduler
+Schedulers
+SOCA
+Software Stacks
+Target Node
+target node
+target nodes
+Target Nodes
+Ubuntu
+Upload
+upload
+User Data
+user data
+User Data Template
+user data template
+Windows
+Windows Server
+Workflow
+workflow
+Workflows
+workflows

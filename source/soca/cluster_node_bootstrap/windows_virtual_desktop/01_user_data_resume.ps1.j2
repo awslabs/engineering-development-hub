@@ -1,0 +1,73 @@
+<powershell>
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# --- WARM-RESUME user_data (Saved Desktops / Resume-From) ---------------------------------
+# Rendered for a resume launch from a specialized (create-image) AMI. The image is ALREADY
+# provisioned (DCV installed, domain-joined, profile intact), so this stub does NOT run the
+# cold provisioning sequence (no 02_setup / package install / AD join / rename). It only:
+#   1. Heals the AD secure channel for the EXISTING identity (resume_ad_heal.ps.j2).
+#   2. Ensures DCV server + Session Manager agent are running and re-registers the agent so
+#      the broker can place the FRESH session (server-side authentication_token was cleared).
+#   3. Signals ready.
+# Cold vs resume are two explicit render paths (design D3); this file is NEVER used for a cold
+# launch.
+
+$ProgressPreference = 'SilentlyContinue'
+
+{% include "templates/windows/common.ps.j2" %}
+
+{% include "templates/windows/awscli.ps.j2" %}
+
+Log-Info -Message "Starting WARM-RESUME user data setup"
+
+$env:EDHBootstrapAssetsFolder = "C:\ProgramData\EDH\${instanceId}"
+[System.Environment]::SetEnvironmentVariable('EDHBootstrapAssetsFolder', $env:EDHBootstrapAssetsFolder, [System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('EDH_DCV_SESSION_OWNER', "{{ context.get('/dcv/SessionOwner', '') }}", [System.EnvironmentVariableTarget]::Machine)
+$EDHBootstrapAssetsFolder = $env:EDHBootstrapAssetsFolder
+
+if (-not (Test-Path -Path "${EDHBootstrapAssetsFolder}")) {
+    New-Item -Path "${EDHBootstrapAssetsFolder}" -ItemType Directory | Out-Null
+}
+
+# Idempotency: skip if this resume boot already completed for this instance.
+if (Test-Path -Path "${EDHBootstrapAssetsFolder}\resume_completed_${instanceId}.txt") {
+    Log-Info -Message "Resume already completed for ${instanceId}; skipping"
+    exit 0
+}
+
+# --- 1. Heal the AD secure channel (reset tier; ODJ tier stubbed) -------------------------
+# resume_ad_heal.ps.j2 defines and invokes Invoke-SocaResumeAdHeal. Uses Log-Info/Log-Warning
+# and Get-Secret from common.ps.j2 (included above).
+$ResumeHealLocal = "${EDHBootstrapAssetsFolder}\resume_ad_heal.ps1"
+Log-Info -Message "Downloading resume AD-heal from {{ context.get('/job/ResumeAdHealS3', '') }}"
+Invoke-SOCAAwsCli s3 cp "{{ context.get('/job/ResumeAdHealS3', '') }}" "$ResumeHealLocal"
+if (-not (Test-Path -Path $ResumeHealLocal)) {
+    Exit-Fail -Message "Resume ABORTED: failed to download resume AD-heal script to $ResumeHealLocal -- AD secure-channel heal cannot be skipped. Refusing to signal ready."
+}
+. "$ResumeHealLocal"
+
+# --- 2. Ensure DCV is up and re-register the agent with the broker ------------------------
+# The web tier cleared authentication_token so ensure_broker_session mints a NEW broker
+# session; restarting the SM agent forces it to re-register so the broker can place it.
+foreach ($svc in @('dcvserver', 'DcvSessionManagerAgent')) {
+    $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
+    if (-not $s) {
+        Exit-Fail -Message "Resume ABORTED: required DCV service $svc not found -- AMI not resume-capable (DCV/SM agent not installed, likely captured from an interrupted VDI provisioning). Refusing to signal ready."
+    }
+    try {
+        if ($s.StartType -eq 'Disabled') { Set-Service -Name $svc -StartupType Automatic }
+        Restart-Service -Name $svc -Force -ErrorAction Stop
+        Log-Info -Message "Resume: restarted service $svc for broker re-registration"
+    } catch {
+        Log-Warning -Message "Resume: could not restart service $svc (non-fatal): $($_.Exception.Message)"
+    }
+}
+
+# --- 3. Signal ready ----------------------------------------------------------------------
+Set-Content -Path "${EDHBootstrapAssetsFolder}\resume_completed_${instanceId}.txt" -Value (Get-Date -Format o) -Force
+Log-Info -Message "WARM-RESUME user data complete for ${instanceId}"
+
+</powershell>
+<persist>true</persist>

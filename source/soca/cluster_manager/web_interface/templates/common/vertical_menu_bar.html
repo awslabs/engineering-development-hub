@@ -7,17 +7,20 @@
         </a>
         <div id="collapseProfile" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="/ssh">My SSH access</a>
-                <a class="collapse-item" href="/my_account">My Account</a>
-                <a class="collapse-item" href="/my_api_key">My API Key (Developer mode)</a>
+                <a class="collapse-item" href="/ssh">{{ _("My SSH access") }}</a>
+                <a class="collapse-item" href="/my_account">{{ _("My Account") }}</a>
+                <a class="collapse-item" href="/my_api_key">{{ _("My API Key") }}</a>
                 <hr class="dropdown-divider">
-                <a class="collapse-item" href="/logout">Logout</a>
+                <form action="/logout" method="post" class="m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="collapse-item border-0 bg-transparent w-100 text-start">{{ _("Logout") }}</button>
+                </form>
             </div>
         </div>
     </li> -->
 
     <div class="mt-3 sidebar-heading d-flex align-items-center">
-        Menu
+        {{ _("Menu") }}
     </div>
 
     
@@ -32,7 +35,21 @@
     {% if fb_show %}
     <li class="nav-item {{ 'active-section' if '/file_explorer' in CURRENT_PATH else '' }}">
         <a class="nav-link" href="/file_explorer">
-            <span>File Explorer</span>
+            <span>{{ _("File Explorer") }}</span>
+        </a>
+    </li>
+    {% endif %}
+
+    {% set webshell_flag = feature_flags.get("WEBSHELL", {}) %}
+    {% set ws_allowed = webshell_flag.get("allowed_users", []) %}
+    {% set ws_denied = webshell_flag.get("denied_users", []) %}
+    {% set ws_show = webshell_flag.get("enabled", True)
+        and (ws_allowed == [] or user in ws_allowed)
+        and user not in ws_denied %}
+    {% if ws_show %}
+    <li class="nav-item {{ 'active-section' if '/web_terminal' in CURRENT_PATH else '' }}">
+        <a class="nav-link" href="/web_terminal">
+            <span>{{ _("Web Terminal") }}</span>
         </a>
     </li>
     {% endif %}
@@ -46,7 +63,7 @@
     {% if vd_show %}
     <li class="nav-item {{ 'active-section' if CURRENT_PATH.endswith('/virtual_desktops') else '' }}">
         <a class="nav-link" href="/virtual_desktops">
-            <span>Virtual Desktops</span>
+            <span>{{ _("Virtual Desktops") }}</span>
         </a>
     </li>
     {% endif %}
@@ -60,7 +77,7 @@
     {% if tn_show %}
     <li class="nav-item {{ 'active-section' if CURRENT_PATH.endswith('/target_nodes') else '' }}">
         <a class="nav-link" href="/target_nodes">
-            <span>Target Nodes</span>
+            <span>{{ _("Target Nodes") }}</span>
         </a>
     </li>
     {% endif %}
@@ -74,13 +91,13 @@
     {% if containers_eks_show %}
     <li class="nav-item {{ 'active-section' if CURRENT_PATH.endswith('/containers/images') or CURRENT_PATH.endswith('/containers/eks/list') or CURRENT_PATH.endswith('/containers/eks/setup') else '' }}">
         <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseEKSContainer" aria-expanded="true" aria-controls="collapseContainer">
-            <span class="flex-grow-1">Amazon EKS Containers</span>
+            <span class="flex-grow-1">{{ _("Amazon EKS Containers") }}</span>
              <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
         </a>
         <div id="collapseEKSContainer" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="/containers/images">Launch EKS Container</a>
-                <a class="collapse-item" href="/containers/eks/list">My EKS Containers</a>
+                <a class="collapse-item" href="/containers/images">{{ _("Launch EKS Container") }}</a>
+                <a class="collapse-item" href="/containers/eks/list">{{ _("My EKS Containers") }}</a>
             </div>
         </div>
     </li>
@@ -95,13 +112,13 @@
     {% if containers_batch_show %}
     <li class="nav-item {{ 'active-section' if CURRENT_PATH.endswith('/containers/batch/setup') or CURRENT_PATH.endswith('/containers/batch/list') else '' }}">
         <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseBatchContainer" aria-expanded="true" aria-controls="collapseContainer">
-            <span class="flex-grow-1">AWS Batch Containers</span>
+            <span class="flex-grow-1">{{ _("AWS Batch Containers") }}</span>
              <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
         </a>
         <div id="collapseBatchContainer" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">            
-                    <a class="collapse-item" href="/containers/batch/setup">Launch Batch Job</a>
-                    <a class="collapse-item" href="/containers/batch/list">My Batch Jobs</a>
+                    <a class="collapse-item" href="/containers/batch/setup">{{ _("Launch Batch Job") }}</a>
+                    <a class="collapse-item" href="/containers/batch/list">{{ _("My Batch Jobs") }}</a>
             </div>
         </div>
     </li>
@@ -116,7 +133,7 @@
     {% if hpc_show %}
     <li class="nav-item  {{ 'active-section' if CURRENT_PATH == '/my_jobs' else '' }}">
         <a class="nav-link" href="/my_jobs">
-            <span>My HPC Jobs</span>
+            <span>{{ _("My HPC Jobs") }}</span>
         </a>
     </li>
     {% endif %}
@@ -129,11 +146,11 @@
         and user not in analytics_denied %}
     {% if analytics_show %}
     <hr class="sidebar-divider">
-    <div class="sidebar-heading">Analytics / Budget</div>
+    <div class="sidebar-heading">{{ _("Analytics / Budget") }}</div>
 
     <li class="nav-item">
         <a class="nav-link" href="/my_activity">
-            <span>Cluster Metrics</span>
+            <span>{{ _("Cluster Metrics") }}</span>
         </a>
     </li>
 
@@ -141,85 +158,139 @@
         <a class="nav-link"
            href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/budget/prevent-overspend-hpc-cost-on-aws-soca/"
            target="_blank" rel="noopener,noreferrer">
-            <span>Cost Management <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+            <span>{{ _("Cost Management") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
         </a>
     </li>
     {% endif %}
 
     {% if admin %}
     <hr class="sidebar-divider d-none d-md-block">
-    <div class="sidebar-heading">Admin Section</div>
+    <div class="sidebar-heading">{{ _("Admin Section") }}</div>
 
     <li class="nav-item">
         <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseProjects" aria-expanded="true" aria-controls="collapseVDI">
-            <span class="flex-grow-1">EDH Projects</span>
+            <span class="flex-grow-1">{{ _("EDH Projects") }}</span>
             <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
 
         </a>
         <div id="collapseProjects" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="/admin/projects">Projects</a>
-                <a class="collapse-item" href="/admin/projects/by_user">User Membership</a>
+                <a class="collapse-item" href="/admin/projects">{{ _("Projects") }}</a>
+                <a class="collapse-item" href="/admin/projects/by_user">{{ _("User Membership") }}</a>
             </div>
         </div>
     </li>
 
     <li class="nav-item">
         <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseProfile" aria-expanded="true" aria-controls="collapseProfile">
-            <span class="flex-grow-1">EDH Profiles</span>
+            <span class="flex-grow-1">{{ _("EDH Profiles") }}</span>
             <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
 
         </a>
         <div id="collapseProfile" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="/admin/virtual_desktops/profiles">Virtual Desktop</a>
-                <a class="collapse-item" href="/admin/target_nodes/profiles">Target Node</a>
+                <a class="collapse-item" href="/admin/virtual_desktops/profiles">{{ _("Virtual Desktop") }}</a>
+                <a class="collapse-item" href="/admin/target_nodes/profiles">{{ _("Target Node") }}</a>
             </div>
         </div>
     </li>
 
     <li class="nav-item">
     <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapeSoftareStack" aria-expanded="true" aria-controls="collapeSoftareStack">
-        <span class="flex-grow-1">EDH Software Stacks</span>
+        <span class="flex-grow-1">{{ _("EDH Software Stacks") }}</span>
         <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
 
     </a>
         <div id="collapeSoftareStack" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="/admin/virtual_desktops/software_stacks">Virtual Desktop</a>
-                <a class="collapse-item" href="/admin/target_nodes/software_stacks">Target Nodes</a>
+                <a class="collapse-item" href="/admin/virtual_desktops/software_stacks">{{ _("Virtual Desktop") }}</a>
+                <a class="collapse-item" href="/admin/target_nodes/software_stacks">{{ _("Target Nodes") }}</a>
+            </div>
+        </div>
+    </li>
+
+
+
+
+<li class="nav-item">
+    <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapeDCVSettings" aria-expanded="true" aria-controls="collapeSoftareStack">
+        <span class="flex-grow-1">{{ _("Virtual Desktops / DCV") }}</span>
+        <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i>
+
+    </a>
+        <div id="collapeDCVSettings" class="collapse">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="/admin/virtual_desktops/base_image_acceleration">{{ _("Local Acceleration Mirror") }}</a>
+                {% set golden_image_flag = feature_flags.get("GOLDEN_IMAGE_PUBLISH", {}) %}
+                {% set gi_allowed = golden_image_flag.get("allowed_users", []) %}
+                {% set gi_denied = golden_image_flag.get("denied_users", []) %}
+                {% set gi_show = golden_image_flag.get("enabled", False) and (gi_allowed == [] or user in gi_allowed) and user not in gi_denied %}
+                {% if gi_show %}
+                <a class="collapse-item" href="/admin/virtual_desktops/golden_images">{{ _("Golden Images") }}</a>
+                {% endif %}
+                <a class="collapse-item" href="/admin/virtual_desktops/session_sharing">{{ _("DCV Session Sharing") }}</a>
+                <a class="collapse-item" href="/admin/virtual_desktops/list_all">{{ _("List all VDI") }}</a>
+                <a class="collapse-item" href="/admin/virtual_desktops/hardware_profiles">{{ _("Hardware Profiles") }}</a>
+
+            </div>
+        </div>
+    </li>
+
+
+    <li class="nav-item">
+        <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseClusterStatus" aria-expanded="true" aria-controls="collapseClusterStatus">
+            <span class="flex-grow-1">{{ _("Cluster Status") }}</span>
+                         <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i></a>
+        <div id="collapseClusterStatus" class="collapse">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="/admin/cluster_status/dcv_overview">{{ _("Fleet Overview") }}</a>
             </div>
         </div>
     </li>
 
     <li class="nav-item">
         <a class="nav-link align-items-center w-100" href="#" data-bs-toggle="collapse" data-bs-target="#collapseAdvance" aria-expanded="true" aria-controls="collapseAdvance">
-            <span class="flex-grow-1">Advanced Settings</span>
+            <span class="flex-grow-1">{{ _("Advanced Settings") }}</span>
                          <i class="fa-solid fa-angles-down" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%);"></i></a>
         <div id="collapseAdvance" class="collapse">
             <div class="bg-white py-2 collapse-inner rounded">
-                <h6 class="collapse-header">Virtual Desktops</h6>
-                <a class="collapse-item" href="/admin/virtual_desktops/list_all">List all Virtual Desktops</a>
-                <h6 class="collapse-header">Target Nodes</h6>
-                 <a class="collapse-item" href="/admin/target_nodes/user_data">User Data Templates</a>
+                {% set config_editor_flag = feature_flags.get("CONFIG_EDITOR", {}) %}
+                {% set ce_allowed = config_editor_flag.get("allowed_users", []) %}
+                {% set ce_denied = config_editor_flag.get("denied_users", []) %}
+                {% set ce_show = config_editor_flag.get("enabled", False) and (ce_allowed == [] or user in ce_allowed) and user not in ce_denied %}
+                {% if ce_show %}
+                <h6 class="collapse-header">{{ _("Cluster") }}</h6>
+                <a class="collapse-item" href="/admin/config/editor">{{ _("Configuration Parameters") }}</a>
+                {% endif %}
+                <h6 class="collapse-header">{{ _("Target Nodes") }}</h6>
+                 <a class="collapse-item" href="/admin/target_nodes/user_data">{{ _("User Data Templates") }}</a>
+                {% set tk_flag = feature_flags.get("MY_API_TOKENS", {}) %}
+                {% set tk_allowed = tk_flag.get("allowed_users", []) %}
+                {% set tk_denied = tk_flag.get("denied_users", []) %}
+                {% set tk_show = tk_flag.get("enabled", False) and (tk_allowed == [] or user in tk_allowed) and user not in tk_denied %}
+                {% if tk_show %}
+                    <h6 class="collapse-header">{{ _("Security") }}</h6>
+                    <a class="collapse-item" href="/admin/tokens/audit">{{ _("API Tokens Audit") }}</a>
+                {% endif %}
+
             </div>
         </div>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="/admin/users">
-            <span>Users Management</span>
+            <span>{{ _("Users Management") }}</span>
         </a>
     </li>
 
     <li class="nav-item">
         <a class="nav-link" href="/admin/groups">
-            <span>Groups Management</span>
+            <span>{{ _("Groups Management") }}</span>
         </a>
     </li>
 
     <li class="nav-item">
         <a class="nav-link" href="/admin/applications">
-            <span>Workflows Management</span>
+            <span>{{ _("Workflows Management") }}</span>
         </a>
     </li>
     {% endif %}
@@ -229,3 +300,7 @@
         </div>
 
 </ul>
+
+<div id="sidebarOpenBtn" style="display:none; position:fixed; top:50%; left:0; transform:translateY(-50%); z-index:1050; cursor:pointer; background:#4e73df; color:#fff; padding:10px 8px; border-radius:0 4px 4px 0; font-size:1.2rem;">
+    <i class="fas fa-bars"></i>
+</div>

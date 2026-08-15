@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -22,6 +22,8 @@
 {% include 'common/horizontal_menu_bar.html' %}
 <div id="wrapper">
     {% include 'common/vertical_menu_bar.html' %}
+    {% include 'common/js_i18n.html' %}
+
     <div id="content-wrapper" class="d-flex flex-column">
         <div id="content" style="margin-top: 20px;">
             <div class="container-fluid">
@@ -33,14 +35,14 @@
                 
                             <div class="card-body">
                                     <div class="d-flex align-items-center">
-                                        <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed.">File Explorer <i class="fas fa-question-circle"></i></h3>
+                                        <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed.") }}">{{ _("File Explorer") }} <i class="fas fa-question-circle"></i></h3>
                                     </div>
                                  <ul class="nav nav-tabs" id="myTab" role="tablist">
                                   <li class="nav-item">
-                                    <a class="nav-link active" id="explorer-tab" data-bs-toggle="tab" href="#explorer" role="tab" aria-controls="sftp" aria-selected="true">File Explorer</a>
+                                    <a class="nav-link active" id="explorer-tab" data-bs-toggle="tab" href="#explorer" role="tab" aria-controls="sftp" aria-selected="true">{{ _("File Explorer") }}</a>
                                   </li>
                                   <li class="nav-item">
-                                    <a class="nav-link" id="edh-transfer-tab" data-bs-toggle="tab" href="#edh-transfer" role="tab" aria-controls="edh-transfer" aria-selected="false">Data Transfer to/from EDH</a>
+                                    <a class="nav-link" id="edh-transfer-tab" data-bs-toggle="tab" href="#edh-transfer" role="tab" aria-controls="edh-transfer" aria-selected="false">{{ _("Data Transfer to/from EDH") }}</a>
                                   </li>
                                 </ul>
 
@@ -48,7 +50,7 @@
                                 <div class="tab-pane fade show active" id="explorer" role="tabpanel" aria-labelledby="explorer-tab">
                                     <br>
 
-                                    <nav aria-label="breadcrumb">
+                                    <nav aria-label="{{ _("breadcrumb") }}">
                                         <ol class="breadcrumb">
                                             <li class="breadcrumb-item"><a href="/file_explorer?ts={{ timestamp }}"><i
                                                     class="fas fa-home"></i></a></li>
@@ -65,7 +67,7 @@
                                                     <button data-toggle="tooltip" data-placement="top"
                                                             title="This folder is cached for better performance and automatically refreshed every {{ default_cache_time/ 60 }} minutes. If you have made a change via SSH/Graphical session and this is not visible yet, you can manually invalidate the cache to load the latest updates"
                                                             class="btn btn-secondary btn-sm" type="submit"><i
-                                                            class="fas fa-sync"></i> Missing files? Refresh folder cache
+                                                            class="fas fa-sync"></i> {{ _("Missing files? Refresh folder cache") }}
                                                     </button>
                                                 </form>
                                             {% endif %}
@@ -78,14 +80,20 @@
                                     <div class="modal-dialog modal-xl" role="document">
                                         <div class="modal-content">
                                             <div class="modal-header">
-                                                <h5 class="modal-title" id="exampleModalLabel">Upload your content to
-                                                    EDH</h5>
+                                                <h5 class="modal-title" id="exampleModalLabel">{{ _("Upload your content to EDH") }}</h5>
                                                 <button type="button" class="close" data-bs-dismiss="modal"
-                                                        aria-label="Close">
-                                                    <span aria-hidden="true">&times;</span>
+                                                        aria-label="{{ _("Close") }}">
+                                                    <span aria-hidden="true">{{ _("&times;") }}</span>
                                                 </button>
                                             </div>
                                             <div class="modal-body">
+                                                {% if transfer_engine == 'v2' %}
+                                                <div id="uppy-resume-hint" style="display:none;background:#f8f9fa;color:#212529;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;margin:0 0 8px 0;font-size:13px;"></div>
+                                                <style>#uppy-dashboard .uppy-Dashboard-Item-statusSize,#uppy-dashboard .uppy-StatusBar-statusPrimary,#uppy-dashboard .uppy-StatusBar-statusSecondary,#uppy-dashboard .uppy-StatusBar-additionalInfo,#uppy-dashboard .uppy-StatusBar-spinner,#uppy-dashboard .uppy-StatusBar-statusIndicator{display:none !important;}</style>
+                                                <div id="uppy-dashboard"></div>
+                                                <div id="uppy-upload-rate" style="display:none;background:#f8f9fa;border:1px solid #e3e7eb;border-radius:8px;padding:10px 12px;color:#212529;font-size:13px;margin:8px 0 0 0;"></div>
+                                                <div class="mt-2 text-muted">{{ _("Uploads are resumable — you can pause, and a dropped connection continues where it left off.") }}</div>
+                                                {% else %}
                                                 <div id="update-div"></div>
                                                 <form action="/upload" id="drop" class="dropzone"
                                                     style="border: 2px dashed #0087F7;height: 500px">
@@ -94,11 +102,9 @@
                                                     </div>
                                                 </form>
                                                 <hr>
-                                                Do not close the page while uploading.<br>
-                                                Upload limited to {{ max_upload_size / 1024 }} GB
-                                                and {{ max_upload_timeout / 60000 }} minutes timeout. Use the <a
-                                                    href="/sftp">EDH SFTP solution</a> for larger files or edit the
-                                                configuration files.
+                                                {{ _("Do not close the page while uploading.") }}<br>
+                                                {% trans size=(max_upload_size / 1024)|int, minutes=(max_upload_timeout / 60000)|int, start_a='<a href="/sftp">'|safe, end_a='</a>'|safe %}Upload limited to {{ size }} GB and {{ minutes }} minutes timeout. Use the {{ start_a }}EDH SFTP solution{{ end_a }} for larger files or edit the configuration files.{% endtrans %}
+                                                {% endif %}
                                             </div>
 
                                         </div>
@@ -107,7 +113,7 @@
                                 <div class="row">
                                     <div class="col-md-5">
                                         <input type="text" id="searchFiles" class="form-control"
-                                            placeholder="Search for a file or a folder" aria-controls="list_files_table">
+                                            placeholder="{{ _("Search for a file or a folder") }}" aria-controls="list_files_table">
                                     </div>
                                     {% if get_all_uid_count > 0 %}
                                         <div class="col-md-2">
@@ -115,14 +121,14 @@
                                                 <a href="/file_explorer/download_all?path={{ path | urlencode }}&ts={{ timestamp }}">
                                                     <button type="button" data-toggle="tooltip" data-placement="top"
                                                             title="Download all {{ get_all_uid_count }} files on this folder"
-                                                            class="btn btn-primary form-control">Download all
+                                                            class="btn btn-primary form-control">{{ _("Download all") }}
                                                     </button>
                                                 </a>
                                             </div>
                                             <a id="link_download_selected" href="#" style="display: none">
                                                 <button id="btn_download_selected" data-toggle="tooltip"
-                                                        data-placement="top" title="Download selected files" type="button"
-                                                        class="btn btn-primary form-control">Download selected
+                                                        data-placement="top" title="{{ _("Download selected files") }}" type="button"
+                                                        class="btn btn-primary form-control">{{ _("Download selected") }}
                                                 </button>
                                             </a>
                                         </div>
@@ -131,11 +137,11 @@
                                         <form class="form-inline" method="POST" action="/file_explorer/create_folder">
                                             <div class="input-group">
                                                 <input type="text" size="25" class="form-control" name="folder_name"
-                                                    required placeholder="Folder Name">
+                                                    required placeholder="{{ _("Folder Name") }}">
                                                 <div class="input-group-append">
                                                     <input type="hidden" name="path" value="{{ path }}/">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button class="btn btn-success" style="border: 0px solid #00802f" type="submit">Create Folder</button>
+                                                    <button class="btn btn-success" style="border: 0px solid #00802f" type="submit">{{ _("Create Folder") }}</button>
                                                 </div>
                                             </div>
                                         </form>
@@ -143,7 +149,7 @@
 
                                     <div class="col-md-2">
                                         <button type="button" class="btn btn-warning form-control" data-bs-toggle="modal"
-                                                data-bs-target="#uploadModal">Upload file(s)
+                                                data-bs-target="#uploadModal">{{ _("Upload file(s)") }}
                                         </button>
                                     </div>
 
@@ -155,10 +161,10 @@
                                         <table id="list_files_table" class="table row-border" style="width:100%">
                                             <thead>
                                             <tr>
-                                                <th>Name</th>
-                                                <th>Type</th>
-                                                <th>Size</th>
-                                                <th>Last Modified</th>
+                                                <th>{{ _("Name") }}</th>
+                                                <th>{{ _("Type") }}</th>
+                                                <th>{{ _("Size") }}</th>
+                                                <th>{{ _("Last Modified") }}</th>
                                             </tr>
                                             </thead>
                                             <tbody>
@@ -172,19 +178,13 @@
                                                             <div class="float-right">
                                                                 <a href="/file_explorer/delete?uid={{ file_data.uid }}"><i
                                                                         data-toggle="tooltip" data-placement="top"
-                                                                        title="Delete the folder"
+                                                                        title="{{ _("Delete the folder") }}"
                                                                         class="fas fa-trash-alt fa-lg"
                                                                         style="color: grey"></i></a>
                                                             </div>
                                                         {% else %}
-                                                            {% if file_data.st_size_default > max_online_preview %}
-                                                                <i class="far fa-question-circle form-check-input"
-                                                                data-toggle="tooltip" data-placement="top"
-                                                                title="This file is too big to be compressed via web. Download file separately or use SFTP."></i>
-                                                            {% else %}
-                                                                <input type="checkbox" onchange="SelectedFiles(this.id)"
-                                                                    class="form-check-input" id="{{ file_data.uid }}">
-                                                            {% endif %}
+                                                            <input type="checkbox" onchange="SelectedFiles(this.id)"
+                                                                class="form-check-input" id="{{ file_data.uid }}">
 
                                                             {% if file_name.endswith('.png') or file_name.endswith('.jpg') or file_name.endswith('.jpeg') %}
                                                                 <i class="far fa-file-image fa-lg"></i>
@@ -208,14 +208,15 @@
                                                             </a>
 
                                                             <div class="float-right">
+                                                                
                                                                 <a href="/file_explorer/download?uid={{ file_data.uid }}&ts={{ timestamp }}"><i
                                                                         data-toggle="tooltip" data-placement="top"
-                                                                        title="Download this file"
+                                                                        title="{{ _("Download this file") }}"
                                                                         class="fa fa-file-download fa-lg"
                                                                         style="color: grey"></i></a>
                                                                 <a href="/submit_job?input_file={{ file_data.uid }}&ts={{ timestamp }}"><i
                                                                         data-toggle="tooltip" data-placement="top"
-                                                                        title="Use as workflow input"
+                                                                        title="{{ _("Use as workflow input") }}"
                                                                         class="fas fa-microchip fa-lg"
                                                                         style="color: grey"></i></a>
                                                                 {% if file_data.st_size_default > max_online_preview %}
@@ -224,22 +225,35 @@
                                                                     rel="noopener,noreferrer" data-toggle="modal"
                                                                     data-target="#fileToBig"><i data-toggle="tooltip"
                                                                                                 data-placement="top"
-                                                                                                title="Edit this file (text file only)"
+                                                                                                title="{{ _("Edit this file (text file only)") }}"
                                                                                                 class="fas fa-edit fa-lg"
                                                                                                 style="color: grey"></i></a>
                                                                 {% else %}
                                                                     <a target="_blank" rel="noopener,noreferrer"
                                                                     href="/editor?uid={{ file_data.uid }}&ts={{ timestamp }}"><i
                                                                             data-toggle="tooltip" data-placement="top"
-                                                                            title="Edit this file (text file only)"
+                                                                            title="{{ _("Edit this file (text file only)") }}"
                                                                             class="fas fa-edit fa-lg"
                                                                             style="color: grey"></i></a>
                                                                 {% endif %}
 
+                                                                <a href="/ai_assistant?file={{ file_data.path | urlencode }}&ts={{ timestamp }}" target="_blank" rel="noopener,noreferrer" style="text-decoration: none;"><i
+                                                                        data-toggle="tooltip" data-placement="top"
+                                                                        title="{{ _("Analyze with AI Assistant") }}"
+                                                                        class="fas fa-robot fa-lg"
+                                                                        style="cursor:pointer;color:grey;"></i>
+                                                                    </a>
+
+                                                                <a href="#" onclick="openTailModal('{{ file_data.uid }}', '{{ file_name | e }}'); return false;"><i
+                                                                        data-toggle="tooltip" data-placement="top"
+                                                                        title="{{ _("Tail (live view)") }}"
+                                                                        class="fas fa-eye fa-lg"
+                                                                        style="cursor:pointer;color:grey"></i></a>
+
                                                                 <a data-bs-toggle="modal"
                                                                 data-bs-target="#deleteModal{{ loop.index }}"><i
                                                                         data-bs-toggle="tooltip" data-placement="top"
-                                                                        title="Delete file"
+                                                                        title="{{ _("Delete file") }}"
                                                                         style="cursor:pointer;color:grey"
                                                                         class="fas fa-trash-alt fa-lg"></i></a>
                                                             </div>
@@ -249,29 +263,25 @@
                                                                 <div class="modal-dialog" role="document">
                                                                     <div class="modal-content">
                                                                         <div class="modal-header">
-                                                                            <h5 class="modal-title">Entering the danger
-                                                                                zone</h5>
+                                                                            <h5 class="modal-title">{{ _("Entering the danger zone") }}</h5>
                                                                             <button type="button" class="close"
                                                                                     data-bs-dismiss="modal"
-                                                                                    aria-label="Close">
-                                                                                <span aria-hidden="true">&times;</span>
-
-                                                                                
+                                                                                    aria-label="{{ _("Close") }}">
+                                                                                <span aria-hidden="true">{{ _("&times;") }}</span>
                                                                             </button>
                                                                         </div>
                                                                         <div class="modal-body">
                                                                             <div class="alert alert-danger">
-                                                                                <h4 class="alert-heading">Attention</h4>
+                                                                                <h4 class="alert-heading">{{ _("Attention") }}</h4>
 
-                                                                                You are about to permanently delete
-                                                                                <strong>{{ file_name }}</strong> from the
-                                                                                filesystem. <br>
-                                                                                This action cannot be reversed.
+                                                                                {{ _("You are about to permanently delete") }}
+                                                                                <strong>{{ file_name }}</strong> {{ _("from the filesystem.") }} <br>
+                                                                                {{ _("This action cannot be reversed.") }}
                                                                             </div>
                                                                             <a href="/file_explorer/delete?uid={{ file_data.uid }}&ts={{ timestamp }}">
                                                                                 <button type="button"
                                                                                         class="btn btn-danger form-control">
-                                                                                    Delete this file
+                                                                                    {{ _("Delete this file") }}
                                                                                 </button>
                                                                             </a>
                                                                         </div>
@@ -306,17 +316,14 @@
                                                 <div class="modal-dialog" role="document">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title">Unable to preview this file via web</h5>
+                                                            <h5 class="modal-title">{{ _("Unable to preview this file via web") }}</h5>
                                                             <button type="button" class="close" data-bs-dismiss="modal"
-                                                                    aria-label="Close">
-                                                                <span aria-hidden="true">&times;</span>
+                                                                    aria-label="{{ _("Close") }}">
+                                                                <span aria-hidden="true">{{ _("&times;") }}</span>
                                                             </button>
                                                         </div>
                                                         <div class="modal-body">
-                                                            This file is too big and cannot be previewed via the web
-                                                            interface. <br> Please <a href="/sftp"> download a copy </a> or
-                                                            open it via <a href="/virtual_desktops">remote desktop (DCV)</a>
-                                                            or <a href="/ssh"> cli (via SSH)</a>
+                                                            {% trans sftp_a='<a href="/sftp">'|safe, dcv_a='<a href="/virtual_desktops">'|safe, ssh_a='<a href="/ssh">'|safe, end_a='</a>'|safe %}This file is too big and cannot be previewed via the web interface. <br> Please {{ sftp_a }}download a copy{{ end_a }} or open it via {{ dcv_a }}remote desktop (DCV){{ end_a }} or {{ ssh_a }}cli (via SSH){{ end_a }}{% endtrans %}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -332,17 +339,17 @@
 
 <div class="tab-pane fade" id="edh-transfer" role="tabpanel" aria-labelledby="edh-transfer-tab">
  <br>
-    Here are some documentation to help you transfer files from/to Engineering Development Hub: <br> <br>
+    {{ _("Here are some documentation to help you transfer files from/to Engineering Development Hub:") }} <br> <br>
 
                                 <ul class="nav nav-tabs" id="myTab" role="tablist">
                                   <li class="nav-item">
-                                    <a class="nav-link active" id="sftp-tab" data-bs-toggle="tab" href="#sftp" role="tab" aria-controls="sftp" aria-selected="true">SFTP (easiest)</a>
+                                    <a class="nav-link active" id="sftp-tab" data-bs-toggle="tab" href="#sftp" role="tab" aria-controls="sftp" aria-selected="true">{{ _("SFTP (easiest)") }}</a>
                                   </li>
                                   <li class="nav-item">
-                                    <a class="nav-link" id="datasync-tab" data-bs-toggle="tab" href="#datasync" role="tab" aria-controls="datasync" aria-selected="false">AWS DataSync</a>
+                                    <a class="nav-link" id="datasync-tab" data-bs-toggle="tab" href="#datasync" role="tab" aria-controls="datasync" aria-selected="false">{{ _("AWS DataSync") }}</a>
                                   </li>
                                     <li class="nav-item">
-                                    <a class="nav-link" id="transfer-tab" data-bs-toggle="tab" href="#transfer" role="tab" aria-controls="datasync" aria-selected="false">AWS Transfer</a>
+                                    <a class="nav-link" id="transfer-tab" data-bs-toggle="tab" href="#transfer" role="tab" aria-controls="datasync" aria-selected="false">{{ _("AWS Transfer") }}</a>
                                   </li>
 
                                 </ul>
@@ -350,105 +357,103 @@
                                   
                                     <div class="tab-pane fade show active" id="sftp" role="tabpanel" aria-labelledby="sftp-tab">
                                         <br>
-                                        <h5>Step1:
+                                        <h5>{{ _("Step1:") }}
                                                     <a target="_blank" href="https://filezilla-project.org/download.php"
                                                         class="btn btn-primary btn-icon-split">
                                                         <span class="icon text-white-50">
                                                             <i class="fas fa-info-circle"></i>
                                                         </span>
-                                                        <span class="text">Download FileZilla <i class="fa-solid fa-arrow-up-right-from-square"></i></span></a>
+                                                        <span class="text">{{ _("Download FileZilla") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></span></a>
                                                     </h5>
                                         <hr>                    
-                                        <h5>Step2: Configure FileZilla</h4>
-                                        Open FileZilla and select File > Site Manager to create a new Site
+                                        <h5>{{ _("Step2: Configure FileZilla") }}</h5>
+                                        {{ _("Open FileZilla and select File > Site Manager to create a new Site") }}
 
                                         <table class="table table-striped">
                                                 <tbody>
                                                 <tr>
-                                                    <th>Host(s)</th>
+                                                    <th>{{ _("Host(s)") }}</th>
                                                     <td><code>{{ login_nodes_endpoint }}</code></td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Port</th>
+                                                    <th>{{ _("Port") }}</th>
                                                     <td>22</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Protocol</th>
-                                                    <td>SFTP</td>
+                                                    <th>{{ _("Protocol") }}</th>
+                                                    <td>{{ _("SFTP") }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Logon Type</th>
-                                                    <td>Key File</td>
+                                                    <th>{{ _("Logon Type") }}</th>
+                                                    <td>{{ _("Key File") }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>User</th>
+                                                    <th>{{ _("User") }}</th>
                                                     <td>{{ user }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Key File</th>
-                                                    <td>/path/to/{{ user }}_soca_privatekey.pem (click <a href="/ssh">here</a> to
-                                                        download your Linux private key if needed)
+                                                    <th>{{ _("Key File") }}</th>
+                                                    <td>/path/to/{{ user }}_soca_privatekey.pem {% trans start_a='<a href="/ssh">'|safe, end_a='</a>'|safe %}(click {{ start_a }}here{{ end_a }} to download your Linux private key if needed){% endtrans %}
                                                     </td>
 
                                                 </tr>
                                                 </tbody>
                                         </table>
 
-                                        Save the settings and click connect
+                                        {{ _("Save the settings and click connect") }}
                                         <hr>
-                                        <h5>Step3: Connect and transfer file to FileZilla</h4>
+                                        <h5>{{ _("Step3: Connect and transfer file to FileZilla") }}</h5>
                                         During your first connection, you will be asked whether you want to
                                         trust {{ scheduler_ip }}. Check "Always Trust this Host" and Click "Ok".
-                                        <br>Once connected, simply drag & drop to upload/download files.
+                                        <br>{{ _("Once connected, simply drag & drop to upload/download files.") }}
                                     </div>
 
                                     <div class="tab-pane fade" id="datasync" role="tabpanel" aria-labelledby="datasync-tab">
                                         <br>
-                                       <a href="https://aws.amazon.com/datasync/" target="_blank">AWS DataSync</a> is a secure, online service that automates and accelerates moving data between on-premises and AWS storage services.
+                                       {% trans link='<a href="https://aws.amazon.com/datasync/" target="_blank">AWS DataSync</a>'|safe %}{{ link }} is a secure, online service that automates and accelerates moving data between on-premises and AWS storage services.{% endtrans %}
                                        <br> <br>
-                                       Refer to <a href="https://docs.aws.amazon.com/datasync/latest/userguide/what-is-datasync.html" target="_blank">AWS DataSync</a> documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH.
+                                       {% trans link='<a href="https://docs.aws.amazon.com/datasync/latest/userguide/what-is-datasync.html" target="_blank">AWS DataSync</a>'|safe %}Refer to {{ link }} documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH.{% endtrans %}
                                                  
                                     </div>
 
                                      <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="transfer-tab">
                                         <br>
-                                       <div class="alert alert-warning">Your EDH environment must be using Amazon EFS to use AWS Transfer</div>                          
+                                       <div class="alert alert-warning">{{ _("Your EDH environment must be using Amazon EFS to use AWS Transfer") }}</div>                          
                                         
-                                    <a href="https://aws.amazon.com/aws-transfer-family/" target="_blank">AWS Transfer Family</a> enables fully managed support for SFTP, FTPS and FTP to move large amounts of data into AWS.
+                                    {% trans link='<a href="https://aws.amazon.com/aws-transfer-family/" target="_blank">AWS Transfer Family</a>'|safe %}{{ link }} enables fully managed support for SFTP, FTPS and FTP to move large amounts of data into AWS.{% endtrans %}
                                     <br> <br>
-                                    <h5>Step 1: Configure AWS Transfer</h5>
+                                    <h5>{{ _("Step 1: Configure AWS Transfer") }}</h5>
                                     <br>
                                     <ul>
-                                        <li>Open AWS Console and navigate to the service named <b>AWS Transfer Family</b> then click <b>Create Server</b></li>
-                                        <li>Select <b>SFTP (SSH File Transfer Protocol) - file transfer over Secure Shell</b></li>
-                                        <li>Select <b>Service Managed</b> as identity provider</li>
-                                        <li>Choose <b>Endpoint type</b> depending on your setup. It's recommended to use <b>VPC hosted</b> for IP restrictions via your security groups. <b>Publicly accessible</b> means your AWS Transfer endpoint won't be protected by IP safelist.</li>
-                                        <li>Select <b>Amazon EFS</b> as Domain</li>
-                                        <li>Select <b>Create a new role</b> and use the latest <b>TransferSecurityPolicy</b> available</li>
-                                        . Leave everything else as default.
-                                        <li>In the <b>Review and create</b> section click <b>Create server</b></li>
+                                        <li>{% trans service='<b>AWS Transfer Family</b>'|safe, action='<b>Create Server</b>'|safe %}Open AWS Console and navigate to the service named {{ service }} then click {{ action }}{% endtrans %}</li>
+                                        <li>{{ _("Select") }} <b>{{ _("SFTP (SSH File Transfer Protocol) - file transfer over Secure Shell") }}</b></li>
+                                        <li>{% trans choice='<b>Service Managed</b>'|safe %}Select {{ choice }} as identity provider{% endtrans %}</li>
+                                        <li>{% trans ep_type='<b>Endpoint type</b>'|safe, vpc='<b>VPC hosted</b>'|safe, pub='<b>Publicly accessible</b>'|safe %}Choose {{ ep_type }} depending on your setup. It's recommended to use {{ vpc }} for IP restrictions via your security groups. {{ pub }} means your AWS Transfer endpoint won't be protected by IP safelist.{% endtrans %}</li>
+                                        <li>{% trans domain='<b>Amazon EFS</b>'|safe %}Select {{ domain }} as Domain{% endtrans %}</li>
+                                        <li>{% trans role='<b>Create a new role</b>'|safe, policy='<b>TransferSecurityPolicy</b>'|safe %}Select {{ role }} and use the latest {{ policy }} available{% endtrans %}</li>
+                                        {{ _("Leave everything else as default.") }}
+                                        <li>{% trans section='<b>Review and create</b>'|safe, action='<b>Create server</b>'|safe %}In the {{ section }} section click {{ action }}{% endtrans %}</li>
                                     </ul>
 
-                                    <h5>Step 2: Create IAM role for your AWS Transfer Users</h5>
+                                    <h5>{{ _("Step 2: Create IAM role for your AWS Transfer Users") }}</h5>
                                     <ul>
-                                        <li>Open AWS Console and navigate to the service named <b>IAM</b> then click <b>Roles</b> on the left sidebar and finally click <b>Create Role</b></li>
-                                        <li>Select <b>AWS Service</b> as Trusted Entity Type and select <b>Transfer</b> as Use Case</li>
-                                        <li>Select the AWS managed policy named <b>AmazonElasticFileSystemClientReadWriteAccess</b></li>
-                                        <li>Select a Role name (for example <b>TransferEFSClient</b> and save it</li>
+                                        <li>{% trans service='<b>IAM</b>'|safe, menu='<b>Roles</b>'|safe, btn='<b>Create Role</b>'|safe %}Open AWS Console and navigate to the service named {{ service }} then click {{ menu }} on the left sidebar and finally click {{ btn }}{% endtrans %}</li>
+                                        <li>{% trans entity='<b>AWS Service</b>'|safe, use_case='<b>Transfer</b>'|safe %}Select {{ entity }} as Trusted Entity Type and select {{ use_case }} as Use Case{% endtrans %}</li>
+                                        <li>{{ _("Select the AWS managed policy named") }} <b>{{ _("AmazonElasticFileSystemClientReadWriteAccess") }}</b></li>
+                                        <li>{% trans name='<b>TransferEFSClient</b>'|safe %}Select a Role name (for example {{ name }}) and save it{% endtrans %}</li>
                                     </ul>
 
-                                    <h5>Step 3: Download PEM Key File (Public)</h5>
+                                    <h5>{{ _("Step 3: Download PEM Key File (Public)") }}</h5>
                                     <ul>
-                                        <li>Download your <b>public</b> SSH key</li>
+                                        <li>{% trans kind='<b>public</b>'|safe %}Download your {{ kind }} SSH key{% endtrans %}</li>
                                     </ul>
 
-                                    <h5>Step 4: Download your PEM key File (Private)</h5>
-                                    <p>Click <a href="/ssh">here</a> to download it</p>
+                                    <h5>{{ _("Step 4: Download your PEM key File (Private)") }}</h5>
+                                    <p>{% trans start_a='<a href="/ssh">'|safe, end_a='</a>'|safe %}Click {{ start_a }}here{{ end_a }} to download it{% endtrans %}</p>
 
-                                    <h5>Step 5: Register your AWS Transfer Users</h5>
+                                    <h5>{{ _("Step 5: Register your AWS Transfer Users") }}</h5>
                                     <div class="alert alert-primary">
-                                    <p>You will need your user UID/GID. You can retrieve this value by typing <b>id {user}</b> on any EDH nodes (Linux).
-                                           In the example below, the UID is 5001 and GID is also 5001</p>
+                                    <p>{% trans cmd='<b>id ' ~ user ~ '</b>'|safe %}You will need your user UID/GID. You can retrieve this value by typing {{ cmd }} on any EDH nodes (Linux). In the example below, the UID is 5001 and GID is also 5001{% endtrans %}</p>
                                         <code>
 
                                             uid=5001({{user}}) gid=5001({{user}}) groups=5001({{user}})
@@ -456,33 +461,33 @@
 
                                     </div>
                                    
-                                    <p>Open AWS Console and navigate to the service named <b>AWS Transfer Family</b> select the server you have created and click <b>Add User</b> and enter the following information.</p>
+                                    <p>{% trans service='<b>AWS Transfer Family</b>'|safe, btn='<b>Add User</b>'|safe %}Open AWS Console and navigate to the service named {{ service }} select the server you have created and click {{ btn }} and enter the following information.{% endtrans %}</p>
 
                                     <table class="table table-striped">
                                                 <tbody>
                                                 <tr>
-                                                    <th>Username</th>
+                                                    <th>{{ _("Username") }}</th>
                                                     <td>{{user}}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>User ID</th>
-                                                    <td>The Posix UID of your user you have retrieved via `id` command</td>
+                                                    <th>{{ _("User ID") }}</th>
+                                                    <td>{{ _("The Posix UID of your user you have retrieved via `id` command") }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Group ID</th>
-                                                    <td>The Posix GID of your user you have retrieved via `id` command</td>
+                                                    <th>{{ _("Group ID") }}</th>
+                                                    <td>{{ _("The Posix GID of your user you have retrieved via `id` command") }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Role</th>
-                                                    <td>The IAM role you have created (ex: TransferEFSClient)</td>
+                                                    <th>{{ _("Role") }}</th>
+                                                    <td>{{ _("The IAM role you have created (ex: TransferEFSClient)") }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>Home Directory</th>
+                                                    <th>{{ _("Home Directory") }}</th>
                                                     <td>/data/home/{{ user }} (unless you have configured a different $HOME)</td>
                                                 </tr>
                                                 <tr>
-                                                    <th>SSH Public Key</th>
-                                                    <td>The content of your SSH public key retrieved during Step 3
+                                                    <th>{{ _("SSH Public Key") }}</th>
+                                                    <td>{{ _("The content of your SSH public key retrieved during Step 3") }}
                                                     </td>
 
                                                 </tr>
@@ -490,17 +495,17 @@
                                         </table>
 
                             
-                                    <h5>Step 6: Test</h5>
-                                    <p>Open AWS Console and navigate to the service named <b>AWS Transfer Family</b> select the server you have created, and retrieve the <b>Endpoint</b> under <b>Endpoint Details</b>.</p>
+                                    <h5>{{ _("Step 6: Test") }}</h5>
+                                    <p>{% trans service='<b>AWS Transfer Family</b>'|safe, ep='<b>Endpoint</b>'|safe, details='<b>Endpoint Details</b>'|safe %}Open AWS Console and navigate to the service named {{ service }} select the server you have created, and retrieve the {{ ep }} under {{ details }}.{% endtrans %}</p>
                                     <div class="alert alert-primary">
-                                        Your endpoint use the following syntax: <b>s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com</b>
+                                        {{ _("Your endpoint use the following syntax:") }} <b>{{ _("s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com") }}</b>
                                     </div>
 
-                                    <p>Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as: </p>
+                                    <p>{{ _("Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:") }} </p>
                                     <code>
                                         sftp -i "/PATH/TO/PRIVATE_KEY" {{user}}@{AWS_TRANSFER_ENDPOINT}
                                     </code>
-                                    <p>Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname.</p>
+                                    <p>{{ _("Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname.") }}</p>
                                 </div>
                             
                             
@@ -520,8 +525,150 @@
                         </div>
                         </div>
 
-
+                        {% if transfer_engine == 'v2' %}
+                        <link rel="stylesheet" href="{{ url_for('static', filename='vendor/uppy/uppy.min.css') }}">
+                        <script type="module">
+                            // Resumable upload via Uppy 5 Dashboard + tus (Flask-native tus subset, D11). Uppy 5 is ESM-only.
+                            import { Uppy, Dashboard, Tus, GoldenRetriever } from "{{ url_for('static', filename='vendor/uppy/uppy.min.js') }}";
+                            const _edhUppy = new Uppy({
+                                autoProceed: false,
+                                restrictions: { maxFileSize: {{ max_upload_size | safe }} * 1024 * 1024 },
+                            })
+                            .use(Dashboard, {
+                                inline: true,
+                                target: '#uppy-dashboard',
+                                height: 460,
+                                proudlyDisplayPoweredByUppy: false,
+                                showProgressDetails: false,
+                                note: 'Files upload to ' + {{ path | tojson }},
+                            })
+                            .use(Tus, {
+                                endpoint: '/file_explorer/tus',
+                                chunkSize: 64 * 1024 * 1024,
+                                limit: 6,
+                                parallelUploads: 4,
+                                retryDelays: [0, 1000, 3000, 5000, 10000],
+                                headers: { 'X-CSRFToken': '{{ csrf_token() | safe }}' },
+                                removeFingerprintOnSuccess: true,
+                            })
+                            // GoldenRetriever metadata-only: restore the pending/paused/broken
+                            // file LIST (name/size + tus resume URL, ~KB in localStorage) so users
+                            // see their unfinished uploads on return. Blob cache OFF (no serviceWorker,
+                            // maxFileSize:0) -- no file bytes stored client-side; large files reappear
+                            // as ghosts to re-select, then tus resumes from the server offset.
+                            .use(GoldenRetriever, {
+                                serviceWorker: false,
+                                indexedDB: { maxFileSize: 0 },
+                            });
+                            // Re-select indicator: after GoldenRetriever restores unfinished uploads,
+                            // list each restored "ghost" file (name + size + destination) so the user
+                            // knows exactly which file to re-select to resume from offset. Filenames are
+                            // user-controlled -> escaped before injection.
+                            const _fmtBytes = (b) => { const u=['B','KB','MB','GB','TB']; let n=Number(b)||0,i=0; while(n>=1024&&i<u.length-1){n/=1024;i++;} return n.toFixed(1)+' '+u[i]; };
+                            const _esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+                            const _renderResumeHint = () => {
+                                const _el = document.getElementById('uppy-resume-hint');
+                                if (!_el) return;
+                                const _ghosts = _edhUppy.getFiles().filter((f) => f.isGhost);
+                                if (!_ghosts.length) { _el.style.display = 'none'; _el.innerHTML = ''; return; }
+                                const _rows = _ghosts.map((f) => {
+                                    const _dest = (f.meta && f.meta.path) ? ' &rarr; ' + _esc(f.meta.path) : '';
+                                    return '&bull; <strong>' + _esc(f.name) + '</strong> (' + _fmtBytes(f.size) + ')' + _dest;
+                                }).join('<br>');
+                                _el.innerHTML = 'Re-select to resume where you left off:<br>' + _rows;
+                                _el.style.display = 'block';
+                            };
+                            _edhUppy.on('restored', _renderResumeHint);
+                            _edhUppy.on('restore-confirmed', _renderResumeHint);
+                            _edhUppy.on('file-added', _renderResumeHint);
+                            _edhUppy.on('file-removed', _renderResumeHint);
+                            let _upStart=0, _upBase=0, _activeMs=0, _rLastT=0, _rLastB=0, _bSec=1, _bStart=0, _bSum=0, _bCnt=0, _bMax=0, _rBuilt=false;
+                            const _bAvg=[], _bMx=[], _RCAP=180, _rW=600, _rH=60;
+                            let _dAvg=[], _dMx=[], _dScale=1, _dElapsed=0;
+                            const _fmtRate = (bps) => { const u=['B','KB','MB','GB']; let n=bps,i=0; while(n>=1024&&i<u.length-1){n/=1024;i++;} return n.toFixed(1)+' '+u[i]+'/s'; };
+                            const _fmtDur = (s) => { s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60; if(h>0) return h+'h '+m+'m'; if(m>0) return m+'m '+ss+'s'; return ss+'s'; };
+                            const _rClear = () => { _upStart=0;_upBase=0;_activeMs=0;_rLastT=0;_rLastB=0;_bSec=1;_bStart=0;_bSum=0;_bCnt=0;_bMax=0;_bAvg.length=0;_bMx.length=0;_dAvg=[];_dMx=[];_dScale=1;_dElapsed=0;_rBuilt=false; const e=document.getElementById('uppy-upload-rate'); if(e){e.style.display='none';e.innerHTML='';} };
+                            const _rBuild = () => {
+                                const e = document.getElementById('uppy-upload-rate'); if (!e) return;
+                                e.innerHTML =
+                                    '<div id="rYaxis" style="display:flex;flex-direction:column;justify-content:space-between;height:'+_rH+'px;font-size:10px;color:#8a949e;text-align:right;margin-right:8px;"><span></span><span></span><span></span></div>'
+                                    + '<div id="rWrap" style="flex:1;min-width:0;position:relative;"><svg id="rSvg" width="100%" height="'+_rH+'" viewBox="0 0 '+_rW+' '+_rH+'" preserveAspectRatio="none" style="display:block;"><g id="rGrid" stroke="#e6eaee" stroke-width="1"></g><line x1="0" y1="'+(_rH-2)+'" x2="'+_rW+'" y2="'+(_rH-2)+'" stroke="#dfe4ea" stroke-width="1"/><polygon id="rArea" fill="rgba(0,135,247,0.10)" stroke="none" points=""/><polyline id="rLine" fill="none" stroke="#0087F7" stroke-width="1.75" points=""/><line id="rHair" x1="0" y1="0" x2="0" y2="'+_rH+'" stroke="#0087F7" stroke-width="1" stroke-dasharray="2,2" style="display:none;"/><circle id="rDot" r="3" fill="#0087F7" style="display:none;"/><circle id="rHov" r="3.2" fill="#d63384" style="display:none;"/></svg>'
+                                    + '<div id="rXaxis" style="display:flex;justify-content:space-between;font-size:10px;color:#8a949e;margin-top:3px;"></div>'
+                                    + '<div id="rTip" style="position:absolute;pointer-events:none;display:none;background:#212529;color:#fff;font-size:11px;padding:3px 6px;border-radius:4px;white-space:nowrap;transform:translate(-50%,-120%);z-index:5;text-align:center;"></div></div>'
+                                    + '<div style="min-width:150px;border-left:1px solid #e3e7eb;padding-left:12px;margin-left:12px;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:11px;color:#8a949e;text-transform:uppercase;letter-spacing:.04em;">Upload rate</div><div id="rCur" style="font-size:20px;font-weight:700;line-height:1.1;"></div><div id="rStat" style="font-size:11px;color:#8a949e;margin-top:3px;line-height:1.5;"></div></div>';
+                                e.style.display='flex'; e.style.alignItems='stretch';
+                                let gl=''; for (let k=1;k<4;k++){ const x=_rW*k/4; gl+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+(_rH-2)+'"/>'; } e.querySelector('#rGrid').innerHTML=gl;
+                                const wrap=e.querySelector('#rWrap');
+                                wrap.addEventListener('mousemove',(ev)=>{
+                                    const n=_dAvg.length; if(n<2) return;
+                                    const r=e.querySelector('#rSvg').getBoundingClientRect();
+                                    let frac=(ev.clientX-r.left)/r.width; frac=Math.max(0,Math.min(1,frac));
+                                    const idx=Math.round(frac*(n-1)), v=_dAvg[idx], m=_dMx[idx];
+                                    const cx=(idx/(n-1))*_rW, cy=_rH-(v/_dScale)*(_rH-4)-2;
+                                    const hov=e.querySelector('#rHov'); hov.setAttribute('cx',cx); hov.setAttribute('cy',cy); hov.style.display='';
+                                    const hair=e.querySelector('#rHair'); hair.setAttribute('x1',cx); hair.setAttribute('x2',cx); hair.style.display='';
+                                    const at=_dElapsed*(idx/(n-1)); const tip=e.querySelector('#rTip');
+                                    tip.innerHTML='avg '+_fmtRate(v)+' &middot; max '+_fmtRate(m)+'<br>@ '+_fmtDur(at);
+                                    tip.style.left=(idx/(n-1)*r.width)+'px'; tip.style.top=(cy/_rH*r.height)+'px'; tip.style.display='block';
+                                });
+                                wrap.addEventListener('mouseleave',()=>{ ['#rTip','#rHair','#rHov'].forEach(s=>{const el=e.querySelector(s); if(el)el.style.display='none';}); });
+                                _rBuilt=true;
+                            };
+                            const _rRender = (b,tot,now,inst) => {
+                                const e=document.getElementById('uppy-upload-rate'); if(!e) return;
+                                if(!_rBuilt) _rBuild();
+                                _dAvg=_bAvg.slice(); _dMx=_bMx.slice();
+                                if(_bCnt>0){ _dAvg.push(_bSum/_bCnt); _dMx.push(_bMax); }
+                                const n=_dAvg.length; _dScale=Math.max(1,(_dMx.length?Math.max.apply(null,_dMx):1));
+                                _dElapsed=_activeMs/1000;
+                                const ya=e.querySelector('#rYaxis').children; ya[0].textContent=_fmtRate(_dScale); ya[1].textContent=_fmtRate(_dScale/2); ya[2].textContent='0';
+                                if(n>=2){
+                                    const ax=_dAvg.map((v,i)=>[(i/(n-1))*_rW,(_rH-(v/_dScale)*(_rH-4)-2)]);
+                                    const mxp=_dMx.map((v,i)=>[(i/(n-1))*_rW,(_rH-(v/_dScale)*(_rH-4)-2)]);
+                                    const apts=ax.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+                                    const mpts=mxp.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+                                    e.querySelector('#rLine').setAttribute('points',apts);
+                                    e.querySelector('#rArea').setAttribute('points','0,'+_rH+' '+mpts+' '+_rW+','+_rH);
+                                    const last=ax[n-1], dot=e.querySelector('#rDot'); dot.setAttribute('cx',Math.min(last[0],_rW-3)); dot.setAttribute('cy',last[1]); dot.style.display='';
+                                }
+                                let lab=''; for(let k=0;k<=4;k++){ lab+='<span>'+_fmtDur(_dElapsed*k/4)+'</span>'; }
+                                e.querySelector('#rXaxis').innerHTML=lab;
+                                const oAvg=_dElapsed>0?((b-_upBase)/_dElapsed):0;
+                                const eta=(oAvg>0 && tot>b)?((tot-b)/oAvg):-1;
+                                e.querySelector('#rCur').textContent=_fmtRate(inst);
+                                e.querySelector('#rStat').innerHTML='avg '+_fmtRate(oAvg)+' &middot; peak '+_fmtRate(_dScale)+'<br>'+_fmtBytes(b)+' / '+_fmtBytes(tot)+'<br>elapsed '+_fmtDur(_dElapsed)+'<br>ETA '+(eta>=0?_fmtDur(eta):'&mdash;');
+                            };
+                            _edhUppy.on('upload-progress',()=>{
+                                const _s=_edhUppy.getState().files||{}; let _b=0,_tot=0;
+                                Object.values(_s).forEach((f)=>{ _b+=(f.progress&&f.progress.bytesUploaded)||0; _tot+=(f.progress&&f.progress.bytesTotal)||0; });
+                                const _now=Date.now();
+                                if(!_upStart){ _upStart=_now; _upBase=_b; _rLastT=_now; _rLastB=_b; _bStart=_now; return; }
+                                const _gap=_now-_rLastT; if(_gap<1000) return;
+                                if(_gap>3000){ _rLastT=_now; _rLastB=_b; _bStart=_now; return; }
+                                _activeMs+=_gap;
+                                const _inst=Math.max(0,(_b-_rLastB)/(_gap/1000)); _rLastT=_now; _rLastB=_b;
+                                _bSum+=_inst; _bCnt++; if(_inst>_bMax)_bMax=_inst;
+                                if((_now-_bStart)>=_bSec*1000){
+                                    _bAvg.push(_bCnt?_bSum/_bCnt:0); _bMx.push(_bMax); _bSum=0;_bCnt=0;_bMax=0;_bStart=_now;
+                                    if(_bAvg.length>_RCAP){ const na=[],nm=[]; for(let i=0;i<_bAvg.length;i+=2){ if(i+1<_bAvg.length){na.push((_bAvg[i]+_bAvg[i+1])/2); nm.push(Math.max(_bMx[i],_bMx[i+1]));} else {na.push(_bAvg[i]); nm.push(_bMx[i]);} } _bAvg.length=0;_bMx.length=0; for(const v of na)_bAvg.push(v); for(const v of nm)_bMx.push(v); _bSec*=2; }
+                                }
+                                _rRender(_b,_tot,_now,_inst);
+                            });
+                            _edhUppy.on('complete',_rClear);
+                            _edhUppy.on('cancel-all',_rClear);
+                            // tus Upload-Metadata carries the target dir + filename the server expects
+                            _edhUppy.on('file-added', (file) => {
+                                _edhUppy.setFileMeta(file.id, { filename: file.name, path: {{ (path + '/') | tojson }} });
+                            });
+                            _edhUppy.on('complete', (result) => {
+                                if (result.successful && result.successful.length > 0) {
+                                    setTimeout(() => { location.reload(); }, 1500);
+                                }
+                            });
+                        </script>
+                        {% else %}
                         <script>
+                            // v1 upload: classic Dropzone -> POST /file_explorer/upload
                             Dropzone.autoDiscover = false;
 
                             $("#drop").dropzone({
@@ -533,7 +680,7 @@
                                 params: {
                                     path: "{{ path }}/"
                                 },
-                                dictResponseError: 'Error uploading file!',
+                                dictResponseError: i18n.error_uploading,
                                 headers: {
                                     'X-CSRFToken': "{{ csrf_token() | safe }}"
                                 },
@@ -553,14 +700,15 @@
                                     $('#update-div').append('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>' + file.name + '</strong> upload was canceled<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button><div>');
                                 },
                                 error: function (file, response) {
-                                    console.log("SOCAUploadError: " + file)
-                                    console.log("SOCAUploadError: " + response)
-                                    $('#update-div').append('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong> Error during ' + file.name + '</strong> upload because of ' + response + '<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button><div>');
+                                    console.log("EDHUploadError: " + file)
+                                    console.log("EDHUploadError: " + response)
+                                    $('#update-div').append('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong> ' + i18n.upload_error_during + ' ' + file.name + '</strong> ' + i18n.upload_error_because + ' ' + response + '<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button><div>');
 
                                 },
                             });
-
-
+                        </script>
+                        {% endif %}
+                        <script>
                             $(document).ready(function () {
 
                                 // enable tooltip
@@ -575,7 +723,7 @@
                                     pagingType: "full_numbers",
                                     lengthMenu: [[100, 300, 500, -1], [100, 300, 500, "All"]],
                                     language: {
-                                        emptyTable: "<h4>No files in this directory</h4>",
+                                        emptyTable: "<h4>" + i18n.no_files_in_dir + "</h4>",
                                     },
                                     //'sDom': 'tpl',
                                     dom: "<'row'<'col-sm-12'tr>>" + "<'row'<'col-sm-4'l><'col-sm-8'p>>",
@@ -602,7 +750,7 @@
                                     if (selected_files.length > 40) {
                                         // URL/Payload limit. Limit the number of uid to 40
                                         document.getElementById(uid).checked = false;
-                                        alert("Sorry you cannot download more than 40 files in a single call")
+                                        alert(i18n.download_limit)
                                     } else {
                                         selected_files.push(uid)
                                     }
@@ -620,6 +768,16 @@
                                 }
                             }
                         </script>
+
+                        {% if transfer_engine == 'v2' %}
+                        <script>
+                            // uid -> {name,size} map consumed by the resumable download manager
+                            window.EDH_FILES = {};
+                            {% for file_name, file_data in filesystem.items() %}{% if file_data.type == 'file' %}window.EDH_FILES[{{ file_data.uid | tojson }}] = {name: {{ file_name | tojson }}, size: {{ file_data.st_size_default }} };
+                            {% endif %}{% endfor %}
+                        </script>
+                        <script src="{{ url_for('static', filename='js/download-manager.js') }}"></script>
+                        {% endif %}
                     </div>
                 </main>
             </div>
@@ -633,7 +791,11 @@
 </a>
 
 
+{% include 'tail_modal.html' %}
+
+
 {% include 'common/footer.html' %}
+
 
 </body>
 

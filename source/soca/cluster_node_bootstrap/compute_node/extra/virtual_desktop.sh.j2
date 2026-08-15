@@ -4,8 +4,26 @@
 log_info "Checking if host is a Virtual Desktop machine"
 {% if context.get("/job/NodeType") == "dcv_node" %}
   log_info "DCV (Virtual Desktop) Node Detected, installing Desktop + DCV"
+  log_checkpoint "dcv-installing" "Installing DCV server packages"
   {% include "templates/linux/dcv/system_requirements.sh.j2" %}
-  {% include "templates/linux/dcv/dcv_server.sh.j2" %}
+  # Wrap DCV server install with retry-phase helper. yum/dnf transient
+  # mirror failures + S3 download blips are the common retry triggers.
+  _dcv_server_install_phase() {
+    {% include "templates/linux/dcv/dcv_server.sh.j2" %}
+  }
+  edh_retry_phase "DCV server install" 3 "30,90" _dcv_server_install_phase
+
+  {% if context.get("/configuration/DcvHighScale", false) | string | lower == "true" %}
+  log_info "DCV High-Scale mode enabled -- installing Session Manager Agent + monitoring"
+  log_checkpoint "broker-registering" "Installing DCV Session Manager Agent"
+  # Same retry pattern -- the agent rpm download from S3 can blip on
+  # cold-cache regions.
+  _dcv_session_manager_agent_phase() {
+    {% include "templates/linux/dcv/dcv_session_manager_agent.sh.j2" %}
+  }
+  edh_retry_phase "DCV Session Manager Agent install" 3 "30,90" _dcv_session_manager_agent_phase
+  {% include "templates/linux/dcv/dcv_vdi_monitoring.sh.j2" %}
+  {% endif %}
 {% else %}
   log_info "This host is not a DCV (virtual desktop) node"
 {% endif %}

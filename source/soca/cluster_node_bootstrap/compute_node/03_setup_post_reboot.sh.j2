@@ -6,17 +6,37 @@
 ############
 # setup_post_reboot.sh is generated via /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/compute_node/setup_post_reboot.sh.j2 template
 ############
-# Log Path: /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/logs/compute_node/{{ context.get("/job/JobId") }}/<HOST_IP>/setup_post_reboot.log
+# Log Path: /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_node_bootstrap/logs/compute_node/${EDH_JOB_ID}/<HOST_IP>/setup_post_reboot.log
 ############
 
 # Load common functions
 {% include "templates/linux/common.sh.j2" %}
+
+{# log_checkpoint / log_status helpers (S3-rendered path, no LT size cap). #}
+{% include "templates/linux/common/log_checkpoint.sh.j2" %}
+
+{# DCV event-relay publisher: ONLY include for VDI nodes. Adds ~6.4KB #}
+{# to user_data; controller and HPC compute paths do not need it.    #}
+{% if context.get("/job/NodeType") == "dcv_node" %}
+{% include "templates/linux/dcv/dcv_event_publish.sh.j2" %}
+{% endif %}
 
 # Validate umask
 {% include "templates/linux/umask.sh.j2" %}
 
 # Stop/Disable scheduler if running
 {% include "templates/linux/scheduler/stop_scheduler_services.sh.j2" %}
+
+{% if context.get("/job/NodeType") == "dcv_node" %}
+# Pool members boot session-less; session-env vars live in 00_session_env.sh
+# (sourced PRE-reboot by 01). This post-reboot script only sees /etc/environment,
+# so re-source 00_session_env.sh here or the pool-ready gate + console XDummy
+# setup get unset vars. EDH_BOOTSTRAP_ASSETS_FOLDER comes from /etc/environment.
+if [[ -r "${EDH_BOOTSTRAP_ASSETS_FOLDER:-}/00_session_env.sh" ]]; then
+  log_info "Re-sourcing session env for post-reboot DCV setup"
+  source "${EDH_BOOTSTRAP_ASSETS_FOLDER}/00_session_env.sh"
+fi
+{% endif %}
 
 log_info "Setup Post Reboot Start Date: $(date)"
 log_info "Running Kernel $(uname -r)"
@@ -48,7 +68,6 @@ else
 fi
 
 # Install EFA if needed
-
 {% if context.get("/job/JobResources", {}).get("efa_support", False) %}
   {% include "templates/linux/efa.sh.j2" %}
 {% endif %}
@@ -65,7 +84,7 @@ fi
       log_info "Will Create an Ephemeral FSx for Lustre specific to this job"
       # Retrieve FSxL Arn assigned to this job
       FSX_ARN=$(aws_cli resourcegroupstaggingapi get-resources \
-        --tag-filters "Key=edh:FSxL,Values=true" "Key=edh:JobId,Values={{ context.get("/job/JobId") }}" "Key=edh:ClusterId,Values={{ context.get("/configuration/ClusterId") }}"  \
+        --tag-filters "Key=edh:FSxL,Values=true" "Key=edh:JobId,Values=${EDH_JOB_ID}" "Key=edh:ClusterId,Values={{ context.get("/configuration/ClusterId") }}"  \
         --query ResourceTagMappingList[].ResourceARN --output text)
       log_info "Retrieved FSx Arn: ${FSX_ARN}"
       FSX_ID="$(echo "${FSX_ARN}" | cut -d/ -f2)"
@@ -90,13 +109,16 @@ fi
   {% include "templates/linux/disable_hyperthreading.sh.j2" %}
 {% endif %}
 
-{% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+{% if context.get("/job/BaseOS") in ["ubuntu2204", "ubuntu2404"] %}
   # Fix for Ubuntu - https://forum.snapcraft.io/t/11209
   {% include "templates/linux/snap_fix_homedirectory.sh.j2" %}
 {% endif %}
 
 # Check if machine is a virtual desktop, if yes install additional packages such as Gnome, DCV
 {% include "compute_node/extra/virtual_desktop.sh.j2" %}
+
+# Check if machine is a login node, if yes perform additional setup actions
+{% include "compute_node/extra/login_node.sh.j2" %}
 
 # Optional - End-User Customization
 {% include "compute_node/04_setup_user_customization.sh.j2" %}
@@ -111,6 +133,13 @@ REBOOT_REQUIRED=$(get_reboot_required)
 if [[ "${REBOOT_REQUIRED}" == "no" ]]; then
     # Start schedulers
     {% include "templates/linux/scheduler/start_scheduler_services.sh.j2" %}
+
+    # Emit deferred session-ready now that no more reboots are pending.
+    if [[ -f /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_node_bootstrap/.edh_dcv_session_ready_pending ]]; then
+      edh_dcv_publish_event "session-ready" || true
+      rm -f /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_node_bootstrap/.edh_dcv_session_ready_pending
+    fi
+
     log_info "Bootstrap Sequence Completed: Node Ready"
 else
     # One last reboot is needed, SOCA will create a run-once service
@@ -134,6 +163,14 @@ else
 {% endif %}
 
 {% include "templates/linux/scheduler/start_scheduler_services.sh.j2" %}
+
+# Emit deferred session-ready after the final reboot (GPU driver reboot path).
+_FLAG="/opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_node_bootstrap/.edh_dcv_session_ready_pending"
+if [[ -f "${_FLAG}" ]]; then
+  {% include "templates/linux/dcv/dcv_event_publish.sh.j2" %}
+  edh_dcv_publish_event "session-ready" || true
+  rm -f "${_FLAG}"
+fi
 
 log_info "Disabling this service so it won't run again, do not use bash variable expansion here"
 systemctl disable __SERVICE_NAME__

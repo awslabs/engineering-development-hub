@@ -76,6 +76,12 @@ class SocaHpcJob(SocaHpcJobResourceModel):
     # When the job was queued
     job_queue_time: int = None
 
+    # When the job started running (None until it starts)
+    job_start_time: Optional[int] = None
+
+    # When the job finished (None until it completes)
+    job_end_time: Optional[int] = None
+
     # Compute Node ID assigned to the job. TBD = no capacity being provisioned yet
     job_compute_node: str = "tbd"
 
@@ -440,7 +446,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         is False
                     ):
                         raise ValueError(
-                            f"Unable to validate one SG from {_security_groups_ids} due to {err}"
+                            f"Unable to validate one SG from {_security_groups_ids}"
                         )
 
                 self.security_groups = _security_groups_ids
@@ -571,7 +577,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                             logger.warning(
                                 f"spot_allocation_count ({self.spot_allocation_count}) must be an lower or equal to the number of nodes provisioned for this simulation ({self.nodes}). Updating value ... "
                             )
-                            self.spot_allocation_count == self.nodes
+                            self.spot_allocation_count = self.nodes
                     except ValueError:
                         raise ValueError(
                             f"spot_allocation_count must be an integer, detected {self.spot_allocation_count}"
@@ -595,7 +601,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         arg
                         for arg in get_args(
                             SocaHpcJobResourceModel.__annotations__[
-                                "spot_allocation_group"
+                                "spot_allocation_strategy"
                             ]
                         )
                         if arg is not type(None)
@@ -617,7 +623,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                     )
                 else:
                     logger.info(
-                        "spot_allocation_strategy not specified, default to 'lowest-price'"
+                        "spot_allocation_strategy not specified, default to 'capacity-optimized'"
                     )
                     self.spot_allocation_strategy = "capacity-optimized"
             # ------------ /SPOT section (spot_price / spot_allocation_count / spot_allocation_strategy) ------------ #
@@ -671,12 +677,12 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         # For SCRATCH_1 deployment types, valid values are 1,200, 2,400, 3,600, then continuing in increments of 3,600 GiB
                         if self.fsx_lustre_deployment_type == "SCRATCH_1":
                             if self.fsx_lustre_size not in [1200, 2400, 3600]:
-                                if (
-                                    not self.fsx_lustre_size > 3600
+                                if not (
+                                    self.fsx_lustre_size > 3600
                                     and (self.fsx_lustre_size - 3600) % 3600 == 0
                                 ):
                                     raise ValueError(
-                                        "fsx_lustre_size: Must be 1200, 2400, 3600 and increments of 3600"
+                                        "fsx_lustre_size: Must be 1200, 2400, 3600 or increments of 3600 above"
                                     )
 
                         # For SCRATCH_2, PERSISTENT_2 and PERSISTENT_1 deployment types using SSD storage type, the valid values are 1200 GiB, 2400 GiB, and increments of 2400 GiB.
@@ -858,14 +864,26 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         self.job_provisioning_state = (
                             SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_DELETE
                         )
+                    elif _cfn_status.endswith("_IN_PROGRESS"):
+                        # Transient CFN transition (e.g. ROLLBACK_IN_PROGRESS,
+                        # UPDATE_IN_PROGRESS, UPDATE_ROLLBACK_IN_PROGRESS). CFN is still
+                        # processing this stack -- do NOT delete/rebuild it here; a delete
+                        # mid-transition is rejected/unsafe. Treat as in-progress and
+                        # re-evaluate next cycle once the stack settles to a terminal state.
+                        self.job_provisioning_state = (
+                            SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_IN_PROGRESS
+                        )
+                        logger.info(
+                            f"CloudFormation status for {self.job_id=} is transient {_cfn_status=}; waiting for it to settle before any rebuild"
+                        )
                     else:
-                        # CloudFormation stack exist but not in status mentioned above
-                        #  ["CREATE_FAILED", "DELETE_FAILED", "ROLLBACK_FAILED", "ROLLBACK_IN_PROGRESS", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"]
+                        # Settled failure (CREATE_FAILED / ROLLBACK_(COMPLETE|FAILED) /
+                        # DELETE_FAILED / UPDATE_*_FAILED). Safe to delete + rebuild now.
                         self.job_provisioning_state = (
                             SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_ERROR
                         )
                         logger.info(
-                            f"CloudFormation status for {self.job_id=} is in error state {_cfn_status=}, deleting Stack and updating Job resource. Dispatcher will try to process this job again soon"
+                            f"CloudFormation status for {self.job_id=} is a settled error state {_cfn_status=}, deleting Stack and updating Job resource. Dispatcher will try to process this job again soon"
                         )
                         SocaHpcJobController(
                             job=self
@@ -1338,7 +1356,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
 
             elif self.job_scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
                 logger.info(
-                    "Detected LSF job, updating --constraint='compute_node=xx' constraint"
+                    "Detected Slurm job, updating --constraint='compute_node=xx' constraint"
                 )
                 _resource_selector_name = "compute_node"
                 _resource_selector_value = self.job_id

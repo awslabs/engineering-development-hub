@@ -1,0 +1,435 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <h3>{{ _("Cluster Configuration") }}</h3>
+                    <p class="text-muted">
+                        {{ _("Browse and search this cluster's configuration parameters (SSM Parameter Store). Navigate the tree on the left or use the search box. This is the read-only browse view; editing arrives in a later step. Secrets are never shown.") }}
+                    </p>
+
+                    <style>
+                        #cfg-tree ul { list-style: none; padding-left: 16px; margin: 0; }
+                        #cfg-tree > ul { padding-left: 0; }
+                        #cfg-tree .cfg-node { display:flex; align-items:center; gap:.5rem; cursor:pointer; padding:7px 10px; border-radius:6px; min-height:34px; white-space:nowrap; }
+                        #cfg-tree .cfg-node:hover { background:#eef3f8; }
+                        #cfg-tree .cfg-node.active { background:#0972d3; color:#fff; }
+                        #cfg-tree .cfg-node .cfg-folder { width:1.1em; text-align:center; color:#e0a800; flex:0 0 auto; }
+                        #cfg-tree .cfg-node.active .cfg-folder { color:#fff; }
+                        #cfg-tree .cfg-node .cfg-label { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; }
+                        #cfg-tree .cfg-node .cfg-chevron { color:#888; transition:transform .15s; font-size:.85em; flex:0 0 auto; }
+                        #cfg-tree .cfg-node.open .cfg-chevron { transform:rotate(90deg); }
+                        #cfg-tree .cfg-node.active .cfg-chevron { color:#dbe9f7; }
+                        .cfg-count { color: #888; font-size: .8em; flex:0 0 auto; }
+                        #cfg-tree .cfg-node.active .cfg-count { color: #dbe9f7; }
+                        #cfg-tree .cfg-node.pure-branch .cfg-count { opacity:.5; }
+                        .cfg-val { font-family: monospace; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+                        .cfg-key-full { white-space: normal; word-break: break-all; }
+                        #cfg-rows tr.cfg-dirty-row > td { background:#fff3cd !important; }
+                        .cfg-valcopy { cursor:pointer; color:#0972d3; flex:0 0 auto; }
+                        .cfg-valwrap { display:flex; align-items:center; gap:.5rem; }
+                        .cfg-valwrap .cfg-in { flex:1 1 auto; }
+                        .cfg-valwrap .cfg-raw { flex:0 0 auto; white-space:nowrap; }
+                        .cfg-impact-col { padding-left:1.25rem !important; }
+                    </style>
+
+                    <div class="card shadow mb-3"><div class="card-body py-2">
+                        <form id="cfg-search-form" class="row g-2 align-items-end">
+                            <div class="col-md-6"><label class="small mb-1">{{ _("Search (key or value)") }}</label>
+                                <input class="form-control" id="cfg-q" placeholder="{{ _('e.g. MaxProvisioning, c8i.xlarge, /dcv/') }}" autocomplete="off"></div>
+                            <div class="col-md-2"><label class="small mb-1">{{ _("Scope") }}</label>
+                                <select class="form-control" id="cfg-scope">
+                                    <option value="both">{{ _("Key + Value") }}</option>
+                                    <option value="key">{{ _("Key only") }}</option>
+                                    <option value="value">{{ _("Value only") }}</option>
+                                </select></div>
+                            <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">{{ _("Search") }}</button></div>
+                            <div class="col-md-2"><button class="btn btn-outline-secondary w-100" id="cfg-clear" type="button">{{ _("Clear / Browse") }}</button></div>
+                        </form>
+                    </div></div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card shadow mb-4"><div class="card-body">
+                                <h5>{{ _("Configuration tree") }}</h5>
+                                <div id="cfg-tree" style="max-height: 70vh; overflow:auto;"></div>
+                            </div></div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card shadow mb-4"><div class="card-body">
+                                <h5 id="cfg-table-title">{{ _("Select a node or search") }}</h5>
+                                <div id="cfg-breadcrumb" class="small text-muted mb-2" style="font-family:monospace;"></div>
+                                <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                    <thead><tr>
+                                        <th style="min-width:300px;">{{ _("Key") }}</th>
+                                        <th style="width:92px;">{{ _("Access") }}</th>
+                                        <th style="width:88px;">{{ _("Type") }}</th>
+                                        <th>{{ _("Value") }}</th>
+                                        <th class="cfg-impact-col" style="width:118px;">{{ _("Impact") }}</th>
+                                        <th style="width:60px;">{{ _("Ver") }}</th>
+                                        <th style="width:50px;"></th>
+                                    </tr></thead>
+                                    <tbody id="cfg-rows"></tbody>
+                                </table>
+                                </div>
+                                <div id="cfg-actions" class="mt-2" style="display:none;">
+                                    <button class="btn btn-success btn-sm" id="cfg-apply" type="button">{{ _("Apply") }} <span id="cfg-apply-n">0</span> {{ _("changes") }}</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="cfg-discard" type="button">{{ _("Discard changes") }}</button>
+                                    <span id="cfg-dirty-badge" class="badge bg-warning text-dark" style="display:none;">{{ _("Unsaved changes") }}</span>
+                                    <div id="cfg-restart-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0" style="display:none;"></div>
+                                    <p class="text-muted small mb-0 mt-2">{{ _("Edits are staged and highlighted. Bool/number/text fields are typed to the parameter; use 'raw' for freeform. Apply writes each change to SSM (durable + versioned); Valkey updates via the config sync. Read-only params show no editor.") }}</p>
+                                </div>
+                                <p class="text-muted" id="cfg-empty" style="display:none;">{{ _("No parameters here.") }}</p>
+                            </div></div>
+                        </div>
+                    </div>
+                    <div class="card shadow mb-4" id="cfg-activity-panel">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left"></i> {{ _("Recent changes (cluster-wide)") }} <span class="badge bg-secondary" id="cfg-activity-count">0</span></h5>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary" id="cfg-activity-refresh" type="button" title="{{ _('Refresh') }}"><i class="fa-solid fa-rotate-right"></i></button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="cfg-activity-toggle" type="button" title="{{ _('Collapse / expand') }}"><i class="fa-solid fa-chevron-down" id="cfg-activity-chevron"></i></button>
+                                </div>
+                            </div>
+                            <div id="cfg-activity-wrap" style="max-height:260px; overflow:auto;">
+                                <table class="table table-sm mb-0">
+                                    <thead><tr><th style="width:200px;">{{ _("When (UTC)") }}</th><th style="width:150px;">{{ _("By") }}</th><th>{{ _("Key") }}</th><th>{{ _("Old") }}</th><th>{{ _("New") }}</th><th style="width:50px;">{{ _("Ver") }}</th></tr></thead>
+                                    <tbody id="cfg-activity-body"></tbody>
+                                </table>
+                                <p class="text-muted small mb-0 p-2" id="cfg-activity-empty" style="display:none;">{{ _("No changes recorded yet. Applied edits appear here (who, when, old -> new, version).") }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="hist-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ _("Version history") }} <code id="hist-key"></code></h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm">
+                    <thead><tr><th style="width:56px;">{{ _("Ver") }}</th><th style="width:160px;">{{ _("By") }}</th><th>{{ _("Value") }}</th><th style="width:190px;">{{ _("Last modified (UTC)") }}</th></tr></thead>
+                    <tbody id="hist-body"></tbody>
+                </table>
+                <p class="text-muted small mb-0">{{ _("Version history is from SSM Parameter Store. Editor-attributed 'who changed it' arrives with the audit trail step.") }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toast-container" class="toast-container p-3" style="position:fixed; top:1rem; right:1rem; z-index:1200;"></div>
+
+<script>
+const API = "/api/admin/config";
+async function apiGet(path) { const r = await fetch(API + path); return r.json(); }
+function escapeHtml(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtTs(s){ if (!s) return ""; const m = String(s).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/); return m ? (m[1] + " " + m[2]) : String(s); }
+function uiNotice(message, kind) {
+    kind = kind || "info";
+    const cont = document.getElementById("toast-container");
+    const el = document.createElement("div");
+    el.className = "toast align-items-center text-white bg-" + kind + " border-0 mb-2";
+    el.setAttribute("role", "alert");
+    el.innerHTML = '<div class="d-flex"><div class="toast-body"></div><button type="button" class="close mr-2 m-auto" data-bs-dismiss="toast" aria-label="Close" style="color:#fff;text-shadow:none;opacity:.9;"><span aria-hidden="true">&times;</span></button></div>';
+    el.querySelector(".toast-body").textContent = message;
+    cont.appendChild(el);
+    const t = new bootstrap.Toast(el, {delay: 4500}); t.show();
+    el.addEventListener("hidden.bs.toast", () => el.remove());
+}
+const _histModal = new bootstrap.Modal(document.getElementById("hist-modal"));
+async function loadActivity(){
+    const body = document.getElementById("cfg-activity-body");
+    const d = await apiGet("/activity?days=14");
+    const rows = (d.success && d.message) || [];
+    body.innerHTML = "";
+    document.getElementById("cfg-activity-empty").style.display = rows.length ? "none" : "";
+    document.getElementById("cfg-activity-count").textContent = rows.length;
+    rows.forEach(r => {
+        const by = escapeHtml(r.edh_admin || "") + (r.source ? ' <span class="text-muted">(' + escapeHtml(r.source) + ')</span>' : '');
+        body.insertAdjacentHTML("beforeend",
+            '<tr><td class="text-nowrap">' + escapeHtml(fmtTs(r.timestamp)) + '</td>'
+            + '<td>' + by + '</td>'
+            + '<td><code>' + escapeHtml(r.param_key) + '</code></td>'
+            + '<td><code class="text-muted">' + escapeHtml(String(r.old_value || "").slice(0, 60)) + '</code></td>'
+            + '<td><code>' + escapeHtml(String(r.new_value || "").slice(0, 60)) + '</code></td>'
+            + '<td>' + escapeHtml(r.ssm_version) + '</td></tr>');
+    });
+}
+
+function impactCell(row) {
+    if (String(row.impact || "hot").indexOf("restart:") === 0) {
+        const svc = row.impact.split("restart:")[1];
+        return '<span class="badge bg-warning text-dark" title="{{ _('Takes effect only after restarting') }} ' + escapeHtml(svc) + '">{{ _("restart") }}: ' + escapeHtml(svc) + '</span>';
+    }
+    return '<span class="badge bg-success">{{ _("hot") }}</span>';
+}
+function accessCell(row) { return row.readonly ? '<span class="badge bg-secondary" title="' + escapeHtml(row.ro_reason || '') + '">{{ _("read-only") }}</span>' : ''; }
+
+function keyCell(r, showFull) {
+    const full = escapeHtml(r.key);
+    const label = showFull ? full : escapeHtml(r.leaf || r.key);
+    const cls = showFull ? "cfg-key-full" : "";
+    return '<i class="fa-regular fa-copy fa-xs" role="button" style="cursor:pointer;margin-right:0.5rem;color:#0972d3;" data-act="copy" data-copy="' + full + '" title="{{ _('Copy full key') }}"></i>'
+        + '<code class="' + cls + '" title="' + full + '">' + label + '</code>';
+}
+let cfgWorking = [];
+let cfgCurrentPath = "";
+function toForm(obj){ const p = new URLSearchParams(); for (const k in obj){ if (obj[k] !== null && obj[k] !== undefined) p.append(k, obj[k]); } return p; }
+async function apiSend(path, method, body){ const r = await fetch(API + path, {method: method, body: body ? toForm(body) : undefined}); return r.json(); }
+function isDirtyRow(r){ return !r.readonly && String(r.cur) !== String(r.value); }
+function rawToggleLink(i, isRaw){ return ' <a href="#" class="small cfg-raw" data-i="' + i + '" style="margin-left:.4rem;">' + (isRaw ? '{{ _("typed") }}' : '{{ _("raw") }}') + '</a>'; }
+function valueInput(r, i){
+    if (r.readonly) return '<span class="cfg-val" title="' + escapeHtml(r.value) + '">' + escapeHtml(r.value) + '</span>';
+    const t = r.type || 'string';
+    const v = r.cur;
+    if (r._raw) return '<textarea class="form-control form-control-sm cfg-in" data-i="' + i + '" rows="2">' + escapeHtml(v) + '</textarea>' + rawToggleLink(i, true);
+    if (t === 'bool'){
+        const on = ['true','1','yes','on'].indexOf(String(v).toLowerCase()) >= 0;
+        return '<select class="form-control form-control-sm cfg-in" data-i="' + i + '" style="max-width:120px;display:inline-block;">'
+            + '<option value="True"' + (on ? ' selected' : '') + '>True</option>'
+            + '<option value="False"' + (!on ? ' selected' : '') + '>False</option></select>' + rawToggleLink(i, false);
+    }
+    if (t === 'int') return '<input type="number" class="form-control form-control-sm cfg-in" data-i="' + i + '" value="' + escapeHtml(v) + '" style="max-width:180px;display:inline-block;">' + rawToggleLink(i, false);
+    if (t === 'json') return '<textarea class="form-control form-control-sm cfg-in" data-i="' + i + '" rows="2">' + escapeHtml(v) + '</textarea>' + rawToggleLink(i, true);
+    return '<input type="text" class="form-control form-control-sm cfg-in" data-i="' + i + '" value="' + escapeHtml(v) + '">' + rawToggleLink(i, false);
+}
+async function copyHandler(e){
+    const ic = e.currentTarget, txt = ic.dataset.copy;
+    try { await navigator.clipboard.writeText(txt); } catch (_) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_2) {} ta.remove(); }
+    const orig = ic.className; ic.className = "fa-solid fa-check fa-xs text-success"; ic.style.marginRight = "0.5rem"; setTimeout(() => { ic.className = orig; }, 1000);
+}
+function valueCellHtml(r, i, browse){
+    const valIcon = browse
+        ? '<i class="fa-regular fa-copy fa-xs cfg-valcopy" role="button" data-act="copyval" data-i="' + i + '" title="{{ _('Copy value') }}"></i>'
+        : '<i class="fa-regular fa-copy fa-xs cfg-valcopy" role="button" data-act="copy" data-copy="' + escapeHtml(r.value) + '" title="{{ _('Copy value') }}"></i>';
+    const valCell = browse ? valueInput(r, i) : '<span class="cfg-val" title="' + escapeHtml(r.value) + '">' + escapeHtml(r.value) + '</span>';
+    return '<div class="cfg-valwrap">' + valIcon + valCell + '</div>';
+}
+async function copyValHandler(e){
+    const ic = e.currentTarget, i = +ic.dataset.i;
+    const txt = String(cfgWorking[i] ? cfgWorking[i].cur : "");
+    try { await navigator.clipboard.writeText(txt); } catch (_) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_2) {} ta.remove(); }
+    const orig = ic.className; ic.className = "fa-solid fa-check fa-xs text-success"; ic.style.marginRight = "0.5rem"; setTimeout(() => { ic.className = orig; }, 1000);
+}
+function markRow(i){
+    const tr = document.querySelector('#cfg-rows tr[data-row="' + i + '"]');
+    if (tr) tr.classList.toggle("cfg-dirty-row", isDirtyRow(cfgWorking[i]));
+}
+function bindValueCell(tr, i){
+    tr.querySelectorAll('.cfg-in').forEach(el => {
+        const ev = (el.tagName === 'SELECT') ? 'change' : 'input';
+        el.addEventListener(ev, e => { cfgWorking[i].cur = e.target.value; markRow(i); updateDirty(); });
+    });
+    tr.querySelectorAll('.cfg-raw').forEach(el => el.addEventListener("click", e => {
+        e.preventDefault();
+        cfgWorking[i]._raw = !cfgWorking[i]._raw;
+        tr.children[3].innerHTML = valueCellHtml(cfgWorking[i], i, true);
+        bindValueCell(tr, i); markRow(i);
+    }));
+    tr.querySelectorAll('[data-act="copyval"]').forEach(el => el.addEventListener("click", copyValHandler));
+}
+function updateDirty(){
+    const changed = cfgWorking.filter(isDirtyRow);
+    document.getElementById("cfg-apply-n").textContent = changed.length;
+    document.getElementById("cfg-dirty-badge").style.display = changed.length ? "" : "none";
+    const svcs = Array.from(new Set(changed.filter(r => String(r.impact || '').indexOf('restart:') === 0).map(r => r.impact.split('restart:')[1])));
+    const warn = document.getElementById("cfg-restart-warn");
+    if (svcs.length){
+        warn.style.display = "";
+        warn.innerHTML = '<strong>\u26a0 {{ _("Restart required") }}:</strong> {{ _("changes to these take effect only after restarting") }} <code>'
+            + svcs.map(escapeHtml).join('</code>, <code>') + '</code>. '
+            + '{{ _("Apply writes immediately; run the restart from the controller shell. Do NOT restart the web interface from within the web interface.") }}';
+    } else warn.style.display = "none";
+}
+function renderRows(rows, title, mode){
+    const browse = (mode === 'browse');
+    document.getElementById("cfg-table-title").textContent = title;
+    document.getElementById("cfg-actions").style.display = browse ? "" : "none";
+    const tbody = document.getElementById("cfg-rows");
+    tbody.innerHTML = "";
+    const emptyEl = document.getElementById("cfg-empty");
+    if (!rows.length){
+        emptyEl.style.display = "";
+        emptyEl.textContent = browse
+            ? "{{ _('No editable parameters at this level -- expand the tree to drill into sub-sections.') }}"
+            : "{{ _('No matching parameters.') }}";
+    } else emptyEl.style.display = "none";
+    if (browse) cfgWorking = rows.map(r => Object.assign({}, r, {cur: r.value, _raw: false}));
+    const data = browse ? cfgWorking : rows;
+    data.forEach((r, i) => {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-row", i);
+        tr.innerHTML =
+            '<td>' + keyCell(r, !browse) + '</td>'
+            + '<td>' + accessCell(r) + '</td>'
+            + '<td>' + escapeHtml(r.type || "string") + '</td>'
+            + '<td>' + valueCellHtml(r, i, browse) + '</td>'
+            + '<td class="cfg-impact-col">' + impactCell(r) + '</td>'
+            + '<td>' + escapeHtml(r.version) + '</td>'
+            + '<td><button class="btn btn-sm btn-outline-secondary" data-key="' + escapeHtml(r.key) + '" data-act="hist" title="{{ _('History') }}"><i class="fa-solid fa-clock-rotate-left fa-xs"></i></button></td>';
+        tbody.appendChild(tr);
+        if (browse) bindValueCell(tr, i);
+    });
+    tbody.querySelectorAll('[data-act="hist"]').forEach(el => el.addEventListener("click", e => showHistory(e.currentTarget.dataset.key)));
+    tbody.querySelectorAll('[data-act="copy"]').forEach(el => el.addEventListener("click", copyHandler));
+    if (browse) updateDirty();
+}
+async function applyChanges(){
+    const changed = cfgWorking.filter(isDirtyRow);
+    if (!changed.length){ uiNotice("{{ _('No changes to apply') }}", "info"); return; }
+    const payload = changed.map(r => ({key: r.key, value: r.cur}));
+    const d = await apiSend("/batch", "POST", {changes_json: JSON.stringify(payload)});
+    if (!d.success){ uiNotice(d.message || "{{ _('Apply failed') }}", "danger"); return; }
+    const results = (d.message && d.message.results) || [];
+    const ok = results.filter(r => r.success).length;
+    const bad = results.filter(r => !r.success);
+    bad.forEach(b => uiNotice(b.key + ": " + b.error, "danger"));
+    uiNotice(ok + " {{ _('parameter(s) updated') }}" + (bad.length ? (", " + bad.length + " {{ _('failed') }}") : ""), bad.length ? "warning" : "success");
+    const okKeys = new Set(results.filter(r => r.success).map(r => r.key));
+    const svcs = Array.from(new Set(changed.filter(r => okKeys.has(r.key) && String(r.impact || '').indexOf('restart:') === 0).map(r => r.impact.split('restart:')[1])));
+    if (svcs.length) uiNotice("{{ _('Restart required for') }}: " + svcs.join(", ") + " \u2014 {{ _('run from the controller shell.') }}", "warning");
+    if (cfgCurrentPath) loadPrefix(cfgCurrentPath);
+    loadActivity();
+}
+
+async function showHistory(key) {
+    document.getElementById("hist-key").textContent = key;
+    const body = document.getElementById("hist-body");
+    body.innerHTML = '<tr><td colspan="4" class="text-muted">{{ _("Loading...") }}</td></tr>';
+    _histModal.show();
+    const d = await apiGet("/history?key=" + encodeURIComponent(key));
+    if (!d.success) { body.innerHTML = '<tr><td colspan="4" class="text-danger">' + escapeHtml(d.message) + '</td></tr>'; return; }
+    const rows = d.message || [];
+    body.innerHTML = "";
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted">{{ _("No history.") }}</td></tr>'; return; }
+    rows.forEach(v => {
+        const by = v.edh_admin ? (escapeHtml(v.edh_admin) + (v.source ? ' <span class="text-muted">(' + escapeHtml(v.source) + ')</span>' : '')) : '<span class="text-muted">system</span>';
+        body.insertAdjacentHTML("beforeend",
+            '<tr><td>' + escapeHtml(v.version) + '</td><td>' + by + '</td><td><code>' + escapeHtml(v.value) + '</code></td><td class="text-nowrap">' + escapeHtml(fmtTs(v.last_modified)) + '</td></tr>');
+    });
+}
+
+function setBreadcrumb(path) {
+    const bc = document.getElementById("cfg-breadcrumb");
+    bc.textContent = path ? path.split("/").filter(Boolean).join("  \u203a  ") : "";
+}
+async function loadPrefix(path) {
+    cfgCurrentPath = path;
+    setBreadcrumb(path);
+    const d = await apiGet("/params?direct=1&prefix=" + encodeURIComponent(path + "/"));
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    renderRows(d.message || [], path, 'browse');
+}
+
+// ---- tree ----
+let treeActiveEl = null;
+function renderTree(root) {
+    const host = document.getElementById("cfg-tree");
+    host.innerHTML = "";
+    const ul = document.createElement("ul");
+    // sort children by name; render recursively
+    function build(node, parentUl) {
+        const names = Object.keys(node.children).sort();
+        names.forEach(name => {
+            const child = node.children[name];
+            const li = document.createElement("li");
+            const hasKids = Object.keys(child.children).length > 0;
+            const lc = child.leaf_count || 0;
+            const div = document.createElement("div");
+            div.className = "cfg-node" + (lc ? "" : " pure-branch");
+            div.title = "{{ _('Editable here:') }} " + lc + "  |  {{ _('Total in subtree:') }} " + child.count;
+            const folder = hasKids ? "fa-folder" : "fa-folder-open";
+            div.innerHTML =
+                '<i class="cfg-folder fa-solid ' + folder + '"></i>'
+                + '<span class="cfg-label">' + escapeHtml(name) + '</span>'
+                + '<span class="cfg-count">(' + lc + ')</span>'
+                + (hasKids ? '<i class="cfg-chevron fa-solid fa-chevron-right"></i>' : '');
+            const kidUl = document.createElement("ul");
+            kidUl.style.display = "none";
+            div.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                if (treeActiveEl) treeActiveEl.classList.remove("active");
+                div.classList.add("active"); treeActiveEl = div;
+                if (hasKids) {
+                    const open = kidUl.style.display !== "none";  // currently open?
+                    kidUl.style.display = open ? "none" : "";
+                    div.classList.toggle("open", !open);
+                    const fi = div.querySelector(".cfg-folder");
+                    if (fi) fi.className = "cfg-folder fa-solid " + (open ? "fa-folder" : "fa-folder-open");
+                }
+                loadPrefix(child.path);
+            });
+            li.appendChild(div);
+            if (hasKids) { build(child, kidUl); li.appendChild(kidUl); }
+            parentUl.appendChild(li);
+        });
+    }
+    build(root, ul);
+    host.appendChild(ul);
+}
+
+async function loadTree() {
+    const d = await apiGet("/tree");
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    renderTree(d.message || {children:{}});
+}
+
+document.getElementById("cfg-search-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const q = document.getElementById("cfg-q").value.trim();
+    if (!q) return;
+    const scope = document.getElementById("cfg-scope").value;
+    const d = await apiGet("/search?scope=" + scope + "&q=" + encodeURIComponent(q));
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    cfgCurrentPath = "";
+    setBreadcrumb("");
+    renderRows(d.message || [], "{{ _('Search results for') }} \u201c" + q + "\u201d (" + (d.message||[]).length + ")", 'search');
+});
+document.getElementById("cfg-clear").addEventListener("click", () => {
+    document.getElementById("cfg-q").value = "";
+    document.getElementById("cfg-rows").innerHTML = "";
+    document.getElementById("cfg-table-title").textContent = "{{ _('Select a node or search') }}";
+    document.getElementById("cfg-empty").style.display = "none";
+    document.getElementById("cfg-actions").style.display = "none";
+    cfgCurrentPath = "";
+    setBreadcrumb("");
+});
+
+document.getElementById("cfg-apply").addEventListener("click", applyChanges);
+document.getElementById("cfg-discard").addEventListener("click", () => { if (cfgCurrentPath) loadPrefix(cfgCurrentPath); });
+document.getElementById("cfg-activity-refresh").addEventListener("click", loadActivity);
+document.getElementById("cfg-activity-toggle").addEventListener("click", () => {
+    const w = document.getElementById("cfg-activity-wrap"), ch = document.getElementById("cfg-activity-chevron");
+    const hidden = w.style.display === "none";
+    w.style.display = hidden ? "" : "none";
+    ch.className = hidden ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
+});
+loadTree();
+loadActivity();
+</script>
+
+{% include 'common/footer.html' %}
+</body>
+</html>

@@ -8,6 +8,10 @@ from commands.filesystems import filesystems
 from commands.ad import ad
 from commands.schedulers import schedulers
 from commands.nodes import nodes
+from commands.login_nodes import login_nodes
+from commands.userprefs import userprefs
+from commands.hardware_profiles import hardware_profile, usb_profile
+from commands.logs import logs
 
 from utils.logger import SocaLogger
 import os
@@ -27,6 +31,11 @@ cli.add_command(filesystems)
 cli.add_command(ad)
 cli.add_command(schedulers)
 cli.add_command(nodes)
+cli.add_command(login_nodes)
+cli.add_command(userprefs)
+cli.add_command(hardware_profile)
+cli.add_command(usb_profile)
+cli.add_command(logs)
 
 if __name__ == "__main__":
     cli(obj={})

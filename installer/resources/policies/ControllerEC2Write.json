@@ -1,0 +1,142 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Condition": {
+                "StringLikeIfExists": {
+                    "autoscaling:LaunchConfigurationName": "%%CLUSTER_ID%%*"
+                }
+            },
+            "Action": [
+                "autoscaling:UpdateAutoScalingGroup",
+                "autoscaling:DeleteAutoScalingGroup",
+                "autoscaling:CreateAutoScalingGroup",
+                "autoscaling:DetachInstances",
+                "ec2:DeleteLaunchTemplate",
+                "ec2:CreateLaunchTemplate",
+                "fsx:CreateDataRepositoryTask"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:volume/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:network-interface/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:instance/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:fleet/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:capacity-reservation/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:placement-group/*",
+                "arn:%%AWS_PARTITION%%:ec2:*::image/*",
+                "arn:%%AWS_PARTITION%%:ec2:*::snapshot/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "SavedDesktopImageLifecycle",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DeregisterImage",
+                "ec2:DeleteSnapshot"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:*::image/*",
+                "arn:%%AWS_PARTITION%%:ec2:*::snapshot/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            }
+        },
+        {
+            "Condition": {
+                "ForAllValues:ArnEqualsIfExists": {
+                    "ec2:Vpc": "arn:%%AWS_PARTITION%%:ec2:%%AWS_REGION%%:*:vpc/%%VPC_ID%%"
+                }
+            },
+            "Action": [
+                "ec2:RunInstances",
+                "ec2:StopInstances",
+                "ec2:StartInstances",
+                "ec2:TerminateInstances",
+                "ec2:CreateCapacityReservation",
+                "ec2:CancelCapacityReservation",
+                "ec2:DescribeCapacityReservations",
+                "ec2:CreatePlacementGroup",
+                "ec2:DeletePlacementGroup",
+                "ec2:ModifyInstanceAttribute",
+                "ec2:ModifyInstanceCapacityReservationAttributes",
+                "ec2:CreateImage",
+                "ec2:CreateSnapshot"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:*:*:subnet/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:key-pair/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:instance/*",
+                "arn:%%AWS_PARTITION%%:ec2:*::snapshot/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:launch-template/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:volume/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:security-group/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:placement-group/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:network-interface/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:capacity-reservation/*",
+                "arn:%%AWS_PARTITION%%:ec2:*::image/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ec2:CreateCapacityReservation",
+                "ec2:CancelCapacityReservation",
+                "ec2:DescribeCapacityReservations"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Condition": {
+                "ForAllValues:ArnEqualsIfExists": {
+                    "ec2:Vpc": "arn:%%AWS_PARTITION%%:ec2:%%AWS_REGION%%:*:vpc/%%VPC_ID%%"
+                }
+            },
+            "Action": [
+                "iam:PassRole",
+                "iam:CreateServiceLinkedRole"
+            ],
+            "Resource": [
+                "%%COMPUTE_NODE_ROLE_ARN%%",
+                "%%SPOTFLEET_ROLE_ARN%%",
+                "%%TARGET_NODE_ROLE_ARN%%"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "BedrockModelInvoke",
+            "Action": [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream",
+                "bedrock-agentcore:InvokeAgentRuntime"
+                
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:bedrock:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:inference-profile/*",
+                "arn:%%AWS_PARTITION%%:bedrock:*::foundation-model/*",
+                "arn:%%AWS_PARTITION%%:bedrock-agentcore:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:runtime/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "BedrockKnowledgeBase",
+            "Action": [
+                "bedrock:Retrieve",
+                "bedrock:RetrieveAndGenerate"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:bedrock:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:knowledge-base/*",
+            "Effect": "Allow"
+        }
+    ]
+}

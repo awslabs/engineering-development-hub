@@ -8,16 +8,16 @@ function Install-NvidiaGpuDrivers {
 
     if ($operatingSystem -like "*windows server 2019*") {
        $keyPrefix = "*_grid_*_server2019_*.exe"
-       $GridVersion = "grid-18.0" # Grid-18.0 is the latest one that provides driver for WS2019
+       $GridVersion = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/version_server2019") }}" # Latest GRID driver providing WS2019 support
     }
     elseif ($operatingSystem -like "*windows server 2022*") {
        $keyPrefix = "*_grid_*_server2022_*.exe"
-       $GridVersion = "grid-19.4"
+       $GridVersion = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/version") }}"
     }
     elseif ($operatingSystem -like "*windows server 2025*") {
-        Log-Warning -Message "No NVIDIA driver for Windows 2025, using Windows 2022 GPU Drivers install ... "
+        Log-Info -Message "Windows Server 2025 uses the combined server2022/server2025 GRID driver"
         $keyPrefix = "*_grid_*_server2022_*.exe"
-        $GridVersion = "grid-19.4"
+        $GridVersion = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/version") }}"
     }
     else {
         Log-Warning -Message "BaseOS must be windows2019, windows2022 or windows2025, detected  ${operatingSystem}, skipping GPU Drivers install"
@@ -29,37 +29,64 @@ function Install-NvidiaGpuDrivers {
             Log-Info -Message "NVIDIA drivers are already installed on this machine"
         }
         else {
-            Log-Info -Message "About to install NVIDIA Grid drivers"
-            $bucketUrl = "{{ context.get('/system/gpu/gpu_settings/nvidia/windows/grid_drivers/s3_bucket_url') }}"
-            $bucketRegion = (Invoke-WebRequest -Method Head -Uri $bucketUrl -UseBasicParsing).Headers["x-amz-bucket-region"]
+            $bucketPath = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/s3_bucket_path") }}"
             $installerFolderPrefix = "nvidia_grid_driver"
-            Log-Info -Message "Downloading Nvidia Drivers from S3"
-            Invoke-SOCAAwsCli s3 cp --region $bucketRegion --quiet "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/s3_bucket_path") }}/${GridVersion}/" "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}" --recursive --exclude "*" --include "$keyPrefix*"
+            $installRoot = "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}"
 
             Log-Info -Message "Disabling Licensing Page"
             reg add "HKLM\SOFTWARE\NVIDIA Corporation\Global\GridLicensing" /v NvCplDisableManageLicensePage /t REG_DWORD /d 1 /f
 
-            # https://enterprise-support.nvidia.com/s/article/Silent-Install-of-GRID-VM-Driver-for-Windows
-            Log-Info -Message "Installing Nvidia Drivers"
-            $driverFileName = (Get-ChildItem -Path "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}" -Filter $keyPrefix).Name
             Set-ExecutionPolicy RemoteSigned -Scope Process
 
-            # Install 7zip if needed, use 7zip.install as it will automatically add the bin to your system PATH
-            Invoke-SOCAInstallPackage -PackageName "7zip.install"
+            # Download + install one driver version from a given S3 sub-prefix. Returns
+            # $true only on a successful install so the caller can fall back -- this mirrors
+            # the Linux pinned->latest/ fallback in linux/gpu/nvidia_drivers.sh.j2 so both
+            # platforms behave the same on a mirror that may not carry every pinned version.
+            function Install-NvidiaDriverFromPrefix {
+                param([string]$VersionPrefix)
 
-            # Extract Driver Content from the self-extracting executable
-            7z x "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}\$keyPrefix" -o"${EDHBootstrapAssetsFolder}\${installerFolderPrefix}" -y
+                if (Test-Path $installRoot) { Remove-Item -Recurse -Force $installRoot }
+                New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
 
-            # Install Driver
-            Log-Info "About to execute ${EDHBootstrapAssetsFolder}\${installerFolderPrefix}\setup.exe with Arguments -n -s"
-            $installDriver = Start-Process -FilePath "${EDHBootstrapAssetsFolder}\${installerFolderPrefix}\setup.exe" -ArgumentList "-n", "-s" -Wait -PassThru
-            $exitCode = $installDriver.ExitCode
-            Log-Info -Message "Exit Code ${exitCode}"
+                Log-Info -Message "Downloading NVIDIA Grid driver from ${bucketPath}/${VersionPrefix}/"
+                Invoke-SOCAAwsCli s3 cp --quiet "${bucketPath}/${VersionPrefix}/" "$installRoot" --recursive --exclude "*" --include "$keyPrefix*"
 
-            Log-Info -Message "NVIDIA Grid driver installed, reboot will be done at the end of the bootstrap sequence"
-            $requireReboot=$true
+                $driverFile = Get-ChildItem -Path "$installRoot" -Filter $keyPrefix -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not $driverFile) {
+                    Log-Warning -Message "No NVIDIA driver matching ${keyPrefix} found under ${VersionPrefix}/"
+                    return $false
+                }
+
+                Log-Info -Message "About to execute $($driverFile.FullName) with Arguments -s -n"
+                $installDriver = Start-Process -FilePath "$($driverFile.FullName)" -ArgumentList "-s", "-n" -Wait -PassThru
+                $exitCode = $installDriver.ExitCode
+                Log-Info -Message "NVIDIA driver installer exit code ${exitCode}"
+                return ($exitCode -eq 0)
+            }
+
+            # Try the pinned GRID version first, fall back to latest/ (parity with Linux).
+            Log-Info -Message "About to install NVIDIA Grid drivers (pinned ${GridVersion})"
+            if (Install-NvidiaDriverFromPrefix -VersionPrefix $GridVersion) {
+                $script:requireReboot = $true
+                Log-Info -Message "NVIDIA Grid driver (${GridVersion}) installed, reboot will be done at the end of the bootstrap sequence"
+            }
+            else {
+                Log-Warning -Message "Pinned NVIDIA driver ${GridVersion} failed; falling back to latest/"
+                if (Install-NvidiaDriverFromPrefix -VersionPrefix "latest") {
+                    $script:requireReboot = $true
+                    Log-Info -Message "NVIDIA Grid driver (latest) installed, reboot will be done at the end of the bootstrap sequence"
+                }
+                else {
+                    Log-Error -Message "NVIDIA Grid driver install failed for both ${GridVersion} and latest; GPU drivers were not installed on this machine"
+                }
+            }
         }
     }
 }
-Install-NvidiaGpuDrivers
+try {
+    Install-NvidiaGpuDrivers
+}
+catch {
+    Log-Error -Message "NVIDIA GPU driver phase failed and was contained so bootstrap can continue: $($_.Exception.Message)"
+}
 # End - Install NVIDIA Drivers

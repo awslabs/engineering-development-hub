@@ -1,10 +1,22 @@
 boto==2.49.0
-boto3==1.42.62
-botocore==1.42.62
-aws-cdk-lib==2.241.0
+boto3==1.43.23
+botocore==1.43.23
+aws-cdk-lib==2.263.0
 colored==2.2.4
-requests==2.32.4
+requests==2.33.0
 requests-aws4auth==1.3.1
 PyYAML==6.0.2
 rich==13.8.1
 jinja2==3.1.6
+questionary==2.1.1
+email-validator==2.3.0
+pydantic==2.11.7
+# Babel 2.17+ decoupled the pybabel CLI entry point from setuptools (upstream
+# PR #1041). Our edh_installer.sh invokes `pybabel compile` via CLI — not the
+# programmatic compile_catalog().run() API which still imports
+# babel.messages.setuptools_frontend → setuptools. So we do not need setuptools
+# as a runtime dep. Verified on fresh Python 3.13 venv: Babel 2.17.0 AND 2.18.0
+# both compile all 12 catalogs cleanly with no setuptools installed.
+Babel==2.18.0
+# Used by helpers/installer/helpers.py for ACM cert ops; matches the Lambda's pin.
+cryptography==48.0.0

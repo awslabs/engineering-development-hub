@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -23,8 +23,8 @@
 
                 {% if sudoers == false %}
                     <div class="alert alert-danger" role="alert">
-                        <strong>Access denied </strong>
-                        Only users with sudo permissions can access this page
+                        <strong>{{ _("Access denied") }} </strong>
+                        {{ _("Only users with sudo permissions can access this page") }}
                         <br>
                     </div>
                 {% else %}
@@ -35,21 +35,21 @@
                             <div class="col-md-5">
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Change my password</h3>
+                                        <h3>{{ _("Change my password") }}</h3>
                                     
                                         <form action="/reset_password" method="post"
                                               oninput='password_verif.setCustomValidity(password_verif.value != password.value ? "Passwords do not match." : "")'>
                                             <div class="form-group">
-                                                <input id="password" placeholder="New Password" class="form-control"
+                                                <input id="password" placeholder="{{ _("New Password") }}" class="form-control"
                                                        type="password" required name="password">
                                             </div>
                                             <div class="form-group">
-                                                <input placeholder="Confirm New Password" id="password_verif"
+                                                <input placeholder="{{ _("Confirm New Password") }}" id="password_verif"
                                                        class="form-control" type="password" name="password_verif">
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Update Password
+                                                <button type="submit" class="btn btn-primary">{{ _("Update Password") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -61,14 +61,14 @@
                             <div class="col-md-7">
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                    <h3>My LDAP Group</h3>
+                                    <h3>{{ _("My LDAP Group") }}</h3>
                                    
 
                                         <div class="alert alert-primary">
-                                            Users in your group can access (read-only) your $HOME directory by default.
+                                            {{ _("Users in your group can access (read-only) your $HOME directory by default.") }}
                                         </div>
 
-                                        <h4>User(s) in your group:</h4>
+                                        <h4>{{ _("User(s) in your group:") }}</h4>
                                         {% if not group_members %}
                                          No user added to your group yet
                                         {% else %}
@@ -81,34 +81,36 @@
                                     </div>
                                     <hr>
                                     <div class="card-body">
-                                        <h4>Add a user to your group</h4>
+                                        <h4>{{ _("Add a user to your group") }}</h4>
                                         <form action="/manage_group" method="post">
-                                            <div class="form-group">
-                                                <select class="form-control" id="user" name="user">
-                                                    {% for user in all_users %}
-                                                        <option value="{{ user }}">{{ user }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                            <div class="form-group position-relative">
+                                                <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                       data-endpoint="/api/ldap/users" data-results="ma_add_results"
+                                                       data-sink="ma_add_hidden" data-value-field="username"
+                                                       data-label-field="display_name" data-require="true"
+                                                       placeholder="{{ _('Type 2+ characters to search users') }}">
+                                                <input type="hidden" id="ma_add_hidden" name="user">
+                                                <div id="ma_add_results" class="list-group soca-th-results"></div>
                                             </div>
+                                            <script src="/static/js/soca_typeahead.js"></script>
 
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="add_user_verif"
                                                        id="add_user_verif" required>
-                                                <label class="form-check-label" for="add_user_verif">I am sure I want to
-                                                    <strong>ADD</strong> this user to my group</label>
+                                                <label class="form-check-label" for="add_user_verif">{{ _("I am sure I want to") }}
+                                                    <strong>{{ _("ADD") }}</strong> {{ _("this user to my group") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="action" value="add">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-success">Add user to your
-                                                    group
+                                                <button type="submit" class="btn btn-success">{{ _("Add user to your group") }}
                                                 </button>
                                             </div>
                                         </form>
                                     </div>
                                     <hr>
                                     <div class="card-body">
-                                        <h4>Remove a user from your group</h4>
+                                        <h4>{{ _("Remove a user from your group") }}</h4>
                                         <form action="/manage_group" method="post">
                                             <div class="form-group">
                                                 <select class="form-control" id="user" name="user">
@@ -123,14 +125,12 @@
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="sudo_revoke_verif"
                                                        id="remove_user_verif" required>
-                                                <label class="form-check-label" for="remove_user_verif">I am sure I want
-                                                    to <strong>REMOVE</strong> this user from my group</label>
+                                                <label class="form-check-label" for="remove_user_verif">{% trans verb='<strong>REMOVE</strong>'|safe %}I am sure I want to {{ verb }} this user from my group{% endtrans %}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="action" value="remove">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">Remove user to your
-                                                    group
+                                                <button type="submit" class="btn btn-danger">{{ _("Remove user to your group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -141,6 +141,182 @@
                             </div>
 
                         </div>
+
+                        <!-- User Preferences (generic panel, one control per catalog pref) -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card shadow mb-4">
+                                    <div class="card-body">
+                                        <h3>{{ _("Preferences") }}</h3>
+                                        <p class="text-muted">{{ _("These settings apply to your account across browsers.") }}</p>
+                                        <table class="table table-sm align-middle" id="userPrefsTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>{{ _("Preference") }}</th>
+                                                    <th>{{ _("Value") }}</th>
+                                                    <th>{{ _("Pending change") }}</th>
+                                                    <th>{{ _("Source") }}</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for p in user_preferences %}
+                                                <tr data-pref-key="{{ p.key }}">
+                                                    <td><code>{{ p.key }}</code></td>
+                                                    <td>
+                                                    {% if p.type == 'bool' %}
+                                                        <input type="checkbox" class="form-check-input pref-input" data-pref-type="bool" data-orig="{{ 'true' if p.value else 'false' }}" {{ 'checked' if p.value }}>
+                                                    {% elif p.type == 'enum' %}
+                                                        <select class="form-select form-select-sm pref-input" data-pref-type="enum" data-orig="{{ p.value }}" style="width:auto;display:inline-block;">
+                                                        {% for opt in p.allowed %}
+                                                            <option value="{{ opt }}" {{ 'selected' if opt == p.value }}>{{ opt }}</option>
+                                                        {% endfor %}
+                                                        </select>
+                                                    {% elif p.type == 'int' %}
+                                                        <input type="number" class="form-control form-control-sm pref-input" data-pref-type="int" data-orig="{{ p.value }}" value="{{ p.value }}"{% if p.min is not none %} min="{{ p.min }}"{% endif %}{% if p.max is not none %} max="{{ p.max }}"{% endif %} style="width:6rem;">
+                                                    {% else %}
+                                                        <input type="text" class="form-control form-control-sm pref-input" data-pref-type="string" data-orig="{{ p.value }}" value="{{ p.value }}">
+                                                    {% endif %}
+                                                    </td>
+                                                    <td class="pref-delta small text-muted"></td>
+                                                    <td><span class="badge bg-{{ 'primary' if p.source == 'user' else 'secondary' }}">{{ p.source }}</span></td>
+                                                    <td>
+                                                    {% if p.is_set %}
+                                                        <button type="button" class="btn btn-sm btn-link pref-reset">{{ _("Reset") }}</button>
+                                                    {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                        <button type="button" class="btn btn-sm btn-primary" id="prefsSave" disabled>{{ _("Save preferences") }}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="prefsDiscard" disabled>{{ _("Discard changes") }}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="prefsResetAll">{{ _("Reset all to defaults") }}</button>
+                                        <div id="prefsStatus" class="small text-muted mt-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <script>
+                        (function () {
+                            function prefUrl(key) {
+                                return key ? "/api/user/preferences/" + encodeURIComponent(key) : "/api/user/preferences";
+                            }
+                            var statusEl = document.getElementById("prefsStatus");
+                            var saveBtn = document.getElementById("prefsSave");
+                            var discardBtn = document.getElementById("prefsDiscard");
+                            function flash(msg) { if (statusEl) { statusEl.textContent = msg; } }
+                            function curVal(el) {
+                                var t = el.getAttribute("data-pref-type");
+                                if (t === "bool") { return el.checked ? "true" : "false"; }
+                                if (t === "int") { return el.value === "" ? "" : String(parseInt(el.value, 10)); }
+                                return el.value;
+                            }
+                            function typedVal(el) {
+                                var t = el.getAttribute("data-pref-type");
+                                if (t === "bool") { return el.checked; }
+                                if (t === "int") { return parseInt(el.value, 10); }
+                                return el.value;
+                            }
+                            function rows() {
+                                return Array.prototype.slice.call(
+                                    document.querySelectorAll("#userPrefsTable tr[data-pref-key]"));
+                            }
+                            function dirtyRows() {
+                                return rows().filter(function (tr) {
+                                    var el = tr.querySelector(".pref-input");
+                                    return el && curVal(el) !== el.getAttribute("data-orig");
+                                });
+                            }
+                            function refresh() {
+                                rows().forEach(function (tr) {
+                                    var el = tr.querySelector(".pref-input");
+                                    if (!el) { return; }
+                                    var orig = el.getAttribute("data-orig");
+                                    var now = curVal(el);
+                                    var delta = tr.querySelector(".pref-delta");
+                                    if (now !== orig) {
+                                        tr.classList.add("table-warning");
+                                        if (delta) { delta.textContent = orig + " \u2192 " + now; }
+                                    } else {
+                                        tr.classList.remove("table-warning");
+                                        if (delta) { delta.textContent = ""; }
+                                    }
+                                });
+                                var n = dirtyRows().length;
+                                if (saveBtn) { saveBtn.disabled = (n === 0); }
+                                if (discardBtn) { discardBtn.disabled = (n === 0); }
+                                flash(n ? (n + " unsaved change" + (n > 1 ? "s" : "")) : "");
+                            }
+                            document.querySelectorAll("#userPrefsTable .pref-input").forEach(function (el) {
+                                el.addEventListener("change", refresh);
+                                el.addEventListener("input", refresh);
+                            });
+                            if (saveBtn) {
+                                saveBtn.addEventListener("click", function () {
+                                    var dirty = dirtyRows();
+                                    if (!dirty.length) { return; }
+                                    saveBtn.disabled = true;
+                                    discardBtn.disabled = true;
+                                    flash("Saving " + dirty.length + " change" + (dirty.length > 1 ? "s" : "") + "\u2026");
+                                    var chain = Promise.resolve();
+                                    var failed = [];
+                                    dirty.forEach(function (tr) {
+                                        var key = tr.getAttribute("data-pref-key");
+                                        var el = tr.querySelector(".pref-input");
+                                        chain = chain.then(function () {
+                                            return fetch(prefUrl(key), {
+                                                method: "PUT",
+                                                headers: { "Content-Type": "application/json" },
+                                                credentials: "same-origin",
+                                                body: JSON.stringify({ value: typedVal(el) })
+                                            }).then(function (r) { if (!r.ok) { failed.push(key); } })
+                                              .catch(function () { failed.push(key); });
+                                        });
+                                    });
+                                    chain.then(function () {
+                                        if (failed.length) {
+                                            flash("Could not save: " + failed.join(", "));
+                                            saveBtn.disabled = false;
+                                            discardBtn.disabled = false;
+                                        } else {
+                                            flash("Saved. Reloading\u2026");
+                                            setTimeout(function () { location.reload(); }, 400);
+                                        }
+                                    });
+                                });
+                            }
+                            if (discardBtn) {
+                                discardBtn.addEventListener("click", function () {
+                                    rows().forEach(function (tr) {
+                                        var el = tr.querySelector(".pref-input");
+                                        if (!el) { return; }
+                                        var orig = el.getAttribute("data-orig");
+                                        if (el.getAttribute("data-pref-type") === "bool") {
+                                            el.checked = (orig === "true");
+                                        } else {
+                                            el.value = orig;
+                                        }
+                                    });
+                                    refresh();
+                                });
+                            }
+                            document.querySelectorAll("#userPrefsTable .pref-reset").forEach(function (b) {
+                                b.addEventListener("click", function () {
+                                    var key = b.closest("tr").getAttribute("data-pref-key");
+                                    fetch(prefUrl(key), { method: "DELETE", credentials: "same-origin" })
+                                        .then(function () { location.reload(); });
+                                });
+                            });
+                            var allBtn = document.getElementById("prefsResetAll");
+                            if (allBtn) {
+                                allBtn.addEventListener("click", function () {
+                                    fetch(prefUrl(null), { method: "DELETE", credentials: "same-origin" })
+                                        .then(function () { location.reload(); });
+                                });
+                            }
+                        })();
+                        </script>
 
                     </div>
                 {% endif %}

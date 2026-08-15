@@ -28,17 +28,17 @@
 # Load packages management functions
 {% include "templates/linux/system_packages/packages_management.sh.j2" %}
 
-# Install AWS Systems Manager agent
-{% include "templates/linux/aws_ssm_agent.sh.j2" %}
-
 # Install awscli
 {% include "templates/linux/awscli.sh.j2" %}
+
+# Install AWS Systems Manager agent
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
 
 log_info "Running Kernel $(uname -r)"
 
 # Remove any previous references of SOCA to the environment file (if any)
 cp /etc/environment /etc/environment.original.$(date +%s)
-sed -i '/SOCA_/d' /etc/environment
+sed -i '/SOCA_\|EDH_/d' /etc/environment
 unset_reboot_required
 
 # Note: Log generated prior to filesystems mount will be automatically copied over the POST_FILESYSTEM_MOUNT_LOGS_FOLDER post filesystems mount for simple troubleshooting
@@ -46,14 +46,24 @@ PRE_FILESYSTEM_MOUNT_LOGS_FOLDER="/root/edh_bootstrap_$(instance_id)/logs"
 POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)"
 BOOTSTRAP_ASSETS_PATH="/root/edh_bootstrap_$(instance_id)"
 
+# When BootstrapTemplateCache is enabled, SESSION_ENV_S3 points at the
+# per-session prefix containing the small 00_session_env.sh file with
+# all EDH_* env-var exports. The cached big bootstrap scripts reference
+# those values at runtime (e.g. ${EDH_DCV_SESSION_ID}) instead of
+# baking them in at Jinja2 render time. When the cache is disabled the
+# value is empty and the big scripts behave as they did pre-cache
+# (per-session render with values baked in).
+# See docs/BootstrapTemplateCache.md
+SESSION_ENV_S3="{{ context.get("/job/SessionEnvS3Location", "") }}"
+
 if [[ ! -d "${BOOTSTRAP_ASSETS_PATH}" ]]; then
     log_info "First user data execution, downloading bootstrap sequence"
     # Retrieve Boostrap sequence from S3
-    {% if context.get("/configuration/Region") in ["us-gov-east-1', 'us-gov-west-1"]  %}
+    {% if context.get("/configuration/Region").startswith("us-gov-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["cn-north-1", "cn-northwest-1"]  %}
+    {% elif context.get("/configuration/Region").startswith("cn-")  %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    {% elif context.get("/configuration/Region") in ["eusc-de-east-1"] %}
+    {% elif context.get("/configuration/Region").startswith("eusc-") %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
     {% else %}
         S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
@@ -61,6 +71,38 @@ if [[ ! -d "${BOOTSTRAP_ASSETS_PATH}" ]]; then
 
     log_info "Downloading Bootstrap script"
     aws_cli s3 --region ${S3_BUCKET_REGION} sync {{ context.get("/job/BootstrapScriptsS3Location") }} ${BOOTSTRAP_ASSETS_PATH}
+
+    # If BootstrapTemplateCache is enabled, fetch the per-session env
+    # file separately. It lives at a different S3 prefix than the cached
+    # big scripts (which are shared across all sessions of the same
+    # stack-config), so an additional aws_cli s3 cp is needed.
+    if [[ -n "${SESSION_ENV_S3}" ]]; then
+        # ${VAR%/} strips a single trailing slash if present so we
+        # never end up with .../prefix//00_session_env.sh, which is a
+        # *different* S3 key than .../prefix/00_session_env.sh and
+        # HeadObject 404s on the wrong one. The Python side
+        # (utils.aws.s3_helper.s3_join) already returns no trailing
+        # slash, but the worker stub belt-and-suspenders this so a
+        # future drift in the producer can't take VDIs offline.
+        SESSION_ENV_S3_CLEAN="${SESSION_ENV_S3%/}"
+        log_info "Downloading per-session env file from ${SESSION_ENV_S3_CLEAN}/00_session_env.sh"
+        aws_cli s3 --region ${S3_BUCKET_REGION} cp \
+            "${SESSION_ENV_S3_CLEAN}/00_session_env.sh" \
+            "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+        chmod 600 "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+    fi
+fi
+
+# Source the per-session env file BEFORE running install_required_packages
+# / filesystems_automount / 02_setup so cached scripts can resolve
+# ${EDH_*} at runtime. No-op when the env file is absent (cache disabled
+# or older worker that pre-dates this change).
+if [[ -r "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh" ]]; then
+    log_info "Sourcing per-session env file"
+    set -a   # auto-export everything in the file
+    # shellcheck disable=SC1090,SC1091
+    source "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+    set +a
 fi
 
 mkdir -p ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}

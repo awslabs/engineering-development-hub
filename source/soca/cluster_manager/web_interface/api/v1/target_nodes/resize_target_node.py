@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from decorators import private_api, feature_flag
 from models import db, TargetNodeSessions, TargetNodeProfiles, TargetNodeSoftwareStacks
@@ -29,7 +30,7 @@ class ResizeTargetNode(Resource):
     @private_api
     @feature_flag(flag_name="TARGET_NODES", mode="api")
     def put(self):
-        """
+        r"""
         Resize target node instance type
         ---
         openapi: 3.1.0
@@ -38,8 +39,6 @@ class ResizeTargetNode(Resource):
           - Target Nodes
         summary: Resize target node instance type
         description: Modify the instance type of a target node session. The session must be in stopped state.
-        security:
-          - socaAuth: []
         parameters:
           - in: header
             name: X-EDH-USER
@@ -72,25 +71,16 @@ class ResizeTargetNode(Resource):
                   session_uuid:
                     type: string
                     format: uuid
-                    description: UUID of the virtual desktop session to resize
+                    description: UUID of the target node session to resize
                     example: "12345678-1234-1234-1234-123456789abc"
                   instance_type:
                     type: string
                     pattern: '^[a-z0-9]+\.[a-z0-9]+$'
-                    description: New EC2 instance type for the virtual desktop
+                    description: New EC2 instance type for the target node (must be allowed by the associated software stack profile)
                     example: "m5.large"
-                    enum:
-                      - "t3.micro"
-                      - "t3.small"
-                      - "t3.medium"
-                      - "t3.large"
-                      - "m5.large"
-                      - "m5.xlarge"
-                      - "c5.large"
-                      - "c5.xlarge"
         responses:
           '200':
-            description: Virtual desktop successfully resized
+            description: Target node successfully resized
             content:
               application/json:
                 schema:
@@ -164,7 +154,7 @@ class ResizeTargetNode(Resource):
                       example: "VIRTUAL_DESKTOP_MODIFY_ERROR"
                     message:
                       type: string
-                      example: "This Virtual Desktop is not stopped. You can only modify a stopped desktop."
+                      example: "This target node is not stopped. You can only modify a stopped target node."
           '500':
             description: Internal server error - AWS API or database error
             content:
@@ -184,14 +174,7 @@ class ResizeTargetNode(Resource):
                       example: "VIRTUAL_DESKTOP_MODIFY_ERROR"
                     message:
                       type: string
-                      example: "Unable to modify this desktop because of AWS error"
-        components:
-          securitySchemes:
-            socaAuth:
-              type: apiKey
-              in: header
-              name: X-EDH-USER
-              description: SOCA authentication using username and token headers
+                      example: "Unable to modify this target node because of AWS error"
         """
         parser = reqparse.RequestParser()
         parser.add_argument("session_uuid", type=str, location="form")
@@ -287,7 +270,7 @@ class ResizeTargetNode(Resource):
 
             return SocaResponse(
                 success=True,
-                message=f"Your virtual desktop has been updated",
+                message=_(f"Your virtual desktop has been updated"),
             ).as_flask()
 
         else:

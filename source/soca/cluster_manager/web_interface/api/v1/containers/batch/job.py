@@ -10,6 +10,7 @@ import json
 from utils.response import SocaResponse
 from utils.error import SocaError
 from flask import request
+from flask_babel import gettext as _
 from utils.aws.batch_client import SocaAWSBatchClient
 
 logger = logging.getLogger("soca_logger")
@@ -587,7 +588,7 @@ class BatchJob(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"Job {_job_name} submitted successfully. Job ID: {_submitted_job_id}",
+            message=_(f"Job {_job_name} submitted successfully. Job ID: {_submitted_job_id}"),
         ).as_flask()
 
     @private_api
@@ -782,5 +783,5 @@ class BatchJob(Resource):
             ).as_flask()
 
         return SocaResponse(
-            success=True, message=f"Job {_job_id} terminated successfully."
+            success=True, message=_(f"Job {_job_id} terminated successfully.")
         ).as_flask()

@@ -3,6 +3,16 @@
 
 {% include "templates/windows/common.ps.j2" %}
 
+# AD-join helpers (Invoke-SocaCleanDomainJoin) for the rescue-rejoin block below. Sourced here
+# in 03 (an S3-downloaded script), NOT common.ps.j2, to keep it out of the inline 16 KB
+# LaunchTemplate UserData (01_user_data).
+{% include "templates/windows/ad_join_helpers.ps.j2" %}
+
+# Package-install helper (Invoke-SOCAInstallPackage). Sourced here in 03 (an S3-downloaded
+# script), NOT common.ps.j2, to keep it out of the inline 16 KB LaunchTemplate UserData
+# (01_user_data). add_additional_packages below depends on it.
+{% include "templates/windows/common/wrapper_install_package.ps.j2" %}
+
 {% include "templates/windows/common/wrapper_secretsmanager.ps.j2" %}
 
 $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -40,16 +50,129 @@ if ($task) {
 }
 
 {% if  context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
+# --- AD self-heal rescue: finish a pending clean rejoin (Shape 2) ------------------------
+# join_activedirectory (in 02_setup) detected a DIRTY AMI (host booted joined under a
+# foreign/shared object), unjoined to WORKGROUP, dropped this marker, and rebooted. The
+# framework's post-reboot pass runs THIS script (not 02/join), so the clean rejoin as the
+# unique object is completed here, then we reboot once more to apply it. On that next boot the
+# marker is gone and 03 proceeds to its normal finish (now domain-joined).
+$rescueMarker = Join-Path $EDHBootstrapAssetsFolder 'ad_rescue_pending.flag'
+if (Test-Path $rescueMarker) {
+    $UniqueName = (Get-Content -Path $rescueMarker -Raw).Trim()
+    Log-Info -Message "AD rescue: pending clean rejoin as $UniqueName (current name $env:COMPUTERNAME, PartOfDomain=$((Get-WmiObject Win32_ComputerSystem).PartOfDomain))"
+    $secret = Get-Secret -SecretId "{{ context.get('/configuration/UserDirectory/service_account_secret_arn') }}"
+    if ($secret) {
+        $sau = $secret.username.Split('@')[0]
+        $sp  = ConvertTo-SecureString "$($secret.password)" -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$sau",$sp
+        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $cred -UniqueName $UniqueName) {
+            Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue
+            # Re-arm this post-reboot task so 03 runs again after the rejoin reboot to finish normally.
+            $rescueScript = "$EDHBootstrapAssetsFolder\03_setup_post_reboot.ps1"
+            $rescueAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File $rescueScript  *> $EDHBootstrapAssetsFolder\03_setup_post_reboot.ps1.log"
+            $rescueTrigger = New-ScheduledTaskTrigger -AtStartup
+            $rescueSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+            Register-ScheduledTask -Action $rescueAction -Trigger $rescueTrigger -Settings $rescueSettings -TaskName $taskName -Description "EDH Final Setup post-reboot" -Force
+            Log-Info -Message "AD rescue: clean rejoin as $UniqueName staged; rebooting to apply, 03 will resume after."
+            Restart-Computer -Force
+            Start-Sleep -Seconds 120   # hold while the reboot is pending; do not continue 03 this pass
+            exit 0
+        } else {
+            # Rejoin failed after retries. Remove the marker to avoid an infinite reboot loop and
+            # continue (degraded: WORKGROUP). The loud error is visible via SSM for re-bake.
+            Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue
+            Write-Error "AD rescue: clean rejoin as $UniqueName FAILED after retries; continuing in WORKGROUP (re-bake the AMI un-joined)."
+        }
+    } else {
+        Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue
+        Write-Error "AD rescue: could not retrieve service account secret; continuing in WORKGROUP."
+    }
+}
+{% endif %}
+
+{% if  context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
+# --- AD identity convergence (normal-path half-join repair) ---------------------------------
+# 02_setup stages the join+rename via Add-Computer JoinWithNewName, which only applies on
+# reboot. If that rename did not take effect (machine still carries its EC2 sysprep name) or
+# the secure channel is broken, the box is half-joined: the unique SOCA-<hash> AD object exists
+# but THIS machine identifies as its EC2 name (no matching account) -> domain logins fail with
+# "the security database on the server does not have a computer account for this workstation
+# trust relationship". Converge by reusing the proven Shape-2 rescue: unjoin to WORKGROUP +
+# drop the rescue marker, then reboot -- the rescue block above completes the clean rejoin as
+# the expected unique name on the next pass. Idempotent (no-op once correctly named + trusted)
+# and capped at 3 attempts so a persistent failure fails loud instead of reboot-looping.
+$rescueMarker = Join-Path $EDHBootstrapAssetsFolder 'ad_rescue_pending.flag'
+$expectedAdName = Get-SocaAdHostname -ClusterId "{{ context.get('/configuration/ClusterId') }}"
+$cs = Get-WmiObject Win32_ComputerSystem
+$secureChannelOk = $false
+try { $secureChannelOk = Test-ComputerSecureChannel -ErrorAction Stop } catch { $secureChannelOk = $false }
+if (-not ($cs.PartOfDomain -and ($env:COMPUTERNAME -eq $expectedAdName) -and $secureChannelOk)) {
+    $convAttemptFile = Join-Path $EDHBootstrapAssetsFolder 'ad_converge_attempts.txt'
+    $convAttempts = 0
+    if (Test-Path $convAttemptFile) { try { $convAttempts = [int]((Get-Content $convAttemptFile -Raw).Trim()) } catch { $convAttempts = 0 } }
+    if ($convAttempts -ge 3) {
+        Write-Error "AD identity STILL not converged after $convAttempts attempts (name=$env:COMPUTERNAME expected=$expectedAdName PartOfDomain=$($cs.PartOfDomain) secureChannel=$secureChannelOk). Giving up to avoid a reboot loop; manual intervention required."
+    } else {
+        Log-Warning -Message "AD identity not converged (name=$env:COMPUTERNAME expected=$expectedAdName PartOfDomain=$($cs.PartOfDomain) secureChannel=$secureChannelOk); attempt $($convAttempts + 1)/3 -- triggering clean rejoin via the rescue path."
+        $secret = Get-Secret -SecretId "{{ context.get('/configuration/UserDirectory/service_account_secret_arn') }}"
+        if ($secret) {
+            $sau = $secret.username.Split('@')[0]
+            $sp  = ConvertTo-SecureString "$($secret.password)" -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$sau",$sp
+            try {
+                if ($cs.PartOfDomain) {
+                    # AD-auth unjoin (deletes the shared object); fall back to a local WORKGROUP drop if the channel is broken.
+                    try {
+                        Remove-Computer -UnjoinDomainCredential $cred -WorkgroupName "WORKGROUP" -Force -ErrorAction Stop
+                    } catch {
+                        Log-Warning -Message "AD-auth unjoin failed ($($_.Exception.Message)); forcing local WORKGROUP drop (orphan reaped by ADComputerCleaner)"
+                        $lr = $cs.UnjoinDomainOrWorkgroup($null, $null, 0)
+                        if ($lr.ReturnValue -eq 0) { $cs.JoinDomainOrWorkgroup("WORKGROUP") | Out-Null }
+                        else { throw "Local force-drop failed (WMI $($lr.ReturnValue))" }
+                    }
+                    Log-Info -Message "Left inherited domain membership; staging clean rejoin as $expectedAdName."
+                }
+                Set-Content -Path $convAttemptFile -Value ([string]($convAttempts + 1)) -Force
+                # Drop the rescue marker so the rescue block (top of 03) finishes the rejoin.
+                Set-Content -Path $rescueMarker -Value $expectedAdName -Force
+                # Re-arm this post-reboot task and reboot to apply the unjoin + run the rescue.
+                $reArmAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File $EDHBootstrapAssetsFolder\03_setup_post_reboot.ps1  *> $EDHBootstrapAssetsFolder\03_setup_post_reboot.ps1.log"
+                $reArmTrigger = New-ScheduledTaskTrigger -AtStartup
+                $reArmSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+                Register-ScheduledTask -Action $reArmAction -Trigger $reArmTrigger -Settings $reArmSettings -TaskName $taskName -Description "EDH Final Setup post-reboot" -Force
+                Log-Info -Message "AD identity repair staged; rebooting to apply, rescue block will complete the rejoin as $expectedAdName."
+                Restart-Computer -Force
+                Start-Sleep -Seconds 120   # hold while the reboot is pending; do not continue 03 this pass
+                exit 0
+            } catch {
+                Write-Error "AD identity repair (unjoin/rejoin as $expectedAdName) FAILED: $($_.Exception.Message)"
+            }
+        } else {
+            Write-Error "AD identity repair: could not retrieve service account secret; cannot converge identity."
+        }
+    }
+} else {
+    # Converged -- clear the attempt counter so a future re-bootstrap starts fresh.
+    $convAttemptFile = Join-Path $EDHBootstrapAssetsFolder 'ad_converge_attempts.txt'
+    if (Test-Path $convAttemptFile) { Remove-Item $convAttemptFile -Force -ErrorAction SilentlyContinue }
+}
+{% endif %}
+
+{% if  context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
     # DOMAIN\<EDH_user>
-    $EDHUser = "{{ context.get('/configuration/UserDirectory/short_name') }}\{{ context.get('/dcv/SessionOwner') }}"
+    $EDHUser = "{{ context.get('/configuration/UserDirectory/short_name') }}\$env:EDH_DCV_SESSION_OWNER"
 {% else %}
-    $EDHUser = "{{ context.get('/dcv/SessionOwner') }}"
+    $EDHUser = "$env:EDH_DCV_SESSION_OWNER"
 {% endif %}
 
 Log-Info -Message "Grant ${EDHUser} Admin permissions on the local Virtual Desktop machine"
 Add-LocalGroupMember -Group "Administrators" -Member $EDHUser
 
 {% include "templates/windows/auto_user_logon.ps.j2" %}
+
+# Auto-mount FSx/ONTAP CIFS shares at user logon (per-user, Kerberos). Reads the
+# controller-published smb_dns + cifs_share_name from SSM; makes no FSx API calls.
+{% include "templates/windows/shared_storage/filesystems_automount.ps.j2" %}
 
 Log-Info -Message "Create Desktop Shortcut to EDH web interface"
 $wshShell = New-Object -comObject WScript.Shell
@@ -72,8 +195,291 @@ $EDHShortcut.Save()
 Log-Info "Boostrap Completed, creating lock file to avoid new executions"
 New-Item -Path "${EDHBootstrapAssetsFolder}\userdata_completed_${instanceId}.txt" -ItemType File
 
+# DCV event-relay: load the publisher early so we can emit a status
+# update before the (sometimes-slow) Start-Service call.
+{% include "templates/windows/dcv/dcv_event_publish.ps.j2" %}
+
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" `
+        -SubStatus "Starting DCV server service"
+} catch { Write-Warning "edh-publish: dcv-starting status threw: $_" }
+
+$_dcvSvcT0 = Get-Date
 Log-Info -Message "Starting dcvserver service"
 Start-Service -Name dcvserver
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" `
+        -SubStatus ("dcvserver started in " + (Format-EdhDuration ((Get-Date) - $_dcvSvcT0)))
+} catch { Write-Warning "edh-publish: dcv-started status threw: $_" }
+
+# Checkpoint: dcvserver service is started. Drives the WebUI grid-card
+# timeline. Best-effort -- failures are warnings, not fatal.
+try {
+    Invoke-EdhDcvPublishEvent -EventType "bootstrap-checkpoint" `
+        -Checkpoint "dcv-started" `
+        -SubStatus "DCV server service active"
+} catch {
+    Write-Warning "edh-publish: dcv-started checkpoint threw: $_"
+}
+
+{% if context.get("/configuration/DcvHighScale", false) | string | lower == "true" %}
+# High-scale: start the DCV Session Manager Agent NOW -- after the rename + reboot and the AD
+# identity convergence above -- so it registers with the broker exactly once under the final
+# unique (EDH-<hash>) identity, with dcvserver already running (started just above) so it
+# reports a READY server. 02_setup installs + configures the agent but deliberately leaves it
+# Stopped/Manual to avoid a pre-rename registration: if the agent registered as the EC2 sysprep
+# name and the box then rebooted + renamed, the broker would hold the stale server until its
+# 15-min unreachable sweep while the reconnecting agent resumed as "already registered" without
+# re-publishing a DcvServer -> the controller's create_session loops "No DCV server found for
+# the given criteria". Setting StartupType=Automatic here also guarantees the agent auto-starts
+# on any later reboot.
+Log-Info -Message "High-scale: enabling (Automatic) + starting DCV Session Manager Agent post-rename under final identity"
+Set-Service -Name "DcvSessionManagerAgentService" -StartupType Automatic -ErrorAction Continue
+Restart-Service -Name "DcvSessionManagerAgentService" -Force -ErrorAction Continue
+{% endif %}
+
+{% if context.get("/configuration/DcvHighScale", false) | string | lower != "true" %}
+# Legacy (non-high-scale) mode: no broker is present, so create the
+# SOCA-named DCV console session explicitly here. The Windows auto-console
+# session always has ID "console" (auto-create is disabled in
+# dcv_session_setup.ps.j2), which does not match the SOCA session UUID the
+# WebUI connects with. This mirrors Linux socadcv's
+# `dcv create-session ${EDH_DCV_SESSION_ID}`. High-scale leaves session
+# creation to the broker.
+$_dcvExe = "C:\Program Files\NICE\DCV\Server\bin\dcv.exe"
+# Read from process scope ($env:) -- 00_session_env.ps1.j2 sets both there.
+# EDH_DCV_SESSION_OWNER is ONLY set in process scope (never persisted to
+# Machine), so a Machine-scope read returns empty -> create-session --owner ''
+# fails and no session is created. Matches the admin-grant block above.
+$_edhSid = $env:EDH_DCV_SESSION_ID
+$_edhOwner = $env:EDH_DCV_SESSION_OWNER
+# dcvserver reports "Running" before it accepts CLI commands; poll readiness.
+for ($i = 0; $i -lt 30; $i++) {
+    & $_dcvExe list-sessions > $null 2>&1
+    if ($LASTEXITCODE -eq 0) { break }
+    Start-Sleep -Seconds 2
+}
+Log-Info -Message "Legacy mode: creating DCV console session '$_edhSid' for owner '$_edhOwner'"
+& $_dcvExe create-session --type console --owner $_edhOwner --storage-root "C:\{{ context.get('/system/dcv/session_storage') }}" $_edhSid 2>&1 | ForEach-Object { Log-Info -Message $_ }
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "dcv create-session returned $LASTEXITCODE for session '$_edhSid'"
+}
+{% endif %}
+
+try {
+    if ($env:EDH_DCV_POOL_MEMBER -eq "true") {
+        # Session-less pool member: announce availability to the relay (writes
+        # the ledger AVAILABLE row, opening the claim gate). No session.
+        # Inline emit covers the COLD first boot.
+        # Gate emit on REAL broker registration (mirrors Linux Fix A): emitting
+        # pool-ready before the SM agent registers races the claim. Wait (bounded)
+        # for the agent service + a broker signal in the log; best-effort if not.
+        $_brokerReady = $false
+        $_smaLog = "C:\ProgramData\NICE\DCVSessionManagerAgent\log\agent.log"
+        for ($_bi = 0; $_bi -lt 36; $_bi++) {
+            $_sma = Get-Service -Name "DcvSessionManagerAgentService" -ErrorAction SilentlyContinue
+            if ($_sma -and $_sma.Status -eq "Running" -and (Test-Path $_smaLog)) {
+                if (Select-String -Path $_smaLog -Pattern "sessionsUpdateResponse","registered with the broker","Registered agent","broker connection established" -Quiet -ErrorAction SilentlyContinue) {
+                    $_brokerReady = $true
+                    break
+                }
+            }
+            Start-Sleep -Seconds 5
+        }
+        if ($_brokerReady) {
+            Log-Info -Message "pool-ready: broker registration confirmed; emitting"
+        } else {
+            Log-Info -Message "pool-ready: broker registration not confirmed in budget; emitting best-effort"
+        }
+        Invoke-EdhDcvPublishEvent -EventType "pool-ready"
+
+        # Warm RESUMES + reboots do NOT re-run this bootstrap, so the inline
+        # emit never fires again -- install a boot-time re-announce agent
+        # (parallels the Linux systemd oneshot edh-dcv-pool-ready.service).
+        # Inputs persist to Machine-scope env (survive stop/resume); a startup
+        # Scheduled Task runs the agent on EVERY boot. It is registered now
+        # (mid-first-boot) so it only fires on SUBSEQUENT boots -- no double
+        # emit with the inline call above. Relay validates SenderId + the
+        # instance's edh:pool_id tag server-side, so the agent needs no
+        # autoscaling/ec2 IAM and its inputs being machine-local is immaterial.
+        try {
+            [System.Environment]::SetEnvironmentVariable('EDH_DCV_POOL_MEMBER', 'true', 'Machine')
+            [System.Environment]::SetEnvironmentVariable('EDH_DCV_SESSION_EVENTS_QUEUE_URL', $env:EDH_DCV_SESSION_EVENTS_QUEUE_URL, 'Machine')
+            $_edhAgentDir = "C:\ProgramData\EDH"
+            New-Item -ItemType Directory -Force -Path $_edhAgentDir | Out-Null
+            $_edhAgentPath = Join-Path $_edhAgentDir "edh-dcv-pool-ready.ps1"
+            $_edhAgentBody = @'
+# EDH VDI pool boot-time pool-ready re-announce agent (Windows).
+# Runs on every boot via the EDHDcvPoolReady scheduled task. Idempotent;
+# relay-validated. Reads its inputs from Machine-scope env (persisted by
+# 03_setup_post_reboot at first boot).
+$ErrorActionPreference = "SilentlyContinue"
+if ([System.Environment]::GetEnvironmentVariable('EDH_DCV_POOL_MEMBER','Machine') -ne 'true') { exit 0 }
+$queueUrl = [System.Environment]::GetEnvironmentVariable('EDH_DCV_SESSION_EVENTS_QUEUE_URL','Machine')
+if ([string]::IsNullOrEmpty($queueUrl)) { exit 0 }
+$dcv = "C:\Program Files\NICE\DCV\Server\bin\dcv.exe"
+$logFile = "C:\ProgramData\EDH\edh-dcv-pool-ready.log"
+function Log-Agent($m) { try { "$((Get-Date).ToUniversalTime().ToString('o')) $m" | Out-File -FilePath $logFile -Append -Encoding UTF8 } catch {} }
+Log-Agent "agent start (boot re-announce)"
+if (-not (Test-Path $dcv)) { Log-Agent "dcv.exe not found; exit"; exit 0 }
+# Warm RESUME can leave the DCV CLI unavailable well past 5 min, so wait up
+# to ~15 min (90 x 10s) for DCV to accept CLI commands after boot.
+$ready = $false
+for ($i = 0; $i -lt 90; $i++) {
+    & $dcv list-sessions > $null 2>&1
+    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 10
+}
+if (-not $ready) { Log-Agent "DCV CLI not ready after ~15 min; exit (retries next boot)"; exit 0 }
+Log-Agent ("DCV CLI ready after ~{0}s" -f ($i * 10))
+# Wait for the SM agent before re-announcing on resume, or the next claim hits
+# "DCV server not yet registered"; then a short settle for broker re-register.
+for ($bi = 0; $bi -lt 30; $bi++) {
+    $sma = Get-Service -Name "DcvSessionManagerAgentService" -ErrorAction SilentlyContinue
+    if ($sma -and $sma.Status -eq "Running") { break }
+    Start-Sleep -Seconds 5
+}
+Start-Sleep -Seconds 20
+# Skip re-announce if a DCV session already exists -- the member was CLAIMED
+# (a user's desktop now, detached from the pool), not an idle pool member.
+$sj = (& $dcv list-sessions -j 2>$null | Out-String)
+if ($sj -match '"id"\s*:') { Log-Agent "DCV session present (member claimed); skip re-announce"; exit 0 }
+# Emit pool-ready (envelope mirrors dcv_event_publish.ps.j2). The relay
+# cross-checks the SenderId-attested instance + its edh:pool_id tag.
+try {
+    $tok = Invoke-RestMethod -Method PUT -Uri "http://169.254.169.254/latest/api/token" -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="60"} -TimeoutSec 5
+    $iid = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token"=$tok} -Uri "http://169.254.169.254/latest/meta-data/instance-id" -TimeoutSec 5
+} catch { exit 0 }
+if ([string]::IsNullOrEmpty($iid)) { exit 0 }
+$nonce = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Minimum 0 -Maximum 256) })
+$ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.ffffffZ")
+$payload = [ordered]@{ event_type = "pool-ready"; session_uuid = ""; instance_id = $iid; event_timestamp = $ts; nonce = $nonce }
+$body = $payload | ConvertTo-Json -Compress -Depth 5
+# Send the JSON via a temp file (file://). Passing it as a literal arg lets
+# PowerShell strip the embedded double-quotes before aws.exe sees them, so the
+# relay receives malformed JSON and drops it (reason=body_parse). WriteAllText
+# emits UTF-8 with NO BOM (a BOM would also break the relay's json.loads).
+# Mirrors Invoke-EdhDcvPublishEvent's send path.
+$tmp = [IO.Path]::Combine([IO.Path]::GetTempPath(), "edh-poolready-$([guid]::NewGuid()).json")
+[IO.File]::WriteAllText($tmp, $body)
+try {
+    & aws.exe sqs send-message --queue-url $queueUrl --message-body ("file://" + $tmp) --output text --query MessageId > $null 2>&1
+    Log-Agent ("pool-ready emitted iid={0} exit={1}" -f $iid, $LASTEXITCODE)
+} finally {
+    if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+}
+exit 0
+'@
+            Set-Content -Path $_edhAgentPath -Value $_edhAgentBody -Encoding UTF8
+            $_edhAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NonInteractive -NoProfile -ExecutionPolicy Bypass -File `"$_edhAgentPath`""
+            $_edhTrigger = New-ScheduledTaskTrigger -AtStartup
+            $_edhPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+            Register-ScheduledTask -TaskName "EDHDcvPoolReady" -Action $_edhAction -Trigger $_edhTrigger -Principal $_edhPrincipal -Force | Out-Null
+            Log-Info -Message "Installed EDHDcvPoolReady boot agent (warm resume / reboot re-announce)"
+        } catch {
+            Write-Warning "edh-pool-ready agent install failed: $_"
+        }
+    } else {
+        Invoke-EdhDcvPublishEvent -EventType "session-ready"
+    }
+} catch {
+    Write-Warning "edh-publish: readiness emit threw: $_"
+}
+
+# --- Resume-heal runner (Saved Desktops / Resume-From) --------------------------------
+# Self-contained AtStartup runner baked HERE at cold boot (S3-delivered bootstrap, NOT
+# userdata -> no 16KB limit). Because it is written at provisioning and never touched
+# again, it is already on disk when ANY create-image runs -- so it is captured into every
+# AMI for free, with ZERO work inside the 2-min Spot ITN window. On boot it self-gates:
+# it does nothing unless the instance carries edh:DCVResume=true (set only by the resume
+# launch), and runs at most once per session (sentinel keyed on edh:DCVSessionUUID). On a
+# resume it heals the AD secure channel and emits session-ready for the NEW session so the
+# web tier fast-promotes without the ~3-min watcher backstop. Cold/normal boots no-op.
+try {
+    $_healDir = "C:\ProgramData\EDH"
+    New-Item -ItemType Directory -Force -Path $_healDir | Out-Null
+    $_runnerPath = Join-Path $_healDir "resume_heal_runner.ps1"
+    $_runnerBody = @'
+$ErrorActionPreference = "SilentlyContinue"
+$tok = Invoke-RestMethod -Method PUT -Uri "http://169.254.169.254/latest/api/token" -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="21600"}
+$hdr = @{"X-aws-ec2-metadata-token"=$tok}
+$iid = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" -Headers $hdr
+$region = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/placement/region" -Headers $hdr
+# Read the gate + session id from IMDS instance tags (needs no aws.exe) instead of
+# `aws ec2 describe-tags`. On a resumed instance the aws CLI tree faults in slowly from
+# the lazy-loaded snapshot on first exec (~120s); IMDS tag reads are credential-free and
+# sub-second. Falls back to describe-tags only if InstanceMetadataTags is unavailable.
+function Get-EdhTag($key) {
+    $v = try { Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/tags/instance/$key" -Headers $hdr -TimeoutSec 5 } catch { $null }
+    if ([string]::IsNullOrEmpty($v)) {
+        $v = & aws ec2 describe-tags --region $region --filters "Name=resource-id,Values=$iid" "Name=key,Values=$key" --query "Tags[0].Value" --output text 2>$null
+    }
+    return $v
+}
+$isResume = Get-EdhTag "edh:DCVResume"
+if ($isResume -ne "true") { exit 0 }
+# Pre-warm aws.exe in the background so its first-exec cold-start (lazy-load fault-in of
+# the AWSCLIV2 tree) overlaps the AD-heal + service restart below rather than blocking
+# the session-ready emit.
+Start-Process -FilePath "aws" -ArgumentList "--version" -WindowStyle Hidden -ErrorAction SilentlyContinue
+$sid = Get-EdhTag "edh:DCVSessionUUID"
+if (-not $sid -or $sid -eq "None") { exit 0 }
+$flag = "C:\ProgramData\EDH\resume_healed_$sid.flag"
+if (Test-Path $flag) { exit 0 }
+$log = "C:\ProgramData\EDH\resume_heal.log"
+"$(Get-Date -Format o) resume-heal start sid=$sid iid=$iid" | Out-File $log -Append
+[System.Environment]::SetEnvironmentVariable("EDH_DCV_SESSION_ID", $sid, [System.EnvironmentVariableTarget]::Machine)
+$env:EDH_DCV_SESSION_ID = $sid
+$cid = Get-EdhTag "edh:ClusterId"
+try {
+    if (-not (Test-ComputerSecureChannel)) {
+        $secret = aws secretsmanager get-secret-value --region $region --secret-id (aws ssm get-parameter --region $region --name "/edh/$cid/UserDirectoryServiceAccount" --query "Parameter.Value" --output text 2>$null) --query "SecretString" --output text 2>$null | ConvertFrom-Json
+        if ($secret) {
+            $u = $secret.username.Split("@")[0]
+            $p = ConvertTo-SecureString $secret.password -AsPlainText -Force
+            $shortName = aws ssm get-parameter --region $region --name "/edh/$cid/configuration/UserDirectory/short_name" --query "Parameter.Value" --output text 2>$null
+            $cred = New-Object System.Management.Automation.PSCredential("$shortName\$u", $p)
+            Test-ComputerSecureChannel -Repair -Credential $cred -ErrorAction Stop | Out-Null
+        }
+    }
+} catch {}
+# Correct service name is DcvSessionManagerAgentService (the old DcvSessionManagerAgent
+# silently no-op'd). The agent auto-starts and re-registers under its live
+# Host.Aws.EC2InstanceId; the controller maps instance->server on that live value
+# (DcvBrokerClient.find_server_id_by_instance), so NO on-disk tag rewrite is needed --
+# identity comes from IMDS, never a baked file.
+foreach ($svc in @("dcvserver","DcvSessionManagerAgentService")) { try { Restart-Service -Name $svc -Force -ErrorAction Stop } catch {} }
+$queueUrl = & aws ssm get-parameter --region $region --name "/edh/$cid/configuration/DcvSessionEventsQueueUrl" --query "Parameter.Value" --output text 2>$null
+if ($queueUrl -and $queueUrl -ne "None") {
+    [System.Environment]::SetEnvironmentVariable("EDH_DCV_SESSION_EVENTS_QUEUE_URL", $queueUrl, [System.EnvironmentVariableTarget]::Machine)
+    $env:EDH_DCV_SESSION_EVENTS_QUEUE_URL = $queueUrl
+}
+Start-Sleep -Seconds 5
+$publishFn = Get-ChildItem "C:\ProgramData\EDH\*\dcv_event_publish.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+if ($publishFn -and (Test-Path $publishFn)) {
+    . $publishFn
+    try { Invoke-EdhDcvPublishEvent -EventType "session-ready" } catch {}
+} elseif ($queueUrl -and $queueUrl -ne "None") {
+    $body = @{event_type="session-ready"; session_id=$sid; instance_id=$iid; timestamp=(Get-Date -Format o)} | ConvertTo-Json -Compress
+    $tmpFile = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $tmpFile -Value $body -Encoding UTF8
+    & aws sqs send-message --region $region --queue-url $queueUrl --message-body "file://$tmpFile" 2>$null | Out-Null
+    Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+}
+try { & aws ec2 create-tags --region $region --resources $iid --tags "Key=edh:ResumeAdHealed,Value=runner" 2>$null } catch {}
+New-Item -ItemType File -Path $flag -Force | Out-Null
+"$(Get-Date -Format o) resume-heal done" | Out-File $log -Append
+exit 0
+'@
+    Set-Content -Path $_runnerPath -Value $_runnerBody -Encoding UTF8
+    $_healAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NonInteractive -NoProfile -ExecutionPolicy Bypass -File `"$_runnerPath`""
+    $_healTrigger = New-ScheduledTaskTrigger -AtStartup
+    $_healPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName "EDHResumeHeal" -Action $_healAction -Trigger $_healTrigger -Principal $_healPrincipal -Force | Out-Null
+    Log-Info -Message "Installed EDHResumeHeal boot runner (tag-gated resume heal + emit)"
+} catch {
+    Write-Warning "EDHResumeHeal runner install failed: $_"
+}
 
 Log-Info -Message "Node is ready"
 

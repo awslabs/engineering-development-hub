@@ -51,8 +51,20 @@ def sso_authorization(code):
         "redirect_uri": config.Config.COGNITO_CALLBACK_URL,
     }
 
+    cognito_root_url = config.Config.COGNITO_OAUTH_TOKEN_ENDPOINT
+    try:
+        health_check = requests.get(cognito_root_url, timeout=5)
+        if health_check.status_code != 200:
+            logger.error(f"Cognito endpoint returned HTTP {health_check.status_code}: {cognito_root_url}")
+            return {"success": False, "message": f"Cognito endpoint is not reachable (HTTP {health_check.status_code})"}
+    except requests.RequestException as e:
+        logger.error(f"Unable to reach Cognito endpoint {cognito_root_url}: {e}")
+        return {"success": False, "message": "Cognito endpoint is not reachable. Check your network configuration."}
+    except Exception as err:
+        logger.error(f"Unexpected error while trying to authenticate against Cognito: {err}")
+        return {"success": False, "message": "Unexpected error while trying to authenticate against Cognito"}
     oauth_token = requests.post(
-        config.Config.COGNITO_OAUTH_TOKEN_ENDPOINT, data=data, headers=headers
+        cognito_root_url, data=data, headers=headers
     ).json()
     id_token = oauth_token["id_token"]
     access_token = oauth_token["access_token"]

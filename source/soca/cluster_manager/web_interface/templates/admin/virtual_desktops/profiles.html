@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -22,9 +22,9 @@
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab" href="#nav-add"
-                               role="tab" aria-controls="nav-home" aria-selected="true">Create new Virtual Desktop Profile</a>
+                               role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Create new Virtual Desktop Profile") }}</a>
                             <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab" href="#nav-delete"
-                               role="tab" aria-controls="nav-delete" aria-selected="false">Manage Virtual Desktop Profiles</a>
+                               role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Manage Virtual Desktop Profiles") }}</a>
                         </div>
                     </nav>
 
@@ -34,19 +34,19 @@
                             <br>
                             <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Create a new Virtual Desktop Profile</h3>
+                                        <h3>{{ _("Create a new Virtual Desktop Profile") }}</h3>
 
                                         <div class="alert alert-primary">
                                             <ul>
-                                                <li>A Virtual Desktop Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your <a target="_blank" href="/admin/virtual_desktops/software_stacks">Virtual Desktop Software Stack</a></li>
-                                                <li>You can have multiple Software Stacks using the same Virtual Desktop Profile.</li>
+                                                <li>{{ _("A Virtual Desktop Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your") }} <a target="_blank" href="/admin/virtual_desktops/software_stacks">{{ _("Virtual Desktop Software Stack") }}</a></li>
+                                                <li>{{ _("You can have multiple Software Stacks using the same Virtual Desktop Profile.") }}</li>
                                             </ul>
                                         </div>
                                         <form action="/admin/virtual_desktops/profiles/create" method="post">
                                             <div class="form-group">
                                                 <label for="profile_name" data-toggle="tooltip" data-placement="top"
-                                                       title="Name of your profile">Profile name</label>
-                                                <input id="profile_name" placeholder="My Profile"
+                                                       title="{{ _("Name of your profile") }}">{{ _("Profile name") }}</label>
+                                                <input id="profile_name" placeholder="{{ _("My Profile") }}"
                                                        class="form-control"
                                                        type="text"
                                                        required name="profile_name">
@@ -54,59 +54,243 @@
 
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="The maximum size (in GB) of the root disk a user can specify"
-                                                       for="root_size">Maximum EBS Root Disk size (in GB)</label>
+                                                       title="{{ _("The maximum size (in GB) of the root disk a user can specify") }}"
+                                                       for="root_size">{{ _("Maximum EBS Root Disk size (in GB)") }}</label>
                                                 <input type="number" min=0 value=500 id="root_size" class="form-control"
                                                        required name="max_root_size">
-                                                <small>Note:
+                                                <small>{{ _("Note:") }}
                                                     <ul>
-                                                        <li>Maximum EBS storage the user will be able to provision for their virtual desktop</li>
+                                                        <li>{{ _("Maximum EBS storage the user will be able to provision for their virtual desktop") }}</li>
                                                     </ul>
                                                 </small>
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="description" data-toggle="tooltip" data-placement="top"
-                                                       title="Description of your Virtual Desktop Profile">Description
+                                                       title="{{ _("Description of your Virtual Desktop Profile") }}">{{ _("Description") }}
                                                 </label>
-                                                <textarea id="description" placeholder="(Optional) Description for your Virtual Desktop Profile (maximum 500 characters)."
+                                                <textarea id="description" placeholder="{{ _("(Optional) Description for your Virtual Desktop Profile (maximum 500 characters).") }}"
                                                           class="form-control" rows="3"  name="description"></textarea>
                                             </div>
 
                                              <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="List of allowed instance type/family"
-                                                       for="pattern_allowed_instance_types">List of instance type or family allowed</label>
+                                                       title="{{ _("List of allowed instance type/family") }}"
+                                                       for="pattern_allowed_instance_types">{{ _("List of instance type or family allowed") }}</label>
+                                                <style>
+                                                    #pattern_allowed_instance_types + .use-bootstrap-tag {
+                                                        height: auto;
+                                                        min-height: calc(1.5em + 0.75rem + 2px);
+                                                        max-height: 180px;
+                                                        overflow-y: auto;
+                                                        align-content: flex-start;
+                                                    }
+                                                </style>
                                                 <input id="pattern_allowed_instance_types" value="{{default_instance_type_pattern}}" data-ub-tag-variant="primary" class="form-control" required name="pattern_allowed_instance_types">
-                                                 <small>Note:
+<div class="mt-1">
+                                                    <button type="button" class="btn btn-link btn-sm p-0" id="pattern_bulk_toggle">{{ _("Bulk edit / copy…") }}</button>
+                                                </div>
+                                                <div id="pattern_bulk_panel" style="display:none;margin-top:6px;">
+                                                    <textarea id="pattern_bulk_text" class="form-control" rows="6" style="font-family:ui-monospace,monospace;font-size:12px;" placeholder="{{ _("One pattern per line (comma / space / newline separated also work). Wildcards like t3.* allowed.") }}"></textarea>
+                                                    <div class="mt-2 d-flex align-items-center" style="gap:8px;">
+                                                        <button type="button" class="btn btn-primary btn-sm" id="pattern_bulk_apply">{{ _("Apply to list") }}</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="pattern_bulk_copy">{{ _("Copy all") }}</button>
+                                                        <button type="button" class="btn btn-link btn-sm" id="pattern_bulk_reload">{{ _("Reload from list") }}</button>
+                                                        <span id="pattern_bulk_msg" class="text-muted" style="font-size:12px;"></span>
+                                                    </div>
+                                                </div>
+                                                <script>
+                                                (function () {
+                                                    const toggle = document.getElementById('pattern_bulk_toggle');
+                                                    const panel = document.getElementById('pattern_bulk_panel');
+                                                    const ta = document.getElementById('pattern_bulk_text');
+                                                    const msg = document.getElementById('pattern_bulk_msg');
+                                                    const target = document.getElementById('pattern_allowed_instance_types');
+                                                    if (!toggle) return;
+                                                    function curList() {
+                                                        const t = window._patternTag;
+                                                        if (t) return t.getValues();
+                                                        return target.value ? target.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : [];
+                                                    }
+                                                    function load() { ta.value = curList().join('\n'); }
+                                                    function flash(m) { msg.textContent = m; setTimeout(function () { msg.textContent = ''; }, 2500); }
+                                                    toggle.addEventListener('click', function () {
+                                                        if (panel.style.display === 'none') { load(); panel.style.display = 'block'; toggle.textContent = '{{ _("Hide bulk edit") }}'; }
+                                                        else { panel.style.display = 'none'; toggle.textContent = '{{ _("Bulk edit / copy…") }}'; }
+                                                    });
+                                                    document.getElementById('pattern_bulk_reload').addEventListener('click', function () { load(); flash('{{ _("Reloaded") }}'); });
+                                                    document.getElementById('pattern_bulk_copy').addEventListener('click', function () {
+                                                        const list = curList(); const text = list.join(', ');
+                                                        const done = function () { flash(list.length + ' {{ _("patterns copied") }}'); };
+                                                        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done);
+                                                        else { const x = document.createElement('textarea'); x.value = text; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(x); done(); }
+                                                    });
+                                                    document.getElementById('pattern_bulk_apply').addEventListener('click', function () {
+                                                        const parsed = Array.from(new Set(ta.value.split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean)));
+                                                        const t = window._patternTag;
+                                                        if (t) { t.getValues().slice().forEach(function (v) { t.removeValue(v); }); if (parsed.length) t.addValue(parsed); }
+                                                        else { target.value = parsed.join(','); target.dispatchEvent(new Event('change')); }
+                                                        load(); flash('{{ _("Applied") }} ' + parsed.length + ' {{ _("patterns") }}');
+                                                    });
+                                                })();
+                                                </script>
+                                                 <small>{{ _("Note:") }}
                                                      <ul>
-                                                         <li>Support Exact Instance Type (<code>c6i.xlarge</code>)</li>
-                                                         <li>Support Instance Family (<code>c6i.*</code>)</li>
-                                                         <li>Refer to <a href="https://aws.amazon.com/ec2/instance-types/" target="_blank">Amazon EC2 Instance types</a> page for a list of EC2 instances</li>
-                                                         <li>You will need to update <code>boto3</code> to add instances released after the date of your EDH installation</li>
+                                                         <li>{% trans example="<code>c6i.xlarge</code>"|safe %}Support Exact Instance Type ({{ example }}){% endtrans %}</li>
+                                                         <li>{% trans example="<code>c6i.*</code>"|safe %}Support Instance Family ({{ example }}){% endtrans %}</li>
+                                                         <li>{% trans link='<a href="https://aws.amazon.com/ec2/instance-types/" target="_blank">Amazon EC2 Instance types</a>'|safe %}Refer to {{ link }} page for a list of EC2 instances{% endtrans %}</li>
+                                                         <li>{% trans pkg='<code>boto3</code>'|safe %}You will need to update {{ pkg }} to add instances released after the date of your EDH installation{% endtrans %}</li>
                                                      </ul>
                                                  </small>
                                              </div>
 
 
                                             <div class="form-group">
-                                                <label for="allowed_subnet_ids" data-toggle="tooltip" data-placement="top"
-                                                       title="List of authorized subnets">List of allowed subnets
+                                                <label data-toggle="tooltip" data-placement="top"
+                                                       title="{{ _("List of authorized subnets") }}">{{ _("List of allowed subnets") }}
                                                  </label>
-                                                <input id="allowed_subnet_ids"
-                                                       class="form-control" type="text"
-                                                       required name="allowed_subnet_ids" value="{{allowed_subnets}}"  data-ub-tag-variant="primary">
-                                                <small>Note:
-                                                    <ul>
-                                                        <li>Subnets must be from the list of private subnets configured on EDH</li>
-                                                    </ul>
-                                                </small>
+                                                <div style="width:fit-content;max-width:100%;">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <small class="text-muted">{{ _("Check the subnets this profile may launch into. Sorted by Availability Zone ID.") }}</small>
+                                                    <div>
+                                                        <button type="button" class="btn btn-link btn-sm p-0 mr-3" id="subnet_select_all">{{ _("Select all") }}</button>
+                                                        <button type="button" class="btn btn-link btn-sm p-0" id="subnet_clear_all">{{ _("Clear all") }}</button>
+                                                    </div>
+                                                </div>
+                                                <style>#subnet_tbody td { vertical-align: middle; }</style>
+                                                <div class="border rounded" style="max-height:260px;overflow:auto;">
+                                                    <table class="table table-sm table-hover mb-0" style="font-size:0.85rem;width:auto;table-layout:fixed;user-select:none;-webkit-user-select:none;">
+                                                        <colgroup>
+                                                            <col style="width:40px;">
+                                                            <col style="width:300px;">
+                                                            <col style="width:250px;">
+                                                            <col style="width:100px;">
+                                                            <col style="width:100px;">
+                                                            <col style="width:180px;">
+                                                            <col style="width:90px;">
+                                                        </colgroup>
+                                                        <thead class="thead-light" style="position:sticky;top:0;z-index:1;">
+                                                            <tr>
+                                                                <th style="width:36px;"></th>
+                                                                <th>{{ _("Name") }}</th>
+                                                                <th>{{ _("Subnet ID") }}</th>
+                                                                <th>{{ _("AZ") }}</th>
+                                                                <th>{{ _("AZ-ID") }}</th>
+                                                                <th>{{ _("CIDR") }}</th>
+                                                                <th class="text-right">{{ _("Free IPs") }}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="subnet_tbody"></tbody>
+                                                    </table>
+                                                </div>
+                                                </div>
+                                                <input type="hidden" name="allowed_subnet_ids" id="allowed_subnet_ids">
+                                                <script>
+                                                (function () {
+                                                    const SUBNET_ROWS = {{ subnet_rows | tojson }};
+                                                    const PRESELECT = {{ preselected_subnets | tojson }};
+                                                    const tbody = document.getElementById('subnet_tbody');
+                                                    const hidden = document.getElementById('allowed_subnet_ids');
+                                                    if (!tbody) return;
+                                                    function cell(text, cls) {
+                                                        const c = document.createElement('td');
+                                                        if (cls) c.className = cls;
+                                                        c.textContent = (text === null || text === undefined) ? '' : String(text); // textContent -> no XSS
+                                                        return c;
+                                                    }
+                                                    function copyText(t) {
+                                                        if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+                                                        return new Promise(function (res) {
+                                                            const ta = document.createElement('textarea'); ta.value = t;
+                                                            document.body.appendChild(ta); ta.select();
+                                                            try { document.execCommand('copy'); } catch (e) {}
+                                                            document.body.removeChild(ta); res();
+                                                        });
+                                                    }
+                                                    function addRow(row, checked, unknown) {
+                                                        const tr = document.createElement('tr');
+                                                        const cbCell = document.createElement('td');
+                                                        cbCell.className = 'align-middle';
+                                                        const cb = document.createElement('input');
+                                                        cb.type = 'checkbox'; cb.className = 'subnet-cb'; cb.value = row.id; cb.checked = checked;
+                                                        cbCell.appendChild(cb); tr.appendChild(cbCell);
+                                                        const nameCell = cell(row.name || '');
+                                                        nameCell.title = row.name || '';
+                                                        nameCell.style.cssText = 'max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                                                        tr.appendChild(nameCell);
+                                                        const idCell = document.createElement('td');
+                                                        if (row.id) {
+                                                            const copyBtn = document.createElement('button');
+                                                            copyBtn.type = 'button';
+                                                            copyBtn.className = 'btn btn-link btn-sm p-0 mr-2';
+                                                            copyBtn.title = 'Copy subnet ID';
+                                                            copyBtn.textContent = '\u29C9';
+                                                            copyBtn.addEventListener('click', function (e) {
+                                                                e.stopPropagation();
+                                                                copyText(row.id).then(function () {
+                                                                    const prev = copyBtn.textContent;
+                                                                    copyBtn.textContent = '\u2713';
+                                                                    setTimeout(function () { copyBtn.textContent = prev; }, 1000);
+                                                                });
+                                                            });
+                                                            copyBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                                                            copyBtn.style.userSelect = 'none';
+                                                            idCell.appendChild(copyBtn);
+                                                        }
+                                                        const code = document.createElement('code'); code.textContent = row.id;
+                                                        idCell.appendChild(code);
+                                                        tr.appendChild(idCell);
+                                                        tr.appendChild(cell(row.az || ''));
+                                                        tr.appendChild(cell(row.az_id || ''));
+                                                        if (unknown) {
+                                                            tr.appendChild(cell('{{ _("not in current private subnets") }}', 'text-muted font-italic'));
+                                                        } else {
+                                                            const cidrCell = document.createElement('td');
+                                                            const v4 = document.createElement('div'); v4.textContent = row.cidr || '';
+                                                            cidrCell.appendChild(v4);
+                                                            if (row.ipv6) {
+                                                                const v6 = document.createElement('div');
+                                                                v6.className = 'text-muted'; v6.style.fontSize = '0.85em';
+                                                                v6.textContent = row.ipv6;
+                                                                cidrCell.appendChild(v6);
+                                                            }
+                                                            tr.appendChild(cidrCell);
+                                                        }
+                                                        tr.appendChild(cell(row.free, 'text-right'));
+                                                        tr.style.cursor = 'pointer';
+                                                        tr.addEventListener('click', function (e) {
+                                                            if (e.target !== cb) { cb.checked = !cb.checked; sync(); }
+                                                        });
+                                                        tbody.appendChild(tr);
+                                                    }
+                                                    SUBNET_ROWS.forEach(function (r) { addRow(r, PRESELECT.indexOf(r.id) !== -1, false); });
+                                                    const known = SUBNET_ROWS.map(function (r) { return r.id; });
+                                                    PRESELECT.forEach(function (sid) { if (known.indexOf(sid) === -1) addRow({ id: sid, free: '' }, true, true); });
+                                                    function sync() {
+                                                        hidden.value = Array.from(tbody.querySelectorAll('.subnet-cb:checked'))
+                                                            .map(function (c) { return c.value; }).join(',');
+                                                    }
+                                                    tbody.addEventListener('change', sync);
+                                                    document.getElementById('subnet_select_all').addEventListener('click', function () {
+                                                        tbody.querySelectorAll('.subnet-cb').forEach(function (c) { c.checked = true; }); sync();
+                                                    });
+                                                    document.getElementById('subnet_clear_all').addEventListener('click', function () {
+                                                        tbody.querySelectorAll('.subnet-cb').forEach(function (c) { c.checked = false; }); sync();
+                                                    });
+                                                    const form = tbody.closest('form');
+                                                    if (form) form.addEventListener('submit', function (e) {
+                                                        sync();
+                                                        if (!hidden.value) { e.preventDefault(); alert('{{ _("Please select at least one subnet.") }}'); }
+                                                    });
+                                                    sync();
+                                                })();
+                                                </script>
                                             </div>
 
                                             <div>
                                                 <input type="hidden" name="csrf_token"
                                                        value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Create new Virtual Desktop Profile
+                                                <button type="submit" class="btn btn-primary">{{ _("Create new Virtual Desktop Profile") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -119,11 +303,11 @@
                                 <div class="card shadow mb-4">
                                         
                                     <div class="card-body">
-                                        <h3>Manage Virtual Desktop Profiles</h3>
+                                        <h3>{{ _("Manage Virtual Desktop Profiles") }}</h3>
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important:</strong> <br>
-                                            You cannot delete a Virtual Desktop Profile if it's being associated to an existing virtual desktop. <br>
-                                            You cannot delete <code>default</code> profile.
+                                            <strong>{{ _("Important:") }}</strong> <br>
+                                            {{ _("You cannot delete a Virtual Desktop Profile if it's being associated to an existing virtual desktop.") }} <br>
+                                            {{ _("You cannot delete default profile.") }}
                                         </div>
 
                                         <div class="row">
@@ -152,20 +336,19 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                            required>
-                                                    <label class="form-check-label" for="verif">I am sure I want to
-                                                        delete this Virtual Desktop Profile</label>
+                                                    <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this Virtual Desktop Profile") }}</label>
                                                 </div>
 
                                                 <div class="d-flex justify-content-center">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="submit" class="btn btn-danger mr-2">Delete Virtual Desktop Profile</button>
-                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">Edit Virtual Desktop Profile</button>
+                                                    <button type="submit" class="btn btn-danger mr-2">{{ _("Delete Virtual Desktop Profile") }}</button>
+                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">{{ _("Edit Virtual Desktop Profile") }}</button>
                                                 </div>
                                             </form>
                                             </div>
                                             <div class="col-md-7">
                                                  <div id="profileInfo">
-                                                     Select a profile to see details.
+                                                     {{ _("Select a profile to see details.") }}
                                                     </div>
                                             </div>
                                         {% else %}
@@ -191,8 +374,7 @@
                         })
                     })
 
-                    const bootstrapTagInputBoxPatternAllowedInstanceType = UseBootstrapTag(document.getElementById('pattern_allowed_instance_types'));
-                    const bootstrapTagInputBoxAllowedSubnetIds = UseBootstrapTag(document.getElementById('allowed_subnet_ids'));
+                    const bootstrapTagInputBoxPatternAllowedInstanceType = UseBootstrapTag(document.getElementById('pattern_allowed_instance_types')); window._patternTag = bootstrapTagInputBoxPatternAllowedInstanceType;
 
 
                      function submitEditForm() {

@@ -25,6 +25,7 @@ from utils.response import SocaResponse
 from utils.config import SocaConfig
 import utils.aws.ec2_helper as ec2_helper
 from flask import request
+from flask_babel import gettext as _
 from sqlalchemy.orm import joinedload
 
 
@@ -131,7 +132,7 @@ class TargetNodeProfilesManager(Resource):
         if _list_profiles.count() == 0:
             logger.warning("No Target Node Profiles found")
             return SocaResponse(
-                success=True, message="No Target Node Profiles found"
+                success=True, message=_("No Target Node Profiles found")
             ).as_flask()
         else:
             for _profile in _list_profiles.all():
@@ -145,7 +146,7 @@ class TargetNodeProfilesManager(Resource):
     @admin_api
     @feature_flag(flag_name="TARGET_NODES", mode="api")
     def post(self):
-        """
+        r"""
         Create a new target node profile
         ---
         openapi: 3.1.0
@@ -249,11 +250,16 @@ class TargetNodeProfilesManager(Resource):
         _profile_name = args["profile_name"]
         _pattern_allowed_instance_types = args["pattern_allowed_instance_types"]
         _allowed_subnet_ids = args["allowed_subnet_ids"]
-        _max_root_size = args["max_root_size"]
+        _max_root_size_cast = SocaCastEngine(data=args["max_root_size"]).cast_as(int)
+        if _max_root_size_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"max_root_size must be a valid integer {args['max_root_size']}"
+            ).as_flask()
+        _max_root_size = _max_root_size_cast.get("message")
         _description = args.get("description", "")
         if _description and len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
             
         _user = request.headers.get("X-EDH-USER")
@@ -346,7 +352,7 @@ class TargetNodeProfilesManager(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"{_profile_name} registered successfully in SOCA",
+            message=_(f"{_profile_name} registered successfully in SOCA"),
         ).as_flask()
 
     @admin_api
@@ -473,7 +479,7 @@ class TargetNodeProfilesManager(Resource):
 
             logger.info(f"Target Node Profile deleted from SOCA")
             return SocaResponse(
-                success=True, message=f"Target Node Profile removed from SOCA"
+                success=True, message=_(f"Target Node Profile removed from SOCA")
             ).as_flask()
 
         else:
@@ -484,7 +490,7 @@ class TargetNodeProfilesManager(Resource):
     @admin_api
     @feature_flag(flag_name="TARGET_NODES", mode="api")
     def put(self):
-        """
+        r"""
         Update a target node profile
         ---
         openapi: 3.1.0
@@ -581,12 +587,17 @@ class TargetNodeProfilesManager(Resource):
         args = parser.parse_args()
         _pattern_allowed_instance_types = args["pattern_allowed_instance_types"]
         _allowed_subnet_ids = args["allowed_subnet_ids"]
-        _max_root_size = args["max_root_size"]
+        _max_root_size_cast = SocaCastEngine(data=args["max_root_size"]).cast_as(int)
+        if _max_root_size_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"max_root_size must be a valid integer {args['max_root_size']}"
+            ).as_flask()
+        _max_root_size = _max_root_size_cast.get("message")
         _profile_id = args["profile_id"]
         _description = args.get("description", "")
         if _description and len(_description) > 500:
             return SocaError.GENERIC_ERROR(
-                helpers="Description cannot be greater than 500 characters"
+                helper="Description cannot be greater than 500 characters"
             ).as_flask()
         _user = request.headers.get("X-EDH-USER")
         if _user is None:
@@ -603,7 +614,9 @@ class TargetNodeProfilesManager(Resource):
             if args[_input] is None:
                 return SocaError.CLIENT_MISSING_PARAMETER(parameter=_input).as_flask()
 
-        if SocaCastEngine(data=_profile_id).cast_as(int).get("success") is True:
+        _profile_id_cast = SocaCastEngine(data=_profile_id).cast_as(int)
+        if _profile_id_cast.get("success") is True:
+            _profile_id = _profile_id_cast.get("message")
             _profile_to_update = TargetNodeProfiles.query.filter_by(
                 id=_profile_id, is_active=True
             ).first()
@@ -681,5 +694,5 @@ class TargetNodeProfilesManager(Resource):
 
         return SocaResponse(
             success=True,
-            message=f"Profile updated successfully",
+            message=_(f"Profile updated successfully"),
         ).as_flask()

@@ -17,7 +17,6 @@ from aws_cdk import (
 )
 import ast
 from constructs import Construct
-import boto3
 
 def create_secret(
     scope: Construct,
@@ -61,7 +60,9 @@ def resolve_secret_as_str(
 
 
 def retrieve_secret_value(secret_id: str, region_name: str) -> dict:
-    _sm_client = boto3.client("secretsmanager", region_name=region_name)
+    # Route through shared-session cache; see helpers.boto3_wrapper.
+    from helpers.boto3_wrapper import get_shared_session
+    _sm_client = get_shared_session().client("secretsmanager", region_name=region_name)
     _get_secret = _sm_client.get_secret_value(SecretId=secret_id).get(
         "SecretString", None
     )

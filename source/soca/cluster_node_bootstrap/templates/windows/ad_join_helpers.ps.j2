@@ -1,0 +1,88 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# --- Shared AD-join helpers (used by join_activedirectory + 03_setup_post_reboot) ---------
+# NOTE: this file is intentionally NOT included by common.ps.j2. common.ps.j2 is inlined into
+# the EC2 LaunchTemplate UserData (01_user_data), which has a hard 16 KB limit. These helpers
+# are only needed by 02_setup (join) and 03_setup_post_reboot (rescue), both of which are
+# downloaded from S3 by 01_user_data (`s3 sync`) and therefore have no inline-size budget.
+# Keep AD-join logic here, included by 02/03 only -- never sourced into the inline UserData.
+#
+# An AMI-spawned node must NEVER reuse the computer object baked into the image: a baked AMI
+# ships a SHARED object + machine secret, so reusing/repairing it perpetuates a shared-identity
+# collision across every clone. These helpers register the host as a brand-new unique object.
+
+function Get-SocaAdHostname {
+    # Returns the deterministic, unique-per-instance AD computer name. Mirrors the Linux scheme
+    # EXACTLY (incl. the `echo` trailing newline) so the ADComputerCleaner Lambda recompute
+    # fallback agrees: EDH-<last 10 chars of UPPER(hex(sha1("<clusterId>-<region>-<instanceId>\n")))>
+    param([Parameter(Mandatory=$true)][string]$ClusterId)
+    $tok = Invoke-RestMethod -Method PUT -Uri 'http://169.254.169.254/latest/api/token' -Headers @{ 'X-aws-ec2-metadata-token-ttl-seconds' = '21600' }
+    $hdr = @{ 'X-aws-ec2-metadata-token' = $tok }
+    $iid = Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/instance-id' -Headers $hdr
+    $reg = Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/placement/region' -Headers $hdr
+    $inp = "$ClusterId-$reg-$iid`n"
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    $hex = ([System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::ASCII.GetBytes($inp))) -replace '-', '').ToUpper()
+    return "EDH-" + $hex.Substring($hex.Length - 10)
+}
+
+function Invoke-SocaCleanDomainJoin {
+    # Joins the host to AD as a brand-new unique computer object ($UniqueName) from a NOT-joined
+    # (workgroup) state. Returns $true if the join is staged (caller must set $requireReboot and
+    # reboot to apply it); $false on hard failure.
+    #
+    # Hardening for the intermittent 'directory service is busy' rename-after-join transient
+    # (observed live on AWS Managed AD): bounded retry of the join, plus -- if a join commits but
+    # the -NewName rename did not stick -- a best-effort Rename-Computer repair so the host can
+    # never end up joined under the wrong name. The retry is the primary mitigation (the transient
+    # cleared on retry in live testing); the Rename-Computer branch is defense-in-depth.
+    param(
+        [Parameter(Mandatory=$true)][string]$DomainName,
+        [Parameter(Mandatory=$true)][System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory=$true)][string]$UniqueName
+    )
+    $nameKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName'
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            # If a prior attempt's Add-Computer committed the join but its rename did not stick
+            # (and the in-catch repair also failed), the host is now domain-joined. Re-calling
+            # Add-Computer would hit the same-domain guard -- a non-rename error whose message the
+            # catch regex won't match, wasting the remaining retries. Detect that state up front
+            # and go straight to the Rename-Computer repair instead.
+            if ((Get-CimInstance Win32_ComputerSystem).PartOfDomain) {
+                Log-Info -Message "Already domain-joined; repairing name to $UniqueName via Rename-Computer (attempt $attempt)"
+                Rename-Computer -NewName $UniqueName -DomainCredential $Credential -Force -ErrorAction Stop
+                Log-Info -Message "Rename-Computer to $UniqueName succeeded"
+                return $true
+            }
+            Add-Computer -NewName $UniqueName -DomainName $DomainName -Credential $Credential -Options JoinWithNewName,AccountCreate -Force -ErrorAction Stop
+            $staged = (Get-ItemProperty $nameKey).ComputerName
+            if ($staged -ieq $UniqueName) {
+                Log-Info -Message "AD join staged as unique object $UniqueName (attempt $attempt)"
+                return $true
+            }
+            Log-Warning -Message "AD join committed but staged name is '$staged' (expected '$UniqueName'); repairing with Rename-Computer"
+            Rename-Computer -NewName $UniqueName -DomainCredential $Credential -Force -ErrorAction Stop
+            Log-Info -Message "Rename-Computer to $UniqueName succeeded"
+            return $true
+        } catch {
+            $m = $_.Exception.Message
+            Log-Warning -Message "AD join attempt $attempt failed: $m"
+            # Known intermittent transient: the join commits but the rename throws. Repair the
+            # name directly rather than re-joining (a second Add-Computer would hit the same-domain guard).
+            if ($m -match 'renaming|FailToRenameAfterJoinDomain|directory service is busy') {
+                try {
+                    Rename-Computer -NewName $UniqueName -DomainCredential $Credential -Force -ErrorAction Stop
+                    Log-Info -Message "Rename-Computer to $UniqueName succeeded after rename transient"
+                    return $true
+                } catch {
+                    Log-Warning -Message "Rename-Computer repair on attempt $attempt failed: $($_.Exception.Message)"
+                }
+            }
+            Start-Sleep -Seconds (5 * $attempt)
+        }
+    }
+    Write-Error "Failed to join AD as unique object $UniqueName after 5 attempts"
+    return $false
+}

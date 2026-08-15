@@ -18,7 +18,14 @@ function Install-Chocolatey
         # Install Chocolatey https://chocolatey.org/install
         Set-ExecutionPolicy Bypass -Scope Process -Force
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        iex ((New-Object System.Net.WebClient).DownloadString("{{ context.get("/system/chocolatey/url") }}"))
+        # The chocolatey URL may be a pipe-delimited "s3://mirror|https://fallback"
+        # value when resources_mirroring is enabled, which WebClient.DownloadString
+        # cannot parse. Download the install script to disk via the shared helper
+        # (handles the mirror format), then execute it.
+        $ChocoUrl = "{{ context.get("/system/chocolatey/url") }}"
+        $ChocoInstaller = "$env:TEMP\choco-install.ps1"
+        Invoke-SOCAFileDownload -DownloadUrl $ChocoUrl -SaveAs $ChocoInstaller
+        iex (Get-Content -Raw $ChocoInstaller)
 
         Log-Info -Message "Chocolatey installation completed."
     }

@@ -1,0 +1,158 @@
+EDH Installer - IAM Policy Setup
+=================================
+
+Summary
+-------
+For simplicity, it is always recommended to use an IAM User/Role that has
+enough privileges (e.g. AdministratorAccess) to run the installer. 
+
+However, we do provide scoped-down policy files for environments where
+least-privilege is required.
+
+Note that not all IAM permissions listed here are required. Permissions are
+additive based on the features you enable. For example, "backup:*" actions
+are not needed if you are not planning to use the AWS Backup integration.
+
+Reach out to your EDH contact for more information or if you need any assistance.
+
+Note:
+The IAM User/Role used to run the installer is only needed during deployment
+and can safely be deleted afterward. All IAM roles created by EDH at runtime
+(Compute Nodes, Login Nodes, Lambda functions, etc.) already enforce
+least-privilege and are fully scoped down. You can review them under
+resources/policies.
+
+Prerequisites
+-------------
+- An AWS account with permissions to create IAM policies and users
+- AWS CLI installed and configured (for CLI method)
+
+Pre-Requisite Update EDHInstallerCDKIamPolicy.json Placeholders
+---------------------------------------------------------
+Open EDHInstallerCDKIamPolicy.json and replace the following placeholders
+with your actual values:
+
+  <AWS_ACCOUNT_ID_REPLACE_ME>                  -> your 12-digit AWS account ID
+  <NAME_OF_YOUR_EDH_INSTALLER_POLICY_01>       -> EDHInstallerPolicy_01
+  <NAME_OF_YOUR_EDH_INSTALLER_POLICY_02>       -> EDHInstallerPolicy_02
+  <NAME_OF_YOUR_EDH_UNINSTALLER_POLICY>        -> EDHUninstallPolicy
+
+Example (account 123456789012):
+
+  Before: arn:aws:iam::<AWS_ACCOUNT_ID_REPLACE_ME>:policy/<NAME_OF_YOUR_EDH_INSTALLER_POLICY_01>
+  After:  arn:aws:iam::123456789012:policy/EDHInstallerPolicy_01
+
+You can also use sed to do this in one shot:
+
+  sed -i '' \
+      -e 's/<AWS_ACCOUNT_ID_REPLACE_ME>/123456789012/g' \
+      -e 's/<NAME_OF_YOUR_EDH_INSTALLER_POLICY_01>/EDHInstallerPolicy_01/g' \
+      -e 's/<NAME_OF_YOUR_EDH_INSTALLER_POLICY_02>/EDHInstallerPolicy_02/g' \
+      -e 's/<NAME_OF_YOUR_EDH_UNINSTALLER_POLICY>/EDHUninstallPolicy/g' \
+      installer/policy_permissions/EDHInstallerCDKIamPolicy.json
+
+
+Step 1: Create the IAM Policies
+-------------------------------
+Create the following 4 policies in your AWS account:
+
+  1. EDHInstallerPolicy_01.json  (core infrastructure provisioning)
+  2. EDHInstallerPolicy_02.json  (core infrastructure provisioning)
+  3. EDHInstallerCDKIamPolicy.json  (CDK bootstrap permissions)
+  4. EDHUninstallPolicy.json     (stack teardown/cleanup)
+
+Console:
+  1. Go to AWS Management Console > IAM > Policies
+  2. Click "Create policy" > JSON tab
+  3. Paste the contents of each JSON file and click "Next"
+  4. Name the policy to match the file name (e.g. EDHInstallerPolicy_01)
+  5. Click "Create policy"
+  6. Repeat for all 4 files
+
+CLI:
+  aws iam create-policy --policy-name EDHInstallerPolicy_01 \
+      --policy-document file://installer/policy_permissions/EDHInstallerPolicy_01.json
+
+  aws iam create-policy --policy-name EDHInstallerPolicy_02 \
+      --policy-document file://installer/policy_permissions/EDHInstallerPolicy_02.json
+
+  aws iam create-policy --policy-name EDHInstallerCDK \
+      --policy-document file://installer/policy_permissions/EDHInstallerCDKIamPolicy.json
+
+  aws iam create-policy --policy-name EDHUninstallPolicy \
+      --policy-document file://installer/policy_permissions/EDHUninstallPolicy.json
+
+
+Step 2: Create an IAM User and Attach the Policies
+---------------------------------------------------
+Create a dedicated IAM user for the installer and attach all 4 policies.
+
+Console:
+  1. Go to AWS Management Console > IAM > Users
+  2. Click "Create user", enter name "edh-installer", click "Next"
+  3. Select "Attach policies directly"
+  4. Search for and select all 4 policies created in Step 1:
+     - EDHInstallerPolicy_01
+     - EDHInstallerPolicy_02
+     - EDHInstallerCDK
+     - EDHUninstallPolicy
+  5. Click "Next" then "Create user"
+
+CLI:
+  aws iam create-user --user-name edh-installer
+
+  aws iam attach-user-policy --user-name edh-installer \
+      --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerPolicy_01
+  aws iam attach-user-policy --user-name edh-installer \
+      --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerPolicy_02
+  aws iam attach-user-policy --user-name edh-installer \
+      --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerCDK
+  aws iam attach-user-policy --user-name edh-installer \
+      --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/EDHUninstallPolicy
+
+
+Step 3: Generate an Access Key Pair
+------------------------------------
+Console:
+  1. Go to IAM > Users > edh-installer
+  2. Click the "Security credentials" tab
+  3. Under "Access keys", click "Create access key"
+  4. Select "Command Line Interface (CLI)" and confirm
+  5. Copy the Access Key ID and Secret Access Key
+
+CLI:
+  aws iam create-access-key --user-name edh-installer
+
+
+Step 4: Configure Your Local Shell
+-----------------------------------
+Option A - Named profile (recommended):
+
+  Add to ~/.aws/credentials:
+
+    [edh-installer]
+    aws_access_key_id = AKIA...
+    aws_secret_access_key = ...
+
+  Then export the profile before running the installer:
+
+    export AWS_PROFILE=edh-installer
+
+Option B - Direct environment variables:
+
+    export AWS_ACCESS_KEY_ID=AKIA...
+    export AWS_SECRET_ACCESS_KEY=...
+
+
+Step 5: Run the Installer
+-------------------------
+Pass the policy ARNs as CloudFormation execution policies so CDK assumes
+least-privilege during deployment:
+
+  ./installer/edh_installer.sh \
+      --cdk-cloudformation-execution-policies "arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerCDK" \
+      --cdk-cloudformation-execution-policies "arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerPolicy_01" \
+      --cdk-cloudformation-execution-policies "arn:aws:iam::<ACCOUNT_ID>:policy/EDHInstallerPolicy_02" \
+      --cdk-cloudformation-execution-policies "arn:aws:iam::<ACCOUNT_ID>:policy/EDHUninstallPolicy"
+
+Replace <ACCOUNT_ID> with your 12-digit AWS account ID.

@@ -4,6 +4,7 @@
 import logging
 from decorators import login_required, feature_flag
 from flask import Blueprint, render_template, session, redirect
+from flask_babel import gettext as _
 from utils.config import SocaConfig
 from utils.http_client import SocaHttpClient
 from utils.aws.boto3_wrapper import get_boto
@@ -33,7 +34,7 @@ def index():
         _container_images = _get_ecr_repo_info.get("message")
     else:
         logger.error(f"Unable to list container image because of {_get_ecr_repo_info}")
-        flash("Unable to list your container images", "error")
+        flash(_("Unable to list your container images"), "error")
         _container_images = {}
 
     _get_eks_cluster = SocaHttpClient(
@@ -48,7 +49,7 @@ def index():
         logger.error(
             f"Unable to list EKS clusters image because of {_get_ecr_repo_info}"
         )
-        flash("Unable to list your clusters images", "error")
+        flash(_("Unable to list your clusters images"), "error")
         _eks_clusters = []
 
     

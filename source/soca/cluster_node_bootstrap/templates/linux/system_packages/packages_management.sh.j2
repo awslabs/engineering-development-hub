@@ -36,6 +36,18 @@ function packages_install () {
   {% endif %}
 }
 
+function packages_hold () {
+  # Mark packages to hold at their current version (prevent upgrade). Debian/Ubuntu only.
+  if [[ $# -eq 0 ]]; then
+    exit_fail "packages_hold - No package list specified. Exiting... "
+  fi
+
+  {% if context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
+    export DEBIAN_FRONTEND=noninteractive
+    packages_exec_command apt-mark hold "${@}"
+  {% endif %}
+}
+
 function packages_install_file () {
   # Install local package files (e.g: packages_install_file file1.rpm file2.rpm | file1.deb)
   if [[ $# -eq 0 ]]; then

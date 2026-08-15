@@ -17,6 +17,7 @@ from flask_restful import Resource, reqparse
 from requests import get, put
 import logging
 from flask import request
+from flask_babel import gettext as _
 from decorators import private_api, admin_api, feature_flag
 import re
 import errors
@@ -152,7 +153,7 @@ class Group(Resource):
             if _group.success is False:
                 logger.debug(f"{group} is not a valid LDAP group")
                 return SocaResponse(
-                    success=False, message=f"LDAP group {group} does not exist"
+                    success=False, message=_(f"LDAP group {group} does not exist")
                 ).as_flask()
             else:
                 group_base = ""
@@ -374,12 +375,12 @@ class Group(Resource):
 
             if users_not_added.__len__() == 0:
                 return SocaResponse(
-                    success=True, message="Group created successfully"
+                    success=True, message=_("Group created successfully")
                 ).as_flask()
             else:
                 return SocaResponse(
                     success=True,
-                    message=f"Group created successfully but unable to add some users: {users_not_added}",
+                    message=_(f"Group created successfully but unable to add some users: {users_not_added}"),
                 ).as_flask()
 
         except Exception as err:
@@ -494,7 +495,7 @@ class Group(Resource):
             _delete_req = _soca_identity_client.delete(dn=_dn)
             if _delete_req.success:
                 return SocaResponse(
-                    success=True, message="Group deleted successfully"
+                    success=True, message=_("Group deleted successfully")
                 ).as_flask()
             else:
                 return SocaError.IDENTITY_PROVIDER_ERROR(
@@ -670,12 +671,12 @@ class Group(Resource):
                     )
                     if _modify.success:
                         return SocaResponse(
-                            success=True, message="Group updated successfully"
+                            success=True, message=_("Group updated successfully")
                         ).as_flask()
                     else:
                         return SocaResponse(
                             success=False,
-                            message=f"Unable to modify group because of {_modify.message}",
+                            message=_(f"Unable to modify group because of {_modify.message}"),
                         ).as_flask()
             else:
                 return SocaError.IDENTITY_PROVIDER_ERROR(

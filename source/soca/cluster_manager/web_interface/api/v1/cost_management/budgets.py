@@ -137,7 +137,12 @@ class AwsBudgets(Resource):
                       example: "Error retrieving budget list, check logs for more details."
         """
         try:
-            account_id = sts_client.get_caller_identity()["Account"]
+            _identity = sts_client.get_caller_identity()
+            account_id = _identity["Account"]
+            _partition = _identity["Arn"].split(":")[1]
+            if _partition == "aws-us-gov":
+                logger.info("AWS Budgets is not callable in the aws-us-gov partition; returning empty budget list.")
+                return SocaResponse(success=True, message=[]).as_flask()
             budgets_response = budgets_client.describe_budgets(AccountId=account_id)
             budgets = []
             for budget in budgets_response.get("Budgets", []):

@@ -66,6 +66,15 @@ class BatchJobs(Resource):
               enum: ["SUBMITTED", "PENDING", "RUNNABLE", "STARTING", "RUNNING", "SUCCEEDED", "FAILED"]
             description: Filter jobs by status. If omitted, all statuses are returned.
             example: "RUNNING"
+          - name: time_range
+            in: query
+            required: false
+            schema:
+              type: integer
+              minimum: 1
+              default: 24
+            description: Time range in hours to look back for jobs. Only jobs created within this window are returned. Defaults to 24 hours.
+            example: 48
         responses:
           '200':
             description: Jobs retrieved successfully

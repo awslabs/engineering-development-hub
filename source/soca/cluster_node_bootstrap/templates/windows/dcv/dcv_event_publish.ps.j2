@@ -1,0 +1,257 @@
+{# DCV session-event publisher (Windows / PowerShell). Pure-PS; wrapped in #}
+{# raw so Jinja2 does not parse PS interpolation or here-strings as tags.  #}
+{% raw %}
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0   
+
+# DCV session-event publisher (Windows / PowerShell).
+#
+# Mirrors source/soca/cluster_node_bootstrap/templates/linux/dcv/dcv_event_publish.sh.j2
+# Defines a single function `Invoke-EdhDcvPublishEvent` that bootstrap and
+# lifecycle hooks call. Minimal envelope: 32-byte CSPRNG nonce + ISO-8601
+# timestamp + body.instance_id (cross-checked by relay Lambda against the
+# AWS-attested SQS SenderId).
+#
+# No HMAC, no IID document, no per-session secret on the publisher side.
+# Provenance is established via the AWS-set SQS SenderId attribute
+# (= role-id:i-XXXXXXXX) which the relay Lambda extracts and forwards to
+# the controller in a header bound into the relay HMAC. See
+# docs/DCVEventRelay.md for the full chain of trust.
+#
+# Required environment variables (set in machine env by bootstrap):
+#   EDH_DCV_SESSION_EVENTS_QUEUE_URL  (https://sqs.<region>.amazonaws.com/<acct>/<name>)
+#   EDH_DCV_SESSION_ID                (UUID matching DB session_uuid)
+#
+# Call signature:
+#   Invoke-EdhDcvPublishEvent -EventType "session-ready"
+#   Invoke-EdhDcvPublishEvent -EventType "bootstrap-checkpoint" -Checkpoint "dcv-installing"
+#   Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus "Pulling DCV 2024.0 RPMs"
+#
+# Failures are logged and swallowed -- the controller's cold-session probe
+# is the safety net.
+
+function Invoke-EdhDcvPublishEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet(
+            "session-ready", "session-resumed", "session-failed", "session-heartbeat",
+            "bootstrap-checkpoint", "bootstrap-status", "pool-ready"
+        )]
+        [string]$EventType,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Checkpoint = "",
+
+        [Parameter(Mandatory=$false)]
+        [string]$SubStatus = ""
+    )
+
+    # Argument requirements per event type. Mirrors the Linux helper so
+    # both publishers reject the same payloads pre-flight.
+    if ($EventType -eq "bootstrap-checkpoint" -and [string]::IsNullOrEmpty($Checkpoint)) {
+        Write-Warning "edh-publish: bootstrap-checkpoint requires -Checkpoint"
+        return
+    }
+    if ($EventType -eq "bootstrap-status" -and [string]::IsNullOrEmpty($SubStatus)) {
+        Write-Warning "edh-publish: bootstrap-status requires -SubStatus"
+        return
+    }
+
+    # Defensive truncation; controller also enforces 256.
+    if (-not [string]::IsNullOrEmpty($SubStatus) -and $SubStatus.Length -gt 256) {
+        $SubStatus = $SubStatus.Substring(0, 253) + "..."
+    }
+
+    $queueUrl  = $env:EDH_DCV_SESSION_EVENTS_QUEUE_URL
+    $sessionId = $env:EDH_DCV_SESSION_ID
+
+    # Legacy / event-relay-disabled cluster: silently skip.
+    if (-not $queueUrl) { return }
+    # Session-bound events require a session id; pool-ready is session-less
+    # (an idle pool member has no EDH_DCV_SESSION_ID) so it is exempt.
+    if ($EventType -ne "pool-ready" -and -not $sessionId) { return }
+
+    # IMDSv2 token + instance-id. The body.instance_id is cross-checked
+    # against the AWS-attested SenderId by the relay Lambda; if the values
+    # disagree, the event is rejected as a forgery attempt and CloudWatch
+    # alarms fire on Reason=body_instance_mismatch.
+    try {
+        $token = Invoke-RestMethod -Method Put `
+            -Uri 'http://169.254.169.254/latest/api/token' `
+            -Headers @{'X-aws-ec2-metadata-token-ttl-seconds' = '60'} `
+            -TimeoutSec 5
+    } catch {
+        Write-Warning "edh-publish: IMDSv2 token failed: $_"
+        return
+    }
+    $imdsHeaders = @{'X-aws-ec2-metadata-token' = $token}
+
+    try {
+        $instanceId = Invoke-RestMethod -Headers $imdsHeaders `
+            -Uri 'http://169.254.169.254/latest/meta-data/instance-id' -TimeoutSec 5
+    } catch {
+        Write-Warning "edh-publish: IMDS instance-id fetch failed: $_"
+        return
+    }
+
+    # 32-byte CSPRNG nonce as 64-char hex.
+    $nonceBytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($nonceBytes)
+    $nonce = -join ($nonceBytes | ForEach-Object { $_.ToString('x2') })
+
+    # Microsecond-precision UTC ISO-8601 timestamp.
+    $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.ffffffZ")
+
+    # Build the JSON body. checkpoint and sub_status are emitted only when
+    # non-empty so the wire shape is unchanged for the original 4 event types.
+    $payload = [ordered]@{
+        event_type      = $EventType
+        session_uuid    = $sessionId
+        instance_id     = $instanceId
+        event_timestamp = $timestamp
+        nonce           = $nonce
+    }
+    if (-not [string]::IsNullOrEmpty($Checkpoint)) { $payload["checkpoint"] = $Checkpoint }
+    if (-not [string]::IsNullOrEmpty($SubStatus))  { $payload["sub_status"] = $SubStatus }
+    $finalBody = $payload | ConvertTo-Json -Compress -Depth 10
+
+    # Publish via aws.exe sqs send-message. We pipe via file:// to dodge
+    # argv length caps (PowerShell + aws.exe + JSON quoting can blow up
+    # past Windows 8191 char limit). SQS attaches our AWS-attested
+    # SenderId on the receive side automatically.
+    $tmp = [IO.Path]::Combine([IO.Path]::GetTempPath(), "edh-evt-$([guid]::NewGuid()).json")
+    [IO.File]::WriteAllText($tmp, $finalBody)
+    try {
+        & aws.exe sqs send-message `
+            --queue-url $queueUrl `
+            --message-body ("file://" + $tmp) `
+            --output text --query MessageId 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "edh-publish: aws sqs send-message exit=$LASTEXITCODE"
+            return
+        }
+        Write-Host "edh-publish: published $EventType for $sessionId"
+    } catch {
+        Write-Warning "edh-publish: sqs send-message failed: $_"
+    } finally {
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Phase timing helpers
+#
+# Wrap a long-running bootstrap phase with start + end bootstrap-status
+# events so the WebUI strip shows both the phase entering AND a final
+# message including how long it took.
+#
+# Usage in a calling .j2 (single inline pattern):
+#
+#   $_t0 = Get-Date
+#   try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" `
+#              -SubStatus "Installing Chocolatey" } catch {}
+#   ... do the work ...
+#   try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" `
+#              -SubStatus ("Chocolatey ready -- " + (Format-EdhDuration ((Get-Date) - $_t0))) } catch {}
+#
+# Or use the Measure-EdhPhase wrapper if the work fits in a script block.
+# ---------------------------------------------------------------------------
+
+function Format-EdhDuration {
+    param([Parameter(Mandatory=$true)] [TimeSpan] $Span)
+    if ($Span.TotalHours -ge 1) {
+        return ("{0}h {1}m" -f [math]::Floor($Span.TotalHours), $Span.Minutes)
+    }
+    if ($Span.TotalMinutes -ge 1) {
+        return ("{0}m {1}s" -f [math]::Floor($Span.TotalMinutes), $Span.Seconds)
+    }
+    return ("{0}s" -f [math]::Round($Span.TotalSeconds))
+}
+
+function Measure-EdhPhase {
+    <#
+    Wraps a script block: emits "Starting <Name>" then runs the block,
+    then emits "<Name> complete -- <duration>" with measured elapsed.
+    Failures inside the block do NOT suppress the end emit; the end
+    message reports "<Name> failed -- <duration>" and re-throws.
+    #>
+    param(
+        [Parameter(Mandatory=$true)] [string] $Name,
+        [Parameter(Mandatory=$true)] [scriptblock] $Body,
+        [string] $StartMessage = $null
+    )
+    $startMsg = if ($StartMessage) { $StartMessage } else { ("Starting " + $Name) }
+    $t0 = Get-Date
+    try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus $startMsg } catch {}
+    try {
+        & $Body
+    } catch {
+        $dur = Format-EdhDuration ((Get-Date) - $t0)
+        try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus ("$Name failed in $dur") } catch {}
+        throw
+    }
+    $dur = Format-EdhDuration ((Get-Date) - $t0)
+    try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus ("$Name complete in $dur") } catch {}
+}
+
+function Invoke-EdhRetryablePhase {
+    <#
+    Run a phase with bounded retries and per-attempt status events.
+    Emits four kinds of bootstrap-status messages:
+      - start of each attempt:   "Starting <Name> (attempt N/M)"
+      - retry on failure:        "<Name> attempt N failed in <dur> -- retrying in <s>s"
+      - final success:           "<Name> complete in <total> [(after K retries)]"
+      - final failure:           "<Name> failed after M attempts in <total>"
+
+    BackoffSeconds is indexed by (attempt - 1); short arrays clamp to last.
+
+    Note: $Body is invoked with `& $Body` (child scope). Avoid relying on
+    variables set inside $Body to leak to the caller; if that's needed,
+    set them at $script: scope explicitly within the block.
+    #>
+    param(
+        [Parameter(Mandatory=$true)] [string] $Name,
+        [Parameter(Mandatory=$true)] [scriptblock] $Body,
+        [int] $MaxAttempts = 3,
+        [int[]] $BackoffSeconds = @(15, 60, 120)
+    )
+    $overallT0 = Get-Date
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $attemptT0 = Get-Date
+        $startMsg = ("Starting " + $Name + " (attempt " + $attempt + "/" + $MaxAttempts + ")")
+        try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus $startMsg } catch {}
+        try {
+            & $Body
+            $totalDur = Format-EdhDuration ((Get-Date) - $overallT0)
+            $endMsg = ($Name + " complete in " + $totalDur)
+            if ($attempt -gt 1) {
+                $retries = $attempt - 1
+                $word = "retries"
+                if ($retries -eq 1) { $word = "retry" }
+                $endMsg += " (after $retries $word)"
+            }
+            try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus $endMsg } catch {}
+            return
+        } catch {
+            $attemptDur = Format-EdhDuration ((Get-Date) - $attemptT0)
+            $errMsg = $_.Exception.Message
+            if ($errMsg.Length -gt 80) { $errMsg = $errMsg.Substring(0, 80) + "..." }
+            if ($attempt -lt $MaxAttempts) {
+                $idx = [math]::Min($attempt - 1, $BackoffSeconds.Length - 1)
+                $backoff = $BackoffSeconds[$idx]
+                $retryMsg = ($Name + " attempt " + $attempt + " failed in " + $attemptDur + " -- retrying in " + $backoff + "s: " + $errMsg)
+                try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus $retryMsg } catch {}
+                Write-Warning ("Phase " + $Name + " attempt " + $attempt + " failed: " + $_)
+                Start-Sleep -Seconds $backoff
+            } else {
+                $totalDur = Format-EdhDuration ((Get-Date) - $overallT0)
+                $failMsg = ($Name + " failed after " + $MaxAttempts + " attempts in " + $totalDur + ": " + $errMsg)
+                try { Invoke-EdhDcvPublishEvent -EventType "bootstrap-status" -SubStatus $failMsg } catch {}
+                throw
+            }
+        }
+    }
+}
+{% endraw %}

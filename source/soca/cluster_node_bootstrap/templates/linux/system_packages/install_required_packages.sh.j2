@@ -26,6 +26,20 @@ function system_packages_install {
   if [[ ! -f "${PACKAGES_ALREADY_INSTALLED_FILE_LOCK}" ]]; then
     log_info "No preinstalled package log found on ${PACKAGES_ALREADY_INSTALLED_FILE_LOCK} - preparing BaseOS - {{ context.get("/job/BaseOS") }} .."
 
+    # NVIDIA GPU Ubuntu nodes: hold the rolling linux-aws kernel metas so a later apt step can't jump the major kernel line and break the pinned GRID DKMS build (also triggers the hold-aware meta strip below).
+    local EDH_GPU_MANUFACTURER=""
+    {% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+      # Detect NVIDIA dependency-free via PCI vendor id (populated at boot, no AWS CLI); fall back to the instance-type API.
+      if grep -qi 0x10de /sys/bus/pci/devices/*/vendor 2>/dev/null; then
+        EDH_GPU_MANUFACTURER="NVIDIA"
+      else
+        EDH_GPU_MANUFACTURER="$(ec2_describe_instance_types "GpuInfo.Gpus[].Manufacturer" 2>/dev/null)"
+      fi
+      if [[ "${EDH_GPU_MANUFACTURER}" == *NVIDIA* ]]; then
+        packages_hold linux-aws linux-image-aws linux-headers-aws linux-modules-extra-aws linux-tools-aws
+      fi
+    {% endif %}
+
     # Get list of Linux packages to install for each distribution
     {% if context.get("/job/BaseOS") == "amazonlinux2023" %}
       {% include "templates/linux/system_packages/os/amazonlinux2023.sh.j2" %}
@@ -75,6 +89,19 @@ function system_packages_install {
         REMOVE_PKGS+=(kernel kernel-headers kernel-devel)
       {% endif %}
     fi
+
+    # NVIDIA GPU Ubuntu nodes: install the pinned kernel series meta for in-series security patches (SSM override; default is the OS's grid-supported line: 6.17 noble / 6.8 jammy). Rolling meta already held above.
+    {%  if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+      {% set _grid_kernel_series = "6.17" if context.get("/job/BaseOS") == "ubuntu2404" else "6.8" %}
+      if [[ "${EDH_GPU_MANUFACTURER}" == *NVIDIA* ]]; then
+        # Skip the series meta if Lustre already pulled linux-aws (lustre-client is kernel-specific); the apt-mark hold above still blocks the major-line jump.
+        if printf '%s\n' "${REMOVE_PKGS[@]}" | grep -qx "linux-aws"; then
+          log_warning "Lustre present (linux-aws in REMOVE_PKGS); skipping pinned kernel series meta to avoid lustre-client version mismatch."
+        else
+          SYSTEM_PKGS+=(linux-aws-{{ context.get("/system/gpu/gpu_settings/nvidia/linux/pinned_kernel_series", _grid_kernel_series) }})
+        fi
+      fi
+    {% endif %}
 
     # Ensure packages in REMOVE_PKGS won't be installed
     for pkg_to_remove in "${REMOVE_PKGS[@]}"; do

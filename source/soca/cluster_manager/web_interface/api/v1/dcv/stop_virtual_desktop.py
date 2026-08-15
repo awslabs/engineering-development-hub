@@ -13,6 +13,7 @@
 
 from flask_restful import Resource, reqparse
 from flask import request
+from flask_babel import gettext as _
 import logging
 from datetime import datetime, timezone
 from decorators import private_api, feature_flag
@@ -149,11 +150,25 @@ class StopVirtualDesktop(Resource):
 
         if _check_session:
             _instance_id = _check_session.instance_id
-            if _check_session == "stopped":
+            if _check_session.is_spot:
+                return SocaError.VIRTUAL_DESKTOP_STOP_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper="Spot VDI sessions cannot be paused - they run until interrupted or manually terminated.",
+                ).as_flask()
+            if _check_session.session_state == "stopped":
                 return SocaError.VIRTUAL_DESKTOP_STOP_ERROR(
                     session_number=_session_uuid,
                     session_owner=_user,
                     helper="Your desktop is already stopped.",
+                ).as_flask()
+
+            # Session may have no backing instance (placing/error/stale); avoid InstanceIds=[None].
+            if not _instance_id:
+                return SocaError.VIRTUAL_DESKTOP_STOP_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper=f"No running instance to stop (session state: {_check_session.session_state}).",
                 ).as_flask()
 
             # Check hibernate
@@ -190,7 +205,7 @@ class StopVirtualDesktop(Resource):
                 ).as_flask()
 
             try:
-                _check_session.session_state = "stopped"
+                _check_session.session_state = "stopping"
                 _check_session.session_state_latest_change_time = datetime.now(
                     timezone.utc
                 )
@@ -199,11 +214,11 @@ class StopVirtualDesktop(Resource):
                 db.session.rollback()
                 return SocaError.DB_ERROR(
                     query=_check_session,
-                    helper=f"Unable to set session_state to stopped due to {err}",
+                    helper=f"Unable to set session_state to stopping due to {err}",
                 ).as_flask()
 
             return SocaResponse(
-                success=True, message=f"Your desktop will be stopped soon."
+                success=True, message=_(f"Your desktop will be stopped soon.")
             ).as_flask()
         else:
             return SocaError.VIRTUAL_DESKTOP_STOP_ERROR(

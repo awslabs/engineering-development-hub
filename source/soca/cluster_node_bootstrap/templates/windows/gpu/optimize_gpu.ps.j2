@@ -1,0 +1,49 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Optimize GPU settings
+function Optimize-GpuClockSpeed {
+    # https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/optimize_gpu.html
+    $instanceFamily = (Invoke-SOCAImdsGet -Path "/latest/meta-data/instance-type").Split('.')[0]
+    Log-Info -Message "Optimize-GpuClockSpeed for ${instanceFamily}.. "
+
+    $nvidiaSmiPath = "C:\Windows\System32\DriverStore\FileRepository\nvgridsw_aws.inf_*\"
+    $nvidiaSmi = Get-ChildItem -Path $nvidiaSmiPath -Filter "nvidia-smi.exe" -Recurse | Select-Object -First 1
+
+    if (-not $nvidiaSmi) {
+        Log-Warning -Message "nvidia-smi not found in ${nvidiaSmiPath}, skipping GPU optimization"
+        return
+    }
+
+    $nvidiaSmiExe = $nvidiaSmi.FullName
+
+    # [G3 only] Disable autoboost before setting clocks
+    if ($instanceFamily -eq "g3") {
+        & $nvidiaSmiExe --auto-boost-default=0
+    }
+
+    $clockArgs = switch ($instanceFamily) {
+        "g3"     { "2505,1177" }
+        "g4dn"   { "5001,1590" }
+        "g5"     { "6250,1710" }
+        "g6"     { "6251,2040" }
+        "g6f"    { "6251,2040" }
+        "gr6"    { "6251,2040" }
+        "gr6f"   { "6251,2040" }
+        "g6e"    { "9001,2520" }
+        "p3"     { "877,1530" }
+        "p3dn"   { "877,1530" }
+        default  { $null }
+    }
+
+    if (-not $clockArgs) {
+        Log-Warning -Message "Unknown instance family for optimizations - ${instanceFamily} . May not run at maximum performance"
+        return
+    }
+
+    Log-Info -Message "Using tuning settings: nvidia-smi -ac ${clockArgs} for ${instanceFamily}"
+    & $nvidiaSmiExe -ac $clockArgs
+    Log-Info -Message "GPU Optimization complete"
+}
+Optimize-GpuClockSpeed
+# End: Optimize GPU settings

@@ -9,37 +9,34 @@ function gpu_instance_optimize_gpu_clock_speed_nvidia () {
   INSTANCE_FAMILY=$(instance_family)
   log_info "gpu_instance_optimize_gpu_clock_speed_nvidia for ${INSTANCE_FAMILY}.. "
   nvidia-persistenced
-  if [[ ${INSTANCE_FAMILY}  == "g3" ]]; then
-    nvidia-smi -ac 2505,1177
-  elif [[ ${INSTANCE_FAMILY}  == "g4dn" ]]; then
-    nvidia-smi -ac 5001,1590
-  elif [[ ${INSTANCE_FAMILY}  == "g5" ]]; then
-    nvidia-smi -ac 6250,1710
-  elif [[ ${INSTANCE_FAMILY}  == "p2" ]]; then
-    nvidia-smi -ac 2505,875
-  elif [[ ${INSTANCE_FAMILY} =~ ^(g6|gr6|g6f)$ ]]; then
-    nvidia-smi -ac 6251,2040
-  elif [[ ${INSTANCE_FAMILY}  == "g6e" ]]; then
-    nvidia-smi -ac 9001,2520
-  elif [[ ${INSTANCE_FAMILY}  == "g7e" ]]; then
-    nvidia-smi -ac 12481,2430
-  elif [[ ${INSTANCE_FAMILY} =~ ^(p3|p3dn)$ ]]; then
-    nvidia-smi -ac 877,1530
-  elif [[ ${INSTANCE_FAMILY}  == "p4d" ]]; then
-    nvidia-smi -ac 1215,1410
-  elif [[ ${INSTANCE_FAMILY}  == "p4de" ]]; then
-    nvidia-smi -ac 1593,1410
-  elif [[ ${INSTANCE_FAMILY}  == "p5" ]]; then
-    nvidia-smi -ac 2619,1980
-  elif [[ ${INSTANCE_FAMILY}  == "p6-b200" ]]; then
-    nvidia-smi -ac 3996,1965
-  elif [[ ${INSTANCE_FAMILY}  == "p6-b300" ]]; then
-    nvidia-smi -ac 3996,2032
 
-  else
-    log_warning "Unknown instance family for optimizations - ${INSTANCE_FAMILY} . May not run at maximum performance"
+  local NVIDIA_SMI_ARGS="-ac "
+
+  # [G3 only] Disable autoboost before setting clocks
+  if [[ "${INSTANCE_FAMILY}" == "g3" ]]; then
+    nvidia-smi --auto-boost-default=0
   fi
 
+  case "${INSTANCE_FAMILY}" in
+     g3) NVIDIA_SMI_ARGS+="2505,1177" ;;
+     g4dn) NVIDIA_SMI_ARGS+="5001,1590" ;;
+     g5) NVIDIA_SMI_ARGS+="6250,1710" ;;
+     g6|g6f|gr6|gr6f) NVIDIA_SMI_ARGS+="6251,2040" ;;
+     g6e) NVIDIA_SMI_ARGS+="9001,2520" ;;
+     g7e) NVIDIA_SMI_ARGS+="12481,2430" ;;
+     p2) NVIDIA_SMI_ARGS+="2505,875" ;;
+     p3|p3dn) NVIDIA_SMI_ARGS+="877,1530" ;;
+     p4d) NVIDIA_SMI_ARGS+="1215,1410" ;;
+     p4de) NVIDIA_SMI_ARGS+="1593,1410" ;;
+     p5) NVIDIA_SMI_ARGS+="2619,1980" ;;
+     p5e|p5en) NVIDIA_SMI_ARGS+="3201,1980" ;;
+     p6-b200) NVIDIA_SMI_ARGS+="3996,1965" ;;
+     p6-b300) NVIDIA_SMI_ARGS+="3996,2032" ;;
+     *) log_warning "Unknown instance family for optimizations - ${INSTANCE_FAMILY} . May not run at maximum performance" ; return ;;
+  esac
+
+  log_info "Using tuning settings: nvidia-smi ${NVIDIA_SMI_ARGS} for ${INSTANCE_FAMILY}"
+  nvidia-smi ${NVIDIA_SMI_ARGS}
   log_info "GPU Optimization complete"
 }
 gpu_instance_optimize_gpu_clock_speed_nvidia

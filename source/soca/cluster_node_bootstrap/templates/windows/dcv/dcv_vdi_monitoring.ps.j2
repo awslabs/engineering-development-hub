@@ -1,0 +1,164 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Install DCV streaming metrics collector + CW Agent on Windows VDI host
+#
+# Mirror of templates/linux/dcv/dcv_vdi_monitoring.sh.j2:
+#   1. CloudWatch Agent for host metrics (mem, cpu, disk, net) into
+#      EDH/DCVHighScale namespace.
+#   2. Python collector for DCV streaming metrics into EDH/DCVStreaming.
+#      Driven by a Scheduled Task firing every 60s.
+#
+# Encoding rule: ASCII only in this template per learned correction.
+# Em-dashes, smart quotes, and ellipses get mojibake-mangled by the
+# default CP1252 PowerShell parser.
+
+Log-Info -Message "Installing DCV VDI host monitoring (CW Agent + streaming collector)"
+
+$AwsRegion  = "{{ context.get('/configuration/Region') }}"
+$ClusterId  = "{{ context.get('/configuration/ClusterId') }}"
+$CwaUrl     = "https://amazoncloudwatch-agent-$($AwsRegion).s3.$($AwsRegion).amazonaws.com/windows/amd64/latest/amazon-cloudwatch-agent.msi"
+
+##
+## 1. CloudWatch Agent
+##
+$CwaInstalled = (Get-Service -Name "AmazonCloudWatchAgent" -ErrorAction SilentlyContinue) -ne $null
+if (-not $CwaInstalled) {
+    Log-Info -Message "Downloading CloudWatch Agent from $CwaUrl"
+    $CwaMsi = "$env:TEMP\amazon-cloudwatch-agent.msi"
+    Invoke-WebRequest -Uri $CwaUrl -OutFile $CwaMsi -UseBasicParsing
+    $proc = Start-Process msiexec.exe -ArgumentList "/i `"$CwaMsi`" /qn /norestart" -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        throw "CloudWatch Agent msiexec failed with exit code $($proc.ExitCode)"
+    }
+} else {
+    Log-Info -Message "CloudWatch Agent already installed"
+}
+
+# CW Agent JSON config. Publishes to the same EDH/DCVHighScale namespace
+# that the broker/gateway hosts use, with metric names renamed to match
+# the Linux side (mem_used_percent / swap_used_percent) so the admin
+# dashboard's modal query path is identical for Windows + Linux VDIs.
+#
+# Important: CW Agent's `append_dimensions` only honors four built-in
+# `${aws:...}` placeholders (InstanceId, InstanceType, ImageId,
+# AutoScalingGroupName). Arbitrary literal values (e.g. ClusterId) are
+# SILENTLY DROPPED. VDI hosts are standalone EC2 (not in an ASG), so
+# the only meaningful append dim is InstanceId. The dashboard modal
+# queries by InstanceId — no cluster dim needed for per-host lookup.
+$CwaConfig = @"
+{
+  "agent": {
+    "run_as_user": "SYSTEM",
+    "metrics_collection_interval": 60,
+    "logfile": "C:\\ProgramData\\Amazon\\AmazonCloudWatchAgent\\Logs\\amazon-cloudwatch-agent.log"
+  },
+  "metrics": {
+    "namespace": "EDH/DCVHighScale",
+    "append_dimensions": {
+      "InstanceId": "`${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "Memory": {
+        "measurement": [
+          { "name": "% Committed Bytes In Use", "rename": "mem_used_percent", "unit": "Percent" }
+        ],
+        "metrics_collection_interval": 60
+      },
+      "Paging File": {
+        "measurement": [
+          { "name": "% Usage", "rename": "swap_used_percent", "unit": "Percent" }
+        ],
+        "resources": [ "_Total" ],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}
+"@
+$CwaConfDir = "C:\ProgramData\Amazon\AmazonCloudWatchAgent"
+if (-not (Test-Path $CwaConfDir)) { New-Item -ItemType Directory -Force -Path $CwaConfDir | Out-Null }
+$CwaConfPath = "$CwaConfDir\amazon-cloudwatch-agent.json"
+Set-Content -Path $CwaConfPath -Value $CwaConfig -Encoding ASCII
+
+& "C:\Program Files\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent-ctl.ps1" -a fetch-config -m ec2 -s -c "file:$CwaConfPath"
+Log-Info -Message "CloudWatch Agent configured for VDI host metrics"
+
+##
+## 2. DCV streaming metrics collector
+##
+
+$CollectorDir    = "C:\ProgramData\EDH\dcv_streaming_metrics"
+$CollectorPython = "$CollectorDir\python"
+$CollectorScript = "$CollectorDir\dcv_streaming_metrics_collector.py"
+$StateDir        = "C:\ProgramData\EDH\dcv_streaming"
+
+if (-not (Test-Path $CollectorDir)) { New-Item -ItemType Directory -Force -Path $CollectorDir | Out-Null }
+if (-not (Test-Path $StateDir))     { New-Item -ItemType Directory -Force -Path $StateDir     | Out-Null }
+
+# Python embeddable distribution: pin to 3.11 (broad boto3 compat).
+# Downloaded once and cached. We avoid the system-wide installer to
+# keep the image clean and to not collide with any user-installed
+# Python on the desktop image.
+$PyVersion = "3.11.9"
+$PyZipUrl  = "https://www.python.org/ftp/python/$PyVersion/python-$PyVersion-embed-amd64.zip"
+$PyZip     = "$env:TEMP\python-embed.zip"
+$PyExe     = "$CollectorPython\python.exe"
+
+if (-not (Test-Path $PyExe)) {
+    Log-Info -Message "Downloading Python $PyVersion embeddable for collector"
+    Invoke-WebRequest -Uri $PyZipUrl -OutFile $PyZip -UseBasicParsing
+    Expand-Archive -Path $PyZip -DestinationPath $CollectorPython -Force
+    # Enable site-packages so pip-installed boto3 is importable
+    $PthFile = Get-ChildItem $CollectorPython -Filter "python*._pth" | Select-Object -First 1
+    if ($PthFile) {
+        (Get-Content $PthFile.FullName) -replace '^#import site', 'import site' | Set-Content $PthFile.FullName -Encoding ASCII
+    }
+    # Bootstrap pip
+    Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "$env:TEMP\get-pip.py" -UseBasicParsing
+    & $PyExe "$env:TEMP\get-pip.py" --quiet
+    & $PyExe -m pip install --quiet boto3
+}
+
+# Render the cross-platform collector script (same source as Linux).
+$CollectorBody = @'
+{% include "templates/linux/dcv/dcv_streaming_metrics_collector.py.j2" %}
+'@
+Set-Content -Path $CollectorScript -Value $CollectorBody -Encoding ASCII
+
+# Scheduled Task: run every 60s as SYSTEM. SYSTEM has the rights to
+# query the local DCV server (same model as DCV server service itself).
+$TaskName = "EDH-DCV-StreamingMetrics"
+$ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($ExistingTask) {
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+}
+
+$Action = New-ScheduledTaskAction `
+    -Execute $PyExe `
+    -Argument "`"$CollectorScript`" --cluster-id $ClusterId --region $AwsRegion"
+
+$Trigger = New-ScheduledTaskTrigger `
+    -Once `
+    -At (Get-Date).AddMinutes(2) `
+    -RepetitionInterval (New-TimeSpan -Seconds 60) `
+    -RepetitionDuration (New-TimeSpan -Days 365)
+
+$Principal = New-ScheduledTaskPrincipal `
+    -UserId "SYSTEM" `
+    -LogonType ServiceAccount `
+    -RunLevel Highest
+
+$Settings = New-ScheduledTaskSettingsSet `
+    -ExecutionTimeLimit (New-TimeSpan -Seconds 45) `
+    -StartWhenAvailable
+
+Register-ScheduledTask `
+    -TaskName $TaskName `
+    -Action $Action `
+    -Trigger $Trigger `
+    -Principal $Principal `
+    -Settings $Settings | Out-Null
+
+Log-Info -Message "DCV streaming metrics collector scheduled (60s)"
+# End: Install DCV streaming metrics collector + CW Agent on Windows VDI host

@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -21,23 +21,22 @@
 
                 <div class="col-md-12">
                     <div class="alert alert-primary">
-                        Make sure your Amazon Machine Images (AMI) are available in your current region:
+                        {{ _("Make sure your Amazon Machine Images (AMI) are available in your current region:") }}
                         <strong>{{ region_name }}</strong> <br>
                         <a target="_blank" rel="noopener,noreferrer"
-                           href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/architecture/reduce-compute-node-launch-time-with-custom-ami/">Click
-                            here to learn how to create custom images</a>
+                           href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/architecture/reduce-compute-node-launch-time-with-custom-ami/">{{ _("Click here to learn how to create custom images") }}</a>
                     </div>
 
                       <div class="alert alert-warning">
-                          <strong>Once you have created your Virtual Desktop Software Stack, please ensure that it is <a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a></strong> Failure to do so will result in your profile remaining hidden from users.
+                          <strong>{% trans link='<a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a>'|safe %}Once you have created your Virtual Desktop Software Stack, please ensure that it is {{ link }}{% endtrans %}</strong> {{ _("Failure to do so will result in your profile remaining hidden from users.") }}
                       </div>
 
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab" href="#nav-add"
-                               role="tab" aria-controls="nav-home" aria-selected="true">Register Software Stack</a>
+                               role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Register Software Stack") }}</a>
                             <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab" href="#nav-delete"
-                               role="tab" aria-controls="nav-delete" aria-selected="false">Manage Software Stacks</a>
+                               role="tab" aria-controls="nav-delete" aria-selected="false">{{ _("Manage Software Stacks") }}</a>
                         </div>
                     </nav>
 
@@ -48,14 +47,12 @@
                             <div class="card shadow mb-4">
                                
                                     <div class="card-body">
-                                        <h3>Register a new Software Stack
-                                        (AMI) to EDH</h3>
+                                        <h3>{{ _("Register a new Software Stack (AMI) to EDH") }}</h3>
                                         <form action="/admin/virtual_desktops/software_stacks/create" method="post" enctype="multipart/form-data">
                                             <div class="form-group">
                                                 <label for="ami_id" data-toggle="tooltip" data-placement="top"
-                                                       title="Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)">AMI
-                                                    ID</label>
-                                                <input id="ami_id" placeholder="Image ID (start with ami-xxx or) or AMI alias (/aws/service/...)"
+                                                       title="{{ _("Unique ID of your Amazon image. Must be a valid image, start with ami- or AMI alias (/aws/service/...)") }}">{{ _("AMI ID") }}</label>
+                                                <input id="ami_id" placeholder="{{ _("Image ID (start with ami-xxx) or AMI alias (/aws/service/...)") }}" development
                                                        class="form-control"
                                                        type="text"
                                                        required name="ami_id">
@@ -63,24 +60,46 @@
 
                                             <div class="form-group">
                                                 <label for="stack_name" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose a friendly name for your AMI.">Software Stack Name
+                                                       title="{{ _("Choose a friendly name for your AMI.") }}">{{ _("Software Stack Name") }}
                                                 </label>
-                                                <input id="stack_name" placeholder="Enter friendly AMI Name"
+                                                <input id="stack_name" placeholder="{{ _("Enter friendly AMI Name") }}"
                                                        class="form-control" type="text"
                                                        required name="stack_name">
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="description" data-toggle="tooltip" data-placement="top"
-                                                       title="Description of your Software Stack">Software Stack Description
+                                                       title="{{ _("Description of your Software Stack") }}">{{ _("Software Stack Description") }}
                                                 </label>
-                                                <textarea id="description" placeholder="(Optional) Description for your software stack (maximum 500 characters)."
+                                                <textarea id="description" placeholder="{{ _("(Optional) Description for your software stack (maximum 500 characters).") }}"
                                                           class="form-control" rows="3"  name="description"></textarea>
                                             </div>
 
                                             <div class="form-group">
+                                                <label for="share_scope" data-toggle="tooltip" data-placement="top"
+                                                       title="{{ _("Controls who a virtual desktop built from this stack may be shared with via DCV session sharing") }}">{{ _("Session Sharing Scope") }}</label>
+                                                <select class="form-control" id="share_scope" name="share_scope">
+                                                    <option value="cluster" selected>{{ _("Cluster -- shareable with any user") }}</option>
+                                                    <option value="project">{{ _("Project -- shareable only within shared projects") }}</option>
+                                                    <option value="none">{{ _("None -- sharing disabled") }}</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="volume_acceleration" data-toggle="tooltip" data-placement="top"
+                                                       title="{{ _("EBS fast-restore acceleration for desktops built from this stack. Inherit = use the cluster default; Off = lazy load; 100-300 MiB/s = pre-fetch the root volume on launch (faster first boot/resume, higher for larger stacks).") }}">{{ _("Volume Acceleration (Fast-Restore)") }}</label>
+                                                <select class="form-control" id="volume_acceleration" name="volume_acceleration">
+                                                    <option value="" selected>{{ _("Inherit cluster default") }}</option>
+                                                    <option value="off">{{ _("Off (lazy load)") }}</option>
+                                                    <option value="100">{{ _("100 MiB/s (balanced)") }}</option>
+                                                    <option value="200">{{ _("200 MiB/s") }}</option>
+                                                    <option value="300">{{ _("300 MiB/s (fastest)") }}</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
                                                 <label for="base_os" data-toggle="tooltip" data-placement="top"
-                                                       title="Select image baseOS">Operating System</label>
+                                                       title="{{ _("Select image baseOS") }}">{{ _("Operating System") }}</label>
                                                 <select class="form-control" id="base_os" name="base_os">
                                                     {% for base_os in supported_base_os %}
                                                             <option value="{{base_os}}">{{base_os}}</option>
@@ -90,16 +109,16 @@
 
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error"
-                                                       for="root_size">Root Disk Size (in GB)</label>
+                                                       title="{{ _("The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error") }}"
+                                                       for="root_size">{{ _("Root Disk Size (in GB)") }}</label>
                                                 <input type="number" min=0 value=40 id="root_size" class="form-control"
                                                        required name="root_size">
                                             </div>
 
                                              <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
-                                                       title="Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ..."
-                                                       for="virtual_desktop_profile_id">Profile associated with this stack (<a target="_blank" href="/admin/virtual_desktops/profiles">see Virtual Desktop Profiles</a>)</label>
+                                                       title="{{ _("Profile that control the list of allowed EC2 instance types, subnet IDs, maximum storage etc ...") }}"
+                                                       for="virtual_desktop_profile_id">{% trans link='<a target="_blank" href="/admin/virtual_desktops/profiles">see Virtual Desktop Profiles</a>'|safe %}Profile associated with this stack ({{ link }}){% endtrans %}</label>
                                                 <select class="form-control" required id="virtual_desktop_profile_id" name="virtual_desktop_profile_id">
                                                  {% for profile_id, profile_info in profiles.items() %}
                                                     <option value="{{profile_id}}"> {{ profile_info.profile_name }}</option>
@@ -109,32 +128,29 @@
 
                                             <div class="form-group">
                                                 <label for="launch_tenancy" data-toggle="tooltip" data-placement="top"
-                                                       title="Choose AMI launch tenancy setting">Launch Tenancy</label>
+                                                       title="{{ _("Choose AMI launch tenancy setting") }}">{{ _("Launch Tenancy") }}</label>
                                                 <select class="form-control" name='launch_tenancy' id="launch_tenancy">
-                                                    <option value="default" selected>Default Tenancy (default)</option>
-                                                    <option value="dedicated">Dedicated Instance Tenancy (instance)</option>
-                                                    <option value="host">Dedicated Host Tenancy (host)</option>
+                                                    <option value="default" selected>{{ _("Default Tenancy (default)") }}</option>
+                                                    <option value="dedicated">{{ _("Dedicated Instance Tenancy (instance)") }}</option>
+                                                    <option value="host">{{ _("Dedicated Host Tenancy (host)") }}</option>
                                                 </select>
                                             </div>
 
                                             <div class="form-group">
                                                 <label for="launch_host" data-toggle="tooltip" data-placement="top"
-                                                       title="Launch Host if using Dedicated Host Tenancy">Launch Host
-                                                    ID</label>
-                                                <input id="launch_host" placeholder="(Optional if not using Host Tenancy) Launch Host ID (h-xxx)"
+                                                       title="{{ _("Launch Host if using Dedicated Host Tenancy") }}">{{ _("Launch Host ID") }}</label>
+                                                <input id="launch_host" placeholder="{{ _("(Optional if not using Host Tenancy) Launch Host ID (h-xxx)") }}"
                                                        class="form-control" type="text"
                                                        name="launch_host">
                                             </div>
 
                                             <div class="form-group">
                                                  <label data-toggle="tooltip" data-placement="top"
-                                                       title="Thumbnail to use (150px * 150px)">Thumbnail (150px * 150px)
+                                                       title="{{ _("Thumbnail to use (150px * 150px)") }}">{{ _("Thumbnail (150px * 150px)") }}
                                                     </label>
                                                 <div class="custom-file">
                                                     <input type="file" class="custom-file-input" id="thumbnail" name="thumbnail" accept="image/png, image/jpeg, image/jpg">
-                                                    <label class="custom-file-label">Select an
-                                                        image (jpg or png) to use as thumbnail. Leave blank to
-                                                        use the existing thumbnail</label>
+                                                    <label class="custom-file-label">{{ _("Select an image (jpg or png) to use as thumbnail. Leave blank to use the existing thumbnail") }}</label>
                                                 </div>
                                                 <script>
                                                     $(".custom-file-input").on("change", function () {
@@ -147,7 +163,7 @@
                                             <div>
                                                 <input type="hidden" name="csrf_token"
                                                        value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Register Software Stack in EDH
+                                                <button type="submit" class="btn btn-primary">{{ _("Register Software Stack in EDH") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -160,14 +176,14 @@
                                 <div class="card shadow mb-4">
                              
                                     <div class="card-body">
-                                        <h3>Manage Software Stacks</h3>
+                                        <h3>{{ _("Manage Software Stacks") }}</h3>
 
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important:</strong> <br>
+                                            <strong>{{ _("Important:") }}</strong> <br>
 
-                                            Removing the Software Stack from EDH will not remove the AMI from your AWS account
+                                            {{ _("Removing the Software Stack from EDH will not remove the AMI from your AWS account") }}
                                             <br>
-                                            Removing a software stack won't impact existing virtual desktops
+                                            {{ _("Removing a software stack will not impact existing virtual desktops") }}
                                         </div>
                                         <div class="row">
                                         {% if software_stacks %}
@@ -183,6 +199,7 @@
                                                                     data-soca-created-on="{{ software_stack_info.created_on }}"
                                                                     data-soca-vdi-profile="{{ software_stack_info.virtual_desktop_profile_id }}"
                                                                     data-soca-project-ids="{{ software_stack_info.project_ids }}"
+                                                                    data-soca-hardware-profile-id="{{ software_stack_info.hardware_profile_id }}"
                                                                     data-soca-created-by="{{ software_stack_info.created_by }}">
                                                                 ID: {{software_stack_id}} - {{ software_stack_info.stack_name }} ({{software_stack_info.ami_arch}})
                                                             </option>
@@ -193,27 +210,24 @@
                                                 <div class="form-group form-check">
                                                     <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                            required>
-                                                    <label class="form-check-label" for="verif">I am sure I want to
-                                                        unregister this
-                                                        Software Stack from EDH</label>
+                                                    <label class="form-check-label" for="verif">{{ _("I am sure I want to unregister this Software Stack from EDH") }}</label>
                                                 </div>
                                                 <div class="d-flex justify-content-center">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="submit" class="btn btn-danger mr-2">Unregister Software Stack from
-                                                        EDH
+                                                    <button type="submit" class="btn btn-danger mr-2">{{ _("Unregister Software Stack from EDH") }}
                                                     </button>
-                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">Edit Software Stack</button>
+                                                    <button type="button" class="btn btn-primary" onclick="submitEditForm()">{{ _("Edit Software Stack") }}</button>
 
                                                 </div>
                                             </form>
                                                 </div>
                                             <div class="col-md-7">
                                                  <div id="stackInfo">
-                                                     Select a stack to see details.
+                                                     {{ _("Select a stack to see details.") }}
                                                  </div>
                                             </div>
                                         {% else %}
-                                            No custom AMI found. Create one first
+                                            {{ _("No custom AMI found. Create one first") }}
                                         {% endif %}
                                         </div>
                                     </div>
@@ -240,9 +254,17 @@
                             form.submit();
                         }
 
+                        // id -> name lookup for the Hardware Profile bound to each stack
+                        var EDH_HW_PROFILES = {
+                            {% for hp in hardware_profiles %}"{{ hp.id }}": {{ hp.profile_name|tojson }},{% endfor %}
+                        };
+
                         function updateSoftwareStackInfo() {
                         var selectElement = document.getElementById("software_stack_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
+
+                        var hwId = selectedOption.getAttribute("data-soca-hardware-profile-id");
+                        var hwName = (hwId && EDH_HW_PROFILES[hwId]) ? EDH_HW_PROFILES[hwId] : "None";
 
                         document.getElementById("stackInfo").innerHTML =
                             "<h3>Software Stack Details:</h3> <hr>" +
@@ -251,6 +273,7 @@
                             "<br><strong>AMI ID:</strong> " + selectedOption.getAttribute("data-soca-ami-id") +
                             "<br><strong><a href='/admin/virtual_desktops/profiles' target='_blank'>Associated VDI Profile ID:</a></strong> " + selectedOption.getAttribute("data-soca-vdi-profile") +
                             "<br><strong><a href='/admin/projects' target='_blank'>Associated Project IDs:</a></strong> " + selectedOption.getAttribute("data-soca-project-ids") +
+                            "<br><strong><a href='/admin/virtual_desktops/hardware_profiles' target='_blank'>Hardware Profile:</a></strong> " + hwName +
                             "<br><strong>Created By:</strong> " + selectedOption.getAttribute("data-soca-created-by") +
                             "<br><strong>Created On</strong> " + selectedOption.getAttribute("data-soca-created-on");
                         }

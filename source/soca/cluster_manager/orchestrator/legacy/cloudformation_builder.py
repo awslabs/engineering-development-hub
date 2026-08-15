@@ -168,7 +168,7 @@ def main(**params):
         t = Template()
         t.set_version("2010-09-09")
         t.set_description(
-            "(SOCA) - Base template to deploy compute nodes. Version 26.4.0"
+            "(SOCA) - Base template to deploy compute nodes. Version 26.8.0"
         )
 
         _cluster_id: str = params.get("ClusterId", "unknown-cluster")
@@ -464,9 +464,9 @@ def main(**params):
             for _i in range(1, _max_efa_interfaces):
                 ltd.NetworkInterfaces.append(
                     NetworkInterfaces(
-                        InterfaceType="efa",
+                        InterfaceType="efa-only",
                         DeleteOnTermination=True,
-                        DeviceIndex=1 if (_i > 0) else 0,
+                        DeviceIndex=0,
                         NetworkCardIndex=_i,
                         Groups=security_groups,
                     )

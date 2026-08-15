@@ -5,8 +5,7 @@
             "Action": [
                 "ec2:CreateVolume",
                 "ec2:DeleteVolume",
-                "ec2:RunInstances",
-                "ec2:TerminateInstances"
+                "ec2:RunInstances"
             ],
             "Resource": [
                 "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:subnet/*",
@@ -169,6 +168,29 @@
                 "kms:GenerateDataKeyWithoutPlaintext"
             ],
             "Resource": "arn:%%AWS_PARTITION%%:kms:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:key/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "backup:TagResource",
+                "backup:ListTags"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:backup:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:recovery-point:*",
+                "arn:%%AWS_PARTITION%%:backup:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:backup-vault/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "ec2:TerminateInstances"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:instance/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            },
             "Effect": "Allow"
         }
     ]

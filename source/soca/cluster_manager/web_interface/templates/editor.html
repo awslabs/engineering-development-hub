@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -21,7 +21,7 @@
                 {% include 'common/flashed_messages.html' %}
                     <div class="card shadow mb-4">
                         <div class="card-body">
-                            <h3>Edit File</h3>
+                            <h3>{{ _("Edit File") }}</h3>
                             <br>
                             <div class="row">
                                 <div class="col-md-12">
@@ -36,11 +36,10 @@
                                 <div>
                                     <hr>
                                     <input type="checkbox"
-                                        onchange="document.getElementById('save').disabled = !this.checked;"/> I am sure I
-                                    want to <strong>EDIT</strong> {{ file_to_edit }} and I understand changing configuration
+                                        onchange="document.getElementById('save').disabled = !this.checked;"/> {{ _("I am sure I want to") }} <strong>{{ _("EDIT") }}</strong> {{ file_to_edit }} and I understand changing configuration
                                     file may cause outage if done incorrectly.<br><br>
                                     <button disabled id="save" name=" save" onclick="saveData()" class="btn btn-primary">
-                                        Save changes
+                                        {{ _("Save changes") }}
                                     </button>
                                 </div>
                             </div>
@@ -98,8 +97,7 @@
         },
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "X-EDH-USER": "{{ user }}",
-            "X-EDH-TOKEN": "{{ api_key }}"
+            "X-Requested-With": "XMLHttpRequest"
         },
         dataType: 'json',
         success: function (data) {

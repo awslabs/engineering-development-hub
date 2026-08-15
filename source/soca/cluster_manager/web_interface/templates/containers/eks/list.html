@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -9,6 +9,7 @@
 
 <body id="page-top">
     {% include 'common/horizontal_menu_bar.html' %}
+    {% include 'common/js_i18n.html' %}
 
     <div id="wrapper">
         {% include 'common/vertical_menu_bar.html' %}
@@ -21,12 +22,12 @@
 
                         <div class="card-body">
                             <div class="py-3 d-flex justify-content-between align-items-center">
-                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="List all your containers running on one or more Amazon Elastic Kubernetes Services (EKS).">My Amazon EKS Containers <i class="fas fa-question-circle"></i></h3>
+                                <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("List all your containers running on one or more Amazon Elastic Kubernetes Services (EKS).") }}">{{ _("My Amazon EKS Containers") }} <i class="fas fa-question-circle"></i></h3>
 
                                 <div class="d-flex ms-auto align-items-center">
                                     
                                     <a href="/containers/images"><button type="button" class="btn btn-success">
-                                        Launch a New Container
+                                        {{ _("Launch a New Container") }}
                                     </button></a>
                                 </div>
                             </div>
@@ -46,19 +47,19 @@
                                     "UNKNOWN": "No status information is available."}
                                   %}
                                <div class="alert alert-primary">
-                                   Job completed are automatically removed after 1 hour.
+                                   {{ _("Job completed are automatically removed after 1 hour.") }}
                                </div>
                              <br>
                                     <table class="table table-striped">
                                         <thead>
                                         <tr>
-                                            <th scope="col">Cluster</th>
-                                            <th scope="col">Job Name</th>
-                                            <th scope="col">Namespace</th>
-                                            <th scope="col">Image</th>
-                                            <th scope="col">Job State</th>
-                                            <th scope="col">Pod(s) IP(s)</th>
-                                            <th>Job Details</th>
+                                            <th scope="col">{{ _("Cluster") }}</th>
+                                            <th scope="col">{{ _("Job Name") }}</th>
+                                            <th scope="col">{{ _("Namespace") }}</th>
+                                            <th scope="col">{{ _("Image") }}</th>
+                                            <th scope="col">{{ _("Job State") }}</th>
+                                            <th scope="col">{{ _("Pod(s) IP(s)") }}</th>
+                                            <th>{{ _("Job Details") }}</th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -73,7 +74,7 @@
                                                         {% for image in job_info.get('images', []) %}
                                                             {{ image }}<br>
                                                         {% else %}
-                                                            <em>No image</em>
+                                                            <em>{{ _("No image") }}</em>
                                                         {% endfor %}
                                                     </td>
                                                     <td>
@@ -144,14 +145,14 @@
                                                         {% for pod_ip in job_info.get('pod_ips', []) %}
                                                             {{ pod_ip }}<br>
                                                         {% else %}
-                                                            <em>None</em>
+                                                            <em>{{ _("None") }}</em>
                                                         {% endfor %}
                                                     </td>
                                                     <td>
                                                         <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                                                data-bs-target="#job{{ loop.index0 }}">Job Info</button>
+                                                                data-bs-target="#job{{ loop.index0 }}">{{ _("Job Info") }}</button>
                                                         <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                                                data-bs-target="#deletejob{{ loop.index0 }}">Delete Job</button>
+                                                                data-bs-target="#deletejob{{ loop.index0 }}">{{ _("Delete Job") }}</button>
                                                     </td>
                                                 </tr>
 
@@ -161,8 +162,8 @@
                                                     <div class="modal-dialog modal-lg" role="document">
                                                         <div class="modal-content modal-lg">
                                                             <div class="modal-header">
-                                                                <h5 class="modal-title">Job Info</h5>
-                                                                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                                                                <h5 class="modal-title">{{ _("Job Info") }}</h5>
+                                                                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
                                                                    <span aria-hidden="true">×</span>
                                                                 </button>
                                                             </div>
@@ -171,7 +172,7 @@
                                                             </div>
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary"
-                                                                        data-bs-dismiss="modal">Close</button>
+                                                                        data-bs-dismiss="modal">{{ _("Close") }}</button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -183,15 +184,15 @@
                                                     <div class="modal-dialog" role="document">
                                                         <div class="modal-content">
                                                             <div class="modal-header">
-                                                                <h5 class="modal-title">Confirm Delete</h5>
-                                                                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                                                                <h5 class="modal-title">{{ _("Confirm Delete") }}</h5>
+                                                                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}">
                                                                     <span aria-hidden="true">×</span>
                                                                 </button>
                                                             </div>
                                                             <div class="modal-body container">
                                                                 <div class="alert alert-danger">
-                                                                    <strong>Attention</strong><br>
-                                                                    You are about to remove this job from your EKS cluster.
+                                                                    <strong>{{ _("Attention") }}</strong><br>
+                                                                    {{ _("You are about to remove this job from your EKS cluster.") }}
                                                                 </div>
                                                                 <a href="/containers/delete_job/eks?job_name={{ job_info.get('metadata', {}).get('name') }}&eks_cluster={{ job_info.get('eks_cluster') }}&namespace={{ job_info.get('metadata').get('namespace')}}">
                                                                     <button type="button" class="btn btn-danger form-control">Delete Job: {{ job_info.get('metadata', {}).get('name') }}</button>
@@ -211,7 +212,7 @@
                                     <hr>
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <h6 class="font-weight-bold">Job Status Legend</h6>
+                                            <h6 class="font-weight-bold">{{ _("Job Status Legend") }}</h6>
                                             <ul class="list-unstyled">
                                             {% for key, explanation in status_explanations.items() %}
                                             <li>
@@ -242,9 +243,9 @@
                                      <div class="d-flex ms-auto align-items-center">
                                         <div class="col-auto">                                       
                                             <button type="button" id="refreshButton" class="btn btn-sm btn-secondary" onclick="manualRefresh()">
-                                                <i class="fas fa-sync-alt me-1"></i> Refresh (<span id="countdown">120</span>s)
+                                                <i class="fas fa-sync-alt me-1"></i> {% trans countdown='<span id="countdown">120</span>'|safe %}Refresh ({{ countdown }}s){% endtrans %}
                                             </button>
-                                            <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger" onclick="toggleAutoRefresh()">Disable Auto-Refresh
+                                            <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger" onclick="toggleAutoRefresh()">{{ _("Disable Auto-Refresh") }}
 
                                             </button>
                                         </div>
@@ -301,12 +302,12 @@
   function toggleAutoRefresh() {
     autoRefreshEnabled = !autoRefreshEnabled;
     if (autoRefreshEnabled) {
-      toggleButton.textContent = 'Disable Auto-Refresh';
+      toggleButton.textContent = i18n.disable_auto_refresh;
       toggleButton.classList.remove('btn-outline-success');
       toggleButton.classList.add('btn-outline-danger');
       counter = refreshInterval; // reset counter
     } else {
-      toggleButton.textContent = 'Enable Auto-Refresh';
+      toggleButton.textContent = i18n.enable_auto_refresh;
       toggleButton.classList.remove('btn-outline-danger');
       toggleButton.classList.add('btn-outline-success');
     }

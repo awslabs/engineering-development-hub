@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0   
+
+# ==============================================================================
+# Begin: Stage shared sample-app payloads under /apps/edh/<cluster_id>
+# ==============================================================================
+# Some default Application Profiles seeded into the database at first install
+# reference helper scripts that need to be available on every compute node at
+# job-runtime. Storing these as inline base64 in the seeded ApplicationProfile
+# row would put hundreds of KB of opaque text in the WebUI form editor; instead
+# the inline job script just sources/exec's a file from /apps/edh/<cluster_id>/job_samples/.
+#
+# This Jinja include runs at controller bootstrap (after EFS is mounted under
+# /apps and after the soca.tar.gz has been extracted to /opt/edh/<cluster_id>).
+# It copies each sample app's runtime assets from the extracted source tree to
+# /apps/edh/<cluster_id>/job_samples/<app_kind>, where they become available cluster-wide
+# via the shared EFS mount.
+#
+# Idempotent: re-running the bootstrap just re-copies the files. Files are
+# owned by edhadmin so the WebUI process can read/list them.
+# ==============================================================================
+
+log_info "Begin: Stage job_samples shared sample-app payloads"
+
+EDH_JOB_SAMPLES_ROOT="/apps/edh/{{ context.get('/configuration/ClusterId') }}/job_samples"
+EDH_JOB_SAMPLES_SRC="/opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/web_interface/sample_apps"
+
+# Verify the source tree was extracted as expected. If not, this is a hard
+# failure — without these files no compute node can run the sample jobs.
+if [[ ! -d "${EDH_JOB_SAMPLES_SRC}" ]]; then
+    log_warning "Sample apps source dir not found at ${EDH_JOB_SAMPLES_SRC}; skipping job_samples staging."
+    log_warning "Default Application Profiles seeded for these apps will fail at job-execution time."
+else
+    mkdir -p "${EDH_JOB_SAMPLES_ROOT}"
+
+    # Stage the EFA benchmark
+    if [[ -f "${EDH_JOB_SAMPLES_SRC}/efa_test/efa_test_job.sh" ]]; then
+        log_info "Staging efa_test sample app to ${EDH_JOB_SAMPLES_ROOT}/efa_test/"
+        mkdir -p "${EDH_JOB_SAMPLES_ROOT}/efa_test"
+        cp -f "${EDH_JOB_SAMPLES_SRC}/efa_test/efa_test_job.sh" \
+              "${EDH_JOB_SAMPLES_ROOT}/efa_test/efa_test_job.sh"
+        chmod 755 "${EDH_JOB_SAMPLES_ROOT}/efa_test/efa_test_job.sh"
+    else
+        log_warning "efa_test/efa_test_job.sh not found in source tree; EFA Benchmark sample app will not work."
+    fi
+
+    # Permissions: edhadmin owns the dir tree, world-readable
+    chown -R edhadmin:edhadmin "${EDH_JOB_SAMPLES_ROOT}" 2>/dev/null || true
+    chmod -R a+rX "${EDH_JOB_SAMPLES_ROOT}" 2>/dev/null || true
+fi
+
+log_info "End: Stage job_samples shared sample-app payloads"
+# ==============================================================================
+# End: Stage shared sample-app payloads under /apps/edh/<cluster_id>/job_samples/
+# ==============================================================================

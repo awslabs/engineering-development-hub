@@ -1,0 +1,116 @@
+/* webshell_tabs.css - shared styling for inline + pop-out terminal tabs */
+
+.edh-tab-bar {
+    display: flex;
+    align-items: stretch;
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+    height: 34px;
+    user-select: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.edh-tab-bar::-webkit-scrollbar { height: 4px; }
+.edh-tab-bar::-webkit-scrollbar-thumb { background: #4b5563; }
+
+.edh-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 6px 0 14px;
+    min-width: 120px;
+    max-width: 220px;
+    background: #374151;
+    color: #9ca3af;
+    cursor: pointer;
+    border-right: 1px solid #374151;
+    font-size: 12px;
+    font-family: "Fira Code", "Cascadia Code", "Menlo", monospace;
+    white-space: nowrap;
+    transition: background 0.12s;
+}
+.edh-tab:hover { background: #4b5563; }
+.edh-tab.active {
+    background: #000;
+    color: #e5e7eb;
+    border-bottom: 2px solid #4ade80;
+}
+.edh-tab-state {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80;
+    flex-shrink: 0;
+}
+.edh-tab.connecting  .edh-tab-state { background: #fbbf24; }
+.edh-tab.disconnected .edh-tab-state { background: #f87171; }
+.edh-tab.detached    .edh-tab-state { background: #9ca3af; }
+
+.edh-tab-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.edh-tab-detach, .edh-tab-kill {
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px;
+    color: #9ca3af;
+    font-size: 14px; line-height: 1;
+    flex-shrink: 0;
+    /* Subtle until hovered so they don't draw the eye away from the label */
+    opacity: 0.55;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.edh-tab:hover .edh-tab-detach,
+.edh-tab:hover .edh-tab-kill {
+    opacity: 1;
+}
+.edh-tab-detach { margin-left: 4px; }
+.edh-tab-kill   { margin-left: 2px; }
+.edh-tab-detach:hover { background: #4b5563; color: white; }   /* neutral -- non-destructive */
+.edh-tab-kill:hover   { background: #dc2626; color: white; }   /* destructive */
+
+.edh-new-tab {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px;
+    background: #1f2937;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 18px;
+    border-right: 1px solid #374151;
+    flex-shrink: 0;
+}
+.edh-new-tab:hover { background: #4b5563; color: #e5e7eb; }
+
+.edh-terminal-container {
+    position: relative;
+    background: #000;
+}
+.edh-terminal-pane {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    padding: 4px;
+    box-sizing: border-box;
+    display: none;
+}
+.edh-terminal-pane.active { display: block; }
+
+.edh-empty-state {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9ca3af;
+    font-family: "Fira Code", "Cascadia Code", "Menlo", monospace;
+    font-size: 13px;
+    text-align: center;
+}
+.edh-empty-state button {
+    margin-top: 12px;
+    padding: 8px 16px;
+    background: #4ade80;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}

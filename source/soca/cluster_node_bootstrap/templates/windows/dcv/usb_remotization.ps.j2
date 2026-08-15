@@ -1,0 +1,87 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# USB remotization allowlist boot hook (Windows DCV server).
+#
+# Registers an AtStartup SYSTEM scheduled task that fetches this instance's
+# effective USB device allowlist from the resolver HTTP API route and writes
+# C:\Program Files\NICE\DCV\Server\conf\usb-devices.conf.
+#
+# Windows cannot order a scheduled task strictly before the dcvserver service,
+# so the fetch uses CHANGE-DETECTION: it only rewrites the file and restarts
+# dcvserver when the resolved allowlist actually differs from what is on disk.
+# Normal boots are a no-op (no restart); a restart happens only on the intended
+# "admin changed the list -> reboot to pick it up" case, at early boot before
+# any session exists (so it never races a live session).
+#
+# Auth: curl.exe native SigV4 (--aws-sigv4, curl >= 7.75 -- Windows Server 2022+)
+# with instance role creds from IMDSv2. Inert no-op if the resolver is not
+# deployed (SSM URL absent). USB remotization is a DCV device compatibility
+# filter, NOT a security boundary (AWS documents this).
+
+$UsbFetchDir = "C:\ProgramData\EDH"
+$UsbFetchScript = "$UsbFetchDir\usb_allowlist_fetch.ps1"
+New-Item -ItemType Directory -Force -Path $UsbFetchDir | Out-Null
+
+$UsbFetchBody = @'
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Fetch this instance's USB allowlist -> usb-devices.conf. Best-effort; any
+# failure leaves the existing file untouched. Restarts dcvserver only when the
+# content changed so it reads the fresh list.
+$ErrorActionPreference = "SilentlyContinue"
+$conf = "C:\Program Files\NICE\DCV\Server\conf\usb-devices.conf"
+$region = "{{ context.get('/configuration/Region') }}"
+$clusterId = "{{ context.get('/configuration/ClusterId') }}"
+$imds = "http://169.254.169.254/latest"
+try {
+    $token = Invoke-RestMethod -Method PUT -Uri "$imds/api/token" -Headers @{"X-aws-ec2-metadata-token-ttl-seconds" = "300"}
+    if (-not $token) { exit 0 }
+    $h = @{"X-aws-ec2-metadata-token" = $token}
+
+    $url = (aws ssm get-parameter --region $region --name "/edh/$clusterId/configuration/UsbAllowlistResolverUrl" --query "Parameter.Value" --output text 2>$null)
+    if (-not $url -or $url -eq "None") { exit 0 }
+
+    $role = Invoke-RestMethod -Method GET -Uri "$imds/meta-data/iam/security-credentials/" -Headers $h
+    if (-not $role) { exit 0 }
+    $creds = Invoke-RestMethod -Method GET -Uri "$imds/meta-data/iam/security-credentials/$role" -Headers $h
+    if (-not $creds.AccessKeyId) { exit 0 }
+
+    $userpair = "$($creds.AccessKeyId):$($creds.SecretAccessKey)"
+    $sectok = "x-amz-security-token: $($creds.Token)"
+    # NOTE: ${region} braces are REQUIRED. Written as "$region:execute-api",
+    # PowerShell parses $region:execute-api as a scope-qualified variable
+    # ($scope:name, like $env:PATH) -> empty, collapsing the provider to
+    # "aws:amz:" and yielding a SigV4 "credential scoped to invalid region"
+    # 403. Bash uses ${REGION} and is unaffected.
+    $body = (& curl.exe -sS --fail --aws-sigv4 "aws:amz:${region}:execute-api" --user $userpair -H $sectok $url 2>$null)
+    if ($LASTEXITCODE -ne 0) { exit 0 }
+    if ($null -eq $body) { $body = "" }
+    if ($body -is [array]) { $body = ($body -join "`n") + "`n" }
+
+    $current = ""
+    if (Test-Path $conf) { $current = [System.IO.File]::ReadAllText($conf) }
+    if ($body -ne $current) {
+        [System.IO.File]::WriteAllText($conf, $body)
+        $svc = Get-Service -Name "dcvserver" -ErrorAction SilentlyContinue
+        if ($svc -and $svc.Status -eq "Running") {
+            Restart-Service -Name "dcvserver" -Force -ErrorAction SilentlyContinue
+        }
+    }
+} catch { }
+exit 0
+'@
+
+Set-Content -Path $UsbFetchScript -Value $UsbFetchBody -Encoding UTF8
+
+# Register the AtStartup SYSTEM task (idempotent via -Force).
+$UsbAction = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-NonInteractive -NoProfile -ExecutionPolicy Bypass -File `"$UsbFetchScript`""
+$UsbTrigger = New-ScheduledTaskTrigger -AtStartup
+$UsbPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$UsbSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "EDH-UsbAllowlist" -Action $UsbAction -Trigger $UsbTrigger `
+    -Principal $UsbPrincipal -Settings $UsbSettings -Force | Out-Null
+
+# Run once now so the file exists on first boot (before/with dcvserver start).
+& powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File $UsbFetchScript

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#BSUB -J {{job_name}}       
+#BSUB -q normal       
+#BSUB -n 1
+# https://awslabs.github.io/scale-out-computing-on-aws-documentation/tutorials/integration-ec2-job-parameters/
+#BSUB -Jd "instance_type = {{instance_type}}"
+
+{{user_pre_exec}}
+
+echo "Test Job submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]
+                                          

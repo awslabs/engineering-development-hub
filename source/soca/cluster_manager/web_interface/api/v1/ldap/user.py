@@ -16,12 +16,15 @@ import os
 import re
 import stat
 import pwd
+import json
+import subprocess
 from base64 import b64encode as encode
 from email.utils import parseaddr
 import config
 from flask_restful import Resource, reqparse
 import logging
 from flask import request
+from flask_babel import gettext as _
 from decorators import private_api, admin_api, feature_flag
 import sys
 import shutil
@@ -120,7 +123,108 @@ def populate_ssh_keys(username: str, user_path: str) -> bool:
     return True
 
 
-def create_home(username: str, group: str):
+def _chown_with_lookup_retry(path: str, user: str, group=None,
+                             max_attempts: int = 3, delay: float = 2.0,
+                             telemetry=None) -> bool:
+    """
+    shutil.chown wrapper that retries on LookupError (raised when sssd
+    hasn't yet caught up to the AD add and pwd.getpwnam fails).
+
+    Bounded by `max_attempts * delay` — default 6s — so a slow sssd
+    refresh recovers without permanently blocking the request.
+    Returns True on success, False if all attempts exhausted.
+
+    `telemetry`: optional _CreateUserTelemetry for retry-count tracking.
+    """
+    import time as _time
+    for _attempt in range(max_attempts):
+        try:
+            if group is None:
+                shutil.chown(path=path, user=user)
+            else:
+                shutil.chown(path=path, user=user, group=group)
+            return True
+        except LookupError as _err:
+            if telemetry is not None:
+                telemetry.incr("chown_retries")
+            if _attempt == max_attempts - 1:
+                logger.error(
+                    "chown %s -> %s:%s still failing after %d attempts: %s",
+                    path, user, group, max_attempts, _err,
+                )
+                return False
+            logger.warning(
+                "chown %s -> %s:%s LookupError attempt %d/%d (sssd lag): %s; "
+                "retrying in %.1fs",
+                path, user, group, _attempt + 1, max_attempts, _err, delay,
+            )
+            _time.sleep(delay)
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Per-request telemetry — counts loops/retries + emits structured log line
+# and best-effort CloudWatch metrics. Critical for scale validation: lets
+# us see "did sssd take 1 poll or 14?" across many users.
+# ---------------------------------------------------------------------------
+class _CreateUserTelemetry:
+    """Accumulates per-create telemetry for one POST /api/ldap/user call.
+
+    Counters tracked:
+      sssd_polls       — # iterations of the visibility loop until success (1..15)
+      chown_retries    — # LookupError retries during create_home chown calls
+      sss_cache_rc     — return code of `sss_cache -E` (0 = OK, None = skipped/error)
+      home_dir_status  — "ok" | "fail" | "skipped"
+
+    Timings (milliseconds since start of post()):
+      ad_add_ms, sss_cache_ms, sssd_visible_ms, home_dir_ms, group_add_ms,
+      api_key_ms, total_ms
+    """
+
+    def __init__(self, username: str):
+        self.username = username
+        self._t0 = time.monotonic()
+        self.counters: dict = {
+            "sssd_polls":      0,
+            "chown_retries":   0,
+            "sss_cache_rc":    None,
+            "home_dir_status": "skipped",
+        }
+        self.timings: dict = {}     # name -> elapsed_ms
+        self.outcome: str = "ok"    # ok | soft | fail
+
+    def mark(self, name: str) -> None:
+        """Record elapsed-since-start in milliseconds for a named milestone."""
+        self.timings[name] = int((time.monotonic() - self._t0) * 1000)
+
+    def incr(self, name: str, by: int = 1) -> None:
+        self.counters[name] = self.counters.get(name, 0) + by
+
+    def set(self, name: str, value) -> None:
+        self.counters[name] = value
+
+    def emit(self, cluster_id: str = "", outcome: str = None) -> None:
+        """Final emission — INFO-level structured log line. Safe to call
+        exactly once at end of request. Single-line JSON so CloudWatch
+        Logs Insights / `awk` / `jq` can parse it without ceremony."""
+        if outcome is not None:
+            self.outcome = outcome
+        self.mark("total_ms")  # final
+        payload = {
+            "event": "user_create_telemetry",
+            "user": self.username,
+            "cluster": cluster_id,
+            "outcome": self.outcome,
+            "counters": dict(self.counters),
+            "timings_ms": dict(self.timings),
+        }
+        try:
+            logger.info(f"[user-create-telemetry] {json.dumps(payload, default=str)}")
+        except Exception:
+            logger.info(f"[user-create-telemetry] {payload}")
+
+
+def create_home(username: str, group: str, telemetry=None):
     try:
         user_home = config.Config.USER_HOME
         logger.info(
@@ -146,13 +250,18 @@ def create_home(username: str, group: str):
                     | stat.S_IXGRP
                 )
 
-            os.makedirs(
-                name=_create_dir,
-                mode=_permissions,
-                exist_ok=True,
-            )
-            # Just to make sure
-            os.chmod(path=_create_dir, mode=_permissions)
+            # Symlink-safe create: refuse a pre-planted symlink at the home path (loose-perm shared mounts).
+            try:
+                os.mkdir(_create_dir, mode=_permissions)
+            except FileExistsError:
+                if stat.S_ISLNK(os.lstat(_create_dir).st_mode):
+                    logger.error(f"Refusing to provision: {_create_dir} is a symlink")
+                    return False
+            _dfd = os.open(_create_dir, os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY)
+            try:
+                os.fchmod(_dfd, _permissions)
+            finally:
+                os.close(_dfd)
 
         # Copy default .bash profile
         _default_skel = [
@@ -199,9 +308,11 @@ def create_home(username: str, group: str):
                     logger.warning(
                         f"Unable to detect group name for {username} ,group membership won't be set. Change it afterwards if needed."
                     )
-                    shutil.chown(path=_path, user=username)
+                    if not _chown_with_lookup_retry(_path, username, telemetry=telemetry):
+                        return False
                 else:
-                    shutil.chown(path=_path, user=username, group=group)
+                    if not _chown_with_lookup_retry(_path, username, group, telemetry=telemetry):
+                        return False
             else:
                 logger.warning(f"Unable to chown {_path}, path does not exist")
 
@@ -213,7 +324,9 @@ def create_home(username: str, group: str):
         logger.info("Configuring authorized_keys based on ssh keypairs created")
         _authorized_keys_file = f"{user_path}/.ssh/authorized_keys"
         os.makedirs(os.path.dirname(_authorized_keys_file), exist_ok=True)
-        with open(_authorized_keys_file, "a") as authorized_keys_file:
+        # O_NOFOLLOW: never append through a symlink planted at authorized_keys.
+        _ak_fd = os.open(_authorized_keys_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(_ak_fd, "a") as authorized_keys_file:
             for filename in os.listdir(f"{user_path}/.ssh"):
                 if filename.endswith(".pub"):
                     pub_key_path = os.path.join(f"{user_path}/.ssh", filename)
@@ -229,7 +342,12 @@ def create_home(username: str, group: str):
                 _file_path = os.path.join(root, _file)
                 logger.info(f"Changing permissions for {_file_path}")
                 os.chmod(_file_path, stat.S_IRUSR | stat.S_IWUSR)
-                shutil.chown(path=_file_path, user=username, group=group)
+                # By the time we get here, the first chown loop has
+                # already resolved sssd → user. A LookupError here
+                # would be unexpected, but the helper still costs nothing
+                # for the success case.
+                if not _chown_with_lookup_retry(_file_path, username, group, telemetry=telemetry):
+                    return False
 
         return True
 
@@ -529,6 +647,17 @@ class User(Resource):
                 helper=f"User {args['user']} is not valid, must match {config.Config.USER_REGEX_PATTERN} (contains -and start with- only alpha-numerical characters plus _ . - and must be 31 chars max"
             ).as_flask()
 
+        # Telemetry: tracks loops/retries/timings for scale validation.
+        # Cluster id is read here once so the telemetry's CW emission
+        # carries the right dimension. Best-effort lookup; if SocaConfig
+        # is unavailable we still log the structured line.
+        _telemetry = _CreateUserTelemetry(username=user)
+        try:
+            from utils.config import SocaConfig as _SocaConfig
+            _cluster_id = _SocaConfig(key="/configuration/ClusterId").get_value().get("message", "") or ""
+        except Exception:
+            _cluster_id = ""
+
         password = args["password"]
         sudoers = args["sudoers"]
         email = args["email"]
@@ -554,6 +683,10 @@ class User(Resource):
                 return SocaError.IDENTITY_PROVIDER_ERROR(
                     helper=f"The password must be 8 to 64 characters long and include at least three of the following four types: uppercase letters, lowercase letters, numbers, and special characters."
                 ).as_flask()
+            if user.lower() in password.lower():
+                return SocaError.IDENTITY_PROVIDER_ERROR(
+                    helper=f"The password cannot contain the username."
+                ).as_flask()
 
         if sudoers is None:
             return SocaError.CLIENT_MISSING_PARAMETER(parameter="sudoers").as_flask()
@@ -572,7 +705,12 @@ class User(Resource):
                 helper=f"/api/ldap/ids returned error: {_get_id.message}"
             ).as_flask()
 
-        if uid == 0:
+        # `uid` / `gid` of 0 OR omitted-from-form (None) both mean
+        # "auto-assign". Without the None check, an absent uid falls
+        # through to the duplicate-check branch, then ships the literal
+        # Python None to LDAP as the string "None" → AD rejects with
+        # "Invalid syntax" (DSID-0C0913EC, attribute conversion error).
+        if uid is None or uid == 0:
             uid = current_ldap_ids["proposed_uid"]
         else:
             if uid in current_ldap_ids["uid_in_use"]:
@@ -580,7 +718,7 @@ class User(Resource):
                     helper=f"Unable to create user {user}, UID {uid} already in use"
                 ).as_flask()
 
-        if gid == 0:
+        if gid is None or gid == 0:
             gid = current_ldap_ids["proposed_gid"]
         else:
             if gid in current_ldap_ids["gid_in_use"]:
@@ -720,6 +858,7 @@ class User(Resource):
                 ).as_flask()
             else:
                 logger.info(f"User {user} created successfully")
+                _telemetry.mark("ad_add_ms")
 
             if config.Config.DIRECTORY_AUTH_PROVIDER in [
                 "aws_ds_managed_activedirectory",
@@ -741,11 +880,55 @@ class User(Resource):
                 if _pw_reset_request.get("success") is False:
                     _pw_reset_error = f"Unable to set up password for {user} due to {_pw_reset_request.get('message')}"
                     logger.error(_pw_reset_error)
-                    _non_blocking_errors.append(_pw_reset_error)
+                    logger.info(
+                        f"Rolling back user {user} and group {group} due to password failure"
+                    )
+                    _del_result = _soca_identity_client.delete(dn=_dn_user)
+                    if _del_result.get("success"):
+                        logger.info(f"Rolled back AD user {_dn_user}")
+                    else:
+                        logger.error(f"Failed to rollback user {_dn_user}: {_del_result.get('message')}")
+                    _group_dn = f"cn={group},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}"
+                    _del_grp_result = _soca_identity_client.delete(dn=_group_dn)
+                    if _del_grp_result.get("success"):
+                        logger.info(f"Rolled back AD group {_group_dn}")
+                    else:
+                        logger.error(f"Failed to rollback group {_group_dn}: {_del_grp_result.get('message')}")
+                    return SocaError.IDENTITY_PROVIDER_ERROR(
+                        helper=_pw_reset_error
+                    ).as_flask()
+
+            # Option B: nudge sssd to invalidate its cache so the next
+            # getpwnam goes straight to AD instead of returning a stale
+            # negative-cache entry. Best-effort — failure here is fine,
+            # we still have the existing 15-attempt poll as a fallback.
+            # Tightens typical-case wait from ~5-15s to ~1-3s.
+            #
+            # Use subprocess directly: SocaSubprocessClient assumes a
+            # shell-string command, which loses argv-list safety. sss_cache
+            # is a fixed, hard-coded argv with no user input, so the direct
+            # subprocess.run call is correct + simpler here.
+            try:
+                _sss_flush = subprocess.run(
+                    ["sudo", "/usr/sbin/sss_cache", "-E"],
+                    capture_output=True, text=True, timeout=5, check=False,
+                )
+                logger.info(
+                    "sss_cache -E flush after AD add: rc=%s",
+                    _sss_flush.returncode,
+                )
+                _telemetry.set("sss_cache_rc", _sss_flush.returncode)
+            except Exception as _sss_err:
+                logger.warning(
+                    "sss_cache -E flush failed (non-fatal): %s", _sss_err,
+                )
+            _telemetry.mark("sss_cache_ms")
 
             # wait until the user is fully accessible from sssd
             _user_is_propagated = False
-            for _ in range(15):
+            # Do not rename to `_` -- that shadows the gettext alias.
+            for _sssd_attempt in range(15):
+                _telemetry.incr("sssd_polls")
                 try:
                     pwd.getpwnam(user)
                     _user_is_propagated = True
@@ -756,6 +939,7 @@ class User(Resource):
                         f"{user} created on AD, but not yet visible on the system , waiting ..."
                     )
                     time.sleep(1)
+            _telemetry.mark("sssd_visible_ms")
 
             if not _user_is_propagated:
                 logger.error(
@@ -763,10 +947,15 @@ class User(Resource):
                 )
 
             logger.info("Creating Home Directory for user")
-            if not create_home(user, group):
+            if not create_home(user, group, telemetry=_telemetry):
+                _telemetry.set("home_dir_status", "fail")
+                _telemetry.mark("home_dir_ms")
+                _telemetry.emit(cluster_id=_cluster_id, outcome="soft")
                 return SocaError.IDENTITY_PROVIDER_ERROR(
                     helper=f"User created but could not create {user} home directory."
                 ).as_flask()
+            _telemetry.set("home_dir_status", "ok")
+            _telemetry.mark("home_dir_ms")
             logger.info("Home Directory created successfully")
 
             logger.info("Creating API key for user")
@@ -852,15 +1041,21 @@ class User(Resource):
                 logger.warning(
                     f"One or more non-blocking errors occurred during user creation: {_non_blocking_errors}"
                 )
+                _telemetry.emit(cluster_id=_cluster_id, outcome="soft")
                 return SocaError.IDENTITY_PROVIDER_ERROR(
                     helper=f"User created with errors: {_non_blocking_errors}"
                 ).as_flask()
             else:
-                return SocaResponse(success=True, message="User created").as_flask()
+                _telemetry.emit(cluster_id=_cluster_id, outcome="ok")
+                return SocaResponse(success=True, message=_("User created")).as_flask()
 
         except Exception as err:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            try:
+                _telemetry.emit(cluster_id=_cluster_id, outcome="fail")
+            except Exception:
+                pass
             return SocaError.GENERIC_ERROR(
                 helper=f"{err}, {exc_type}, {fname}, {exc_tb.tb_lineno}"
             ).as_flask()
@@ -1040,7 +1235,21 @@ class User(Resource):
                         helper=f"User {user} deleted but unable to invalidate API key because of {_invalidate_api_key.message}."
                     ).as_flask()
 
-            return SocaResponse(success=True, message="Deleted user").as_flask()
+            # Best-effort: drop the deleted user's stored preferences so a
+            # future username reuse cannot inherit them (decision #7, primary
+            # cleanup). The LDAP delete has already succeeded at this point, so
+            # a prefs-store hiccup must NOT fail the user delete -- the
+            # reconciliation sweep is the backstop for any miss here.
+            try:
+                from utils import user_pref_store as _user_prefs
+
+                _user_prefs.clear_all(user)
+            except Exception as _pref_err:
+                logger.warning(
+                    f"user delete: failed to clear preferences for {user}: {_pref_err}"
+                )
+
+            return SocaResponse(success=True, message=_("Deleted user")).as_flask()
 
         except Exception as err:
             exc_type, exc_obj, exc_tb = sys.exc_info()

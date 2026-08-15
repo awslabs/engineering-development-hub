@@ -23,6 +23,7 @@ import json
 import logging
 from decorators import private_api, admin_api, feature_flag
 from flask import session
+from flask_babel import gettext as _
 import ldap.modlist as modlist
 from datetime import datetime
 import errors
@@ -155,7 +156,7 @@ class Reset(Resource):
             _update = _soca_identity_client.modify(dn=dn_user, mod_list=mod_attrs)
             if _update.success:
                 return SocaResponse(
-                    success=True, message="Password updated correctly"
+                    success=True, message=_("Password updated correctly")
                 ).as_flask()
             else:
                 return SocaError.IDENTITY_PROVIDER_ERROR(

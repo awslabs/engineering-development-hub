@@ -3,4 +3,9 @@
 
 {% include "templates/linux/system_packages/os/base_packages/debian_based_distributions.sh.j2" %}
 
-log_info "No extra package configuration needed for Ubuntu 24.04"
+if apt-mark showhold | grep -qE "^linux-(image|aws|headers)"; then
+    log_warning "Kernel packages are pinned (apt-mark hold detected). Removing linux-aws and linux-headers meta-packages to preserve pinned kernel version"
+    REMOVE_PKGS+=(linux-aws linux-headers-$(uname -r) linux-image-$(uname -r))
+fi
+
+log_info "Removing packages for Ubuntu 24.04: ${REMOVE_PKGS[*]}"

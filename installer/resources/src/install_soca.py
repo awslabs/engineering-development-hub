@@ -1,2287 +1,121 @@
 #!/usr/bin/env python3
 
-######################################################################################################################
-#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                                                #
-#                                                                                                                    #
-#  Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance    #
-#  with the License. A copy of the License is located at                                                             #
-#                                                                                                                    #
-#      http://www.apache.org/licenses/LICENSE-2.0                                                                    #
-#                                                                                                                    #
-#  or in the 'license' file accompanying this file. This file is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES #
-#  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    #
-#  and limitations under the License.                                                                                #
-######################################################################################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-It's recommended to trigger this script via ./edh_installer.sh as python's virtual env and all required
-libraries/dependencies will be automatically installed.
 
-If you trigger ./install_soca.py directly, make sure to have all the Python and CDK dependencies installed
-"""
+from __future__ import annotations
 
+import datetime
+import urllib3
+import questionary
+import ipaddress
+import traceback
+import os
+import time
+import json
+import base64
 import sys
 
-# import re
-import boto3
-from collections import defaultdict
-import botocore.exceptions
-from requests import get
-from requests.exceptions import RequestException, Timeout, ConnectionError
+
+from questionary import Choice, Separator
+from requests.exceptions import Timeout, ConnectionError
 from botocore.client import ClientError
-from botocore.exceptions import ProfileNotFound, ValidationError
-from botocore import config
-import shutil
-import urllib3
-import base64
-import yaml
-import json
-import ast
-import ipaddress
-from typing import Literal
-from yaml.scanner import ScannerError
-from types import SimpleNamespace
-from rich import print
+from botocore.exceptions import ValidationError
+from requests import get
+from pydantic import ValidationError
 from rich.align import Align
-from rich.console import Console
-from rich.text import Text
+from rich.console import Console, Group
+from rich.panel import Panel
 from rich.table import Table
-from rich.progress import (
-    Progress,
-    SpinnerColumn,
-    BarColumn,
-    TextColumn,
-    TimeElapsedColumn,
+from helpers.installer.install_cli_args import build_arg_parser
+from helpers.installer.install_model import (
+    BaseOS,
+    FilesystemProvider,
+    InstallParameters,
 )
-import time
-import datetime
-import os
-import re
-import argparse
-from shutil import make_archive
-import logging
-from rich.logging import RichHandler
-import subprocess
-import shlex
-
-import glob
-
-
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        if not isinstance(record.msg, (Text, Table)):
-            if record.levelno == logging.ERROR:
-                record.msg = f"[bold red]ERROR: {record.msg}[/bold red]"
-            elif record.levelno == logging.WARNING:
-                record.msg = f"[bold yellow]WARNING: {record.msg} [/bold yellow]"
-
-        return super().format(record)
-
-
-_soca_debug = os.environ.get("SOCA_DEBUG", False)
-if _soca_debug in ["1", "enabled", "true", "True", "on", "2", "trace"]:
-    _log_level = logging.DEBUG
-    _formatter = CustomFormatter("[%(asctime)s] %(levelname)s - %(message)s")
-else:
-    _log_level = logging.INFO
-    _formatter = CustomFormatter("%(message)s")
-
-_rich_handler = RichHandler(
-    rich_tracebacks=True,
-    markup=True,
-    show_time=False,
-    show_level=False,
-    show_path=False,
-)
-_rich_handler.setFormatter(_formatter)
-logging.basicConfig(
-    level=_log_level,
-    handlers=[_rich_handler],
+from helpers.installer.helpers import (
+    kms_prepare_account_aliases,
+    get_default_region,
+    build_boto3_client,
+    build_logger,
+    detect_customer_ip,
+    get_install_properties,
+    get_sts_info,
+    get_ami_mapping,
+    stream_subprocess,
+    retrieve_secret_value,
+    upload_objects,
+    build_lambda_dependency,
+    inline_validate_with,
+    check_prefix_list,
+    list_acm_certificates,
+    create_self_signed_certificate_and_upload_to_acm,
+    check_kms_key_principals,
+    resources_mirroring,
 )
 
-logger = logging.getLogger("soca_logger")
-
-for _logger_name in ["boto3", "botocore"]:
-    logging.getLogger(_logger_name).setLevel(
-        logging.DEBUG if _soca_debug in {"trace", "2"} else logging.WARNING
-    )
-
-
-installer_path = "/".join(os.path.dirname(os.path.abspath(__file__)).split("/")[:-3])
-sys.path.append(installer_path)
-from installer.resources.src.prompt import get_input as get_input
-from installer.resources.src.find_existing_resources import FindExistingResource
-from rich.console import Console
-
-urllib3.disable_warnings()
+import helpers.installer.constants as constants
+from helpers.installer import bucket_picker
+from helpers.installer.i18n import _
 
 console = Console()
+logger = build_logger(console=console)
+urllib3.disable_warnings()
 
 
-def stream_subprocess(command: list):
-    process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+def show_banner(config_path: str) -> None:
+    info_table = Table(show_header=False, box=None, padding=(0, 2))
+    info_table.add_column(style="bold #8a9bb8", no_wrap=True)
+    info_table.add_column(style="#e8eef7")
+    info_table.add_row(
+        "💻 Source Code",
+        "[#4db8ff]https://github.com/awslabs/engineering-development-hub[/]",
     )
-    for line in process.stdout:
-        console.print(
-            line, end="", markup=False, highlight=False
-        )  # Let Rich render ANSI
-    process.wait()
-
-    if process.returncode != 0:
-        sys.exit(process.returncode)
-
-
-def kms_prepare_account_aliases() -> int:
-    """
-    Query KMS for existing key AWS service aliases and create them if they don't exist.
-    """
-    logger.debug("Preparing KMS account aliases")
-    _aliases_created: int = 0
-    _aliases_existing: int = 0
-
-    try:
-        # Get all existing aliases
-        _kms_paginator = kms.get_paginator("list_aliases")
-        _kms_iterator = _kms_paginator.paginate()
-        for _kms_aliases in _kms_iterator:
-            for _alias in _kms_aliases.get("Aliases", []):
-
-                _a_name: str = _alias.get("AliasName", "")
-
-                # We are only concerned about AWS namespace alias that act as defaults for services
-                if not _a_name.startswith("alias/aws/"):
-                    logger.debug(
-                        f"Ignoring KMS alias as it is not related to a service: {_a_name}"
-                    )
-                    continue
-
-                # IndexError potential
-                _a_servicename: str = _a_name.split("/")[-1]
-
-                _a_arn: str = _alias.get("AliasArn", "")
-                _a_create: datetime.datetime = _alias.get("CreationDate")
-                _a_update: datetime.datetime = _alias.get("LastUpdatedDate")
-                _a_key_id: str = _alias.get("TargetKeyId", "")
-
-                if _a_create is None:
-                    logger.info(
-                        f"KMS - Creating first-time service alias for {_a_servicename} ({_a_name})"
-                    )
-                    kms.describe_key(KeyId=_a_name)
-                    _aliases_created += 1
-                else:
-                    logger.debug(
-                        f"KMS Alias for service {_a_servicename} ({_a_name}) already exists"
-                    )
-                    _aliases_existing += 1
-                continue
-
-    except ClientError as _err:
-        logger.error(f"Unable to create KMS service alias: {_err}")
-        return -1
-    except Exception as _err:
-        logger.error(f"Unable to create KMS service alias: {_err}")
-        return -1
-
-    # For the list of services that do not appear in the list_aliases until they are created
-    for _alias_name in ["alias/aws/sns"]:
-        logger.debug(f"KMS - Checking service alias for {_alias_name}")
-        _key = kms.describe_key(KeyId=_alias_name).get("KeyMetadata", {})
-        if not _key:
-            logger.error(f"Unable to lookup KMS service alias: {_alias_name}")
-            sys.exit(1)
-        _key_id: str = _key.get("KeyId", "")
-        _key_create = _key.get("CreationDate", None)
-        _key_manager: str = _key.get("KeyManager", "")
-        if not _key_id:
-            logger.error(f"Unable to create KMS service alias: {_alias_name}")
-            sys.exit(1)
-
-        logger.debug(
-            f"Service default KMS key: {_alias_name}: {_key_id} / {_key_manager=}"
-        )
-
-    logger.debug(
-        f"KMS service aliases created: {_aliases_created} / Existing: {_aliases_existing}"
+    info_table.add_row(
+        "📖 Documentation",
+        "[#4db8ff]https://awslabs.github.io/engineering-development-hub-documentation/[/]",
     )
-    return _aliases_created
-
-
-def retrieve_secret_value(secret_id: str) -> dict:
-    logger.debug(f"Fetching Secret ID - {secret_id}")
-    _get_secret = secretsmanager.get_secret_value(SecretId=secret_id).get(
-        "SecretString", None
+    info_table.add_row("📁 Config File", f"[#4db8ff]{config_path}[/]")
+    info_table.add_row(
+        "🔕 Silent Installation",
+        "[#8a9bb8]Use --help to see all the options you can pass via CLI arguments to perform a silent installation[/]",
     )
-    if _get_secret:
-        return ast.literal_eval(_get_secret)
-    else:
-        logger.error(f"Unable to fetch secret {secret_id}")
-        return {}
-
-
-def format_byte_size(num, suffix="B"):
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
-            return f"{num:3.1f} {unit}{suffix}"
-        num /= 1024.0
-    return f"{num:.1f}Yi{suffix}"
-
-
-def get_install_properties(pathname: str) -> dict:
-    # Retrieve SOCA configuration properties
-    logger.debug(f"Configuration file path: {pathname}")
-    try:
-        with open(pathname, "r") as config_file:
-            config_parameters = yaml.safe_load(config_file)
-    except ScannerError as _err:
-        logger.error(f"{pathname} is not a valid YAML file. Verify syntax, {_err}")
-        sys.exit(1)
-    except FileNotFoundError:
-        logger.error(
-            f"{pathname} not found. Make sure the file exist and the path is correct."
-        )
-        sys.exit(1)
-
-    if config_parameters:
-        return config_parameters
-    else:
-        return {}
-        # sys.exit("No parameters were found in configuration file.")
-
-def is_valid_address(address_family: Literal["ipv4", "ipv6"], address: list) -> bool:
-    """
-    Determine if an address (list) is a valid member of the desired address-family.
-    """
-
-    _invalid: bool = False
-
-    if isinstance(address, str):
-        logger.debug(f"Fixing address to list of addresses")
-        address = [address]
-
-    for _address in address:
-        try:
-            logger.debug(f"Determining if {_address=} is valid for {address_family=}")
-            _ip_object = ipaddress.IPv4Network(_address) if address_family == "ipv4" else ipaddress.IPv6Network(_address)
-        except ipaddress.AddressValueError as _e:
-            # We dont care about the details - just that it failed
-            logger.debug(f"Exception in IP validation for ({_address}): {_e}")
-            _invalid = True
-
-    if _invalid:
-        logger.debug(f"At least one IP address is valid for {address_family}: {address}")
-        return False
-    else:
-        logger.debug(f"All IP addresses are valid for {address_family}: {address}")
-        return True
-
-
-def aggregate_address(address_family: Literal["ipv4", "ipv6"], address: str, mask: int) -> str:
-    """
-    Aggregate an IPv4 or IPv6 address to a given mask.
-    """
-    logger.debug(f"aggregate_address - {address_family=} / {address=}  to {mask=} boundary")
-    try:
-        _addr_tuple: str = f"{address}/{mask}"
-        _ip_object = ipaddress.IPv4Network(address=f"{_addr_tuple}", strict=False) if address_family == "ipv4" else ipaddress.IPv6Network(address=f"{_addr_tuple}", strict=False)
-        # Now that we have constructed the _ip_object - it will have our network address and prefixlen
-        return f"{_ip_object.network_address}/{_ip_object.prefixlen}"
-    except ipaddress.AddressValueError:
-        # We dont care about the details - just that it failed
-        return ""
-
-
-def detect_customer_ip(address_family: Literal["ipv4", "ipv6"]) -> str:
-    """
-    Try to determine the customer IP address by using the checkip.amazonaws.com service.
-    """
-    logger.debug(f"Determine source IP address - {address_family=}")
-
-    #
-    # Our _check_url_by_af contains important configuration items for IP probes.
-    #
-    # enabled - if we should probe this address-family or not
-    # url - the destination we should connect to
-    # aggregate_mask_bits - the number of bits that we aggregate.
-    # E.g. 32 for IPv4 'host' address (192.0.2.1 - > 192.0.2.1/32)
-    # 64 to aggregate IPv6 to the /64 - (2001:db8:26e0:991e:1014:2412:530a:cafe -> 2001:db8:26e0:991e::/64)
-    #
-    _check_url_by_af: dict = {
-        "ipv4": {
-            "enabled": True,
-            "url": "https://checkip.amazonaws.com/",
-            "aggregate_mask_bits": 32,
-        },
-        "ipv6": {
-            "enabled": True if args.ipv6 else False,
-            "url": "https://checkip.global.api.aws",
-            "aggregate_mask_bits": 64,
-        },
-    }
-
-    check_url = _check_url_by_af.get(address_family, {}).get("url", "")
-    _mask_bits = _check_url_by_af.get(address_family, {}).get("aggregate_mask_bits", 32 if address_family == "ipv4" else 64)
-    _af_is_enabled: bool = _check_url_by_af.get(address_family, {}).get("enabled", False)
-
-    _formal_af_name: str = str(address_family[:2].upper() + address_family[2:])  # IPv4 , IPv6
-
-    if not _af_is_enabled:
-        logger.warning(f"Address-family {_formal_af_name} is disabled. Skipping.")
-        return ""
-
-    if not check_url:
-        logger.fatal(f"Unable to determine probe address for address-family: {address_family} . Exiting.")
-        exit(1)
-
-    logger.info(
-        f"\n====== Trying to detect your {_formal_af_name} address via {check_url} . Use --client-{address_family} to specify manually if needed ======\n"
+    info_table.add_row(
+        "🔑 AWS STS Identity",
+        f"[#8a9bb8]{_sts_caller_identity.get("Arn", "")}[/]",
     )
 
-    client_ip: str = ""
-    try:
-        get_client_ip = get(url=check_url, timeout=15)
-        if get_client_ip.status_code == 200:
-            # Should return a clean string. May still need sanity check
-
-            client_ip = f"{str(get_client_ip.text).strip()}"
-
-            _is_valid_address: bool = is_valid_address(address_family=address_family, address=client_ip)
-
-            if not _is_valid_address:
-                logger.fatal(f"Unable to determine validity of address {client_ip} for {_formal_af_name}. Exiting")
-
-
-            logger.debug(f"Is Valid {_formal_af_name} Address?: {_is_valid_address}")
-
-            # Now that we know it is valid - lets aggregate it
-            _agg_address: str = aggregate_address(address_family=address_family, address=client_ip, mask=_mask_bits)
-            logger.debug(f"Aggregate {_formal_af_name} address: {_agg_address=}")
-
-        else:
-            logger.warning(
-                f"Unable to automatically determine {_formal_af_name} client via {check_url} . Error: {get_client_ip}"
-            )
-
-    except RequestException as _e:
-        logger.warning(
-            f"Unable to automatically determine client {_formal_af_name} via {check_url} . Error: {_e}"
-        )
-
-    return _agg_address
-
-
-def build_lambda_dependency(install_directory: str):
-    logger.info("Building Lambda dependency")
-    lambda_functions_folders = f"{install_directory}/../functions/"
-    for _dir in os.scandir(lambda_functions_folders):
-        if _dir.is_file():
-            continue
-        for filename in os.listdir(_dir):
-            if filename == "requirements.txt":
-                logger.info(f"Installing Python dependencies for {_dir.path}")
-                _cmd = [
-                    "pip3",
-                    "install",
-                    "--python-version",
-                    f"{os.environ['SOCA_PYTHON_VERSION']}",
-                    "-r",
-                    f"{_dir.path}/requirements.txt",
-                    "--platform",
-                    "manylinux2014_x86_64",
-                    "--target",
-                    f"{_dir.path}",
-                    "--implementation",
-                    "cp",
-                    "--only-binary=:all:",
-                    "--upgrade",
-                ]
-                result = subprocess.run(
-                    _cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
-                if result.returncode != 0:
-                    logger.error(f"Error during Lambda Dependency")
-                    sys.exit(1)
-
-
-def upload_objects(install_directory: str, bucket: str, cluster_id: str):
-    # Upload required assets to customer S3 bucket
-    logger.info(f"\n====== Uploading install files to {bucket}/{cluster_id} ======\n")
-    dist_directory = f"{install_directory}/../../dist/{cluster_id}/"
-    if os.path.isdir(dist_directory):
-        logger.info(
-            f"{dist_directory} already exist. Creating a new one for your build"
-        )
-        shutil.rmtree(dist_directory)
-    os.makedirs(dist_directory)
-
-    # Move required file to dist/ directory
-    make_archive(
-        f"{dist_directory}soca", "gztar", f"{install_directory}/../../../source/soca"
+    info_panel = Panel(
+        info_table,
+        border_style="cyan",
+        padding=(1, 2),
     )
 
-    for item in os.listdir(f"{install_directory}/../upload_to_s3/"):
-        # Construct full path to item
-        s = os.path.join(f"{install_directory}/../upload_to_s3/", item)
-        d = os.path.join(f"{dist_directory}/config/do_not_delete/", item)
-
-        # Move each item to the destination
-        if os.path.isdir(s):
-            shutil.move(s, d)
-        else:
-            shutil.move(s, d)
-
-    try:
-        shutil.rmtree(f"{install_directory}/../upload_to_s3/")
-    except Exception as _e:
-        print(f"Unable to delete {install_directory}/../upload_to_s3/ because of {_e}")
-        sys.exit(1)
-
-    try:
-        install_bucket = s3.Bucket(bucket)
-        for path, subdirs, files in os.walk(f"{dist_directory}"):
-            path = path.replace("\\", "/")
-            for file in files:
-                full_path = os.path.join(path, file)
-                find_upload_location = re.search(
-                    f"(.+)/dist/{cluster_id}/(.+)", full_path
-                )
-                if find_upload_location:
-                    upload_location = f"{cluster_id}/{find_upload_location.group(2)}"
-                else:
-                    print(
-                        f"Unable to determine upload location. {full_path} does not match regex '(.+)/dist/{cluster_id}/(.+)'"
-                    )
-                    sys.exit(1)
-
-                logger.info(
-                    f"[+] Uploading {os.path.join(path, file)} to s3://{bucket}/{upload_location} "
-                )
-                install_bucket.upload_file(os.path.join(path, file), upload_location)
-
-    except Exception as upload_error:
-        logger.error(f"Error during upload {upload_error}")
-
-
-def accepted_aws_resources(region: str) -> dict:
-    # Retrieve all AWS resources. Currently only used to find all available SSH keypair
-    logger.debug(f"Retrieving accepted AWS resources in region {region}")
-    accepted_values = {}
-    try:
-        # TODO describe_key_pairs does not have pagination support as of 23 July 2025
-        # So while this looks bad - it works
-        accepted_values["accepted_keypairs"] = {}
-        for key in ec2.describe_key_pairs().get("KeyPairs", []):
-            accepted_values["accepted_keypairs"][key["KeyPairId"]] = key
-
-        if not accepted_values.get("accepted_keypairs", {}):
-            logger.error(
-                f"No SSH Key Pairs found in region {region}. Please create one first and re-run the installer."
-            )
-            sys.exit(1)
-    except ClientError as _err:
-        logger.warning(
-            f"Unable to list SSH keys, you will need to enter it manually or give ec2:Describe* IAM permission. {_err} "
-        )
-        accepted_values["accepted_keypairs"] = {}
-
-    return accepted_values
-
-
-def check_bucket_name_and_permission(bucket: str) -> bool:
-    # Check for None
-    if bucket is None:
-        # print(f"[red]Invalid S3 bucket name: (NoneType encountered)[/red]")
-        return False
-
-    # Check bucket naming before sending to the API
-    # Rules are based on: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
-    # NOTE - if the bucket requires a dot (.) - modify the regex
-    _s3_bucket_re = r"(?!(^(xn--|sthree-|sthree-configurator)|.+(-s3alias|--ol-s3)$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
-
-    if not re.match(_s3_bucket_re, bucket):
-        logger.error(
-            f"Invalid S3 bucket name: ({bucket}). Must match Regular Expression: {_s3_bucket_re}"
-        )
-        return False
-
-    # Check if user has permission to the S3 bucket specified
-    try:
-        s3.meta.client.head_bucket(Bucket=bucket)
-        return True
-    except ClientError as _e:
-        logger.error(
-            f"The S3 bucket ({bucket}) does not exist or you have do not have permissions: {_e}"
-        )
-        return False
-    except botocore.exceptions.ParamValidationError as _e:
-        logger.error(f"The S3 bucket ({bucket}) is invalid: {_e}")
-        return False
-    except Exception as _e:
-        logger.error(f"Error during bucket permission check: {_e}")
-        return False
-
-
-def _get_aws_pcs_by_region_vpc(
-    region: str, vpc_id: str, vpc_subnets: list[str]
-) -> dict:
-    """
-    Get a list of AWS PCS clusters in the region and attached to a VPCId
-    """
-
-    logger.debug(
-        f"Retrieving AWS PCS clusters in region {region} / VPC {vpc_id} / Subnets: {vpc_subnets}"
-    )
-    pcs = boto3.client("pcs", region_name=region)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        "Elapsed:",
-        TimeElapsedColumn(),
-    ) as progress:
-        count = 1
-
-        _aws_pcs_task = progress.add_task(
-            description=f"Discovering AWS PCS clusters in AWS region {region} / VPC {vpc_id}",
-            start=False,
-        )
-        progress.start_task(_aws_pcs_task)
-
-        _aws_pcs_clusters = defaultdict(dict)
-        _aws_pcs_choices = {}
-
-        # TODO - Show a progress bar
-        _pcs_paginator = pcs.get_paginator("list_clusters")
-        _pcs_iterator = _pcs_paginator.paginate()
-
-        for _pcs_page in _pcs_iterator:
-            for _cluster in _pcs_page.get("clusters", []):
-                # Make sure the cluster belongs to our VPC
-
-                # Make sure the cluster is in ACTIVE state
-                if _cluster.get("status", "") != "ACTIVE":
-                    progress.console.log(
-                        f"Skipping cluster {_cluster['clusterName']} as it is not in ACTIVE state: {_cluster.get('status', '')}"
-                    )
-                    continue
-
-                # Make sure the cluster has configurations set
-                if not (_cluster_id := _cluster.get("id", "")):
-                    progress.console.log(
-                        f"Skipping cluster {_cluster['clusterName']} as it has no ID"
-                    )
-                    continue
-
-                progress.console.log(
-                    f"Probing AWS PCS cluster [bold green]{_cluster_id}[/] for configuration..."
-                )
-
-                _pcs_cluster_config = pcs.get_cluster(clusterIdentifier=_cluster_id)
-                logger.debug(
-                    f"Cluster {_cluster_id} has configuration: {_pcs_cluster_config}"
-                )
-
-                if not _pcs_cluster_config:
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it has no configuration"
-                    )
-                    continue
-
-                if not (_pcs_cluster := _pcs_cluster_config.get("cluster", {})):
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it is not a cluster"
-                    )
-                    continue
-
-                if not _pcs_cluster.get("status", "") == "ACTIVE":
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it is not ACTIVE (2nd check)"
-                    )
-                    continue
-
-                if not (_pcs_cluster_id := _pcs_cluster.get("id", "")):
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it is invalid"
-                    )
-                    continue
-
-                if _pcs_cluster_id not in _aws_pcs_clusters:
-                    logger.debug(f"creating entry for AWS PCS {_pcs_cluster_id}")
-                    _aws_pcs_clusters[count] = {}
-                    _aws_pcs_clusters[count]["id"] = _pcs_cluster_id
-                    _aws_pcs_clusters[count]["status"] = _pcs_cluster.get("status", "")
-
-                if not (_scheduler_config := _pcs_cluster.get("scheduler", "")):
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it is has invalid scheduler configuration"
-                    )
-                    continue
-
-                logger.debug(f"AWS PCS Scheduler config is: {_scheduler_config}")
-
-                if not (_scheduler_type := _scheduler_config.get("type", "").upper()):
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it doesnt define a scheduler"
-                    )
-                    continue
-
-                # TODO - Add more PCS schedulers here when they are supported
-                if _scheduler_type not in {"SLURM"}:
-                    progress.console.log(
-                        f"Skipping cluster {_cluster_id} as it is not a supported scheduler"
-                    )
-                    continue
-
-                _aws_pcs_clusters[count]["type"] = _scheduler_type
-                logger.debug(f"AWS PCS Scheduler type is: {_scheduler_type}")
-
-                match _scheduler_type:
-                    case "SLURM":
-                        # TODO FIXME - Match with our config file version
-                        if _scheduler_config.get("version", "") != "23.11":
-                            progress.console.log(
-                                f"Skipping cluster {_cluster_id} as it is not a supported version of SLURM"
-                            )
-                            continue
-
-                        _aws_pcs_clusters[count]["config"] = {}
-                        for _conf_tree in {
-                            "slurmConfiguration",
-                            "networking",
-                            "endpoints",
-                        }:
-                            if not (
-                                _conf_tree_items := _pcs_cluster.get(_conf_tree, {})
-                            ):
-                                progress.console.log(
-                                    f"Skipping cluster {_cluster_id} as it is missing {_conf_tree}"
-                                )
-                                continue
-                            _aws_pcs_clusters[count]["config"][
-                                _conf_tree
-                            ] = _conf_tree_items
-
-                        # Validate we have a matching subnet
-                        progress.console.log(
-                            f"Comparing Subnet information to SOCA cluster information..."
-                        )
-                        _subnet_match: bool = False
-                        for _subnet in _aws_pcs_clusters[count]["config"]["networking"][
-                            "subnetIds"
-                        ]:
-                            if _subnet in vpc_subnets:
-                                _subnet_match = True
-                                break
-                        if not _subnet_match:
-                            progress.console.log(
-                                f"Skipping cluster {_cluster_id} as it is not in the same subnets as SOCA cluster"
-                            )
-                            continue
-
-                    case _:
-                        # This should already be caught above - just a precaution
-                        progress.console.log(
-                            f"Skipping cluster {_cluster_id} as it is not a SLURM scheduler"
-                        )
-                        continue
-
-                _cluster_subnet_information: str = "\n".join(
-                    _aws_pcs_clusters[count]["config"]["networking"]["subnetIds"]
-                )
-                _endpoint_information: list = []
-                for _endpoint in _aws_pcs_clusters[count]["config"]["endpoints"]:
-                    _endpoint_information.append(
-                        f"{_endpoint['type']}: {_endpoint['privateIpAddress']}:{_endpoint['port']}"
-                    )
-                _endpoint_information_str: str = "\n".join(_endpoint_information)
-
-                # Form our return to caller
-                _aws_pcs_choices[count] = {
-                    "type": _aws_pcs_clusters[count]["type"],
-                    "id": _aws_pcs_clusters[count]["id"],
-                    "status": _aws_pcs_clusters[count]["status"],
-                    "endpoints": _aws_pcs_clusters[count]["config"].get(
-                        "endpoints", {}
-                    ),
-                    "slurmConfiguration": _aws_pcs_clusters[count]["config"].get(
-                        "slurmConfiguration", {}
-                    ),
-                    "networking": _aws_pcs_clusters[count]["config"].get(
-                        "networking", {}
-                    ),
-                    "subnet_information": f"{_cluster_subnet_information}",
-                    "endpoint_information": f"{_endpoint_information_str}",
-                }
-
-                logger.debug(f"All choices is now: {_aws_pcs_choices}")
-                count += 1
-
-    # We should have a populated _aws_pcs_clusters[_pcs_cluster_id] with all of our config
-
-    logger.debug(f"Returning all AWS PCS choices: {_aws_pcs_choices}")
-    return {"success": True, "message": _aws_pcs_choices}
-
-
-def _get_filesystems_by_vpc(region: str, vpc_id: str) -> dict:
-    # console = Console(record=True)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        "Elapsed:",
-        TimeElapsedColumn(),
-    ) as progress:
-        filesystems = {}
-        count = 1
-
-        efs_task = progress.add_task(
-            description="Discovering EFS filesystems", start=False
-        )
-        fsx_task = progress.add_task(
-            description="Discovering FSx filesystems", start=False
-        )
-
-        progress.start_task(efs_task)
-        progress.console.log(
-            f"[bold green]Retrieving EFS Filesystems from {region}/{vpc_id} ...[/bold green]"
-        )
-
-        efs_paginator = efs.get_paginator("describe_file_systems")
-        efs_iterator = efs_paginator.paginate()
-
-        for page in efs_iterator:
-            for filesystem in page.get("FileSystems", []):
-                _fs_id: str = filesystem.get("FileSystemId", "unknown")
-
-                # Shouldn't happen
-                if _fs_id == "unknown":
-                    progress.console.log(f"[yellow] Skipping filesystem {_fs_id}")
-                    continue
-
-                # check for lifecycle
-                if filesystem.get("LifeCycleState", "unknown").upper() not in {
-                    "AVAILABLE"
-                }:
-                    progress.console.log(
-                        f"[yellow]Skipping EFS {_fs_id} - filesystem Lifecycle is not ready (must be AVAILABLE)[/yellow]"
-                    )
-                    continue
-
-                verified_vpc = False
-
-                _mount_target_count: int = filesystem.get("NumberOfMountTargets", 0)
-                if _mount_target_count <= 0:
-                    progress.console.log(
-                        f"[yellow]Skipping EFS filesystem {_fs_id} - no mount targets available[/yellow]"
-                    )
-                    continue
-
-                progress.console.log(
-                    f"[cyan]Processing mount targets for EFS {_fs_id}[/cyan]"
-                )
-                mount_targets = efs.describe_mount_targets(FileSystemId=_fs_id)[
-                    "MountTargets"
-                ]
-
-                for mount_target in mount_targets:
-                    time.sleep(
-                        0.100
-                    )  # Prevent Throttle Exceptions that can take place in dense EFS environments
-                    if mount_target["VpcId"] == vpc_id:
-                        verified_vpc = True
-
-                if verified_vpc:
-                    _fs_name: str = (
-                        filesystem["Name"] if "Name" in filesystem.keys() else "EFS: "
-                    )
-                    _fs_size: int = filesystem.get("SizeInBytes", {}).get("Value", 0)
-                    _fs_size_str: str = format_byte_size(_fs_size)
-                    progress.console.log(
-                        f"[cyan]Discovered EFS filesystem {_fs_id} ({_fs_name}) ({_fs_size_str})[/cyan]"
-                    )
-
-                    # Populate features for EFS
-                    _fs_perf_mode: str = filesystem.get("PerformanceMode", "unknown")
-                    _fs_features_str: str = ""
-
-                    if _fs_perf_mode == "generalPurpose":
-                        _fs_throughputmode = filesystem.get("ThroughputMode", "unknown")
-
-                        if _fs_throughputmode == "provisioned":
-                            _fs_throughput_rate: float = filesystem.get(
-                                "ProvisionedThroughputInMibps", 0.0
-                            )
-                            _fs_features_str = (
-                                f"GP/Provisioned/{_fs_throughput_rate} MiB/s"
-                            )
-                        else:
-                            _fs_features_str = (
-                                f"GP/"
-                                + filesystem.get(
-                                    "ThroughputMode", "unknown"
-                                ).capitalize()
-                            )
-
-                    else:
-                        progress.console.log(
-                            f"[red]Skipping Filesystem - Unknown performance mode for filesystem {_fs_id} ({_fs_name})[/red]"
-                        )
-                        continue
-
-                    # TODO alternate partition DNS suffix determination
-                    _fs_id_fqdn: str = f"{_fs_id}.efs.{region}.amazonaws.com"
-
-                    if filesystem["FileSystemId"]:
-                        filesystems[count] = {
-                            "id": _fs_id,
-                            "dns_name": _fs_id_fqdn,
-                            "name": _fs_name,
-                            "size": _fs_size_str,
-                            "fs_type": "efs",
-                            "description": f"{_fs_name} {_fs_id_fqdn}",
-                            "features": _fs_features_str,
-                        }
-                        count += 1
-
-        # efs_count = count - 1
-
-        # progress.console.log(f"[bold green]Retrieving FSx File Caches from {region}/{vpc_id}[/bold green]")
-
-        # We probe two different, but closely related areas of file systems. FSx and File Caches
-        # The APIs are nearly identical - but just slightly different enough that we need to do a few things.
-        _fsx_probe_config_dict: dict = {
-            # FSx "classic"
-            "fsx": {
-                "friendly_name": "FSx Filesystems",
-                "short_name": "FSx",
-                "api_pagination": True,
-                "api_call_name": "describe_file_systems",
-                "api_key_name": "FileSystems",
-                "api_id_key_name": "FileSystemId",
-                "api_type_key_name": "FileSystemType",
-                "api_version_key_name": "FileSystemTypeVersion",
-
-
-            },
-            # File Caches - slightly different APIs
-            "fsx_cache": {
-                "friendly_name": "File Cache Filesystems",
-                "short_name": "File Cache",
-                "api_pagination": False,  # As of July-2025 - does not support pagination for describe_file_caches()
-                "api_call_name": "describe_file_caches",
-                "api_key_name": "FileCaches",
-                "api_id_key_name": "FileCacheId",
-                "api_type_key_name": "FileCacheType",
-                "api_version_key_name": "FileCacheTypeVersion",
-
-            }
-        }
-
-        logger.debug(f"FSx probe starting with {_fsx_probe_config_dict=}")
-
-        for _fsx_probe_name, _fsx_probe_config in _fsx_probe_config_dict.items():
-            _api_call_name: str = _fsx_probe_config.get("api_call_name")
-            _api_key_name: str = _fsx_probe_config.get("api_key_name")
-            _api_id_key_name: str = _fsx_probe_config.get("api_id_key_name")
-            _friendly_name: str = _fsx_probe_config.get("friendly_name")
-            _api_type_key_name: str = _fsx_probe_config.get("api_type_key_name")
-            _short_name: str = _fsx_probe_config.get("short_name")
-            _version_key_name: str = _fsx_probe_config.get("api_version_key_name")
-
-            if not _fsx_probe_config.get("api_pagination", False):
-                logger.debug(f"Skipping {_friendly_name} due to no API pagination support for {_api_call_name}")
-                continue
-
-            logger.debug(f"Processing {_short_name=} / {_friendly_name=} / {_fsx_probe_name=} / {_api_call_name=} / {_api_key_name=}")
-
-            progress.console.log(
-                f"[bold green]Retrieving {_friendly_name} from {region}/{vpc_id} ...[/bold green]"
-            )
-            progress.start_task(fsx_task)
-            fsx_paginator = fsx.get_paginator(_api_call_name)
-            fsx_iterator = fsx_paginator.paginate()
-
-            for page in fsx_iterator:
-                for filesystem in page.get(_api_key_name, []):
-                    _fs_id: str = filesystem.get(_api_id_key_name, "")
-
-                    if not _fs_id:
-                        continue
-
-                    # Determine the type
-                    fsx_type = filesystem.get(_api_type_key_name, "unknown-type")
-
-                    # Check for proper Lifecycle
-
-                    _fs_lifecycle: str = filesystem.get("Lifecycle", "unknown-lifecycle")
-                    if _fs_lifecycle.upper() not in {
-                        "AVAILABLE",
-                        "UPDATING",
-                    }:
-                        progress.console.log(
-                            f"[yellow]Skipping {_short_name} {_fs_id} ({fsx_type}) - Lifecycle is not ready (status {_fs_lifecycle})[/yellow]"
-                        )
-                        continue
-
-                    _fs_features_list: list = []
-
-                    # TODO - Add more FSx support here
-                    # Note we are executing in a loop of the _fsx_probe_name. So make sure to
-                    # guard anything that doesnt belong in both. File Caches appear as LUSTRE in their API responses.
-                    # if fsx_type.upper() not in {'WINDOWS', 'LUSTRE', 'ONTAP', 'OPENZFS'}:
-                    if fsx_type.upper() not in {"LUSTRE", "OPENZFS"}:
-                        progress.console.log(
-                            f"[yellow]Skipping unsupported {_short_name} type ({fsx_type}) for {_fs_id}[/yellow]"
-                        )
-                        continue
-
-                    # Skip filesystems we have selected and ones that do not match our VPC
-                    if filesystem.get("VpcId", "") != vpc_id:
-                        progress.console.log(
-                            f"[yellow]Skipping {_short_name} {_fs_id} - not in our VPC[/yellow]"
-                        )
-                        continue
-
-                    _fs_size_str: str = format_byte_size(
-                        num=filesystem.get("StorageCapacity", 0) * 1024 * 1024 * 1024
-                    )
-
-                    resource_name: str = ""
-                    # Tags don't appear in the describe-file-caches API call
-                    # as of July-2025
-                    for tag in filesystem.get("Tags", []):
-                        if tag.get("Key", "") == "Name":
-                            resource_name = tag.get("Value", "unnamed")
-
-                    progress.console.log(
-                        f"[cyan]Discovered FSx/{fsx_type.capitalize()} filesystem {_fs_id} ({resource_name}) ({_fs_size_str})[/cyan]"
-                    )
-
-                    #
-                    _dns_name: str = filesystem.get("DNSName", "UnknownDNS")
-
-                    match fsx_type:
-
-                        case "ONTAP":
-                            _key: str = "OntapConfiguration"
-
-                        # File Caches and FSx/Lustre should land here - depending on the loop we are in
-                        case "LUSTRE":
-                            _key: str = "LustreConfiguration"
-
-                        case "WINDOWS":
-                            _key: str = "WindowsConfiguration"
-
-                        case "OPENZFS":
-                            _key: str = "OpenZFSConfiguration"
-
-                        case _:
-                            progress.console.log(f"[yellow]Unable to handle FSx type {fsx_type} for {_fs_id} - new filesystem type? - Skipping[/yellow]")
-                            continue
-
-                    # Read our specific deployment type from our FSx config portion
-                    _deployment_type: str = filesystem.get(_key, {}).get(
-                        "DeploymentType", ""
-                    )
-
-                    if not _deployment_type:
-                        progress.console.log(f"[yellow]Unable to determine deployment type for {_fs_id} - Skipping[/yellow]")
-                        continue
-
-                    _fs_features_list.append(_deployment_type)
-
-                    # Other filesystems may use this later - for now only Lustre seems to populate this
-                    _fs_version: str = filesystem.get(_version_key_name, "")
-                    if _fs_version:
-                        _fs_features_list.append(f"Version: {_fs_version}")
-
-                    # For FSx/ONTAP - we need to enumerate the SVMs to properly make the filesystems mountable
-                    if fsx_type.upper() == "ONTAP":
-                        logger.debug(
-                            f"Enumerating volumes for FSx/ONTAP filesystem {_fs_id}"
-                        )
-                        progress.console.log(
-                            f"[cyan]Enumerating volumes for FSx/ONTAP filesystem {_fs_id}[/cyan]"
-                        )
-
-                        _volume_paginator = fsx.get_paginator("describe_volumes")
-                        _volume_iterator = _volume_paginator.paginate(
-                            Filters=[
-                                {
-                                    "Name": "file-system-id",
-                                    "Values": [_fs_id],
-                                }
-                            ],
-                        )
-
-                        # Stage-1 - query the Volumes
-                        _ontap_volumes: dict = {}
-                        _ontap_svms_to_enum: list = []
-                        _ontap_fsids: list = []
-
-                        for _vol_page in _volume_iterator:
-                            for _volume in _vol_page.get("Volumes", []):
-                                # Name is optional?
-                                _vol_name: str = _volume.get("Name", "")
-                                _vol_fsid: str = _volume.get("FileSystemId", "")
-                                _vol_ontap_config: dict = _volume.get(
-                                    "OntapConfiguration", {}
-                                )
-
-                                if not _vol_ontap_config:
-                                    logger.error(
-                                        f"ONTAP configuration not found - probable defect"
-                                    )
-                                    sys.exit(1)
-
-                                _vol_id: str = _volume.get("VolumeId", "")
-                                if not _vol_id:
-                                    logger.error(f"Volume ID not found - probable defect")
-                                    sys.exit(1)
-
-                                if not _vol_fsid or _vol_fsid != filesystem.get(
-                                    "FileSystemId"
-                                ):
-                                    logger.error(
-                                        f"Volume mismatch for FileSystemId - probable defect"
-                                    )
-                                    sys.exit(1)
-
-                                _vol_type: str = _volume.get("VolumeType", "")
-                                if not _vol_type or _vol_type != "ONTAP":
-                                    logger.error(f"Volume type not found - probable defect")
-                                    sys.exit(1)
-
-                                # Ignore the SVM root volume
-                                _vol_is_svm_root: bool = _vol_ontap_config.get(
-                                    "StorageVirtualMachineRoot", True
-                                )
-                                if _vol_is_svm_root:
-                                    logger.debug(
-                                        f"Skipping volume {_vol_name} - SVM root volume"
-                                    )
-                                    progress.console.log(
-                                        f"Skipping volume {_vol_name} - SVM root volume"
-                                    )
-                                    continue
-
-                                _vol_ontap_type: str = _vol_ontap_config.get(
-                                    "OntapVolumeType", ""
-                                )
-                                if not _vol_ontap_type:
-                                    logger.error(
-                                        f"ONTAP volume type not found - probable defect"
-                                    )
-                                    continue
-
-                                if _vol_ontap_type.upper() not in {"RW", "LS"}:
-                                    logger.debug(
-                                        f"Skipping volume {_vol_name} - not an RW or LS ONTAP volume type"
-                                    )
-                                    progress.console.log(
-                                        f"Skipping volume {_vol_name} - not an RW or LS ONTAP volume type"
-                                    )
-                                    continue
-
-                                _volume_id: str = _volume.get("VolumeId", "")
-                                if not _volume_id:
-                                    logger.warning(f"Volume ID not found - skipping")
-                                    continue
-
-                                _junction_path: str = _vol_ontap_config.get(
-                                    "JunctionPath", ""
-                                )
-                                if not _junction_path:
-                                    logger.warning(f"Junction path not found - skipping")
-                                    continue
-
-                                _volume_size: int = _vol_ontap_config.get("SizeInBytes", 0)
-                                if not _volume_size:
-                                    logger.warning(f"Volume size not found - skipping")
-                                    continue
-                                _volume_size_str: str = format_byte_size(_volume_size)
-
-                                _vol_svm_id: str = _vol_ontap_config.get(
-                                    "StorageVirtualMachineId", ""
-                                )
-                                if not _vol_svm_id:
-                                    logger.debug(f"SVM not found - skipping")
-                                    progress.console.log(
-                                        f"Skipping {_vol_name} - No SVM record found"
-                                    )
-                                    continue
-
-                                progress.console.log(
-                                    f"[cyan]Discovered volume {_volume_id} ({_junction_path}) ({_volume_size_str})[/cyan]"
-                                )
-                                logger.debug(
-                                    f"Discovered volume {_volume_id} ({_junction_path}) ({_volume_size_str})"
-                                )
-
-                                # Store this volume as a possible mount target
-                                if _volume_id not in _ontap_volumes:
-                                    _ontap_volumes[_volume_id] = _volume
-                                    _ontap_fsids.append(_vol_fsid)
-
-                                # Make sure to query the SVM that is responsible for this volume
-                                if _vol_svm_id not in _ontap_svms_to_enum:
-                                    logger.debug(f"SVM {_vol_svm_id} added to be probed)")
-                                    progress.console.log(
-                                        f"[cyan]SVM {_vol_svm_id} will be queried[/cyan]"
-                                    )
-                                    _ontap_svms_to_enum.append(_vol_svm_id)
-                                else:
-                                    # Since an SVM can be responsible for multiple volumes - we may have already seen it
-                                    progress.console.log(
-                                        f"[cyan]SVM {_vol_svm_id} already planned to be queried[/cyan]"
-                                    )
-                                    logger.debug(
-                                        f"SVM {_vol_svm_id} is already planned to be probed"
-                                    )
-
-                        logger.debug(
-                            f"Stage 1 complete - Collected ONTAP volumes: {_ontap_volumes}"
-                        )
-                        # If we didn't collect any - we shouldn't need to enum the SVMs
-                        # Stage 2 - Now that we have volume information - we need to resolve the SVM information for
-                        # mounting the filesystems
-                        _ontap_svm_count: int = 0
-                        _ontap_svm_dict: dict = {}
-
-                        if _ontap_volumes and _ontap_svms_to_enum:
-
-                            logger.debug(
-                                f"Enumerating SVMs for FSx/ONTAP filesystem {_fs_id} / {_ontap_svms_to_enum}"
-                            )
-                            progress.console.log(
-                                f"[cyan]Enumerating SVMs for FSx/ONTAP filesystem {_fs_id}[/cyan]"
-                            )
-
-                            _ontap_svm_paginator = fsx.get_paginator(
-                                "describe_storage_virtual_machines"
-                            )
-                            # TODO - validate the max size of the SVM listing that the API call can take and chunk as needed
-                            _ontap_svm_iterator = _ontap_svm_paginator.paginate(
-                                StorageVirtualMachineIds=_ontap_svms_to_enum
-                            )
-
-                            for _svm_page in _ontap_svm_iterator:
-                                for _svm in _svm_page.get("StorageVirtualMachines", []):
-
-                                    _svm_name: str = _svm.get("Name", "")
-                                    _svm_id: str = _svm.get("StorageVirtualMachineId", "")
-                                    _svm_fsid: str = _svm.get("FileSystemId", "")
-
-                                    # SVM name is optional?
-
-                                    # We must know how to link this SVM to a filesystem ID
-                                    if not _svm_fsid:
-                                        logger.debug(
-                                            f"SVM {_svm_name} has no FSID {_svm_fsid} - skipping"
-                                        )
-                                        continue
-
-                                    # We _should_ only see the ones we got from the API call of the interesting SVMs
-                                    # , but we check here just in case.
-                                    if _svm_fsid not in _ontap_fsids:
-                                        logger.debug(
-                                            f"SVM {_svm_name} has no matching FSID - skipping"
-                                        )
-                                        continue
-
-                                    progress.console.log(
-                                        f"[cyan]Discovered SVM {_svm_name} for FSx/ONTAP filesystem {_svm_fsid}[/cyan]"
-                                    )
-                                    logger.debug(
-                                        f"Discovered SVM {_svm_name} for FSx/ONTAP filesystem {_svm_fsid}"
-                                    )
-
-                                    # Only allow full created SVMs
-                                    _svm_lifecycle: str = _svm.get("Lifecycle", "")
-                                    if _svm_lifecycle.upper() not in {"CREATED"}:
-                                        progress.console.log(
-                                            f"[yellow]Skipping SVM {_svm_name} - not in CREATED state ({_svm_lifecycle})[/yellow]"
-                                        )
-                                        continue
-
-                                    # endpoint enum
-                                    # TODO - handle list / multiple IP addresses for the SVM
-                                    _nfs_ip_address: str = (
-                                        _svm.get("Endpoints", {})
-                                        .get("Nfs", {})
-                                        .get("IpAddresses", "")[0]
-                                    )
-
-                                    # We add each SVM as technically they are discrete mount targets
-                                    if _nfs_ip_address:
-                                        progress.console.log(
-                                            f"Discovered SVM {_svm_name} NFS via {_nfs_ip_address}"
-                                        )
-                                        logger.debug(
-                                            f"Discovered SVM {_svm_name} NFS via {_nfs_ip_address}"
-                                        )
-                                        # Add each SVM as a unique filesystem choice
-                                        _ontap_svm_dict[_svm_id] = _svm
-                                        _ontap_svm_count += 1
-                                        continue
-                                    else:
-                                        progress.console.log(
-                                            f"Unable to determine NFS endpoint for SVM {_svm_name}"
-                                        )
-                                        logger.warning(
-                                            f"Unable to determine NFS endpoint for SVM {_svm_name}"
-                                        )
-                                        continue
-
-                            logger.debug(
-                                f"Total SVMs found: {_ontap_svm_count}: {_ontap_svm_dict}"
-                            )
-
-                            # Now that we are back from SVM polling - assemble the data into
-                            # a selectable menu list compatible with other filesystems
-                            if _ontap_volumes and _ontap_svm_dict:
-
-                                logger.debug(
-                                    f"Final pass - All FSx/ONTAP volumes: {_ontap_volumes}"
-                                )
-
-                                # Do an initial copy of our previous / FSx-wide features (deployment type, etc.)
-
-                                for _ontap_vol_i in _ontap_volumes:
-                                    # Make sure to copy the items - not point to the parent list!
-                                    _ontap_fs_features_list: list = [*_fs_features_list]
-                                    logger.debug(
-                                        f"Final pass of ONTAP volumes: {_ontap_vol_i} / FS Features now: {_ontap_fs_features_list}"
-                                    )
-
-                                    _vol: dict = _ontap_volumes.get(_ontap_vol_i, {})
-                                    _vol_ontap_config: dict = _vol.get(
-                                        "OntapConfiguration", {}
-                                    )
-
-                                    _vol_name: str = _vol.get("Name", "")
-
-                                    _vol_fsid: str = _vol.get("FileSystemId", "")
-                                    _vol_svmid: str = _vol_ontap_config.get(
-                                        "StorageVirtualMachineId", ""
-                                    )
-
-                                    logger.debug(
-                                        f"Query SVM details for: {_vol_svmid}: {_ontap_svm_dict.get(_vol_svmid, {})}"
-                                    )
-
-                                    _svm_name: str = _ontap_svm_dict.get(
-                                        _vol_svmid, {}
-                                    ).get("Name", "")
-
-                                    _nfs_ip_address_list: list = (
-                                        _ontap_svm_dict.get(_vol_svmid, {})
-                                        .get("Endpoints", {})
-                                        .get("Nfs", {})
-                                        .get("IpAddresses", [])
-                                    )
-                                    if _nfs_ip_address_list:
-                                        logger.debug(
-                                            f"SVM: {_svm_name} - NFS IP: {_nfs_ip_address_list} - taking first entry"
-                                        )
-                                        _nfs_ip_address: str = (
-                                            _nfs_ip_address_list[0]
-                                            if _nfs_ip_address_list
-                                            else ""
-                                        )
-                                        _ontap_fs_features_list.append(
-                                            f"NFS: {_nfs_ip_address}"
-                                        )
-                                    else:
-                                        logger.error(f"Empty NFS IP list for SVM. Exiting")
-                                        sys.exit(1)
-
-                                    _fs_size_str: str = format_byte_size(
-                                        int(
-                                            _vol.get("OntapConfiguration", {}).get(
-                                                "SizeInBytes", 0
-                                            )
-                                        )
-                                    )
-
-                                    _fs_junction_path: str = _vol.get(
-                                        "OntapConfiguration", {}
-                                    ).get("JunctionPath", "")
-
-                                    _fs_security_style: str = _vol.get(
-                                        "OntapConfiguration", {}
-                                    ).get("SecurityStyle", "")
-                                    _ontap_fs_features_list.append(
-                                        f"Security: {_fs_security_style}"
-                                    )
-
-                                    # Finally - construct a menu entry/item of a selectable filesystem
-                                    filesystems[count] = {
-                                        "id": _ontap_vol_i,
-                                        "name": f"{_vol_name} via SVM {_svm_name} ({_vol_svmid})\nPath: {_fs_junction_path}",
-                                        "dns_name": _nfs_ip_address,
-                                        "size": _fs_size_str,
-                                        "fs_type": "fsx_ontap",
-                                        "description": f"FSx/ONTAP: {_vol_name} via SVM {_svm_name} - {_nfs_ip_address}:{_fs_junction_path}",
-                                        "features": "\n".join(_ontap_fs_features_list),
-                                    }
-                                    count += 1
-                                    continue
-
-                    else:
-                        # non-FSx/ONTAP
-                        filesystems[count] = {
-                            "id": f"{_fs_id}",
-                            "name": resource_name,
-                            "dns_name": _dns_name,
-                            "size": _fs_size_str,
-                            "fs_type": f"fsx_{fsx_type.lower()}",
-                            "description": f"FSx/{fsx_type.upper()}: {resource_name if resource_name else f'FSx/{fsx_type.upper()}: '} {_dns_name}",
-                            "features": "\n".join(_fs_features_list),
-                        }
-                        count += 1
-
-    return filesystems
-
-
-def get_install_parameters():
-    # Retrieve User Specified Variables
-    print(
-        "\n====== Validating [red]S[blue]O[magenta]C[yellow]A[default] Parameters ======\n"
-    )
-
-    install_parameters["cluster_name"] = get_input(
-        prompt=f"{install_phases.get('cluster_name', 'unk-prompt')}",
-        specified_value=args.name,
-        expected_answers="",
-        show_expected_answers=False,
-        show_default_answer=False,
-        expected_type=str,
-    )
-
-    while (
-        len(install_parameters["cluster_name"]) < 3
-        or len(install_parameters["cluster_name"]) > 11
-    ):
-        print(
-            f"[red]SOCA cluster name must greater than 3 chars and shorter than 11 characters (edh- is automatically added as a prefix) "
-        )
-        install_parameters["cluster_name"] = get_input(
-            prompt=f"{install_phases.get('cluster_name', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=None,
-            expected_type=str,
-        )
-
-    # Sanitize cluster name (remove any non-alphanumerical character) or generate random cluster identifier
-    sanitized_cluster_id = re.sub(r"\W+", "-", install_parameters["cluster_name"])
-    sanitized_cluster_id = re.sub(
-        r"edh-", "", sanitized_cluster_id
-    )  # remove "edh-" if specified by the user
-    install_parameters["cluster_id"] = (
-        f"edh-{sanitized_cluster_id.lower()}"  # do not remove "edh-" prefix or DCV IAM permission will not be working.
-    )
-
-    install_parameters["bucket"] = get_input(
-        prompt=f"{install_phases.get('bucket', 'unk-prompt')}",
-        specified_value=args.bucket,
-        expected_answers=None,
-        expected_type=str,
-        show_expected_answers=False,
-        show_default_answer=False,
-    )
-
-    while not check_bucket_name_and_permission(install_parameters["bucket"]):
-        install_parameters["bucket"] = get_input(
-            prompt=f"{install_phases.get('bucket', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=None,
-            expected_type=str,
-            show_expected_answers=False,
-            show_default_answer=False,
-        )
-
-    _base_os_available = {
-        "amazonlinux2023": {"visible": True, "default": True},
-        "amazonlinux2": {"visible": False},
-        "centos7": {"visible": False},
-        "centos8": {"visible": False},
-        "rhel7": {"visible": False},
-        "rhel8": {"visible": True},
-        "rhel9": {"visible": True},
-        "rhel10": {"visible": False},  # Early Access testing 18 June 2025
-        "rocky8": {"visible": True},
-        "rocky9": {"visible": True},
-        "ubuntu2204": {"visible": True},
-        "ubuntu2404": {"visible": True},
-    }
-
-    # Generate our BaseOS prompt listing
-    _baseos_visible_list: list = []
-    for _potential_baseos, _options in _base_os_available.items():
-        _is_baseos_visible: bool = _options.get("visible", False)
-        logger.debug(
-            f"Potential BaseOS: {_potential_baseos} - Visible: {_is_baseos_visible}"
-        )
-        if _is_baseos_visible:
-            _baseos_visible_list.append(_potential_baseos)
-
-    # Make the prompt look like the auto-generated prompts
-    _base_os_prompt_str: str = "/".join(_baseos_visible_list)
-
-    logger.debug(
-        f"Final BaseOS prompt info: {_base_os_prompt_str}   List: {_baseos_visible_list}"
-    )
-
-    install_parameters["base_os"] = get_input(
-        prompt=f"{install_phases.get('baseos', 'unk-prompt')} [magenta][b]\\[{_base_os_prompt_str}][/b][/magenta]",
-        specified_value=args.base_os,
-        expected_answers=_base_os_available,
-        expected_type=str,
-        # show_expected_answers needs to be False to prevent generating the entire list of
-        # visible and non-visible choices - hence we manually construct our prompt and set
-        # show_expected_answers to False
-        show_expected_answers=False,
-    )
-
-    keypair_table = Table(
-        title=f"SSH Key Pairs",
-        show_lines=True,
-        highlight=True,
-        caption="Note that Windows does not support ED25519 Key Pairs\n",
-    )
-
-    keypair_table.add_column(header="#", justify="center", width=4, no_wrap=True)
-    keypair_table.add_column(
-        header="Keypair ID", justify="center", width=21, no_wrap=True
-    )
-    keypair_table.add_column(header="Name", justify="center", width=32, no_wrap=True)
-    keypair_table.add_column(header="Creation", justify="center")
-    keypair_table.add_column(header="Fingerprint", justify="center", no_wrap=True)
-
-    _kp_n = 1
-    logger.debug(f"keypairs: {accepted_aws_values.get('accepted_keypairs', {})}")
-    _kp_map = {}
-
-    for keypair in accepted_aws_values.get("accepted_keypairs", {}):
-        logger.debug(f"Processing keypair: {keypair=}")
-        _key_id_str: str = accepted_aws_values["accepted_keypairs"][keypair].get(
-            "KeyPairId"
-        )
-        _key_name_str: str = accepted_aws_values["accepted_keypairs"][keypair].get(
-            "KeyName"
-        )
-        _key_type_str: str = accepted_aws_values["accepted_keypairs"][keypair].get(
-            "KeyType"
-        )
-        #
-        # Reduce long string timestamps to keep more room display for the fingerprint
-        # e.g.
-        # 2024-03-20 01:51:25.431000+00:00 -> 2024-03-20 01:51:25
-        # 2020-07-10 01:14:33+00:00 -> 2020-07-10 01:14:33
-
-        _key_creation_date_str: str = str(
-            accepted_aws_values["accepted_keypairs"][keypair].get("CreateTime", "")
-        ).split(".")[0].split("+")[0]
-
-        _key_fingerprint_str: str = accepted_aws_values["accepted_keypairs"][
-            keypair
-        ].get("KeyFingerprint")
-        if _kp_n not in _kp_map:
-            _kp_map[_kp_n] = {}
-
-        _kp_map[_kp_n] = {
-            "KeyIndex": _kp_n,  # This is just our running tally
-            "KeyPairId": _key_id_str,
-            "KeyName": _key_name_str,
-            "KeyFingerprint": _key_fingerprint_str,
-            "KeyType": _key_type_str,
-        }
-
-        keypair_table.add_row(
-            str(_kp_n),
-            _key_id_str,
-            f"{_key_name_str} ({_key_type_str})",
-            _key_creation_date_str,
-            _key_fingerprint_str,
-        )
-        _kp_n += 1
-
-    _selected_key_name: str = ""
-    _spec_value_str: str = ""
-
-    if args.ssh_keypair:
-        _spec_value_str = next(
-            (
-                v.get("KeyName")
-                for k, v in _kp_map.items()
-                if v.get("KeyName") == args.ssh_keypair
+    console.print("\n")
+    console.print(
+        Panel(
+            Group(
+                Align.center(f"[bold #ffcc00]{constants.EDH_ASCII}[/]\n"),
+                info_panel,
+                Align.center(_("[italic #8a9bb8]Press Ctrl+C to exit at any time[/]")),
             ),
-            "",
+            title=_("[bold #e8eef7]Engineering Development Hub (EDH)[/]"),
+            border_style="cyan",
+            subtitle="Version 26.8.0",
+            padding=(1, 4),
         )
+    )
+    console.print()
 
-        if not _spec_value_str:
-            logger.warning(
-                f"Keypair {args.ssh_keypair} not found. Please confirm region and select a keypair"
-            )
-        else:
-            _selected_key_name = _spec_value_str
 
-    if not _selected_key_name:
-        # make sure we don't draw emojis in SSH fingerprints
-        _console = Console(emoji=False)
-        _console.print(keypair_table)
-
-        _keypair_selection = get_input(
-            prompt=f"{install_phases.get('key_pair', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=[str(_kp) for _kp in range(1, _kp_n)],
-            expected_type=int,
-            show_expected_answers=False,
-            show_default_answer=True,
-        )
-        logger.debug(f"Keypair selection: {_keypair_selection}")
-        _spec_value_str = next(
-            (
-                v.get("KeyName")
-                for k, v in _kp_map.items()
-                if v.get("KeyIndex") == _keypair_selection
-            ),
-            "",
-        )
-        logger.debug(
-            f"Keypair selection _spec_value_str:  {_spec_value_str} - KeyMap: {_kp_map}"
-        )
-
-    _selected_key_name = _spec_value_str
-
-    logger.debug(f"Final keypair name: {_selected_key_name} from {_spec_value_str}")
-    install_parameters["ssh_keypair"] = _selected_key_name
-
-    # Validate the prefix list id
-    if args.prefix_list_id:
-        try:
-            found_prefix_list_id = ec2.describe_managed_prefix_lists(
-                PrefixListIds=[args.prefix_list_id]
-            )["PrefixLists"][0]["PrefixListId"]
-            if found_prefix_list_id != args.prefix_list_id:
-                raise RuntimeError(
-                    f"Found prefix list {found_prefix_list_id} does not match {args.prefix_list_id}. This is a programming error; please create an issue."
-                )
-            else:
-                install_parameters["prefix_list_id"] = args.prefix_list_id
-        except Exception as _e:
-            logger.error(
-                f"{args.prefix_list_id} not found. Check that it exists and starts with pl-.\nException:\n{_e} "
-            )
-            sys.exit(1)
-
-    #
-    # Dupe with v6 above
-    # TODO - merge
-    if args.ipv6 and args.prefix_list_id_ipv6:
-        try:
-            found_prefix_list_id_ipv6 = ec2.describe_managed_prefix_lists(
-                PrefixListIds=[args.prefix_list_id_ipv6]
-            )["PrefixLists"][0]["PrefixListId"]
-            if found_prefix_list_id_ipv6 != args.prefix_list_id_ipv6:
-                raise RuntimeError(
-                    f"Found IPv6 prefix list {found_prefix_list_id_ipv6} does not match {args.prefix_list_id_ipv6}. This is a programming error; please create an issue."
-                )
-            else:
-                install_parameters["prefix_list_id_ipv6"] = args.prefix_list_id_ipv6
-        except Exception as _e:
-            logger.error(
-                f"{args.prefix_list_id_ipv6} not found. Check that it exists and starts with pl-.\nException:\n{_e} "
-            )
-            sys.exit(1)
-
-    install_parameters["custom_ami"] = args.custom_ami if args.custom_ami else None
-
-    #
-    # Network Configuration
-    # TODO - convert to using ipaddress module for IPv4 and IPv6 validations
-    #
-    cidr_regex = r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$"
-
-    if not args.vpc_cidr:
-        choice_vpc = get_input(
-            prompt=f"{install_phases.get('vpc', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=["new", "existing"],
-            expected_type=str,
-        )
-
-        if choice_vpc == "new":
-
-            while True:
-
-                install_parameters["vpc_cidr"] = get_input(
-                    prompt="What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16",
-                    specified_value=None,
-                    expected_answers=None,
-                    expected_type=str,
-                    show_expected_answers=False,
-                    show_default_answer=False,
-                )
-
-                if install_parameters["vpc_cidr"] is None:
-                    logger.error(
-                        f"Invalid CIDR {install_parameters['vpc_cidr']}. Format must be x.x.x.x/x (eg: 10.0.0.0/16)"
-                    )
-                elif not re.match(cidr_regex, install_parameters["vpc_cidr"]):
-                    logger.error(
-                        f"Invalid CIDR {install_parameters['vpc_cidr']}. Format must be x.x.x.x/x (eg: 10.0.0.0/16)"
-                    )
-                else:
-                    logger.debug(f"Valid CIDR {install_parameters['vpc_cidr']}")
-                    break
-
-        else:
-            # List all VPCs running on AWS account
-            _enabled_af_list: list = ["ipv4"]
-
-            if args.ipv6:
-                _enabled_af_list.append("ipv6")
-
-            existing_vpc = FindExistingResource(
-                region=install_parameters["region"],
-                client_ip=install_parameters["client_ip"],
-            ).find_vpc(
-                address_families=_enabled_af_list
-            )
-
-            if existing_vpc.get("success", False):
-                install_parameters["vpc_id"] = existing_vpc["message"]["id"]
-                install_parameters["vpc_cidr"] = existing_vpc["message"]["cidr"]
-                #
-                # Are we configured for IPv6 enablement?
-                #
-                if args.ipv6:
-                    install_parameters["vpc_cidr_ipv6"] = existing_vpc["message"]["cidr_ipv6"]
-                # install_parameters["cidr_by_af"] = existing_vpc["message"]["cidr_by_af"]
-            else:
-                logger.error(
-                    f"Unable to find VPC in the configured AWS Account - exiting..."
-                )
-                sys.exit(1)
-
-            # List all Subnets
-            if install_props.Config.entry_points_subnets.lower() == "public":
-
-                public_subnets = FindExistingResource(
-                    region=install_parameters["region"],
-                    client_ip=install_parameters["client_ip"],
-                ).get_subnets(
-                    vpc_id=install_parameters["vpc_id"],
-                    environment="public",
-                    selected_subnets=[],
-                    address_families=_enabled_af_list,
-                )
-
-                if public_subnets.get("success", False):
-                    install_parameters["public_subnets"] = base64.b64encode(
-                        str(public_subnets["message"]).encode("utf-8")
-                    ).decode("utf-8")
-                else:
-                    logger.error(f"Error: {public_subnets['message']}[default]")
-                    sys.exit(1)
-
-            else:
-                public_subnets = {"success": False, "message": []}
-                install_parameters["public_subnets"] = base64.b64encode(
-                    str(public_subnets["message"]).encode("utf-8")
-                ).decode("utf-8")
-
-            private_subnets = FindExistingResource(
-                region=install_parameters["region"],
-                client_ip=install_parameters["client_ip"],
-            ).get_subnets(
-                vpc_id=install_parameters["vpc_id"],
-                environment="private",
-                selected_subnets=[],
-                address_families=_enabled_af_list,
-            )
-
-            if private_subnets.get("success", False):
-                install_parameters["private_subnets"] = base64.b64encode(
-                    str(private_subnets["message"]).encode("utf-8")
-                ).decode("utf-8")
-            else:
-                logger.error(f"Error: {private_subnets['message']}[default]")
-                sys.exit(1)
-
-            vpc_azs = []
-            for subnet in public_subnets["message"] + private_subnets["message"]:
-                az = subnet.split(",")[1]
-                if az not in vpc_azs:
-                    vpc_azs.append(az)
-
-                install_parameters["vpc_azs"] = ",".join(vpc_azs)
-
-    else:
-        # Existing VPC
-        install_parameters["vpc_cidr"] = args.vpc_cidr
-        while not re.match(cidr_regex, install_parameters["vpc_cidr"]):
-            # TODO - Dupe with above - convert to a def
-            while True:
-
-                install_parameters["vpc_cidr"] = get_input(
-                    prompt="What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16",
-                    specified_value=None,
-                    expected_answers=None,
-                    expected_type=str,
-                    show_expected_answers=False,
-                    show_default_answer=False,
-                )
-
-                if install_parameters["vpc_cidr"] is None:
-                    logger.error(
-                        f"Invalid CIDR {install_parameters['vpc_cidr']}. Format must be x.x.x.x/x (eg: 10.0.0.0/16)"
-                    )
-                elif not re.match(cidr_regex, install_parameters["vpc_cidr"]):
-                    logger.error(
-                        f"Invalid CIDR {install_parameters['vpc_cidr']}. Format must be x.x.x.x/x (eg: 10.0.0.0/16)"
-                    )
-                else:
-                    logger.debug(f"Valid CIDR {install_parameters['vpc_cidr']}")
-                    break
-
-    # Security Groups Configuration (only possible if user installs to an existing VPC)
-    if install_parameters["vpc_id"]:
-        choice_security_groups = get_input(
-            prompt=f"{install_phases.get('security_groups', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=["new", "existing"],
-            expected_type=str,
-        )
-
-        if choice_security_groups == "existing":
-            #
-            # This defines the existing SG information that we ask questions about
-            #
-            _sg_role_dict: dict = {
-                "controller": {
-                    "enabled": True,
-                    "environment": "controller",
-                    "install_param_key": "controller_sg",
-                },
-                "compute nodes": {
-                    "enabled": True,
-                    "environment": "compute nodes",
-                    "install_param_key": "compute_node_sg",
-                },
-                "vpc endpoints": {
-                    "enabled": True,
-                    "environment": "VPC Endpoints",
-                    "install_param_key": "vpc_endpoint_sg",
-                },
-                # Test and then enable
-                "target nodes": {
-                    "enabled": False,
-                    "environment": "Target Nodes",
-                    "install_param_key": "target_node_sg",
-                }
-            }
-            for _sg_role_name, _sg_role_data in _sg_role_dict.items():
-                logger.debug(f"Processing Existing SG role: {_sg_role_name=}: {_sg_role_data=}")
-                if not _sg_role_data.get("enabled", False):
-                    logger.debug(f"Skipping SG role: {_sg_role_name} - disabled")
-                    continue
-
-                _sg_env_name: str = _sg_role_data.get("environment", "")
-                _sg_param_key: str = _sg_role_data.get("install_param_key", "")
-
-                # Make sure we have our required items
-                if not _sg_env_name or not _sg_param_key:
-                    logger.debug(f"Existing SG error for {_sg_role_name=}: {_sg_role_data=}  . Skipping")
-                    continue
-
-                _sg_lookup = FindExistingResource(
-                region=install_parameters["region"],
-                client_ip=install_parameters["client_ip"],
-                ).get_security_groups(
-                    vpc_id=install_parameters["vpc_id"],
-                    environment=_sg_env_name,
-                    scheduler_sg=[]
-                )
-
-                if _sg_lookup.get("success", False) and _sg_lookup.get("message", ""):
-                    install_parameters[_sg_param_key] = _sg_lookup.get("message", "")
-                else:
-                    logger.error(f"{_sg_lookup.get('message', '')} ")
-                    sys.exit(1)
-
-
-    # AWS PCS (only possible if a user installs to an existing VPC / cluster)
-    if install_parameters.get("vpc_id", ""):
-        _aws_pcs_enabled: bool = False
-        try:
-            _aws_pcs_enabled: bool = install_props.Config.services.aws_pcs.enabled
-        except Exception as _e:
-            # Make sure this stays as .debug
-            # otherwise it can appear to the screen for the user
-            logger.debug(f"Unable to parse config for AWS PCS enablement: {_e}")
-            _aws_pcs_enabled = False
-
-        if not _aws_pcs_enabled:
-            logger.debug(f"AWS PCS integration is disabled")
-        else:
-            logger.debug(f"AWS PCS is enabled")
-
-            _pcs_subnet_list: list = []
-            for _sn in public_subnets["message"] + private_subnets["message"]:
-                _pcs_subnet_list.append(_sn.split(",")[0])
-
-            _aws_pcs_clusters = _get_aws_pcs_by_region_vpc(
-                region=args.region,
-                vpc_id=install_parameters.get("vpc_id", ""),
-                vpc_subnets=_pcs_subnet_list,
-            )
-
-            if _aws_pcs_clusters.get("success", False):
-                logger.debug(f"Got back AWS PCS clusters: {_aws_pcs_clusters}")
-
-                _aws_pcs_cluster_dict = _aws_pcs_clusters.get("message", {})
-                logger.debug(f"AWS PCS Cluster dict is: {_aws_pcs_cluster_dict}")
-                _aws_pcs_table = Table(
-                    title=f"Select the AWS PCS cluster to link to in region {args.region} / VPC {install_parameters.get('vpc_id', '')}",
-                    show_lines=True,
-                    highlight=True,
-                )
-
-                for _col_name in [
-                    "#",
-                    "Type",
-                    "ID",
-                    "Status",
-                    "Subnet Information",
-                    "Endpoint Information",
-                ]:
-                    _aws_pcs_table.add_column(_col_name, justify="center")
-
-                _cluster_id_int: int = 1
-                # TODO - sort clusters?
-                for _cluster in _aws_pcs_cluster_dict:
-                    _aws_pcs_table.add_row(
-                        str(_cluster_id_int),
-                        _aws_pcs_cluster_dict.get(_cluster_id_int).get("type", ""),
-                        _aws_pcs_cluster_dict.get(_cluster_id_int).get("id", ""),
-                        _aws_pcs_cluster_dict.get(_cluster_id_int).get("status", ""),
-                        _aws_pcs_cluster_dict.get(_cluster_id_int).get(
-                            "subnet_information", ""
-                        ),
-                        _aws_pcs_cluster_dict.get(_cluster_id_int).get(
-                            "endpoint_information", ""
-                        ),
-                    )
-                    _cluster_id_int += 1
-
-                print(_aws_pcs_table)
-
-                choice_aws_pcs = get_input(
-                    prompt="Select the AWS PCS cluster to link to",
-                    specified_value=None,
-                    expected_answers=list(range(1, _cluster_id_int)),
-                    expected_type=int,
-                    show_default_answer=True,
-                    show_expected_answers=True,
-                )
-
-                logger.debug(f"You selected AWS PCS cluster {choice_aws_pcs}")
-
-            logger.debug(f"Expect to exit now...")
-            sys.exit(1)
-
-    # Filesystem Configuration (only possible if user installs to an existing VPC)
-    if install_parameters["vpc_id"]:
-        choice_filesystem = get_input(
-            prompt=f"{install_phases.get('filesystems', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=["new", "existing"],
-            expected_type=str,
-        )
-        if choice_filesystem == "existing":
-            # TODO - This needs to be reworked to poll the account _once_ versus for each get_fs() call.
-            # As this makes it very slow for big / populated VPCs/accounts
-            # List FS
-
-            _selected_fs = []
-            _filesystems_in_vpc = _get_filesystems_by_vpc(
-                region=install_parameters["region"],
-                vpc_id=install_parameters["vpc_id"],
-            )
-
-            fs_apps = FindExistingResource(
-                region=install_parameters["region"],
-                client_ip=install_parameters["client_ip"],
-            ).get_fs(
-                environment="/apps",
-                vpc_id=install_parameters["vpc_id"],
-                filesystems=_filesystems_in_vpc,
-            )
-
-            if fs_apps.get("success", False):
-                install_parameters["fs_apps_provider"] = fs_apps["provider"]
-                install_parameters["fs_apps"] = fs_apps["message"]
-                _selected_fs.append(fs_apps["message"])
-            else:
-                logger.error(f"{fs_apps['message']} ")
-                sys.exit(1)
-
-            # Trim down the /data options after /apps is selected
-            _filesystems_in_vpc = {
-                k: v
-                for k, v in _filesystems_in_vpc.items()
-                if v["id"] not in _selected_fs
-            }
-
-            fs_data = FindExistingResource(
-                region=install_parameters["region"],
-                client_ip=install_parameters["client_ip"],
-            ).get_fs(
-                environment="/data",
-                vpc_id=install_parameters["vpc_id"],
-                filesystems=_filesystems_in_vpc,
-                selected_fs=_selected_fs,
-            )
-
-            if fs_data.get("success", False):
-                install_parameters["fs_data_provider"] = fs_data["provider"]
-                install_parameters["fs_data"] = fs_data["message"]
-
-                # TODO - this should no longer be possible?
-                if install_parameters["fs_data"] == install_parameters["fs_apps"]:
-                    logger.error(
-                        f"Filesystem choice for /apps and /data must be different ({install_parameters['fs_data']} == {install_parameters['fs_apps']})"
-                    )
-                    sys.exit(1)
-            else:
-                logger.error(f"{fs_data['message']}")
-                sys.exit(1)
-
-            # Verify SG permissions
-            if install_parameters["fs_apps"] or install_parameters["controller_sg"]:
-                FindExistingResource(
-                    install_parameters["region"], install_parameters["client_ip"]
-                ).validate_sg_rules(
-                    install_parameters,
-                    check_fs=True if install_parameters["fs_apps"] else False,
-                )
-        else:
-            # Using an existing VPC, but creating new filesystems
-            # FIXME TODO - duplicated with the next chunk of code
-            for _fs_obj in ("apps", "data"):
-                install_parameters[f"fs_{_fs_obj}_provider"] = get_input(
-                    prompt=f"{install_phases.get(f'{_fs_obj}_storage_provider', 'unk-prompt')}",
-                    specified_value=(
-                        args.fs_apps_provider
-                        if _fs_obj == "apps"
-                        else args.fs_data_provider
-                    ),
-                    expected_answers=["efs", "fsx_ontap", "fsx_lustre"],
-                    expected_type=str,
-                    show_default_answer=True,
-                    show_expected_answers=True,
-                )
-
-    else:
-        # Not using existing VPC or filesystem, prompt for new fs creation provider
-        for _fs_obj in ("apps", "data"):
-            install_parameters[f"fs_{_fs_obj}_provider"] = get_input(
-                prompt=f"{install_phases.get(f'{_fs_obj}_storage_provider', 'unk-prompt')}",
-                specified_value=(
-                    args.fs_apps_provider
-                    if _fs_obj == "apps"
-                    else args.fs_data_provider
-                ),
-                expected_answers=["efs", "fsx_ontap", "fsx_lustre"],
-                expected_type=str,
-                show_default_answer=True,
-                show_expected_answers=True,
-            )
-
-    # AWS Directory Service Managed Active Directory configuration (only possible when using existing VPC)
-    if install_props.Config.directoryservice.provider == "activedirectory":
-        if install_parameters["vpc_id"]:
-            choice_mad = get_input(
-                f"{install_phases.get('directory_service', 'unk-prompt')}",
-                None,
-                ["new", "existing"],
-                str,
-            )
-            if choice_mad == "existing":
-                directory_service = FindExistingResource(
-                    install_parameters["region"], install_parameters["client_ip"]
-                ).find_directory_services(install_parameters["vpc_id"])
-                if directory_service["success"] is True:
-                    install_parameters["directory_service_ds_user"] = get_input(
-                        f"Username of a domain user with  admin permissions?",
-                        None,
-                        None,
-                        str,
-                    )
-                    install_parameters["directory_service_ds_user_password"] = (
-                        get_input(
-                            f"Password of the domain user with admin permissions",
-                            None,
-                            None,
-                            str,
-                        )
-                    )
-                    install_parameters["directory_service"] = directory_service[
-                        "message"
-                    ]["id"]
-                    install_parameters["directory_service_shortname"] = (
-                        directory_service["message"]["netbios"]
-                    )
-                    install_parameters["directory_service_name"] = directory_service[
-                        "message"
-                    ]["name"]
-                    install_parameters["directory_service_dns"] = directory_service[
-                        "message"
-                    ]["dns"]
-                else:
-                    logger.error(f"{directory_service['message']}")
-                    sys.exit(1)
-
-    # ElasticSearch Configuration (only possible when using existing VPC)
-    if install_parameters["vpc_id"]:
-        choice_es = get_input(
-            prompt=f"{install_phases.get('analytics', 'unk-prompt')}",
-            specified_value=None,
-            expected_answers=["no", "yes"],
-            expected_type=str,
-        )
-
-        if choice_es == "yes":
-            elasticsearch_cluster = FindExistingResource(
-                install_parameters["region"], install_parameters["client_ip"]
-            ).find_elasticsearch(install_parameters["vpc_id"])
-
-            if elasticsearch_cluster["success"] is True:
-                install_parameters["os_domain"] = elasticsearch_cluster["message"][
-                    "endpoint"
-                ]
-                install_parameters["os_endpoint"] = elasticsearch_cluster["message"][
-                    "endpoint"
-                ]
-            else:
-                logger.error(f"Error: {elasticsearch_cluster['message']} ")
-                sys.exit(1)
-    else:
-        install_parameters["os_domain"] = None
-
-    # IAM Roles configuration (only possible when using existing VPC)
-    if install_parameters["vpc_id"]:
-        choice_iam_roles = get_input(
-            f"{install_phases.get('iam_roles', 'unk-prompt')}",
-            None,
-            ["new", "existing"],
-            str,
-        )
-        if choice_iam_roles == "existing":
-            controller_role = FindExistingResource(
-                install_parameters["region"], install_parameters["client_ip"]
-            ).get_iam_roles("controller")
-            if controller_role["success"] is True:
-                install_parameters["controller_role_name"] = controller_role["message"][
-                    "name"
-                ]
-                install_parameters["controller_role_arn"] = controller_role["message"][
-                    "arn"
-                ]
-            else:
-                logger.error(f"{controller_role['message']} ")
-                sys.exit(1)
-
-            if (
-                get_input(
-                    f"Was this role generated by a previous SOCA deployment? If yes, are you also using the same S3 bucket?",
-                    None,
-                    ["yes", "no"],
-                    str,
-                )
-                == "yes"
-            ):
-                install_parameters["controller_role_from_previous_soca_deployment"] = (
-                    True
-                )
-            else:
-                get_input(
-                    f"[IMPORTANT] Make sure this role is assumed by 'ec2.amazon.com' and 'ssm.amazonaws.com'\n Type ok to continue ...",
-                    None,
-                    ["ok"],
-                    str,
-                    color="yellow",
-                )
-
-            compute_node_role = FindExistingResource(
-                install_parameters["region"], install_parameters["client_ip"]
-            ).get_iam_roles(
-                "compute nodes",
-                selected_roles=[install_parameters["controller_role_name"]],
-            )
-            if compute_node_role["success"] is True:
-                install_parameters["compute_node_role_name"] = compute_node_role[
-                    "message"
-                ]["name"]
-                install_parameters["compute_node_role_arn"] = compute_node_role[
-                    "message"
-                ]["arn"]
-            else:
-                print(f"[red]Error: {compute_node_role['message']} ")
-                sys.exit(1)
-
-            if (
-                get_input(
-                    f"Was this role generated by a previous SOCA deployment?",
-                    None,
-                    ["yes", "no"],
-                    str,
-                )
-                == "yes"
-            ):
-                install_parameters[
-                    "compute_node_role_from_previous_soca_deployment"
-                ] = True
-            else:
-                get_input(
-                    f"[IMPORTANT] Make sure this role is assumed by 'ec2.amazon.com' and 'ssm.amazonaws.com'\n Type ok to continue ...",
-                    None,
-                    ["ok"],
-                    str,
-                    color="yellow",
-                )
-
-            spotfleet_role = FindExistingResource(
-                install_parameters["region"], install_parameters["client_ip"]
-            ).get_iam_roles(
-                "spot fleet",
-                selected_roles=[
-                    install_parameters["controller_role_name"],
-                    install_parameters["compute_node_role_name"],
-                ],
-            )
-            if spotfleet_role["success"] is True:
-                install_parameters["spotfleet_role_name"] = spotfleet_role["message"][
-                    "name"
-                ]
-                install_parameters["spotfleet_role_arn"] = spotfleet_role["message"][
-                    "arn"
-                ]
-            else:
-                print(f"[red]Error: {spotfleet_role['message']} ")
-                sys.exit(1)
-
-            if (
-                get_input(
-                    f"Was this role generated by a previous SOCA deployment?",
-                    None,
-                    ["yes", "no"],
-                    str,
-                )
-                == "yes"
-            ):
-                install_parameters["spotfleet_role_from_previous_soca_deployment"] = (
-                    True
-                )
-            else:
-                get_input(
-                    f"[IMPORTANT] Make sure this role is assumed by 'spotfleet.amazonaws.com'\n Type ok to continue ...",
-                    None,
-                    ["ok"],
-                    str,
-                    color="yellow",
-                )
-    logger.info(f"[green]Parameters are valid. ")
-
-
-def validate_soca_config(user_specified_inputs, install_properties):
-    # We run one final validation check at the end, comparing the installation properties from config.yml and user inputs
-    print("\n====== Verifying SOCA Configuration  ======\n")
-    errors = []
-    exit_installer = False  # Installer will exit if user has invalid default_config.yml params that require a file edit
-
-    if user_specified_inputs["vpc_id"]:
-        private_subnets = ast.literal_eval(
-            base64.b64decode(user_specified_inputs["private_subnets"]).decode("utf-8")
-        )
-        private_subnet_azs = [
-            k.split(",")[1] for k in private_subnets if k.split(",")[1]
-        ]
-        public_subnets = ast.literal_eval(
-            base64.b64decode(user_specified_inputs["public_subnets"]).decode("utf-8")
-        )
-        public_subnet_azs = [k.split(",")[1] for k in public_subnets]
-
-    # if AZ is = 2, check if ES data nodes is 1,2 or a multiple. No restriction when using > 3 AZs
-    # if not user_specified_inputs["es_domain"]:
-    #     if user_specified_inputs["vpc_id"]:
-    #         max_azs = len(list(dict.fromkeys(private_subnet_azs)))
-    #     else:
-    #         max_azs = install_properties.Config.network.max_azs
-    #
-    #     if max_azs == 2:
-    #         # No limitation when using 3 or more AZs. 1 is not an option here
-    #         data_nodes = install_properties.Config.analytics.data_nodes
-    #         if (data_nodes % 2) == 0 or data_nodes <= 2:
-    #             pass
-    #         else:
-    #             errors.append(
-    #                 "Config > OpenSearch > data_nodes must be 1,2 or a multiple of 2."
-    #             )
-    #             exit_installer = True
-    #
-    # if user_specified_inputs["vpc_id"]:
-    #     # Validate network configuration when using a custom VPC
-    #     if len(list(dict.fromkeys(private_subnet_azs))) == 1:
-    #         errors.append(
-    #             f"Your private subnets are only configured to use a single AZ ({private_subnet_azs}). You must use at least 2 AZs for HA"
-    #         )
-    #     if len(list(dict.fromkeys(public_subnet_azs))) == 1:
-    #         errors.append(
-    #             f"Your public subnets are only configured to use a single AZ ({public_subnet_azs}). You must use at least 2 AZs for HA"
-    #         )
-    # else:
-    #     # check if az is min 2
-    #     if install_properties.Config.network.max_azs < 2:
-    #         errors.append("Config > Network > max_azs must be at least 2")
-    #         exit_installer = True
-
-    if not errors:
-        logger.info(f"[green]Configuration is valid. ")
-        return True
-    else:
-        for message in errors:
-            logger.error(f"{message} ")
-
-        logger.error(
-            f"!! Unable to validate configuration. Please fix the errors listed above and try again. "
-        )
-        if exit_installer:
-            sys.exit(1)
-        else:
-            return False
-
-
-def override_keys(keys_to_override, install_properties):
+def override_keys(keys_to_override: list, install_properties: dict) -> dict:
     override_mapping: dict = {}
-    _config_table = Table(
-        title=f"Detected CLI Configuration Overrides", show_lines=True, highlight=True
-    )
-    _config_table.add_column(header="Key", justify="left", width=50, no_wrap=False, overflow='fold')
-    _config_table.add_column(header="Type", justify="left", width=10, no_wrap=True, overflow='fold')
-    _config_table.add_column(header="Value", justify="left", width=35, no_wrap=False, overflow='fold')
 
     for key in keys_to_override:
-        # print(f"Detected Key Override: {key}")
         override_info = key.split(",")
         if len(override_info) != 3:
-            print(
+            logger.error(
                 f"Override information must use the following format: '<key_name>,<type>,<new_value>' (ex: Config.termination_protection,Bool,False). Detected {key}"
             )
             sys.exit(1)
@@ -2290,7 +124,7 @@ def override_keys(keys_to_override, install_properties):
             value_type = override_info[1]
             key_value = override_info[2]
 
-            _value_type: str = value_type.lower()
+            _value_type = value_type.lower()
 
             match _value_type:
                 case "bool":
@@ -2311,1247 +145,1845 @@ def override_keys(keys_to_override, install_properties):
                     try:
                         key_value = int(key_value)
                     except ValueError:
-                        print(f"Expected {value_type} but detected {key_value}")
+                        logger.error(f"Expected {value_type} but detected {key_value}")
                         sys.exit(1)
                 case _:
                     logger.error(
                         f"Value type must be bool/boolean/str/string/int/integer/list. Detected {_value_type}"
                     )
                     sys.exit(1)
-
-        _config_table.add_row(
-            str(key_name),
-            str(value_type),
-            str(key_value),
-        )
         override_mapping[key_name] = key_value
 
-    print(_config_table)
-    # Parse the JSON into a Python dictionary
-    for key, value in override_mapping.items():
-        # Split the key into individual keys
-        keys = key.split(".")
-        # Traverse through the nested dictionaries and update the value
-        temp_dict = install_properties
-        for k in keys[:-1]:
-            temp_dict = temp_dict[k]
+    override_lines = "\n".join(
+        f"  [bold #8a9bb8]{k}[/] = [#4db8ff]{v}[/]" for k, v in override_mapping.items()
+    )
+    console.print(
+        Panel(
+            override_lines,
+            border_style="cyan",
+            title="[bold #e8eef7]CLI Configuration Overrides[/]",
+            padding=(1, 2),
+        )
+    )
 
+    for key, value in override_mapping.items():
+        keys = key.split(".")
+        temp_dict = install_properties
+        try:
+            for k in keys[:-1]:
+                temp_dict = temp_dict[k]
+        except KeyError:
+            logger.warning(
+                f"Override key '{key}' does not exist in configuration, skipping"
+            )
+            continue
+        if keys[-1] not in temp_dict:
+            logger.warning(
+                f"Override key '{key}' does not exist in configuration, skipping"
+            )
+            continue
         temp_dict[keys[-1]] = value
 
     return install_properties
 
 
+def spinner(message: str, spinner: str = "aesthetic"):
+    logger.debug(f"Displaying spinner with message: {message}")
+    return console.status(f"[bold #4db8ff]{message}[/bold #4db8ff]", spinner=spinner)
+
+
+def extract_kms_keys(data: dict, path: str = "") -> list[dict[str, str]]:
+    """Recursively extract all kms_key_id and volume_kms_key_id values from a nested dict."""
+    results = []
+    for key, value in data.items():
+        current_path = f"{path}.{key}" if path else key
+        if key in ("kms_key_id", "volume_kms_key_id") and value is not None:
+            results.append({"path": current_path, "value": value})
+        elif isinstance(value, dict):
+            results.extend(extract_kms_keys(value, current_path))
+    return results
+
+
+# ── AWS region discovery + grouping ─────────────────────────────────────────
+# Logical grouping used in the install-time region picker. Keys are the
+# region-code prefix (e.g. "us-east" → "Americas"). Order here defines the
+# order groups appear in the picker.
+_REGION_GROUP_ORDER: list[tuple[str, tuple[str, ...]]] = [
+    ("Americas", ("us-east", "us-west", "ca-", "sa-", "mx-")),
+    ("Europe", ("eu-",)),
+    ("Europe (Sovereign)", ("eusc-",)),
+    ("Asia Pacific", ("ap-",)),
+    ("Middle East", ("me-", "il-")),
+    ("Africa", ("af-",)),
+    ("GovCloud (US)", ("us-gov-",)),
+    ("China", ("cn-",)),
+]
+
+
+def _region_group(code: str) -> str:
+    """Return the group label for a given region code. Unknown prefixes fall
+    into 'Other' so a newly-announced region never breaks the picker."""
+    for group, prefixes in _REGION_GROUP_ORDER:
+        if any(code.startswith(p) for p in prefixes):
+            return group
+    return "Other"
+
+
+def _fetch_region_metadata(client_ssm, codes: list[str]) -> dict[str, dict[str, str]]:
+    """Batch SSM lookups for longName + geolocationCountry for each region.
+
+    Uses ssm:GetParameters (chunks of 10) rather than ssm:GetParameter per
+    region. Falls back to deriving a display name from the code when SSM is
+    unavailable or a region is missing from the metadata store.
+    """
+    needed: list[str] = []
+    for c in codes:
+        needed.append(f"/aws/service/global-infrastructure/regions/{c}/longName")
+        needed.append(
+            f"/aws/service/global-infrastructure/regions/{c}/geolocationCountry"
+        )
+
+    resolved: dict[str, dict[str, str]] = {c: {} for c in codes}
+    try:
+        for i in range(0, len(needed), 10):
+            chunk = needed[i : i + 10]
+            resp = client_ssm.get_parameters(Names=chunk)
+            for p in resp.get("Parameters", []):
+                parts = p["Name"].split("/")
+                code = parts[-2]
+                key = parts[-1]
+                resolved.setdefault(code, {})[key] = p["Value"]
+    except Exception as err:
+        # SSM perms missing or service hiccup — degrade gracefully rather than
+        # fail the install. The picker will still work; entries just show the
+        # region code in place of the long name.
+        #
+        # TODO: cross-partition SSM fallback. AWS's public region-metadata
+        # parameters (/aws/service/global-infrastructure/*) are ONLY populated
+        # in the commercial partition. When this installer runs INSIDE
+        # GovCloud / China / EUSC, the local SSM has no such params and we
+        # land in this except block, dropping back to code-only labels.
+        # Fix: try a second lookup against commercial us-east-1 using creds
+        # from an AWS_COMMERCIAL_PROFILE env var, if set. Deferred — out of
+        # scope for the initial uplift.
+        logger.warning(
+            f"SSM region metadata lookup failed, falling back to code-only labels: {err}"
+        )
+    # Sensible defaults for anything the SSM lookup didn't fill in
+    for code, data in resolved.items():
+        data.setdefault("longName", code)
+        data.setdefault("geolocationCountry", code.split("-")[0].upper())
+
+    # Ensure EU Sovereign Cloud regions show "Sovereign Cloud" in the picker.
+    for code, data in resolved.items():
+        if code.startswith("eusc-") and "Sovereign" not in data["longName"]:
+            data["longName"] = f"{data['longName']} (Sovereign Cloud)"
+    return resolved
+
+
+def _build_region_choices(region_meta: dict[str, dict[str, str]]) -> list:
+    """Build the questionary.select choices list with:
+    - regions grouped by geography via non-selectable Separator headers
+    - regions sorted alphabetically by code within each group
+    - fixed-width columns, right-padded to keep visual alignment in the picker
+    - each row left-padded with whitespace so the block of choices sits roughly
+      centred in the terminal, matching the centered-data-residency hint
+      printed above the picker
+    """
+    import shutil
+
+    # Bucket by group label
+    buckets: dict[str, list[str]] = {label: [] for label, _ in _REGION_GROUP_ORDER}
+    buckets["Other"] = []
+    for code in region_meta:
+        buckets[_region_group(code)].append(code)
+
+    # Fixed-width row format:
+    #   <code:16>  [<country:2>]   <long name>
+    # e.g. "us-east-1         [US]   US East (N. Virginia)"
+    # Brackets around the country code make the data-residency hint visually
+    # obvious at a glance without requiring color support.
+    ROW_FMT = "{code:<16}  [{country:<2}]  {long_name}"
+
+    # Work out the longest rendered row so we can compute a single centring
+    # offset that applies uniformly to every row (separators and choices).
+    sample_rows = []
+    for code, meta in region_meta.items():
+        sample_rows.append(
+            ROW_FMT.format(
+                code=code,
+                country=meta["geolocationCountry"],
+                long_name=meta["longName"],
+            )
+        )
+    max_row_width = max(len(r) for r in sample_rows) if sample_rows else 0
+
+    # Try to center in the current terminal; fall back to 80 cols if we can't
+    # query it (non-tty, broken terminfo, etc.).
+    term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    left_pad = max(0, (term_cols - max_row_width) // 2)
+    pad = " " * left_pad
+
+    choices: list = []
+    group_order = [label for label, _ in _REGION_GROUP_ORDER] + ["Other"]
+    for label in group_order:
+        codes = sorted(buckets.get(label, []))
+        if not codes:
+            continue
+        # Separator — also centered for visual consistency
+        sep_text = f"── {label} ──"
+        sep_pad = max(0, (term_cols - len(sep_text)) // 2)
+        choices.append(Separator(" " * sep_pad + sep_text))
+        for code in codes:
+            meta = region_meta[code]
+            row = ROW_FMT.format(
+                code=code,
+                country=meta["geolocationCountry"],
+                long_name=meta["longName"],
+            )
+            choices.append(Choice(title=pad + row, value=code))
+    return choices
+
+
+def _pick_s3_bucket(region: str, aws_profile: str | None) -> str | None:
+    """Optional '?' affordance for the S3 bucket prompt: list the buckets the
+    account owns (grouped by region, install region first) and return the
+    selected name. Returns None to fall back to manual entry -- on cancel, an
+    empty account, or any AWS error -- so the convenience feature never blocks
+    the install."""
+    try:
+        with spinner("Listing S3 buckets you own ..."):
+            _s3 = build_boto3_client(
+                service_name="s3", region_name=region, aws_profile=aws_profile
+            )
+            _buckets = bucket_picker.list_owned_buckets(_s3)
+    except Exception as _err:  # noqa: BLE001 - convenience feature must never hard-fail
+        logger.error(
+            f"Could not list S3 buckets ({_err}); enter the bucket name manually."
+        )
+        return None
+
+    if not _buckets:
+        logger.warning(
+            "No S3 buckets found in this account; enter the bucket name manually."
+        )
+        return None
+
+    try:
+        return questionary.select(
+            _("Select an S3 bucket ({count} found; type to filter):").format(
+                count=len(_buckets)
+            ),
+            choices=bucket_picker.build_bucket_choices(_buckets, region),
+            use_search_filter=True,
+            use_jk_keys=False,
+            style=constants.EDH_STYLE,
+        ).unsafe_ask()
+    except KeyboardInterrupt:
+        # Cancelling the picker returns to manual entry rather than aborting the
+        # whole install; the manual text prompt still aborts on Ctrl-C as usual.
+        return None
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Create EDH installer. Visit https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ if you need help"
-    )
-
-    parser.add_argument(
-        "--cdk-no-strict",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Disable CDK --strict setting (Failure on CDK stack warnings)"
-    )
-
-    parser.add_argument(
-        "--cdk-cloudformation-execution-policies",
-        "--cloudformation-execution-policies",
-        type=str,
-        help="AWS CDK CloudFormation Execution Policy ARNs",
-    )
-
-    parser.add_argument(
-        "--cdk-role-arn", type=str, help="AWS CDK CloudFormation Execution Role ARN"
-    )
-
-    parser.add_argument(
-        "--cdk-bootstrap-kms-key-id",
-        "--cdk-bs-kms-id",
-        type=str,
-        help="AWS CDK Bootstrap KMS Key ID",
-    )
-
-    parser.add_argument(
-        "--cdk-custom-permissions-boundary",
-        type=str,
-        help="AWS CDK Custom Permissions Boundary",
-    )
-
-    parser.add_argument(
-        "--cdk-termination-protection",
-        type=bool,
-        help="AWS CDK Termination Protection setting",
-    )
-
-    parser.add_argument(
-        "--profile",
-        "-p",
-        type=str,
-        help="AWS CLI profile to use. See https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html",
-    )
-    parser.add_argument(
-        "--region",
-        "-r",
-        type=str,
-        help="AWS region where you want to deploy your SOCA environment.",
-    )
-    parser.add_argument(
-        "--config",
-        "-c",
-        type=str,
-        default=f"{os.path.dirname(os.path.realpath(__file__))}/../../default_config.yml",
-        help="Path of custom config file(s). Defaults to default_config.yml .",
-    )
-    parser.add_argument(
-        "--region-map",
-        type=str,
-        action="append",
-        default=[
-            f"{os.path.dirname(os.path.realpath(__file__))}/../../region_map.yml",
-            f"{os.path.dirname(os.path.realpath(__file__))}/../../region_map_govcloud.yml",
-            f"{os.path.dirname(os.path.realpath(__file__))}/../../region_map_local.yml",
-        ],
-        help="(Deprecated) Path of AMI region mapping files. Defaults to various region_map files. Use --region-map-dir instead!",
-        # 3.13 allows the use of deprecated argument
-        # deprecated=True
-    )
-
-    parser.add_argument(
-        "--region-map-dir",
-        type=str,
-        action="append",
-        default=[
-            f"{os.path.dirname(os.path.realpath(__file__))}/../../region_map.d/aws",
-        ],
-        help="Path of AMI region_map.d directory structure",
-    )
-
-    parser.add_argument("--bucket", "-b", type=str, help="S3 Bucket to use")
-    parser.add_argument("--ssh-keypair", "-ssh", type=str, help="SSH key to use")
-    parser.add_argument("--custom-ami", "-ami", type=str, help="Specify a custom image")
-
-    parser.add_argument(
-        "--email",
-        "--email-address",
-        type=str,
-        action="append",
-        help="Administrator email address(es) that will be registered for cluster notifications and alerts. Supports multiple values --email email1 --email email2 etc.",
-    )
-
-    parser.add_argument(
-        "--vpc-cidr",
-        "--vpc-cidr-ipv4,"
-        "-cidr",
-        type=str,
-        help="What IPv4 CIDR do you want to use for your VPC (eg: 10.0.0.0/16)",
-    )
-    parser.add_argument(
-        "--vpc-cidr-ipv6",
-        type=str,
-        help="What IPv6 CIDR do you want to use for your VPC (eg: 2001:db8::/56)",
-    )
-    parser.add_argument(
-        "--client-ip",
-        "--client-ipv4",
-        "-ip",
-        type=str,
-        action="append",
-        help="Client IPv4 authorized to access SOCA on TCP ports 22/443",
-    )
-    parser.add_argument(
-        "--client-ipv6",
-        type=str,
-        action="append",
-        help="Client IPv6 authorized to access SOCA on TCP ports 22/443",
-    )
-    # TODO - Make prefix-list take multi
-    parser.add_argument(
-        "--prefix-list-id",
-        "--prefix-list-id-ipv4",
-        "-pl",
-        type=str,
-        help="Prefix list ID with IPv4 authorized to access SOCA on port 22/443",
-    )
-    parser.add_argument(
-        "--prefix-list-id-ipv6",
-        "-pl-v6",
-        type=str,
-        help="Prefix list ID with IPv6 authorized to access SOCA on port 22/443",
-    )
-    parser.add_argument(
-        "--name",
-        "-n",
-        type=str,
-        help="Friendly name for your SOCA cluster. Must be unique in the region. SOCA will be added as prefix",
-    )
-    parser.add_argument(
-        "--override",
-        type=str,
-        action="append",
-        nargs="+",
-        help="Configuration key(s) to override. Syntax is '<key_name>,<type>,<value>'. You can use multiple --override if needed.",
-    )
-    parser.add_argument(
-        "--base-os",
-        "-os",
-        choices=[
-            "amazonlinux2",
-            "amazonlinux2023",
-            "centos7",
-            "rocky8",
-            "rocky9",
-            "rhel7",
-            "rhel8",
-            "rhel9",
-            "ubuntu2204",
-            "ubuntu2404",
-        ],
-        type=str,
-        help="The preferred Linux distribution for the controller and compute instances",
-    )
-    parser.add_argument(
-        "--fs-apps-provider",
-        dest="fs_apps_provider",
-        choices=[
-            "efs",
-            "fsx_ontap",
-            "fsx_lustre",
-        ],
-        type=str,
-        help="Storage Provider to specify for /apps",
-    )
-
-    parser.add_argument(
-        "--fs-data-provider",
-        dest="fs_data_provider",
-        choices=[
-            "efs",
-            "fsx_ontap",
-            "fsx_lustre",
-        ],
-        type=str,
-        help="Storage Provider to specify for /data",
-    )
-
-    parser.add_argument(
-        "--ipv6",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: False)",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Enable CDK debug mode",
-    )
-    parser.add_argument(
-        "--cdk-cmd",
-        type=str,
-        choices=[
-            "deploy",
-            "create",
-            "update",
-            "ls",
-            "list",
-            "synth",
-            "synthesize",
-            "destroy",
-            "bootstrap",
-        ],
-        default="deploy",
-    )
-    parser.add_argument(
-        "--skip-config-message",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Skip default_config message",
-    )
-    parser.add_argument(
-        "--format",
-        type=str,
-        choices=["json"],
-        help="Output CfnOutputs via a text file",
-    )
-
+    parser = build_arg_parser()
     args = parser.parse_args()
-
-    # Use script location as current working directory
     _install_directory = os.path.dirname(os.path.realpath(__file__))
-    build_lambda_dependency(install_directory=_install_directory)
     os.chdir(path=_install_directory)
 
-    # Append Solution ID to Boto3 Construct
-    aws_solution_user_agent = {"user_agent_extra": "AwsSolution/SO0072/26.4.0"}
-    boto_extra_config = config.Config(**aws_solution_user_agent)
+    console.clear()
 
-    splash_info = f"""
-            [red]_____[bright_blue] ____  [magenta]______[yellow]___
-           [red]/ ___/[bright_blue]/ __ \\\\[magenta]/ ____[yellow]/   |
-           [red]\\__ \\\\[bright_blue]/ / / [magenta]/ /   [yellow]/ /| |
-          [red]___/[bright_blue] / /_/ [magenta]/ /___[yellow]/ ___ |
-         [red]/____/[bright_blue]\\____/[magenta]\\____[yellow]/_/  |_|
-        [red]Scale-[bright_blue]Out [magenta]Computing on [yellow]AWS[default]
-    ================================
-    > Documentation: https://awslabs.github.io/engineering-development-hub-documentation/
-    > Source Code: https://github.com/awslabs/engineering-development-hub/
-    """
+    # Set a dark background for better visibility
+    sys.stdout.write("\033]11;#1a1b26\033\\")
+    sys.stdout.flush()
 
-    logger.info(splash_info)
+    # Check if AWS_PROFILE or AWS_DEFAULT_PROFILE exist
+    # If environment variable and --profile are  not set, we will use the default profile in .aws/credentials
+    _aws_profile = os.environ.get(
+        "AWS_PROFILE", os.environ.get("AWS_DEFAULT_PROFILE", None)
+    )
+    if args.profile:
+        if _aws_profile:
+            logger.warning(
+                f"Using AWS profile sourced from CLI: {args.profile} but also found default profile: {_aws_profile}"
+            )
+        _aws_profile = args.profile
 
-    install_phases = {
-        "email_address": "Please provide a valid email address for cluster notifications (This may include critical or time-sensitive items related to cluster health/availability)",
-        "cluster_name": "Please provide a cluster name ('edh-' is automatically added as a prefix)",
-        "bucket": "Enter the name of an S3 bucket you own",
-        "baseos": "Choose the default operating system (this can be changed later for the compute nodes)",
-        "key_pair": "Choose the SSH keypair to use",
-        "vpc": "Do you want to create new resources (default) or use existing resources?",
-        "security_groups": "Do you want to create new security groups (default) or use existing ones? ",
-        "filesystems": "Do you want to create new filesystems for /apps & /data (default) or use existing ones? ",
-        "directory_service": "Do you want to create a new Directory Service Managed AD (default) or use an existing one? ",
-        "analytics": "Do you want to use an existing Analytics back-end (OpenSearch)?",
-        "iam_roles": "Do you want to create new IAM roles for controller & compute nodes (default) or use existing ones?",
-        "apps_storage_provider": "What storage provider do you want to use for your /apps partition? (fsx_ontap is recommended if you have Linux and Windows clients)",
-        "data_storage_provider": "What storage provider do you want to use for your /data partition? (fsx_ontap is recommended if you have Linux and Windows clients)",
-    }
+    # must be called before the banner as we display the IAM role/user ARN used to launch the installer
+    with spinner("Fetching AWS STS caller identity ..."):
+        _sts_caller_identity = get_sts_info(aws_profile=_aws_profile)
+
+    # Print banner
+    show_banner(config_path=args.config)
+
+    with spinner("Building Lambda dependency ..."):
+        build_lambda_dependency(install_directory=_install_directory)
+
+    with spinner("Fetching install properties ..."):
+        _get_install_properties = get_install_properties(path=args.config)
+
+    with spinner("Checking Configuration overrides ..."):
+        if args.override:
+            overrides: list = [item for sublist in args.override for item in sublist]
+            _get_install_properties = override_keys(
+                keys_to_override=overrides,
+                install_properties=_get_install_properties,
+            )
+
+    # --ipv6 enables the IPv6 address-family feature flag for the whole install (dual-stack)
+    if args.ipv6:
+        _get_install_properties.setdefault("Config", {}).setdefault(
+            "feature_flags", {}
+        ).setdefault("Networking", {})["EnableIPv6"] = True
+        logger.debug(
+            "--ipv6 set: enabling Config.feature_flags.Networking.EnableIPv6"
+        )
 
     install_parameters = {
-        # SOCA parameters
-        "email_address": None,
-        "base_os": None,
-        "account_id": None,
-        "bucket": None,
-        "ssh_keypair": None,
-        "cluster_name": None,
-        "cluster_id": None,
-        "custom_ami": None,
-        "region": None,
-        "client_ip": None,
-        # Network
-        "vpc_id": None,
-        "vpc_azs": None,
-        "public_subnets": None,
-        "private_subnets": None,
-        # Filesystem for /data and /apps
-        "fs_apps_provider": None,
-        "fs_apps": None,
-        "fs_data_provider": None,
-        "fs_data": None,
-        # AWS Directory Service Managed AD
-        "directory_service_user": None,
-        "directory_service_user_password": None,
-        "directory_service_shortname": None,
-        "directory_service_name": None,
-        "directory_service_id": None,
-        "directory_service_dns": None,
-        # EC2 Security Groups
-        "compute_node_sg": None,
-        "controller_sg": None,
-        "alb_sg": None,
-        "login_node_sg": None,
-        "nlb_sg": None,
-        # IAM role
-        "compute_node_role_name": None,
-        "compute_node_role_arn": None,
-        "computenode_role_from_previous_soca_deployment": None,
-        "controller_role_name": None,
-        "controller_role_arn": None,
-        "controller_role_from_previous_soca_deployment": None,
-        "spotfleet_role_name": None,
-        "spotfleet_role_arn": None,
-        "spotfleet_role_from_previous_soca_deployment": None,
-        # ElasticSearch
-        "es_domain": None,
+        "deployment_mode": args.deployment_mode,
+        "skip_config_message": args.skip_config_message,
+        "email_address": args.email_address,
+        "base_os": args.base_os,
+        "bucket": args.bucket,
+        "ssh_keypair": args.ssh_keypair,
+        "cluster_name": args.name,
+        "cluster_id": args.name,
+        "region": args.region,
+        "client_ip": args.client_ip,
+        "vpc_id": args.vpc_id,
+        "vpc_cidr": args.vpc_cidr,
+        "partition": _sts_caller_identity.get("Partition"),
+        "account_id": _sts_caller_identity.get("Account"),
+        "public_subnets": args.public_subnets,
+        "private_subnets": args.private_subnets,
+        "fs_apps_provider": args.fs_apps_provider,
+        "fs_apps": args.fs_apps,
+        "fs_data_provider": args.fs_data_provider,
+        "fs_data": args.fs_data,
+        "create_es_service_role": False,
+        "os_domain": args.os_domain,
+        "prefix_list_id": None,
+        "prefix_list_id_ipv6": None,
+        "client_ipv6": None,
+        "tls_certificate": args.tls_certificate,
     }
-    logger.info("\n====== Validating Default SOCA Configuration ======\n")
-
-    # Read in the configuration file(s) specified by the user
-    logger.debug(f"Config file(s) specified: {args.config}")
-
-    install_properties = get_install_properties(pathname=args.config)
-
-    logger.debug(f"Install properties after file read: {install_properties}")
-
-    # Read in the RegionMap file(s) specified by the user
-    logger.debug(
-        f"RegionMap file(s) specified (OLD METHOD): {type(args.region_map)} / {args.region_map=}"
-    )
-
-    logger.debug(
-        f"RegionMap.D specified (NEW METHOD): {type(args.region_map_dir)} / {args.region_map_dir=}"
-    )
-
-
-    # _region_map is our final view after overwrites/appends/etc
-    _region_map: dict = {}
-
-    # Old method to be removed at future date
-    _old_region_map_dict: dict = {}
-
-    if isinstance(args.region_map, str):
-        logger.info(f"Converting string RegionMap to list member")
-        args.region_map = [args.region_map]
-
-    if isinstance(args.region_map, list):
-        logger.info(f"Reading {len(args.region_map)} RegionMap files")
-        for _file in args.region_map:
-            logger.info(f"Reading RegionMap file: {os.path.basename(_file)}")
-            if not os.path.isfile(_file):
-                # This is OK as the users transition to region_map.d method
-                # so we don't error/warning them to startle the users
-                logger.debug(f"RegionMap file not found: {_file}")
-                continue
-
-            # We specifically look in "RegionMap" to make sure it is well-formed YAML
-            # and to get an accurate count to see if it has any content
-            _region_map_contents: dict = get_install_properties(pathname=_file).get(
-                "RegionMap", {}
-            )
-
-            # logger.debug(f"RegionMap contents: {_region_map_contents}")
-            if len(_region_map_contents) == 0:
-                logger.info(f"RegionMap file is empty or malformed: {_file}")
-                continue
-            else:
-                logger.debug(f"Content len {len(_region_map_contents)}")
-                _old_region_map_dict.update(_region_map_contents)
-                logger.debug(f"RegionMap after applying file update: {_region_map}")
-    else:
-        logger.error(f"RegionMap is not a list. Exiting.")
-        sys.exit(1)
-
-    logger.debug(f"RegionMap after all files are read: {_old_region_map_dict}")
-
-    # New region_map.d method
-    _region_map_dir_dict: dict = {}
-
-    # This should not happen?
-    if isinstance(args.region_map_dir, str):
-        args.region_map_dir = [args.region_map_dir]
-
-    logger.info(f"Reading {len(args.region_map_dir)} region_map.d directories: {args.region_map_dir=}")
-    for _dir in args.region_map_dir:
-        logger.info(f"Reading region_map.d directory: {_dir}")
-        if not os.path.isdir(_dir):
-            logger.error(f"region_map.d directory not found: {_dir}")
-            exit(1)
-
-        # Read the glob pattern of only YAML files to make sure we exclude README and backup files etc
-        _files = glob.glob(
-            pathname=f"[0-9][0-9][0-9]-*.yaml",
-            recursive=False,
-            root_dir=_dir,
-            include_hidden=False,
-        )
-        _files.sort()
-
-        if not len(_files):
-            logger.warning(f"No files found in for region_map.d: {_dir}")
-            continue
-
-        for _file in _files:
-            logger.info(f"Reading region_map.d file: {_dir}/{_file}")
-
-            if not os.path.isfile(f"{_dir}/{_file}"):
-                # Perhaps the file moved on us?
-                logger.warning(f"region_map.d file not found after directory scan: {_file}")
-                continue
-
-            _file_region_map_contents: dict = get_install_properties(
-                pathname=f"{_dir}/{_file}"
-            )
-
-            # XXX FIXME TODO - Individual files - should they error on malformed?
-            # NOTE - We distribute a template of 999-my-ami-defaults.yaml that seems to land here
-            # but it is not a valid YAML file. So we check for that and not alarm the user
-            if len(_file_region_map_contents) == 0 and _file != "999-my-ami-defaults.yaml":
-                logger.warning(f"region_map.d file is empty or malformed: {_dir}/{_file}")
-                continue
-
-            logger.debug(f"region_map.d ({_dir}/{_file}) contents: {_file_region_map_contents}")
-            # We cannot just merge the dict from the file - as we have to be selective for over-rides/append-behavior
-            # This way the admin can simply specify the specific entries for them and not have to copy the SOCA defaults.
-
-            for _region, _region_data in _file_region_map_contents.items():
-
-                if _region not in _region_map:
-                    _region_map[_region] = {}
-
-                if not isinstance(_region_data, dict):
-                    logger.error(f"region_map.d file has malformed data for {_region}. Aborting.")
-                    exit(1)
-
-                for _arch_name in _region_data:
-
-                    if _arch_name not in _region_map[_region]:
-                        _region_map[_region][_arch_name] = {}
-
-                    _baseos_info: dict = _file_region_map_contents.get(_region, {}).get(_arch_name, {})
-
-                    if not isinstance(_baseos_info, dict):
-                        logger.error(f"region_map.d file has malformed data for {_region} / {_arch_name=} / {_baseos_info=}")
-                        exit(1)
-
-                    for _baseos_name, _baseos_ami in _baseos_info.items():
-
-                        if _baseos_name not in _region_map[_region][_arch_name]:
-                            _region_map[_region][_arch_name][_baseos_name] = _baseos_ami
-                        else:
-                            _previous_value: str = _region_map[_region][_arch_name][_baseos_name]
-                            logger.debug(f"region_map.d over-ride: {_region=} / {_arch_name=} / {_baseos_name=}. Overriding {_previous_value=} with {_baseos_ami=}")
-                            _region_map[_region][_arch_name][_baseos_name] = _baseos_ami
-
-    if len(_region_map) == 0:
-        logger.error(f"RegionMap and/or region_map.d files are empty or malformed. Unable to continue.")
-        exit(1)
-
-    # Do a quick lookup test
-    # Technically this can fail and be OK if the SOCA admin has removed all the SOCA default AMI files
-    # So we don't error on this
-    logger.debug(f"RegionMap lookup test for for amazonlinux2023/x86_64/us-east-1: {_region_map.get('us-east-1', {}).get('x86_64', {}).get('amazonlinux2023', '')} (empty may indicate non-default configuration)")
-
-    if args.override:
-        overrides: list = [item for sublist in args.override for item in sublist]
-        install_properties = override_keys(overrides, install_properties)
-
-    _merged_properties: dict = {**install_properties, "RegionMap": _region_map}
-
-    logger.debug(f"Merged properties: {_merged_properties=}")
-
-    install_parameters["install_properties"] = base64.b64encode(
-        json.dumps(_merged_properties).encode("utf-8")
-    ).decode("utf-8")
-
-    install_props = json.loads(
-        json.dumps(_merged_properties),
-        object_hook=lambda d: SimpleNamespace(**d),
-    )
-
-    logger.debug(f"Install props after override processing: {install_props}")
-
-    if not args.skip_config_message:
-        if (
-            get_input(
-                prompt=f"SOCA will create AWS resources using the default parameters specified in installer/default_config.yml.\n Make sure you have read, reviewed and updated them (if needed). Enter 'yes' to continue ...",
-                specified_value=None,
-                expected_answers=["yes", "no"],
-                expected_type=str,
-            )
-            != "yes"
-        ):
-            sys.exit(1)
-
-    logger.info("\n====== Validating AWS Environment ======\n")
-
-    # Load AWS custom profile if specified on CLI or env var
-    #
-    _profile_to_use: str = ""
-    _env_profile: str = os.environ.get("AWS_PROFILE", "")
-    logger.debug(f"AWS profile from environment (AWS_PROFILE): {_env_profile}")
-
-    _profile_to_use = _env_profile if _env_profile else ""
-
-    # The CLI over-rides the ENV - give a warning to the user
-    if args.profile:
-        if _env_profile:
-            logger.warning(
-                f"Using AWS profile sourced from CLI (but also found ENV var): {_profile_to_use}  (ENV: {_env_profile})"
-            )
-        _profile_to_use = args.profile
 
     try:
-        if _profile_to_use:
-            session = boto3.session.Session(profile_name=_profile_to_use)
-        else:
-            logger.debug(f"Using plain Boto3 session call")
-            session = boto3.session.Session()
-    except ProfileNotFound:
-        logger.error(f"Profile {args.profile} not found. Check ~/.aws/credentials file")
-        sys.exit(1)
-
-    # Determine our partition from calling STS client (without any specific region info)
-    _sts_client = session.client("sts")
-    _sts_caller_identity: dict = _sts_client.get_caller_identity()
-    _sts_caller_arn: str = _sts_caller_identity.get("Arn", "")
-    _sts_caller_account: str = _sts_caller_identity.get("Account", "")
-
-    if not _sts_caller_arn:
-        logger.error("Unable to determine AWS partition via STS. Exiting...")
-        sys.exit(1)
-
-    if not _sts_caller_account:
-        logger.error("Unable to determine AWS AccountID via STS. Exiting...")
-        sys.exit(1)
-
-    _sts_partition: str = ""
-    try:
-        _sts_partition = _sts_caller_arn.split(":")[1]
-    except IndexError as err:
-        logger.error(
-            f"Unable to determine AWS partition via STS. Error: {err}. Exiting..."
+        # We need to get the default region for the user’s partition before we can build the clients to get the list of regions to show in the prompt, so we will build a temporary client here with the default region to get the list of regions, then re-build the clients after the user selects their region
+        default_region = get_default_region(
+            sts_partition=install_parameters["partition"]
+        )
+        client_ec2 = build_boto3_client(
+            service_name="ec2", region_name=default_region, aws_profile=_aws_profile
+        )
+        client_ssm = build_boto3_client(
+            service_name="ssm", region_name=default_region, aws_profile=_aws_profile
         )
 
-    logger.info(f"STS-discovered caller ARN: {_sts_caller_arn}")
-    logger.info(f"STS-discovered AWS partition: {_sts_partition}")
-    logger.info(f"STS-discovered AWS account ID: {_sts_caller_account}")
+        # Fetching  all AMIs
+        # note: 999-my-ami-defaults.yaml will override any AMI values for the region specified in the config file if present, this allows us to have custom AMI values for certain regions without having to maintain a full RegionMap.d file
+        with spinner("Fetching all AMIs from `region_map.d` folder ..."):
+            try:
+                _region_map = get_ami_mapping()
 
-    install_parameters["partition"] = _sts_partition
-    install_parameters["account_id"] = _sts_caller_account
-
-    # Determine all AWS regions available on the account. We do not display opt-out regions
-    # This uses us-east-1 as a default probe destination
-    # For alternate partitions (e.g. GovCloud) - the AWS_DEFAULT_REGION MUST be set prior
-    # to running the installer else we will not be able to enumerate the regions in the partition.
-
-    # Set our default region based on the partition
-    # Add additional partitions here
-    default_region: str = ""
-    _ssm_region_query: bool = False
-
-    logger.debug(f"Default region for SSM query (not the cluster installation location): {default_region} / {_ssm_region_query=}")
-    match _sts_partition:
-        case "aws":
-            default_region = "us-east-1"
-            _ssm_region_query = True
-        case "aws-us-gov":
-            default_region = "us-gov-west-1"
-        case "aws-cn":
-            default_region = "cn-north-1"
-        case "aws-eusc":
-            default_region = "eusc-de-east-1"
-        case _:
-            default_region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-
-    logger.info(f"Default region based on STS partition: {default_region}")
-    ec2 = session.client("ec2", region_name=default_region, config=boto_extra_config)
-    if _ssm_region_query:
-        ssm_client = session.client(
-            "ssm", region_name=default_region, config=boto_extra_config
-        )
-
-    try:
-        # describe_regions does not support pagination 11 Oct 2024
-        accepted_regions = [
-            _region.get("RegionName")
-            for _region in ec2.describe_regions().get("Regions")
-        ]
-    except ClientError as err:
-        logger.warning(
-            f"Unable to list all AWS regions, you will need to enter it manually or give ec2:Describe* IAM permission. {err} "
-        )
-        accepted_regions = []
-
-    if not accepted_regions:
-        logger.error("No AWS regions found. Exiting...")
-        sys.exit(1)
-
-    # Build a dict of the accepted_regions
-    # TODO - Make a table with a better layout versus generic listing
-    accepted_regions_dict: dict = defaultdict(dict)
-    _region_extra_data: dict = defaultdict(dict)
-
-    _ssm_param_list: list = []
-    for _region in accepted_regions:
-        if _region == default_region:
-            accepted_regions_dict[_region]["default"] = True
-            accepted_regions_dict[_region]["visible"] = True
-        else:
-            accepted_regions_dict[_region]["default"] = False
-            accepted_regions_dict[_region]["visible"] = True
-        if _ssm_region_query:
-            _ssm_param_list.append(
-                f"/aws/service/global-infrastructure/regions/{_region}/longName"
-            )
-            _ssm_param_list.append(
-                f"/aws/service/global-infrastructure/regions/{_region}/geolocationCountry"
-            )
-    #        _ssm_param_list.append(f"/aws/service/global-infrastructure/regions/{_region}/partition")
-
-    if _ssm_region_query:
-        logger.debug(f"SSM Param lookup length: {len(_ssm_param_list)}")
-        # Chunk the regions into 10 param lookups
-        # _ssm_parm_lists is a list of lists with 10 entries ea
-        _ssm_param_lists = [
-            _ssm_param_list[i : i + 10] for i in range(0, len(_ssm_param_list), 10)
-        ]
-        logger.debug(
-            f"SSM Param Lookup Chunks needed (10 values per chunk): {len(_ssm_param_lists)}"
-        )
-
-        _ssm_chunk_i: int = 1
-        for _i in _ssm_param_lists:
-            logger.debug(f"Processing SSM Param chunk #{_ssm_chunk_i}")
-            _ssm_reply_values = ssm_client.get_parameters(Names=_i).get(
-                "Parameters", []
-            )
-            if _ssm_reply_values:
-                for _region_entry in _ssm_reply_values:
-                    # store what we want - paths are like /aws/service/global-infrastructure/regions/us-east-1/longName
-                    _region_data_key: str = _region_entry.get("Name").split("/")[
-                        -1
-                    ]  # e.g. longName
-                    _region_name: str = _region_entry.get("Name").split("/")[
-                        -2
-                    ]  # e.g. us-east-1
-                    _region_data_value: str = _region_entry.get("Value", "")
-
-                    logger.debug(
-                        f"Resolved region data for {_region_name} - {_region_data_key} => ({_region_data_value})"
+                if _region_map is None:
+                    logger.error(
+                        f"No AMI found for region {install_parameters['region']}. Exiting..."
                     )
-                    _region_extra_data[_region_name][
-                        _region_data_key
-                    ] = _region_data_value
-
-            _ssm_chunk_i += 1
-
-    logger.debug(f"Available regions: {accepted_regions_dict=} / {_region_extra_data}")
-
-    _region_table = Table(show_header=True, header_style="bold")
-    _region_table.add_column(header="AWS Region Code", width=18, justify="center")
-    _region_table.add_column(header="Country\nCode", width=9, justify="center")
-    _region_table.add_column(header="Description", width=35, justify="center")
-    #    _region_table.add_column(header="Partition", width=12, justify="center")
-
-    # populate the table
-    for _region in sorted(accepted_regions_dict):
-        _region_table.add_row(
-            _region,
-            (
-                _region_extra_data[_region]["geolocationCountry"]
-                if _ssm_region_query
-                else _region.split("-")[0].upper()
-            ),
-            _region_extra_data[_region]["longName"] if _ssm_region_query else _region,
-            #            _region_extra_data[_region]["partition"] if _ssm_region_query else _region,
-        )
-
-    #
-    # FIXME TODO - This should _not_ display the table if passed a valid CLI region name
-    #
-    _region_table = Align.center(_region_table, vertical="middle")
-
-    if args.region and args.region in accepted_regions:
-        logger.info(f"Using CLI-specified region: {args.region}")
-    else:
-        print(_region_table)
-
-    while install_parameters["region"] not in accepted_regions:
-        # Choose region where to install SOCA
-        install_parameters["region"] = get_input(
-            prompt=f"What AWS region do you want to install SOCA? (e.g. {default_region})",
-            specified_value=args.region,
-            expected_answers=accepted_regions_dict,
-            expected_type=str,
-            show_default_answer=True,
-            show_expected_answers=False,
-        )
-
-    #
-    # Cluster notification email address
-    # e.g. hpcnoc@example.com
-    # FIXME TODO - validate that it is a valid email address
-    #
-    logger.debug(f"Emails from command line args: {args.email=}")
-
-    install_parameters["email_address"] = get_input(
-        prompt=install_phases.get("email_address", "unk-email-prompt"),
-        specified_value=args.email,
-        expected_answers=None,
-        expected_type=str,
-        show_default_answer=False,
-        show_expected_answers=False,
-    )
-
-    # List-ify from get_input() which returns a string to us
-    if isinstance(install_parameters["email_address"], str):
-        install_parameters["email_address"] = [install_parameters["email_address"]]
-
-    logger.debug(f"After get_input() - Emails from command line args: {install_parameters['email_address']=}")
-
-    _cluster_allowed_emails: list = []
-
-    _email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    for _email_addr in install_parameters.get("email_address", []):
-        logger.debug(f"Checking email address: {_email_addr=}")
-        # remove spaces and allow support for comma split
-        # e.g. --email mynoc1@example.com,mynoc2@example.com
-        #
-        _email_addr = _email_addr.replace(" ", "")
-        if "," in _email_addr:
-            logger.debug(f"Splitting a comma-split email list: {_email_addr}")
-
-            for _sub_email_addr in _email_addr.split(","):
-                logger.debug(f"Looking at sub-email: {_sub_email_addr=}")
-                if not re.match(_email_regex, _sub_email_addr):
-                    logger.error(f"Failed to validate sub-email address: {_sub_email_addr} from {_email_addr} . Please try again with a valid email address.")
                     sys.exit(1)
                 else:
-                    logger.debug(f"Sub-email {_sub_email_addr} from {_email_addr} conforms to Email Regex")
-                    _cluster_allowed_emails.append(_sub_email_addr)
-        else:
-            if not re.match(_email_regex, _email_addr):
-                # TODO =- Should this error, or just kick out the non-compliant email?
-                logger.error(f"Failed to validate email address: {_email_addr} . Please try again with a valid email address.")
-                sys.exit(1)
-            else:
-                logger.debug(f"Email address {_email_addr} conforms to Email Regex")
-                _cluster_allowed_emails.append(_email_addr)
+                    # Merge RegionMap to the install properties
+                    _get_install_properties = {
+                        **_get_install_properties,
+                        "RegionMap": _region_map,
+                    }
 
-
-    logger.debug(f"Using Cluster Notification Email address(es) (raw): {install_parameters['email_address']}")
-
-    install_parameters["install_properties"] = base64.b64encode(
-        json.dumps(_merged_properties).encode("utf-8")
-    ).decode("utf-8")
-
-    install_parameters["email_address"] = base64.b64encode(
-        json.dumps(_cluster_allowed_emails).encode("utf-8")
-    ).decode("utf-8")
-
-    logger.debug(f"Using Cluster Notification Email address(es) (base64): {install_parameters['email_address']}")
-
-    # Initiate boto3 clients now the partition and region is known
-    # TODO - there are better ways to do this
-
-    secretsmanager = session.client(
-        "secretsmanager",
-        region_name=install_parameters["region"],
-        config=boto_extra_config,
-    )
-
-    ec2 = session.client(
-        "ec2", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    sts = session.client(
-        "sts", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    s3 = session.resource(
-        "s3", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    efs = session.client(
-        "efs", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    fsx = session.client(
-        "fsx", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    ssm = session.client(
-        "ssm", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    cloudformation = session.client(
-        "cloudformation",
-        region_name=install_parameters["region"],
-        config=boto_extra_config,
-    )
-    iam = session.client(
-        "iam", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    kms = session.client(
-        "kms", region_name=install_parameters["region"], config=boto_extra_config
-    )
-    # Perform KMS key alias check to pre-generate service default KMS key Aliases if needed
-    kms_prepare_account_aliases()
-
-    accepted_aws_values = accepted_aws_resources(region=install_parameters["region"])
-
-    # Verify if we have the default Service Linked Role for ElasticSearch. SOCA will create it if needed
-    install_parameters["create_es_service_role"] = False
-    try:
-        logger.debug(f"Validating OpenSearch SLR")
-        _iam_paginator = iam.get_paginator("list_roles")
-        _iam_iter = _iam_paginator.paginate(
-            PathPrefix="/aws-service-role/opensearchservice.amazonaws.com"
-        )
-        for _page in _iam_iter:
-            logger.debug(f"Processing Role page: {_page}")
-            if not _page.get("Roles", []):
-                install_parameters["create_es_service_role"] = True
-                break
-
-    except ClientError as err:
-        logger.error(
-            f"Unable to determine if you have a ServiceLinked Role created on your account for OpenSearch. Verify your IAM permissions: {err} "
-        )
-        sys.exit(1)
-
-    # Automatically detect client ip information if needed
-    # Loops per address-family that is enabled (IPv4 always enabled for now)
-
-    _af_dict: dict = {
-        "ipv4": {
-            "enabled": True,
-            "name": "IPv4",
-            "args": args.client_ip,
-            "index": "client_ip",
-        },
-        "ipv6": {
-            "enabled": True,
-            "name": "IPv6",
-            "args": args.client_ipv6,
-            "index": "client_ipv6",
-        }
-    }
-
-    if not args.client_ip:
-        install_parameters["client_ip"] = [detect_customer_ip(address_family="ipv4")]
-
-        if install_parameters.get("client_ip", ""):
-            logger.warning(
-                f"We determined your IPv4 address is {', '.join(install_parameters['client_ip'])}. You can change it later if you are running behind a proxy"
-            )
-        else:
-            logger.warning(
-                f"Unable to automatically determine your IPv4 address. Manual specification will be required"
-            )
-    else:
-        install_parameters["client_ip"] = args.client_ip
-        logger.debug(f"Client-IPv4: {args.client_ip}")
-
-    # Repeat for IPv6 if enabled
-    if args.ipv6:
-        if not args.client_ipv6:
-            install_parameters["client_ipv6"] = [detect_customer_ip(address_family="ipv6")]
-
-            if install_parameters.get("client_ipv6", ""):
-                logger.warning(
-                    f"We determined your IPv6 address is {install_parameters['client_ipv6']}. You can change it later if you are running behind a proxy"
+                logger.debug(
+                    f"Latest AMI for region {install_parameters['region']}: {_region_map}"
                 )
-            else:
-                logger.warning(
-                    f"Unable to automatically determine your IPv6 address. Manual specification will be required"
-                )
-        else:
-            install_parameters["client_ipv6"] = [args.client_ipv6]
-            logger.debug(f"Client-IPv6: {args.client_ipv6}")
-
-
-    # If we had to auto-probe the IP, give the option to update it before continuing
-    if not args.client_ip:
-        install_parameters["client_ip"] = get_input(
-            prompt="Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22",
-            specified_value=install_parameters["client_ip"],
-            expected_answers=None,
-            expected_type=str,
-        )
-
-        # Make sure the answer is a valid IP address
-        while not is_valid_address(address_family="ipv4", address=install_parameters["client_ip"]):
-            install_parameters["client_ip"] = get_input(
-                prompt="Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22",
-                specified_value=None,
-                expected_answers=None,
-                expected_type=str,
-            )
-
-
-    # if isinstance(install_parameters["client_ip"], str):
-    #     logger.debug(f"Listify - {install_parameters['client_ip']}")
-    #     install_parameters["client_ip"] = list(install_parameters["client_ip"])
-    #     logger.debug(f"Listify now - {install_parameters['client_ip']}")
-    # else:
-
-    logger.debug(f"Client-IPv4: {install_parameters['client_ip']=}")
-
-    install_parameters["client_ip"] = base64.b64encode(
-        str(install_parameters['client_ip']).encode("utf-8")
-    ).decode("utf-8")
-
-    if install_parameters.get("client_ipv6", ""):
-        install_parameters["client_ipv6"] = base64.b64encode(
-            str(install_parameters['client_ipv6']).encode("utf-8")
-        ).decode("utf-8")
-
-
-    # Get SOCA parameters
-    get_install_parameters()
-
-    # Validate Config, relaunch installer if needed
-    while not validate_soca_config(install_parameters, install_props):
-        get_install_parameters()
-
-    # Validate CloudFormation stack name
-    try:
-        check_if_name_exist = cloudformation.describe_stacks(
-            StackName=install_parameters["cluster_id"]
-        )
-        if len(check_if_name_exist["Stacks"]) != 0:
-            if args.cdk_cmd == "create":
+            except Exception as err:
                 logger.error(
-                    f"{install_parameters['cluster_id']} already exists in CloudFormation. Please pick a different name and try again (edh- is automatically added as a prefix)."
+                    f"Error fetching the AMI MAP for region {install_parameters['region']}: {err}"
                 )
                 sys.exit(1)
-            elif args.cdk_cmd == "deploy":
-                logger.error(
-                    f"{install_parameters['cluster_id']} already exists in CloudFormation. Use --cdk-cmd update if you want to update it."
-                )
-                sys.exit(1)
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ValidationError":
-            if args.cdk_cmd == "update":
-                logger.error(
-                    f"{install_parameters['cluster_id']} does not exist in CloudFormation so can't be updated. Use --cdk-cmd deploy if you want to create it."
-                )
-                sys.exit(1)
-            else:
-                # Stack does not exist so create it
-                pass
-        else:
-            logger.error(
-                f"Error checking if {install_parameters['cluster_id']} already exists in CloudFormation due to {e}."
-            )
-            sys.exit(1)
 
-    # Prepare CDK commands
-    # Start to build up some common CDK args in case we need them
-    # Make sure to start the string with a leading space
+        # Display Config Message disclaimer
+        if not install_parameters.get("skip_config_message"):
+            _config_choice = questionary.select(
+                _(
+                    "EDH will create AWS resources using the default parameters specified in {config_file}.\n"
+                    "Make sure you have read, reviewed and updated them (if needed). Continue?"
+                ).format(config_file=args.config),
+                choices=[
+                    _("Continue"),
+                    _("Abort"),
+                ],
+                default=_("Continue"),
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+            if _config_choice == _("Abort"):
+                console.print(_("[yellow]Aborted by user.[/yellow]"))
+                sys.exit(0)
+        # End of config message disclaimer
 
-    _cdk_common_args: str = (
-        f"--output cdk.out/{install_parameters['cluster_id']}/{install_parameters['region']}"
-    )
-
-    # User has requested specific CDK Policy ARN(s)
-    if args.cdk_cloudformation_execution_policies:
-        _cdk_common_args += f" --cloudformation-execution-policies {args.cdk_cloudformation_execution_policies}"
-
-    # User has requested a specific CDK Role ARN
-    if args.cdk_role_arn:
-        _cdk_common_args += f" --role-arn {args.cdk_role_arn}"
-
-    # User has requested a specific KMS KeyID to used
-    if args.cdk_bootstrap_kms_key_id:
-        _cdk_common_args += f" --bootstrap-kms-key-id {args.cdk_bootstrap_kms_key_id}"
-
-    if args.cdk_custom_permissions_boundary:
-        _cdk_common_args += (
-            f" --custom-permissions-boundary {args.cdk_custom_permissions_boundary}"
-        )
-
-    # Default is to enable termination protection as a best practice
-    _cdk_common_args += " --termination-protection"
-    logger.info(":lock: [green]CDK Bootstrap Stack Termination protection is enabled")
-
-    if args.debug:
-        _cdk_common_args += " --debug -v -v -v"
-
-    if args.profile:
-        _cdk_common_args += f" --profile {args.profile}"
-        install_parameters["profile"] = "False" if not args.profile else args.profile
-
-
-    # Default to --strict mode
-    if args.cdk_no_strict:
-        logger.warning(f"Disabling CDK Strict mode - Templates are allowed to proceed with CDK warnings")
-    else:
-        logger.info(f":white_check_mark: [green]CDK Strict mode activated")
-        _cdk_common_args += f" --strict"
-
-
-    if args.cdk_cmd in ["create", "update"]:
-        cdk_cmd = "deploy"
-    else:
-        cdk_cmd = args.cdk_cmd
-
-    cmd = f"cdk {cdk_cmd} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)} --require-approval never"
-    cmd_bootstrap = f"cdk bootstrap {_cdk_common_args} aws://{install_parameters['account_id']}/{install_parameters['region']} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)}"
-
-    # Adding --debug flag will output the cdk deploy command. This is helpful for troubleshooting.
-    if args.debug:
-        logger.debug(f"\nExecuting {cmd}")
-
-    # Log command in history book
-    with open("installer_history.txt", "a+") as f:
-        f.write(
-            f"""\n==== [{datetime.datetime.now(datetime.UTC)}] ====
-{cmd}
-{str(install_parameters)}
-============================="""
-        )
-
-    # First, Bootstrap the environment. This will create a staging S3 bucket if needed
-    logger.info("\n====== Running CDK Bootstrap ======\n")
-    stream_subprocess(command=shlex.split(cmd_bootstrap))
-
-    # Increase SSM Throughput if needed (https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-throughput.html)
-    # Settings will be restored if needed post deployment
-    disable_ssm_high_throughput_post_install: bool = False
-
-    # Upload required assets to customer S3 account
-    if cdk_cmd == "deploy":
-        upload_objects(
-            _install_directory,
-            install_parameters["bucket"],
-            install_parameters["cluster_id"],
-        )
-
-        _check_ssm_high_throughput = ssm.get_service_setting(
-            SettingId="/ssm/parameter-store/high-throughput-enabled"
-        )
-
-        if (
-            _check_ssm_high_throughput.get("ServiceSetting").get("SettingValue")
-            == "false"
-        ):
-            logger.warning(
-                "Temporarily enabling /ssm/parameter-store/high-throughput-enabled for SOCA deployment"
-            )
-            # try/catch
-            # Validate the update
-            ssm.update_service_setting(
-                SettingId="/ssm/parameter-store/high-throughput-enabled",
-                SettingValue="true",
-            )
-            disable_ssm_high_throughput_post_install = True
-
-    # Then launch the actual SOCA installer
-    logger.info("\n====== Deploying SOCA ======\n")
-    launch_installer = os.system(cmd)  # nosec
-
-    if cdk_cmd == "deploy":
-        # Optional - Re-enable SSM default
-        if disable_ssm_high_throughput_post_install:
-            logger.warning(
-                "Restoring /ssm/parameter-store/high-throughput-enabled to its previous value post-deployment"
-            )
-            # try/catch
-            # validate
-            ssm.update_service_setting(
-                SettingId="/ssm/parameter-store/high-throughput-enabled",
-                SettingValue="false",
-            )
-
-        if int(launch_installer) == 0:
-            # SOCA is installed. We will now wait until SOCA is fully configured (when the ELB returns HTTP 200)
-            logger.info(f"[bold green]SOCA was installed successfully![/bold green]")
-
-            if install_props.Config.directoryservice.provider not in [
-                "existing_openldap",
-                "existing_active_directory",
-            ]:
-                _get_admin_password = retrieve_secret_value(
-                    secret_id="/edh/"
-                    + install_parameters["cluster_id"]
-                    + "/EDHAdminUser"
-                )
-
-                logger.info(f"{'=' * 44}")
-                _auth_table = Table(
-                    title=f"SOCA Default Admin Credentials",
-                    show_lines=True,
-                    highlight=True,
-                )
-                _auth_table.add_column(
-                    header="[bold yellow]Default Username[/bold yellow]",
-                    justify="center",
-                    no_wrap=True,
-                )
-                _auth_table.add_column(
-                    header="[bold yellow]Default Password[/bold yellow]",
-                    justify="center",
-                    no_wrap=True,
-                )
-                _auth_table.add_row(
-                    _get_admin_password.get("username"),
-                    _get_admin_password.get("password"),
-                )
-                Console(emoji=False).print(_auth_table)
-                logger.info(
-                    f"[bold green]Use the login/password credential to log in when your endpoint is ready."
-                )
-                logger.info(f"{'=' * 44}")
-            else:
-                logger.info(f"{'=' * 44}")
-                logger.info(
-                    f"[bold green]Using an existing Active Directory or OpenLDAP. Use an existing user to log in."
-                )
-                logger.info(f"{'=' * 44}")
-
+        # Begin Region
+        if not install_parameters.get("region"):
             try:
-                check_cfn = cloudformation.describe_stacks(
-                    StackName=install_parameters["cluster_id"]
-                )
-                if args.format == "json":
-                    with open(
-                        f"{install_parameters['cluster_id']}.output", "w"
-                    ) as outfile:
-                        json.dump(check_cfn["Stacks"][0]["Outputs"], outfile)
-
-                for output in check_cfn["Stacks"][0]["Outputs"]:
-                    if output["OutputKey"] == "WebUserInterface":
-                        logger.info(
-                            f"SOCA Web Endpoint is {output['OutputValue']} . Now checking if SOCA is fully configured (this could take up to 30 minutes)"
+                with spinner("Fetching available AWS regions for your AWS account ..."):
+                    region_codes = [
+                        r["RegionName"]
+                        for r in client_ec2.describe_regions(AllRegions=False).get(
+                            "Regions", []
                         )
-                        # Run a first check to determine if client IP provided by the customer is valid
-                        try:
-                            check_firewall = get(
-                                f"{output['OutputValue']}", verify=False, timeout=35
-                            )  # nosec
-                        except Timeout:
-                            #
-                            # We cannot log the IP here as it is now a b64-list by this point and it may get large
-                            # Or we are in MPL mode. So we just tell the user to go to the console to fix the issue.
-                            logger.warning(
-                                f"Unable to connect to the SOCA endpoint URL. Maybe your IP is not valid/has changed (maybe you are behind a proxy?). If that's the case please go to AWS console and authorize your real IP address on the ALB and NLB Security Groups / Prefix-Lists"
-                            )
-                            sys.exit(1)
-                        except ConnectionError as e:
-                            logger.warning(
-                                f"Encountered ConnectionError. Unable to connect to the SOCA endpoint URL. Error: {e} "
-                            )
-                        except ConnectionRefusedError as e:
-                            logger.warning(
-                                f"Encountered ConnectionRefusedError. Unable to connect to the SOCA endpoint URL. Error: {e} "
-                            )
+                    ]
+                    region_meta = _fetch_region_metadata(client_ssm, region_codes)
+            except Exception as err:
+                logger.error(f"Error fetching AWS regions: {err}")
+                sys.exit(1)
 
-                        soca_check_loop = 0
-                        if install_parameters["vpc_id"]:
-                            # SOCA deployment is shorter when using existing resources, so we increase the timeout
-                            max_check_loop = 15
-                        else:
-                            max_check_loop = 10
-                        # print(f"DEBUG - Starting Endpoint check loop - MaxCheckLoop: {max_check_loop}")
-                        while (
-                            get(
-                                output["OutputValue"], verify=False, timeout=15  # nosec
-                            ).status_code
-                            != 200
-                            and soca_check_loop <= max_check_loop
-                        ):  # nosec
+            if not region_meta:
+                logger.error("No AWS regions available to select. Exiting...")
+                sys.exit(1)
+
+            install_parameters["region"] = questionary.select(
+                _("Select the region where you want to deploy your EDH cluster:"),
+                instruction=_(
+                    "(Your data will reside in the region you select. "
+                    "Country code [CC] is shown to help with data-residency.)"
+                ),
+                choices=_build_region_choices(region_meta),
+                use_search_filter=True,
+                use_jk_keys=False,
+                default=default_region,
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+        # End Region
+
+        # At this point we have the region, we will re-build the clients with the correct region for validation and later use
+        logger.debug(
+            f"User selected region: {install_parameters['region']}, creating clients with this region for validation and use in CDK deployment"
+        )
+
+        with spinner("Building boto3 clients ..."):
+            import time as _time  # local alias; avoids shadowing any top-level time import
+
+            _boto_build_t0 = _time.monotonic()
+            logger.debug(
+                f"boto3 client build: starting batch of 11 clients "
+                f"(SOCA_BOTO3_SHARED_SESSION="
+                f"{os.environ.get('SOCA_BOTO3_SHARED_SESSION', 'on')})"
+            )
+            client_ec2 = build_boto3_client(
+                service_name="ec2",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_ssm = build_boto3_client(
+                service_name="ssm",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_sts = build_boto3_client(
+                service_name="sts",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_s3_resource = build_boto3_client(
+                service_name="s3",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+                resource=True,
+            )
+            client_s3 = build_boto3_client(
+                service_name="s3",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_efs = build_boto3_client(
+                service_name="efs",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_fsx = build_boto3_client(
+                service_name="fsx",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_cloudformation = build_boto3_client(
+                service_name="cloudformation",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_iam = build_boto3_client(
+                service_name="iam",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_kms = build_boto3_client(
+                service_name="kms",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_secretsmanager = build_boto3_client(
+                service_name="secretsmanager",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            client_acm = build_boto3_client(
+                service_name="acm",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            _boto_build_elapsed = _time.monotonic() - _boto_build_t0
+            logger.debug(
+                f"boto3 client build: completed batch of 11 clients in "
+                f"{_boto_build_elapsed:.2f}s "
+                f"(avg {_boto_build_elapsed * 100:.0f}ms/client)"
+            )
+
+        logger.debug(
+            "Re-built boto3 clients with user-selected region for validation and use in CDK deployment"
+        )
+
+        if args.prefix_list_id:
+            with spinner(message=_("Validating EC2 Prefix List ID ... ")):
+                _pl_info = check_prefix_list(
+                    ec2_client=client_ec2, prefix_list_id=args.prefix_list_id
+                )
+                # note: check_prefix_list() already verify if the Address family is either IPv4 or IPv6 and exit otherwise.
+                if _pl_info.get("AddressFamily") == "IPv4":
+                    install_parameters["prefix_list_id"] = args.prefix_list_id
+                elif _pl_info.get("AddressFamily") == "IPv6":
+                    install_parameters["prefix_list_id_ipv6"] = args.prefix_list_id
+
+        # Performing KMS key alias check to pre-generate service default KMS key Aliases if needed
+        with spinner("Performing KMS key alias check ..."):
+            kms_prepare_account_aliases(client=client_kms)
+
+        if args.skip_cmk_checks:
+            logger.warning(
+                "Skipping Customer Managed KMS Key policy validation checks as per user request. Make sure you have the right permissions set on your KMS keys to avoid deployment failure. See documentation https://awslabs.github.io/engineering-development-hub-documentation/documentation/security/encryption-everywhere-with-kms/"
+            )
+        else:
+            with spinner("Checking Customer Managed KMS Key permissions ..."):
+                _kms_keys = extract_kms_keys(_get_install_properties)
+                # example output
+                # [{'path': 'Config.storage.kms_key_id', 'value': 'arn:aws:kms:eu-west-1:redacted:key/redacted'}, {'path': 'Config.login_node.volume_kms_key_id', 'value': 'alias/aws/ebs'},
+                # {'path': 'Config.controller.volume_kms_key_id', 'value': 'arn:aws:kms:eu-west-1:redacted:key/redacted'}]
+                if _kms_keys:
+                    for kms_key in _kms_keys:
+                        if not kms_key["value"].startswith("alias/"):
                             logger.info(
-                                "SOCA not ready yet, checking again in 300 seconds ... "
+                                f"Verifying permissions for KMS Key referenced at {kms_key['path']}: {kms_key['value']}"
                             )
-                            time.sleep(300)
-                            soca_check_loop += 1
-                            if soca_check_loop >= max_check_loop:
-                                logger.warning(
-                                    f"Could not determine if SOCA is ready after {max_check_loop*2} minutes. Connect to the system via SSM and check the logs. "
+                            if not check_kms_key_principals(
+                                kms_client=client_kms,
+                                key_id=kms_key["value"],
+                                account_id=install_parameters["account_id"],
+                                require_cloudwatch=(
+                                    True
+                                    if "logging.kms_key_id" in kms_key["path"]
+                                    or kms_key["path"] == "Config.kms_key_id"
+                                    else False
+                                ),
+                            ):
+                                logger.error(
+                                    f"KMS Key {kms_key['value']} referenced at {kms_key['path']} does not have the required permissions. Please update the KMS key policy to include the required permissions and try again. See documentation https://awslabs.github.io/engineering-development-hub-documentation/documentation/security/encryption-everywhere-with-kms/"
                                 )
                                 sys.exit(1)
 
-                        # at this point SOCA Web UI is fully operational, however the user creation will happen within the next 20 to 40 seconds.
-                        # Adding extra delay to be sure the user is created and customer can click and login.
-
-                        time.sleep(120)
-                        logger.info(
-                            f"[green]SOCA is ready! Login via {output['OutputValue']}"
-                        )
-
-            except ValidationError:
-                logger.error(
-                    f"{install_parameters['cluster_id']} is not a valid cloudformation stack"
+        # Verify if we have the default Service Linked Role for OpenSearch. EDH will create it if needed
+        with spinner("Validating OpenSearch SLR ..."):
+            try:
+                logger.debug(f"Validating OpenSearch SLR")
+                _iam_paginator = client_iam.get_paginator("list_roles")
+                _iam_iter = _iam_paginator.paginate(
+                    PathPrefix="/aws-service-role/opensearchservice.amazonaws.com"
                 )
+                for _page in _iam_iter:
+                    logger.debug(f"Processing Role page: {_page}")
+                    if not _page.get("Roles", []):
+                        install_parameters["create_es_service_role"] = True
+                        break
+
             except ClientError as err:
                 logger.error(
-                    f"Unable to retrieve {install_parameters['cluster_id']} stack outputs, probably due to a permission error (your IAM account do not have permission to run cloudformation:Describe*. Log in to AWS console to view your stack connection endpoints"
+                    f"Unable to determine if you have a ServiceLinked Role created on your account for OpenSearch. Verify your IAM permissions: {err} "
+                )
+                sys.exit(1)
+
+        if not install_parameters.get("cluster_name"):
+            while True:
+                _cluster_suffix = questionary.text(
+                    _(
+                        "Please provide your EDH environment name (edh- is automatically added as a prefix):"
+                    ),
+                    instruction="edh-",
+                    validate=lambda v: (
+                        True
+                        if 3 <= len(v) <= 11
+                        else "Name must be between 3 and 11 characters"
+                    ),  # note: edh- is added as prefix, and max lenght is 15. The actual cluster name should then be anything between 3 and 11
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+                install_parameters["cluster_name"] = f"edh-{_cluster_suffix.lower()}"
+                install_parameters["cluster_id"] = f"edh-{_cluster_suffix.lower()}"
+                try:
+                    with spinner(
+                        message=_("Checking if name is available on Cloudformation")
+                    ):
+                        # this also check if there is not already a Cloudformation stack with the same name
+                        InstallParameters._validate_cluster_name_unique(
+                            install_parameters["cluster_name"],
+                            install_parameters["region"],
+                        )
+                    break
+                except ValueError as e:
+                    logger.error(str(e))
+            logger.debug(
+                f"User specified cluster name: {install_parameters['cluster_name']}"
+            )
+        else:
+            # automatically add `edh-` prefix when custom --name is specified via CLI
+            # 15 char max size will still be validated automatically later via model
+            if not install_parameters.get("cluster_name").startswith("edh-"):
+                install_parameters["cluster_name"] = (
+                    f"edh-{install_parameters.get('cluster_name').lower()}"
+                )
+                install_parameters["cluster_id"] = install_parameters.get(
+                    "cluster_name"
                 )
 
-    elif args.cdk_cmd == "destroy":
-        # Destroy stack if known
-        cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
-        logger.info(f"Deleting stack, running {cmd_destroy}")
-        delete_stack = os.system(cmd_destroy)  # nosec
-    else:
-        # synth, ls etc.
-        pass
+                logger.warning(
+                    f"Specified --name does not start with edh-. Cluster name will be {install_parameters['cluster_name']}"
+                )
+
+        if not install_parameters.get("email_address"):
+            install_parameters["email_address"] = [
+                questionary.text(
+                    _("Email address for cluster notifications:"),
+                    validate=lambda val: inline_validate_with(
+                        InstallParameters, "email_address"
+                    )([val]),
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+            ]
+            logger.debug(
+                f"User specified email address: {install_parameters['email_address']}"
+            )
+
+        # Cert resolution: 3 modes
+        #   1. install_parameters["tls_certificate"] is an ARN (str
+        #      starting with "arn:") -> use it as-is, no prompt.
+        #   2. install_parameters["tls_certificate"] == TLS_CERTIFICATE_AUTO
+        #      -> headless auto-create path (matches "create" prompt choice).
+        #   3. install_parameters["tls_certificate"] is falsy -> show
+        #      the interactive prompt.
+        TLS_CERTIFICATE_AUTO = "auto"
+        _cert_initial = install_parameters.get("tls_certificate")
+        _cert_is_auto = _cert_initial == TLS_CERTIFICATE_AUTO
+        if _cert_is_auto:
+            # Clear the sentinel so the create-path code below sets the real ARN.
+            install_parameters["tls_certificate"] = None
+
+        if not install_parameters.get("tls_certificate"):
+            if _cert_is_auto:
+                _cert_choice = "create"
+                logger.info(
+                    "TLS: --tls-certificate auto -> using EDH default self-signed cert "
+                    "(create-if-missing). Self-signed; not for production."
+                )
+            else:
+                _cert_choice = questionary.select(
+                    _("How would you like to configure the HTTPS certificate?"),
+                    choices=[
+                        Choice(
+                            title=_("Let EDH create a self-signed certificate"),
+                            value="create",
+                        ),
+                        Choice(
+                            title=_("Use an existing ACM certificate"),
+                            value="existing",
+                        ),
+                    ],
+                    style=constants.EDH_STYLE,
+                    default="create",
+                ).unsafe_ask()
+            if _cert_choice == "existing":
+                with spinner("Fetching ACM certificates ..."):
+                    _acm_certs = list_acm_certificates(acm_client=client_acm)
+
+                if not _acm_certs:
+                    logger.error(
+                        f"No issued certificates found in ACM for region {install_parameters['region']}."
+                    )
+                    sys.exit(1)
+
+                _cert_domain_w = max(len(c["domain_name"]) for c in _acm_certs)
+                install_parameters["tls_certificate"] = questionary.select(
+                    _("Select the ACM certificate to use:"),
+                    choices=[
+                        Choice(
+                            title=f"{c['domain_name']:<{_cert_domain_w}}  {c['certificate_arn']}",
+                            value=c["certificate_arn"],
+                        )
+                        for c in _acm_certs
+                    ],
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+            else:
+                with spinner("Checking for existing EDH default certificate ..."):
+                    _acm_certs = list_acm_certificates(acm_client=client_acm)
+
+                _existing_default = next(
+                    (
+                        c
+                        for c in _acm_certs
+                        if c["domain_name"] == "EDH.DEFAULT.CREATE.YOUR.OWN.CERTIFICATE"
+                    ),
+                    None,
+                )
+
+                if _existing_default:
+                    install_parameters["tls_certificate"] = _existing_default[
+                        "certificate_arn"
+                    ]
+                    logger.info(
+                        f"Using existing EDH default certificate: {_existing_default['certificate_arn']}"
+                    )
+                else:
+                    with spinner(
+                        "Creating self-signed certificate and uploading it to ACM ..."
+                    ):
+                        _new_cert_arn = (
+                            create_self_signed_certificate_and_upload_to_acm(
+                                acm_client=client_acm
+                            )
+                        )
+
+                    with spinner("Waiting for certificate to be in ISSUED state ..."):
+                        for _attempt in range(30):
+                            _acm_certs = list_acm_certificates(
+                                acm_client=client_acm, certificate_arn=_new_cert_arn
+                            )
+                            if _acm_certs:
+                                break
+                            time.sleep(2)
+                        else:
+                            logger.error(
+                                "Certificate did not reach ISSUED state within 60 seconds."
+                            )
+                            sys.exit(1)
+
+                    install_parameters["tls_certificate"] = _new_cert_arn
+
+            logger.debug(
+                f"User selected ACM certificate: {install_parameters['tls_certificate']}"
+            )
+
+        if not install_parameters.get("base_os"):
+            install_parameters["base_os"] = questionary.select(
+                _(
+                    "Select the default operating system for your EDH cluster (this can be changed post deployment):"
+                ),
+                choices=[Choice(title=e.value, value=e.value) for e in BaseOS],
+                default="amazonlinux2023",
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+            logger.debug(f"User specified base OS: {install_parameters['base_os']}")
+
+        try:
+            _region_map[install_parameters["region"]]["x86_64"][
+                install_parameters["base_os"]
+            ]
+        except KeyError:
+            logger.error(
+                f"Base OS {install_parameters['base_os']} is not available for region {install_parameters['region']}. Exiting..."
+            )
+            sys.exit(1)
+
+        if not install_parameters.get("client_ip"):
+            with spinner("Detecting your IPv4 address ..."):
+                try:
+                    detected_ip = detect_customer_ip(address_family="ipv4")
+                    logger.debug(f"Detected customer IPv4 address: {detected_ip}")
+                except Exception as err:
+                    logger.error(f"Error detecting customer IPv4 address: {err}")
+                    detected_ip = ""
+
+            install_parameters["client_ip"] = [
+                questionary.text(
+                    _(
+                        "Client IPv4 or CIDR range authorized to access EDH on TCP ports 443/22 (this can be changed post-install):"
+                    ),
+                    validate=lambda val: inline_validate_with(
+                        InstallParameters, "client_ip"
+                    )([val]),
+                    style=constants.EDH_STYLE,
+                    default=detected_ip,
+                ).unsafe_ask()
+            ]
+            logger.debug(f"User specified client IP: {install_parameters['client_ip']}")
+
+        # Dual-stack: detect + prompt a separate IPv6 client range when IPv6 is enabled
+        if args.ipv6 and not install_parameters.get("client_ipv6"):
+            with spinner("Detecting your IPv6 address ..."):
+                try:
+                    detected_ipv6 = detect_customer_ip(address_family="ipv6")
+                    logger.debug(f"Detected customer IPv6 address: {detected_ipv6}")
+                except Exception as err:
+                    logger.error(f"Error detecting customer IPv6 address: {err}")
+                    detected_ipv6 = ""
+
+            install_parameters["client_ipv6"] = [
+                questionary.text(
+                    _(
+                        "Client IPv6 or CIDR range authorized to access EDH on TCP ports 443/22 (this can be changed post-install):"
+                    ),
+                    validate=lambda val: inline_validate_with(
+                        InstallParameters, "client_ipv6"
+                    )([val]),
+                    style=constants.EDH_STYLE,
+                    default=detected_ipv6,
+                ).unsafe_ask()
+            ]
+            logger.debug(
+                f"User specified client IPv6: {install_parameters['client_ipv6']}"
+            )
+
+        if not install_parameters.get("deployment_mode"):
+            install_parameters["deployment_mode"] = questionary.select(
+                _(
+                    "How should EDH be deployed?\n"
+                    "  Public: Load balancers are placed in public subnets, protected by security groups and prefix lists. Only your authorized IPs ({client_ip}) can reach EDH (this list can be changed post-install).\n"
+                    "  Private: Load balancers are placed in private subnets. Requires a VPN or Direct Connect for access."
+                ).format(
+                    client_ip=", ".join(
+                        (install_parameters.get("client_ip") or [])
+                        + (install_parameters.get("client_ipv6") or [])
+                    )
+                ),
+                choices=[
+                    Choice(
+                        title=_(
+                            "Public (Recommended) - Internet-facing load balancers, access restricted by firewall rules"
+                        ),
+                        value="public",
+                    ),
+                    Choice(
+                        title=_(
+                            "Private - Internal load balancers, requires VPN/Direct Connect. Not internet routable."
+                        ),
+                        value="private",
+                    ),
+                ],
+                style=constants.EDH_STYLE,
+                default="public",
+            ).unsafe_ask()
+
+        if not install_parameters.get("ssh_keypair"):
+            with spinner("Fetching available SSH key pairs ..."):
+                try:
+                    _available_keypairs = InstallParameters._list_ssh_keypairs(
+                        install_parameters["region"]
+                    )
+                except ValueError as e:
+                    logger.error(str(e))
+                    sys.exit(1)
+
+                if not _available_keypairs:
+                    logger.error(
+                        f"No SSH key pairs found in {install_parameters['region']}. Create one first."
+                    )
+                    sys.exit(1)
+
+            # Fixed-width columns keep values aligned across entries.
+            # Widest key name sets column 1; key type is 3 chars; date is 10.
+            _kp_name_w = max(len(kp["name"]) for kp in _available_keypairs)
+            install_parameters["ssh_keypair"] = questionary.select(
+                _("Choose the SSH keypair to use: "),
+                choices=[
+                    Choice(
+                        title=f"{kp['name']:<{_kp_name_w}}  {kp['type']:<8}  {kp['created']}",
+                        value=kp["name"],
+                    )
+                    for kp in _available_keypairs
+                ],
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+            logger.debug(
+                f"User specified SSH keypair: {install_parameters['ssh_keypair']}"
+            )
+
+        if not install_parameters.get("bucket"):
+            # Accept the '?' picker sentinel through the field validator, then
+            # branch on it. A real name still gets full pydantic format
+            # validation here and the HeadBucket ownership check below; '?' can
+            # never be a valid bucket name so there is no collision.
+            _bucket_field_validate = inline_validate_with(InstallParameters, "bucket")
+
+            def _bucket_or_list(value: str):
+                if (value or "").strip() == "?":
+                    return True
+                return _bucket_field_validate(value)
+
+            while True:
+                _bucket_answer = questionary.text(
+                    _(
+                        "Enter the name of an S3 bucket that the application will use to store cluster data (or type '?' to list buckets you own):"
+                    ),
+                    validate=_bucket_or_list,
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+                _bucket_answer = (_bucket_answer or "").strip()
+                if _bucket_answer == "?":
+                    _picked = _pick_s3_bucket(
+                        region=install_parameters["region"],
+                        aws_profile=_aws_profile,
+                    )
+                    if not _picked:
+                        continue
+                    _bucket_answer = _picked
+                with spinner("Checking S3 Bucket permissions ..."):
+                    try:
+                        InstallParameters._validate_s3_bucket(_bucket_answer)
+                        install_parameters["bucket"] = _bucket_answer
+                        break
+                    except ValueError as e:
+                        logger.error(str(e))
+            logger.debug(f"User specified S3 bucket: {install_parameters['bucket']}")
+
+        if install_parameters.get("vpc_id") and install_parameters.get("vpc_cidr"):
+            logger.error(
+                "Both vpc_id and vpc_cidr are provided. Please provide only one of them."
+            )
+            sys.exit(1)
+
+        if install_parameters.get("vpc_id") and not (
+            install_parameters.get("public_subnets")
+            and install_parameters.get("private_subnets")
+        ):
+            logger.error(
+                "vpc_id is provided without subnet_ids. Please provide both public_subnets and private_subnets or remove vpc_id."
+            )
+            sys.exit(1)
+
+        # CLI-supplied subnets need to match the format the interactive
+        # picker stores ("<subnet-id>,<az>"). Bare IDs get enriched; entries
+        # the user pre-formatted as "<id>,<az>" get validated against the
+        # actual AZ in EC2 (mismatch errors fast, not cryptically at CFN
+        # time). One DescribeSubnets call per VPC handles both.
+        if install_parameters.get("vpc_id") and (
+            install_parameters.get("public_subnets")
+            or install_parameters.get("private_subnets")
+        ):
+            with spinner(
+                f"Resolving AZs for CLI-supplied subnets in {install_parameters['vpc_id']} ..."
+            ):
+                try:
+                    _vpc_subnets = InstallParameters._list_subnets(
+                        region=install_parameters["region"],
+                        vpc_id=install_parameters["vpc_id"],
+                    )
+                except ValueError as _e:
+                    logger.error(f"Failed to look up subnets for AZ enrichment: {_e}")
+                    sys.exit(1)
+            _id_to_az = {s["subnet_id"]: s["az"] for s in _vpc_subnets}
+
+            for _key in ("public_subnets", "private_subnets"):
+                _items = install_parameters.get(_key, [])
+                _enriched = []
+                for _sn in _items:
+                    _flag = f"--{_key.replace('_', '-')}"
+                    if "," in _sn:
+                        _id, _, _claimed_az = _sn.partition(",")
+                        _id = _id.strip()
+                        _claimed_az = _claimed_az.strip()
+                        _real_az = _id_to_az.get(_id)
+                        if not _real_az:
+                            logger.error(
+                                f"{_flag} {_id} not found in VPC "
+                                f"{install_parameters['vpc_id']} (region "
+                                f"{install_parameters['region']})."
+                            )
+                            sys.exit(1)
+                        if _claimed_az != _real_az:
+                            logger.error(
+                                f"{_flag} {_id} is in AZ {_real_az}, not {_claimed_az} "
+                                f"as supplied. Correct value: {_id},{_real_az}"
+                            )
+                            sys.exit(1)
+                        _enriched.append(f"{_id},{_real_az}")
+                    else:
+                        _real_az = _id_to_az.get(_sn)
+                        if not _real_az:
+                            logger.error(
+                                f"{_flag} {_sn} not found in VPC "
+                                f"{install_parameters['vpc_id']} (region "
+                                f"{install_parameters['region']})."
+                            )
+                            sys.exit(1)
+                        _enriched.append(f"{_sn},{_real_az}")
+                install_parameters[_key] = _enriched
+            logger.debug(
+                f"Validated/enriched CLI subnets: "
+                f"public={install_parameters['public_subnets']}, "
+                f"private={install_parameters['private_subnets']}"
+            )
+
+        if not install_parameters.get("vpc_id") and not install_parameters.get(
+            "vpc_cidr"
+        ):
+            _vpc_choice = questionary.select(
+                _("VPC configuration:"),
+                choices=[
+                    Choice(title=_("Create a new VPC"), value="new"),
+                    Choice(title=_("Use an existing VPC"), value="existing"),
+                ],
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+
+            if _vpc_choice == "new":
+                with spinner("Fetching existing VPC CIDRs ..."):
+                    try:
+                        _existing_vpcs = InstallParameters._list_vpcs(
+                            install_parameters["region"]
+                        )
+                        _existing_cidrs = [
+                            ipaddress.ip_network(v["cidr"], strict=False)
+                            for v in _existing_vpcs
+                            if v.get("cidr")
+                        ]
+                    except ValueError as e:
+                        logger.warning(f"Could not fetch existing VPCs: {e}")
+                        _existing_cidrs = []
+
+                if _existing_cidrs:
+                    _vpc_table = Table(
+                        show_header=True,
+                        header_style="bold #ffcc00",
+                        expand=True,
+                        padding=(0, 1),
+                    )
+                    _vpc_table.add_column("VPC ID", style="#4db8ff")
+                    _vpc_table.add_column("CIDR", style="#00cc66")
+                    _vpc_table.add_column("Name", style="#e8eef7")
+                    for v in _existing_vpcs:
+                        if v.get("cidr"):
+                            _vpc_table.add_row(
+                                v["vpc_id"], v["cidr"], v.get("name", "")
+                            )
+                    console.print()
+                    console.print(
+                        Panel(
+                            _vpc_table,
+                            title=f"[bold #4db8ff]Existing VPCs in {install_parameters['region']}[/]",
+                            border_style="cyan",
+                            padding=(1, 2),
+                        )
+                    )
+
+                _base_validate = inline_validate_with(InstallParameters, "vpc_cidr")
+
+                def _validate_cidr_no_overlap(value: str) -> bool | str:
+                    result = _base_validate(value)
+                    if result is not True:
+                        return result
+                    new_net = ipaddress.ip_network(value, strict=False)
+                    for existing in _existing_cidrs:
+                        if new_net.overlaps(existing):
+                            return f"CIDR {value} overlaps with existing VPC {existing}"
+                    return True
+
+                while True:
+                    install_parameters["vpc_cidr"] = questionary.text(
+                        _("VPC CIDR block (e.g. 10.0.0.0/16):"),
+                        default="10.0.0.0/16",
+                        validate=_validate_cidr_no_overlap,
+                        style=constants.EDH_STYLE,
+                    ).unsafe_ask()
+                    break
+
+                logger.debug(
+                    f"User specified VPC CIDR: {install_parameters['vpc_cidr']}"
+                )
+            else:
+                with spinner("Fetching VPCs ..."):
+                    try:
+                        _available_vpcs = InstallParameters._list_vpcs(
+                            install_parameters["region"]
+                        )
+                    except ValueError as e:
+                        logger.error(str(e))
+                        sys.exit(1)
+
+                if not _available_vpcs:
+                    logger.error(
+                        f"No VPCs found in {install_parameters['region']}. Create one first."
+                    )
+                    sys.exit(1)
+
+                # Fixed-width columns: VPC ID is 21 chars (prefix 'vpc-' + 17),
+                # CIDR varies but cap to widest observed, name fills the rest.
+                _vpc_id_w = max(len(v["vpc_id"]) for v in _available_vpcs)
+                _vpc_cidr_w = max(len(v["cidr"]) for v in _available_vpcs)
+                install_parameters["vpc_id"] = questionary.select(
+                    _("Select an existing VPC:"),
+                    choices=[
+                        Choice(
+                            title=(
+                                f"{v['vpc_id']:<{_vpc_id_w}}  {v['cidr']:<{_vpc_cidr_w}}  {v['name']}"
+                                if v["name"]
+                                else f"{v['vpc_id']:<{_vpc_id_w}}  {v['cidr']:<{_vpc_cidr_w}}"
+                            ),
+                            value=v["vpc_id"],
+                        )
+                        for v in _available_vpcs
+                    ],
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+                logger.debug(f"User specified VPC ID: {install_parameters['vpc_id']}")
+
+                with spinner("Fetching subnets ..."):
+                    try:
+                        _available_subnets = InstallParameters._list_subnets(
+                            install_parameters["region"], install_parameters["vpc_id"]
+                        )
+                    except ValueError as e:
+                        logger.error(str(e))
+                        sys.exit(1)
+
+                if len(_available_subnets) < 4:
+                    logger.error(
+                        f"VPC {install_parameters['vpc_id']} has only {len(_available_subnets)} subnet(s). "
+                        "At least 4 subnets are required (2 public + 2 private)."
+                    )
+                    sys.exit(1)
+
+                # Fixed-width columns: subnet ID, CIDR, AZ, then name.
+                _sn_id_w = max(len(s["subnet_id"]) for s in _available_subnets)
+                _sn_cidr_w = max(len(s["cidr"]) for s in _available_subnets)
+                _sn_az_w = max(len(s["az"]) for s in _available_subnets)
+                _subnet_choices = [
+                    Choice(
+                        title=(
+                            f"{s['subnet_id']:<{_sn_id_w}}  {s['cidr']:<{_sn_cidr_w}}  {s['az']:<{_sn_az_w}}  {s['name']}"
+                            if s["name"]
+                            else f"{s['subnet_id']:<{_sn_id_w}}  {s['cidr']:<{_sn_cidr_w}}  {s['az']}"
+                        ),
+                        value=f"{s['subnet_id']},{s['az']}",
+                    )
+                    for s in _available_subnets
+                ]
+
+                while True:
+                    install_parameters["public_subnets"] = questionary.checkbox(
+                        _("Select at least 2 public subnets:"),
+                        choices=_subnet_choices,
+                        style=constants.EDH_STYLE,
+                    ).unsafe_ask()
+                    if len(install_parameters["public_subnets"]) >= 2:
+                        break
+                    logger.error("You must select at least 2 public subnets.")
+                logger.debug(
+                    f"User specified public subnets: {install_parameters['public_subnets']}"
+                )
+
+                _remaining_choices = [
+                    c
+                    for c in _subnet_choices
+                    if c.value not in install_parameters["public_subnets"]
+                ]
+
+                while True:
+                    install_parameters["private_subnets"] = questionary.checkbox(
+                        _("Select at least 2 private subnets:"),
+                        choices=_remaining_choices,
+                        style=constants.EDH_STYLE,
+                    ).unsafe_ask()
+                    if len(install_parameters["private_subnets"]) >= 2:
+                        break
+                    logger.error("You must select at least 2 private subnets.")
+                logger.debug(
+                    f"User specified private subnets: {install_parameters['private_subnets']}"
+                )
+
+        if not install_parameters.get("fs_apps_provider"):
+            install_parameters["fs_apps_provider"] = questionary.select(
+                _(
+                    "Select the filesystem provider for /apps (where applications will be installed):"
+                ),
+                choices=[
+                    Choice(title=e.value, value=e.value) for e in FilesystemProvider
+                ],
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+            logger.debug(
+                f"User specified filesystem provider for /apps: {install_parameters['fs_apps_provider']}"
+            )
+
+        if not install_parameters.get("fs_data_provider"):
+            install_parameters["fs_data_provider"] = questionary.select(
+                _(
+                    "Select the filesystem provider for /data (where user data will be stored):"
+                ),
+                choices=[
+                    Choice(title=e.value, value=e.value) for e in FilesystemProvider
+                ],
+                style=constants.EDH_STYLE,
+            ).unsafe_ask()
+            logger.debug(
+                f"User specified filesystem provider for /data: {install_parameters['fs_data_provider']}"
+            )
+
+        # Validate the parameters
+        try:
+            logger.debug(install_parameters)
+            with spinner("Validating parameters ..."):
+                params = InstallParameters(
+                    create_es_service_role=install_parameters.get(
+                        "create_es_service_role"
+                    ),
+                    partition=install_parameters.get("partition"),
+                    region=install_parameters.get("region"),
+                    base_os=install_parameters.get("base_os"),
+                    cluster_name=install_parameters.get("cluster_name"),
+                    email_address=install_parameters.get("email_address"),
+                    bucket=install_parameters.get("bucket"),
+                    ssh_keypair=install_parameters.get("ssh_keypair"),
+                    vpc_cidr=install_parameters.get("vpc_cidr"),
+                    vpc_id=install_parameters.get("vpc_id"),
+                    client_ip=install_parameters.get("client_ip"),
+                    fs_apps_provider=install_parameters.get("fs_apps_provider"),
+                    fs_data_provider=install_parameters.get("fs_data_provider"),
+                    public_subnet_ids=install_parameters.get("public_subnets"),
+                    private_subnet_ids=install_parameters.get("private_subnets"),
+                    os_domain=install_parameters.get("os_domain"),
+                    tls_certificate=install_parameters.get("tls_certificate"),
+                )
+                console.print(
+                    "\n[#00cc66]:white_check_mark: Parameters validated, continuing installation ... [/]\n"
+                )
+
+        except ValidationError as err:
+            # Cluster-name collision: surface a clean, actionable message + the
+            # existing edh-* stack names, not the raw pydantic errors.pydantic.dev dump.
+            if "already exists in" in str(err):
+                _region = install_parameters.get("region")
+                logger.error(
+                    f"A CloudFormation stack named {install_parameters.get('cluster_name')!r} "
+                    f"already exists in {_region}. Choose a different --cluster-name."
+                )
+                try:
+                    _existing = InstallParameters.list_existing_cluster_stacks(_region)
+                    if _existing:
+                        logger.error(
+                            "Existing EDH cluster stacks in this region: "
+                            + ", ".join(_existing)
+                        )
+                except Exception:
+                    pass
+                sys.exit(1)
+            logger.error(f"Parameter validation error: {err}")
+            sys.exit(1)
+
+        _mirror_cfg = (
+            _get_install_properties.get("Config", {})
+            .get("services", {})
+            .get("resources_mirroring", {})
+        )
+        if not _mirror_cfg:
+            logger.error("resources_mirroring section not found in config file.")
+            sys.exit(1)
+
+        _mirror_method = _mirror_cfg.get("method")
+        # only print the message if the mirroring is enabled and the method is default
+        if _mirror_method not in [
+            "cloud-no-vpc",
+            "cloud-in-vpc-nat",
+            "install-host",
+            "ask",
+        ]:
+            logger.error(
+                f"Invalid resources_mirroring.method '{_mirror_method}' in config file. "
+                f"Valid values are: cloud-no-vpc, cloud-in-vpc-nat, install-host, ask. "
+            )
+            sys.exit(1)
+        if _mirror_cfg.get("enabled") is True:
+            if _mirror_method == "ask":
+                _mirror_choice = questionary.select(
+                    _(
+                        "EDH download required external resources (Python, DCV, EFA, GPU drivers, etc.) from trusted sources such as python.org, github.com, nodejs.org, efa-installer.amazonaws.com.\n"
+                        "  You can mirror these resources to your own in-account S3 bucket so EDH nodes download from S3 instead of the internet.\n"
+                        "  This is recommended for reliability and faster provisioning.\n"
+                        "  All external resources can be found on {config_file}, section 'Parameters'.\n"
+                        "  How would you like to handle external resources (~5GB)?"
+                    ).format(config_file=args.config),
+                    choices=[
+                        Choice(
+                            title=_(
+                                "Mirror resources to S3 automatically via Lambda (running in EDH VPC) at install time (Recommended)"
+                            ),
+                            value="cloud-in-vpc-nat",
+                        ),
+                        Choice(
+                            title=_(
+                                "Mirror resources to S3 automatically via Lambda (not running in VPC) at install time"
+                            ),
+                            value="cloud-no-vpc",
+                        ),
+                        Choice(
+                            title=_(
+                                "Mirror resources to S3 via this host (download+upload) before deploying EDH"
+                            ),
+                            value="install-host",
+                        ),
+                        Choice(
+                            title=_(
+                                "No S3 Mirroring (EDH nodes will download from the internet directly)"
+                            ),
+                            value="skip",
+                        ),
+                    ],
+                    style=constants.EDH_STYLE,
+                    default="cloud-in-vpc-nat",
+                ).unsafe_ask()
+                if _mirror_choice == "skip":
+                    _get_install_properties["Config"]["services"][
+                        "resources_mirroring"
+                    ]["enabled"] = False
+                else:
+                    _get_install_properties["Config"]["services"][
+                        "resources_mirroring"
+                    ]["method"] = _mirror_choice
+
+            if (
+                _get_install_properties["Config"]["services"]["resources_mirroring"][
+                    "method"
+                ]
+                == "install-host"
+            ):
+                # download+upload via this host now and
+                # rewrite the Parameters section in-place to the S3 mirror (pre-deploy).
+                _get_install_properties["Parameters"] = resources_mirroring(
+                    parameters=_get_install_properties.get("Parameters", {}),
+                    s3_bucket=install_parameters.get("bucket"),
+                    cluster_name=install_parameters.get("cluster_name"),
+                    s3_client=client_s3,
+                    spinner=spinner,
+                )
+            else:
+                # Cloud path (D9-D16, Model C): generate the manifest, seed it to S3,
+                # and let CDK deploy the SFN/Lambda mirror executor which runs at
+                # install via the custom-resource trigger. The executor is the SOLE
+                # writer of the mirrored SSM keys, so we exclude them from BulkSSMWriter.
+                _cluster = install_parameters.get("cluster_name")
+                _bucket = install_parameters.get("bucket")
+                from helpers.installer.manifest_generator import (
+                    generate_manifest,
+                    write_manifest_to_s3,
+                )
+
+                try:
+                    _loc = client_s3.get_bucket_location(
+                        Bucket=install_parameters.get("bucket")
+                    ).get("LocationConstraint")
+                    _bucket_region = _loc or "us-east-1"
+                except Exception as _err:
+                    logger.warning(
+                        f"Could not probe region for s3://{install_parameters.get("bucket")}: {_err}; "
+                        f"falling back to install region."
+                    )
+                    _bucket_region = install_parameters["region"]
+
+                _mirror_s3 = build_boto3_client(
+                    service_name="s3",
+                    region_name=_bucket_region,
+                    aws_profile=_aws_profile,
+                )
+                with spinner(message=_("Generating resource mirror manifest ...")):
+                    _items = generate_manifest(
+                        parameters=_get_install_properties.get("Parameters", {}),
+                        cluster_name=_cluster,
+                        ssm_prefix=f"/edh/{_cluster}",
+                        mirror_s3_sources=_mirror_cfg.get(
+                            "mirror_s3_sources", True
+                        ),
+                        mirror_gpu_nvidia=_mirror_cfg.get(
+                            "mirror_gpu_nvidia", True
+                        ),
+                        mirror_gpu_amd=_mirror_cfg.get("mirror_gpu_amd", False),
+                        s3_client=_mirror_s3,
+                    )
+                    write_manifest_to_s3(
+                        _items,
+                        _mirror_s3,
+                        _bucket,
+                        f"{_cluster}/resources_mirroring/manifest.json",
+                    )
+                # Model C: keys the mirror executor will own (exclude from BulkSSMWriter).
+                _excluded = sorted(
+                    {it["config_key"] for it in _items if it.get("config_key")}
+                )
+                _mirror_cfg["excluded_ssm_keys"] = _excluded
+                _mirror_cfg["bucket_region"] = _bucket_region
+                _get_install_properties.setdefault("Config", {}).setdefault(
+                    "services", {}
+                )["resources_mirroring"] = _mirror_cfg
+                logger.info(
+                    f"Resource mirror ({_mirror_method}): seeded manifest "
+                    f"({len(_items)} items) to s3://{_bucket}/{_cluster}/"
+                    f"resources_mirroring/manifest.json; excluded {len(_excluded)} "
+                    f"SSM keys from BulkSSMWriter; bucket_region={_bucket_region}"
+                )
+        else:
+            _rm_cfg = (
+                _get_install_properties.setdefault("Config", {})
+                .setdefault("services", {})
+                .setdefault("resources_mirroring", {})
+            )
+            _rm_cfg["enabled"] = False
+            logger.info(
+                "Resource mirror: Skip selected; setting "
+                "Config.services.resources_mirroring.enabled=false "
+                "(no manifest seeded, so the cloud trigger is not deployed)."
+            )
+
+        # Prepare CDK input
+        # Convert some input with special characters to base64 as we will invoke CDK via the CLI
+        install_parameters["client_ip"] = base64.b64encode(
+            str(install_parameters["client_ip"]).encode("utf-8")
+        ).decode("utf-8")
+        if install_parameters.get("client_ipv6"):
+            install_parameters["client_ipv6"] = base64.b64encode(
+                str(install_parameters["client_ipv6"]).encode("utf-8")
+            ).decode("utf-8")
+        install_parameters["email_address"] = base64.b64encode(
+            str(install_parameters["email_address"]).encode("utf-8")
+        ).decode("utf-8")
+        install_parameters["install_properties"] = base64.b64encode(
+            json.dumps(_get_install_properties).encode("utf-8")
+        ).decode("utf-8")
+
+        if install_parameters["public_subnets"] is not None:
+            install_parameters["public_subnets"] = base64.b64encode(
+                json.dumps(install_parameters["public_subnets"]).encode("utf-8")
+            ).decode("utf-8")
+
+        if install_parameters["private_subnets"] is not None:
+            install_parameters["private_subnets"] = base64.b64encode(
+                json.dumps(install_parameters["private_subnets"]).encode("utf-8")
+            ).decode("utf-8")
+
+        logger.debug(
+            f"Install Parameters sent to CDK: {json.dumps(install_parameters, indent=2, default=str)}"
+        )
+
+        # Begin CDK installation
+        _cdk_common_args: str = (
+            f"--output cdk.out/{install_parameters['cluster_id']}/{install_parameters['region']}"
+        )
+
+        _cdk_table = Table(
+            show_header=False,
+            expand=True,
+            padding=(0, 1),
+        )
+        _cdk_table.add_column("Setting", style="bold #8a9bb8", no_wrap=True)
+        _cdk_table.add_column("Value", style="#e8eef7")
+
+        _cdk_table.add_row(
+            "CDK Output Directory",
+            f"cdk.out/{install_parameters["cluster_name"]}/{install_parameters['region']}",
+        )
+
+        if args.cdk_cloudformation_execution_policies:
+            for _policy in args.cdk_cloudformation_execution_policies:
+                _cdk_common_args += f" --cloudformation-execution-policies {_policy}"
+            _cdk_table.add_row(
+                "Execution Policies", ", ".join(args.cdk_cloudformation_execution_policies)
+            )
+
+        if args.cdk_role_arn:
+            _cdk_common_args += f" --role-arn {args.cdk_role_arn}"
+            _cdk_table.add_row("Role ARN", args.cdk_role_arn)
+
+        if args.cdk_bootstrap_kms_key_id:
+            _cdk_common_args += (
+                f" --bootstrap-kms-key-id {args.cdk_bootstrap_kms_key_id}"
+            )
+            _cdk_table.add_row("Bootstrap KMS Key", args.cdk_bootstrap_kms_key_id)
+
+        if args.cdk_custom_permissions_boundary:
+            _cdk_common_args += (
+                f" --custom-permissions-boundary {args.cdk_custom_permissions_boundary}"
+            )
+            _cdk_table.add_row(
+                "Permissions Boundary", args.cdk_custom_permissions_boundary
+            )
+
+        # --termination-protection is bootstrap-only (cdk deploy rejects it); app-stack protection comes from the Stack construct. Applied to cmd_bootstrap below.
+        _cdk_table.add_row("Termination Protection", "[#00cc66]Enabled[/]")
+
+        if args.cdk_debug:
+            _cdk_common_args += " --debug -v -v -v"
+            _cdk_table.add_row("Debug Mode", "[#00cc66]Enabled[/]")
+
+        if args.cdk_profile:
+            _cdk_common_args += f" --profile {args.cdk_profile}"
+            _cdk_table.add_row("Profile", args.cdk_profile)
+
+        if args.cdk_no_strict:
+            _cdk_table.add_row("Strict Mode", "[#ff6b6b]Disabled[/]")
+        else:
+            _cdk_common_args += " --strict"
+            _cdk_table.add_row("Strict Mode", "[#00cc66]Enabled[/]")
+
+        if args.cdk_cmd in ["create", "update"]:
+            cdk_cmd = "deploy"
+        else:
+            cdk_cmd = args.cdk_cmd
+
+        # CDK deployment method only applies to deploy operations. Default
+        # is 'direct' (no ChangeSet) -- faster and avoids the known
+        # ChangeSet-progress-bar denominator artifact for stacks with
+        # >100 resources. SOCA references existing AWS resources via
+        # synth-time lookups (Vpc.from_lookup etc.), which are unaffected
+        # by the deploy method. Override with --cdk-method change-set if
+        # you need a CFN change set audit record, want to preview
+        # replacement risk, or are using cdk deploy --import-existing-resources.
+        if cdk_cmd == "deploy":
+            _cdk_common_args += f" --method {args.cdk_method}"
+            _cdk_table.add_row(
+                "Deployment Method",
+                f"[#00cc66]{args.cdk_method}[/]"
+                + (" [dim](no ChangeSet)[/]" if args.cdk_method == "direct" else ""),
+            )
+
+        console.print()
+        console.print(
+            Panel(
+                _cdk_table,
+                title="[bold #e8eef7]AWS Cloud Development Kit (CDK) Settings[/]",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+        console.print()
+
+        cmd = f"cdk {cdk_cmd} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)} --require-approval never"
+        cmd_bootstrap = f"cdk bootstrap --termination-protection {_cdk_common_args} aws://{install_parameters['account_id']}/{install_parameters['region']} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)}"
+
+        # Log command in history book
+        with open("installer_history.txt", "a+") as f:
+            f.write(f"""\n==== [{datetime.datetime.now(datetime.UTC)}] ====
+    {cmd}
+    {str(install_parameters)}
+    =============================""")
+
+        # First, Bootstrap the environment. This will create a staging S3 bucket if needed
+        with spinner(message=_("Bootstrapping CDK environment ...")):
+            stream_subprocess(console=console, command=cmd_bootstrap)
+
+        # Increase SSM Throughput if needed (https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-throughput.html)
+        # Settings will be restored if needed post deployment
+        disable_ssm_high_throughput_post_install: bool = False
+
+        # Upload required assets to customer S3 account
+        if cdk_cmd == "deploy":
+            with spinner(
+                message=f"Uploading required S3 objects to {install_parameters['bucket']}"
+            ):
+                upload_objects(
+                    s3_client=client_s3_resource,
+                    install_directory=_install_directory,
+                    bucket=install_parameters["bucket"],
+                    cluster_id=install_parameters["cluster_id"],
+                    region=install_parameters["region"],
+                )
+
+            with spinner(message=_("Enabling SSM High Throughput mode ...")):
+                _check_ssm_high_throughput = client_ssm.get_service_setting(
+                    SettingId="/ssm/parameter-store/high-throughput-enabled"
+                )
+
+                if (
+                    _check_ssm_high_throughput.get("ServiceSetting").get("SettingValue")
+                    == "false"
+                ):
+                    logger.warning(
+                        "Temporarily enabling /ssm/parameter-store/high-throughput-enabled for EDH deployment"
+                    )
+                    # try/catch
+                    # Validate the update
+                    client_ssm.update_service_setting(
+                        SettingId="/ssm/parameter-store/high-throughput-enabled",
+                        SettingValue="true",
+                    )
+                    disable_ssm_high_throughput_post_install = True
+
+        # Then launch the actual EDH installer
+        console.print()
+        console.print(
+            Panel(
+                "Starting EDH Deployment, launching CDK ... ",
+                border_style="cyan",
+                style="bold #e8eef7",
+            )
+        )
+        console.print()
+        launch_installer = os.system(cmd)  # nosec
+
+        if cdk_cmd == "deploy":
+            # Optional - Re-enable SSM default
+            if disable_ssm_high_throughput_post_install:
+                logger.warning(
+                    "Restoring /ssm/parameter-store/high-throughput-enabled to its previous value post-deployment"
+                )
+                try:
+                    client_ssm.update_service_setting(
+                        SettingId="/ssm/parameter-store/high-throughput-enabled",
+                        SettingValue="false",
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Unable to restore /ssm/parameter-store/high-throughput-enabled setting to false. Error: {e}"
+                    )
+
+            if int(launch_installer) == 0:
+                # EDH is installed. We will now wait until EDH is fully configured (when the ELB returns HTTP 200)
+                console.print()
+                console.print(
+                    Panel(
+                        "🎉 [bold green]EDH was deployed successfully on your AWS account! Please allow up to 30 minutes for EDH to be fully configured and accessible.[/bold green]",
+                        border_style="green",
+                        padding=(1, 2),
+                    )
+                )
+                console.print()
+
+                if _get_install_properties.get("Config", {}).get(
+                    "directoryservice", {}
+                ).get("provider", "") not in [
+                    "existing_openldap",
+                    "existing_active_directory",
+                ]:
+                    with spinner(
+                        message=_(
+                            "Retrieving EDH Admin credentials from AWS Secrets Manager ..."
+                        )
+                    ):
+                        _get_admin_password = retrieve_secret_value(
+                            secretsmanager_client=client_secretsmanager,
+                            secret_id=f"/edh/{install_parameters['cluster_id']}/EDHAdminUser",
+                        )
+
+                    info_table = Table(show_header=False, box=None, padding=(0, 2))
+                    info_table.add_column(style="#8a9bb8", no_wrap=True)
+                    info_table.add_column(style="#e8eef7")
+                    info_table.add_row(
+                        "Default Username",
+                        _get_admin_password.get("username"),
+                    )
+                    info_table.add_row(
+                        "Default Password",
+                        _get_admin_password.get("password"),
+                    )
+                    console.print(
+                        Panel(
+                            info_table,
+                            title="[bold #e8eef7]EDH Default Admin Credentials[/]",
+                            border_style="cyan",
+                            padding=(1, 4),
+                        )
+                    )
+                    console.print()
+                    console.print(
+                        Panel(
+                            "⏳ [bold #ffcc00]EDH is not ready yet.[/bold #ffcc00]\n\n"
+                            "The deployment is still being configured in the background. Please note this can take up to 30 minutes, depending on your EDH configuration and services enabled.\n"
+                            "Please wait until the process below confirms that EDH is fully ready before attempting to log in.",
+                            border_style="#ffcc00",
+                            padding=(1, 2),
+                        )
+                    )
+                    console.print()
+
+                else:
+                    logger.info(
+                        f"[bold #ffcc00]Using an existing Active Directory or OpenLDAP. Use an existing user to log in."
+                    )
+
+                # Post-install resource mirror report (cloud mirror path only).
+                # Rendered here -- right after the admin-credentials section and
+                # BEFORE the readiness/endpoint-probe loop -- so the mirror summary
+                # is visible immediately rather than gated behind the ~30 min probe.
+                # Placed at the new-admin/existing-AD convergence so it shows on both.
+                if (
+                    _mirror_cfg.get("enabled") is True
+                    and _mirror_cfg.get("method") != "install-host"
+                ):
+                    try:
+                        from helpers.installer.mirror_report import (
+                            render_mirror_report,
+                        )
+
+                        render_mirror_report(
+                            mirror_bucket=install_parameters.get("bucket"),
+                            prefix=f"{install_parameters.get('cluster_name')}/resources_mirroring/",
+                            region=(
+                                _mirror_cfg.get("bucket_region")
+                                or install_parameters["region"]
+                            ),
+                            console=console,
+                        )
+                    except Exception as _rep_err:
+                        logger.warning(f"Mirror report skipped: {_rep_err}")
+
+                try:
+                    check_cfn = client_cloudformation.describe_stacks(
+                        StackName=install_parameters["cluster_id"]
+                    )
+                    if args.format == "json":
+                        with open(
+                            f"{install_parameters['cluster_id']}.output", "w"
+                        ) as outfile:
+                            json.dump(check_cfn["Stacks"][0]["Outputs"], outfile)
+
+                    for output in check_cfn["Stacks"][0]["Outputs"]:
+                        if output["OutputKey"] == "WebUserInterface":
+                            _edh_endpoint_url = output["OutputValue"]
+                            # Run a first check to determine if client IP provided by the customer is valid
+                            try:
+                                get(
+                                    f"{output['OutputValue']}", verify=False, timeout=35
+                                )  # nosec
+                            except Timeout:
+                                # We cannot log the IP here as it is now a b64-list by this point and it may get large
+                                # Or we are in MPL mode. So we just tell the user to go to the console to fix the issue.
+                                logger.warning(
+                                    f"Unable to connect to the EDH endpoint URL {_edh_endpoint_url}. Maybe your IP is not valid/has changed (maybe you are behind a proxy?). If that's the case please go to AWS console and authorize your real IP address on the ALB and NLB Security Groups / Prefix-Lists to access EDH"
+                                )
+                                sys.exit(1)
+                            except ConnectionError as e:
+                                logger.warning(
+                                    f"Encountered ConnectionError. Unable to connect to the EDH endpoint URL {_edh_endpoint_url}. Error: {e} "
+                                )
+                                sys.exit(1)
+                            except ConnectionRefusedError as e:
+                                logger.warning(
+                                    f"Encountered ConnectionRefusedError. Unable to connect to the EDH endpoint URL {_edh_endpoint_url}. Error: {e} "
+                                )
+                                sys.exit(1)
+
+                            soca_check_loop = 0
+                            if install_parameters["vpc_id"]:
+                                # EDH deployment is shorter when using existing resources, so we increase the timeout
+                                max_check_loop = 15
+                            else:
+                                max_check_loop = 10
+                            # print(f"DEBUG - Starting Endpoint check loop - MaxCheckLoop: {max_check_loop}")
+
+                            with spinner(
+                                message=_(
+                                    "Waiting for EDH to be fully configured, this can take up to 30 minutes ..."
+                                )
+                            ):
+                                # Inline check helper: any transient network
+                                # error during the wait (Timeout, ConnectionError,
+                                # ConnectionRefusedError) is treated as "not
+                                # ready yet" -- we sleep and retry instead of
+                                # crashing the installer. Bootstrap intentionally
+                                # restarts uwsgi several times during 03_setup;
+                                # a 15s read timeout during one of those restarts
+                                # is normal, not fatal.
+                                def _endpoint_ready(_url: str) -> bool:
+                                    try:
+                                        return (
+                                            get(
+                                                _url, verify=False, timeout=15
+                                            ).status_code
+                                            == 200
+                                        )  # nosec
+                                    except (
+                                        Timeout,
+                                        ConnectionError,
+                                        ConnectionRefusedError,
+                                    ) as _err:
+                                        logger.info(
+                                            f"⏳ Transient {type(_err).__name__} polling {_url} -- treating as not ready, will retry."
+                                        )
+                                        return False
+                                    except Exception as _err:
+                                        logger.warning(
+                                            f"Unexpected error polling {_url}: {_err} -- treating as not ready, will retry."
+                                        )
+                                        return False
+
+                                while (
+                                    not _endpoint_ready(_edh_endpoint_url)
+                                    and soca_check_loop <= max_check_loop
+                                ):
+                                    logger.info(
+                                        "⏳  EDH environment not ready yet, waiting for bootstrap sequence to complete. Checking again in 300 seconds ... "
+                                    )
+                                    time.sleep(300)
+                                    soca_check_loop += 1
+                                    if soca_check_loop >= max_check_loop:
+                                        logger.warning(
+                                            f"Could not determine if EDH is ready after {max_check_loop*2} minutes. Connect to the system via SSM and check the logs. "
+                                        )
+                                        sys.exit(1)
+
+                            # at this point EDH Web UI is fully operational, however the user creation will happen within the next 20 to 40 seconds.
+                            # Adding extra delay to be sure the user is created and customer can click and login.
+                            with spinner(
+                                message=_(
+                                    "Waiting for EDH Admin user to be created ..."
+                                )
+                            ):
+                                logger.info(
+                                    "⏳  EDH environment not ready yet, waiting for default EDH Admin user to be created. Checking again in 120 seconds ... "
+                                )
+                                time.sleep(120)
+                            console.print("\n")
+                            console.print(
+                                Panel(
+                                    f"[bold green]✅ Your EDH environment is ready![/]\n"
+                                    f"\n"
+                                    f"🌐 Login URL:   [bold underline #4db8ff]{_edh_endpoint_url}[/]\n"
+                                    f"\n"
+                                    f"👤 Username:    [bold white]{_get_admin_password.get('username')}[/]\n"
+                                    f"🔑 Password:    [bold white]{_get_admin_password.get('password')}[/]\n",
+                                    title="[bold #e8eef7]🚀 EDH Deployment Complete[/]",
+                                    border_style="#00cc66",
+                                    padding=(1, 4),
+                                )
+                            )
+
+                except ValidationError:
+                    logger.error(
+                        f"{install_parameters['cluster_id']} is not a valid cloudformation stack"
+                    )
+                except ClientError as err:
+                    logger.error(
+                        f"Unable to retrieve {install_parameters['cluster_id']} stack outputs, probably due to a permission error (your IAM account do not have permission to run cloudformation:Describe*. Log in to AWS console to view your stack connection endpoints"
+                    )
+
+        elif args.cdk_cmd == "destroy":
+            # Destroy stack if known
+            cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
+            logger.info(f"Deleting stack, running {cmd_destroy}")
+            delete_stack = os.system(cmd_destroy)  # nosec
+        else:
+            # synth, ls etc.
+            pass
+            # console.print(params.model_dump_json(indent=2))
+
+    except KeyboardInterrupt:
+        console.print("\n" + _("[red] Installation cancelled.[/red]"))
+
+    except Exception as err:
+        tb = traceback.extract_tb(err.__traceback__)[-1]
+        logger.error(f"{err} ({tb.filename}:{tb.lineno} in {tb.name})")
+        sys.exit(1)

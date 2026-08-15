@@ -1,0 +1,752 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <h3>{{ _("Hardware Profiles") }}</h3>
+                    <p class="text-muted">
+                        {{ _("USB device remotization allowlists. A Hardware Profile bundles a USB device allowlist and binds to a Software Stack or Project (Project overrides Stack). USB remotization is a device compatibility filter, not a security boundary.") }}
+                    </p>
+
+                    <style>
+                        #hwp-tabs.nav-tabs { border-bottom: 2px solid #dee2e6; }
+                        #hwp-tabs .nav-link { color: #545b64; font-weight: 600; border: 0; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: .55rem 1.25rem; }
+                        #hwp-tabs .nav-link:hover { color: #16191f; border-bottom-color: #aab7b8; background: transparent; }
+                        #hwp-tabs .nav-link.active { color: #0972d3; background: transparent; border: 0; border-bottom: 3px solid #0972d3; }
+                        .hwp-dirty > td { background-color: #fff3cd !important; }
+                        #hw-master .list-group-item.active,
+                        #hw-master .list-group-item.active .text-muted,
+                        #hw-master .list-group-item.active .small { color: #fff !important; }
+                    </style>
+                    <ul class="nav nav-tabs" id="hwp-tabs" role="tablist">
+                        <li class="nav-item" role="presentation"><a class="nav-link active" data-bs-toggle="tab" href="#nav-hw" role="tab">{{ _("Hardware Profiles") }}</a></li>
+                        <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" href="#nav-usb" role="tab">{{ _("USB Allowlists") }}</a></li>
+                    </ul>
+
+                    <div class="tab-content mt-3">
+                        <!-- Hardware Profiles tab -->
+                        <div class="tab-pane fade show active" id="nav-hw" role="tabpanel">
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h4>{{ _("Hardware Profiles") }}</h4>
+                                    <form id="hw-create-form" class="row g-2 mb-3">
+                                        <div class="col-md-3"><input class="form-control" id="hw-name" placeholder="{{ _('Profile name') }}" required></div>
+                                        <div class="col-md-4"><input class="form-control" id="hw-desc" placeholder="{{ _('Description') }}"></div>
+                                        <div class="col-md-3">
+                                            <select class="form-control" id="hw-usb-select">
+                                                <option value="">{{ _("(no USB allowlist)") }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">{{ _("Create") }}</button></div>
+                                    </form>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="list-group" id="hw-master"></div>
+                                            <p class="text-muted mt-2" id="hw-empty" style="display:none;">{{ _("No Hardware Profiles yet. Create one above.") }}</p>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <div id="hw-detail-empty" class="text-muted p-3 border rounded" style="background:#f8f9fa;">{{ _("Select a Hardware Profile on the left to view and edit its details and sub-profiles.") }}</div>
+                                            <div id="hw-detail" style="display:none;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h4>{{ _("Current bindings") }}</h4>
+                                    <p class="text-muted">{{ _("Hardware Profiles currently bound to Software Stacks and Projects. Set or change a binding on the Software Stack or Project edit page. When both a Stack and its Project bind a profile, the Project binding wins at launch.") }}</p>
+                                    <table class="table table-sm table-striped">
+                                        <thead><tr><th>{{ _("Target") }}</th><th>{{ _("Name") }}</th><th>ID</th><th>{{ _("Hardware Profile") }}</th><th></th></tr></thead>
+                                        <tbody id="bindings-table"></tbody>
+                                    </table>
+                                    <p class="text-muted" id="bindings-empty" style="display:none;">{{ _("No bindings yet. Bind a Hardware Profile from a Software Stack or Project edit page.") }}</p>
+
+                                    <hr>
+                                    <h5>{{ _("Resolve preview") }}</h5>
+                                    <form id="resolve-form" class="row g-2 align-items-end">
+                                        <div class="col-md-2"><label>{{ _("Stack ID") }}</label><input class="form-control" id="resolve-stack" type="number"></div>
+                                        <div class="col-md-2"><label>{{ _("Project ID (opt)") }}</label><input class="form-control" id="resolve-project" type="number"></div>
+                                        <div class="col-md-2"><button class="btn btn-secondary w-100" type="submit">{{ _("Preview") }}</button></div>
+                                    </form>
+                                    <pre id="resolve-output" class="mt-2 bg-light p-2" style="min-height:2em;"></pre>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- USB Allowlists tab -->
+                        <div class="tab-pane fade" id="nav-usb" role="tabpanel">
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h4>{{ _("USB Allowlists") }}</h4>
+                                    <form id="usb-create-form" class="row g-2 mb-3">
+                                        <div class="col-md-3"><input class="form-control" id="usb-name" placeholder="{{ _('Allowlist name') }}" required></div>
+                                        <div class="col-md-6"><input class="form-control" id="usb-desc" placeholder="{{ _('Description') }}"></div>
+                                        <div class="col-md-3"><button class="btn btn-primary w-100" type="submit">{{ _("Create") }}</button></div>
+                                    </form>
+                                    <table class="table table-sm align-middle">
+                                        <thead><tr><th style="width:84px;">{{ _("Enabled") }}</th><th style="width:48px;">ID</th><th>{{ _("Name") }}</th><th>{{ _("Description") }}</th><th style="width:150px;">{{ _("Devices") }}</th></tr></thead>
+                                        <tbody id="usb-table"></tbody>
+                                    </table>
+                                    <p class="text-muted" id="usblist-empty" style="display:none;">{{ _("No USB allowlists yet. Create one above.") }}</p>
+                                    <div class="mb-1">
+                                        <button class="btn btn-success" id="usblist-apply-btn" type="button">{{ _("Apply updates") }}</button>
+                                        <button class="btn btn-outline-secondary" id="usblist-discard-btn" type="button">{{ _("Discard changes") }}</button>
+                                        <span id="usblist-dirty-badge" class="badge bg-warning text-dark" style="display:none;">{{ _("Unsaved changes") }}</span>
+                                    </div>
+                                    <p class="text-muted small mb-0">{{ _("Toggle Enabled off + Apply to disable an allowlist (it stays listed and can be re-enabled). Any Hardware Profile still referencing a disabled allowlist resolves to no devices. Edits are staged and highlighted until you Apply.") }}</p>
+                                </div>
+                            </div>
+
+                            <div class="card shadow mb-4" id="usb-entries-card" style="display:none;">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="mb-0">{{ _("Devices in") }} <span id="usb-entries-title"></span></h4>
+                                        <span id="usb-dirty-badge" class="badge bg-warning text-dark" style="display:none;">{{ _("Unsaved changes") }}</span>
+                                    </div>
+                                    <p class="text-muted">{{ _("Edits are staged locally. Toggle On/Off, edit the admin comment, add or remove rows, then click Apply updates to commit everything at once. Disabled rows are retained for reference but are NOT delivered to VDIs. Admin comments are internal only and never sent to a VDI or shown to end users.") }}</p>
+
+                                    <div class="table-responsive">
+                                    <table class="table table-sm align-middle">
+                                        <thead><tr>
+                                            <th style="width:84px;">{{ _("Enabled") }}</th>
+                                            <th>{{ _("Label") }}</th>
+                                            <th style="width:52px;">{{ _("Class") }}</th>
+                                            <th style="width:48px;">{{ _("Sub") }}</th>
+                                            <th style="width:56px;">{{ _("Proto") }}</th>
+                                            <th style="width:132px;">VID</th>
+                                            <th style="width:132px;">PID</th>
+                                            <th style="width:48px;">{{ _("Auto") }}</th>
+                                            <th style="width:54px;">{{ _("Reset") }}</th>
+                                            <th style="min-width:180px;">{{ _("Admin comment") }}</th>
+                                            <th>{{ _("Rendered DCV string") }}</th>
+                                            <th style="width:44px;"></th>
+                                        </tr></thead>
+                                        <tbody id="usb-entries-body"></tbody>
+                                    </table>
+                                    </div>
+                                    <p class="text-muted" id="usb-entries-empty" style="display:none;">{{ _("No devices yet. Add one below, then Apply updates.") }}</p>
+
+                                    <div class="mb-3">
+                                        <button class="btn btn-success" id="usb-apply-btn" type="button">{{ _("Apply updates") }}</button>
+                                        <button class="btn btn-outline-secondary" id="usb-discard-btn" type="button">{{ _("Discard changes") }}</button>
+                                    </div>
+
+                                    <hr>
+                                    <h5>{{ _("Add device (staged)") }}</h5>
+                                    <p class="text-muted">{{ _("Paste the filter string from the Windows DCV client (dcvusblist.exe) and Parse to fields, or fill the fields directly, then Add to staging. Format: Name,BaseClass,SubClass,Protocol,VID,PID,Autoshare,SkipReset. Use * as a wildcard. Class/VID/PID are DECIMAL -- exactly as the DCV client's Copy filter string produces them. Hex input with a 0x prefix (e.g. 0x1050) is accepted and auto-converted to decimal.") }}</p>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-md-3"><button class="btn btn-secondary w-100" id="entry-parse-btn" type="button">{{ _("Parse to fields") }}</button></div>
+                                        <div class="col-md-9"><input class="form-control" id="entry-paste" placeholder="YubiKey 5,3,0,0,4176,1031,1,0"></div>
+                                    </div>
+                                    <form id="entry-add-form" class="row g-2 align-items-end">
+                                        <div class="col-md-3"><label>{{ _("Label") }}</label><input class="form-control" id="e-label"></div>
+                                        <div class="col"><label>{{ _("Class") }}</label><input class="form-control" id="e-base"></div>
+                                        <div class="col"><label>{{ _("Sub") }}</label><input class="form-control" id="e-sub"></div>
+                                        <div class="col"><label>{{ _("Proto") }}</label><input class="form-control" id="e-proto"></div>
+                                        <div class="col"><label>VID</label><input class="form-control" id="e-vid"></div>
+                                        <div class="col"><label>PID</label><input class="form-control" id="e-pid"></div>
+                                        <div class="col-md-1"><label>{{ _("Auto") }}</label>
+                                            <select class="form-control" id="e-auto"><option value="1">1</option><option value="0">0</option></select></div>
+                                        <div class="col-md-1"><label>{{ _("Reset") }}</label>
+                                            <select class="form-control" id="e-reset"><option value="0">0</option><option value="1">1</option></select></div>
+                                        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">{{ _("Add to staging") }}</button></div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h5>{{ _("USB References") }}</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>{{ _("DCV USB remotization") }}</strong>
+                                            <ul class="mb-0">
+                                                <li><a href="https://docs.aws.amazon.com/dcv/latest/adminguide/manage-usb-remote.html" target="_blank" rel="noopener noreferrer" title="{{ _('Opens in a new tab') }}">{{ _("Amazon DCV Administrator Guide: Enabling USB remotization (filter string format)") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></li>
+                                                <li><a href="https://docs.aws.amazon.com/dcv/latest/userguide/using-usb.html" target="_blank" rel="noopener noreferrer" title="{{ _('Opens in a new tab') }}">{{ _("Amazon DCV User Guide: Using USB remotization") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>{{ _("USB device lookup") }}</strong>
+                                            <ul class="mb-0">
+                                                <li><a href="https://www.usb.org/defined-class-codes" target="_blank" rel="noopener noreferrer" title="{{ _('Opens in a new tab') }}">{{ _("USB-IF defined class codes (BaseClass / SubClass / Protocol)") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></li>
+                                                <li><a href="https://devicehunt.com/search/type/usb/vendor/any/device/any" target="_blank" rel="noopener noreferrer" title="{{ _('Opens in a new tab') }}">{{ _("DeviceHunt USB vendor / product ID lookup") }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirm-modal-title">{{ _("Please confirm") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body" id="confirm-modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                <button type="button" class="btn btn-danger" id="confirm-modal-ok">{{ _("Confirm") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toast-container" class="toast-container p-3" style="position:fixed; top:1rem; right:1rem; z-index:1200;"></div>
+
+<script>
+const API = "/api/dcv";
+let currentUsbProfileId = null;
+let currentUsbProfileName = "";
+let hwProfilesData = [];
+let usbProfilesData = [];
+let hwCatalog = [];
+let selectedHwId = null;
+let hwDetailWorking = null;
+let hwDetailSaved = "null";
+let usbListWorking = [];
+let usbListSaved = "[]";
+
+function toForm(obj) {
+    const p = new URLSearchParams();
+    for (const k in obj) { if (obj[k] !== null && obj[k] !== undefined) p.append(k, obj[k]); }
+    return p;
+}
+async function apiGet(path) { const r = await fetch(API + path); return r.json(); }
+async function apiSend(path, method, body) {
+    const r = await fetch(API + path, {method: method, body: body ? toForm(body) : undefined});
+    return r.json();
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// USB VID/PID lookup links. DCV stores VID/PID as DECIMAL; DeviceHunt indexes
+// by 4-digit lowercase HEX -- so convert before building the URL.
+function _usbIsNum(v){ return /^\d+$/.test(String(v)); }
+function _usbHex4(v){ const n = parseInt(v, 10); if (!Number.isFinite(n) || n < 0 || n > 65535) return null; return n.toString(16).toLowerCase().padStart(4, "0"); }
+// Accept decimal or 0x-hex input and normalize to the DECIMAL string DCV expects.
+function _usbDec(v){ v = String(v).trim(); if (v === "*" || v === "") return v; if (/^0x[0-9a-f]+$/i.test(v)) return String(parseInt(v, 16)); return v; }
+function _usbExtIcon(){ return '<i class="fa-solid fa-arrow-up-right-from-square fa-2xs"></i>'; }
+function _usbHexHint(h){ return ` <span class="text-muted" style="font-size:.8em;">(0x${h})</span>`; }
+function _usbVidCell(vid){
+    if (!_usbIsNum(vid)) return escapeHtml(vid);
+    const h = _usbHex4(vid);
+    if (!h) return escapeHtml(vid);
+    return `${escapeHtml(vid)}${_usbHexHint(h)} <a href="https://devicehunt.com/view/type/usb/vendor/${h}" target="_blank" rel="noopener noreferrer" title="{{ _('Look up vendor 0x') }}${h} {{ _('on DeviceHunt (opens in a new tab)') }}">${_usbExtIcon()}</a>`;
+}
+function _usbPidCell(vid, pid){
+    if (!_usbIsNum(pid)) return escapeHtml(pid);
+    const ph = _usbHex4(pid);
+    if (!ph) return escapeHtml(pid);
+    const hint = `${escapeHtml(pid)}${_usbHexHint(ph)}`;
+    const vh = _usbIsNum(vid) ? _usbHex4(vid) : null;
+    if (!vh) return hint;
+    return `${hint} <a href="https://devicehunt.com/view/type/usb/vendor/${vh}/device/${ph}" target="_blank" rel="noopener noreferrer" title="{{ _('Look up device 0x') }}${vh}:0x${ph} {{ _('on DeviceHunt (opens in a new tab)') }}">${_usbExtIcon()}</a>`;
+}
+
+// Themed confirm dialog + toast notices (replace browser confirm()/alert()).
+const _confirmModal = new bootstrap.Modal(document.getElementById("confirm-modal"));
+let _confirmResolve = null;
+document.getElementById("confirm-modal-ok").addEventListener("click", () => {
+    _confirmModal.hide();
+    if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+});
+document.getElementById("confirm-modal").addEventListener("hidden.bs.modal", () => {
+    if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+});
+function uiConfirm(bodyText, opts) {
+    opts = opts || {};
+    document.getElementById("confirm-modal-title").textContent = opts.title || "{{ _('Please confirm') }}";
+    document.getElementById("confirm-modal-body").textContent = bodyText;
+    const ok = document.getElementById("confirm-modal-ok");
+    ok.textContent = opts.okLabel || "{{ _('Confirm') }}";
+    ok.className = "btn " + (opts.okClass || "btn-danger");
+    return new Promise(res => { _confirmResolve = res; _confirmModal.show(); });
+}
+function uiNotice(message, kind) {
+    kind = kind || "info";
+    const cont = document.getElementById("toast-container");
+    const el = document.createElement("div");
+    el.className = "toast align-items-center text-white bg-" + kind + " border-0 mb-2";
+    el.setAttribute("role", "alert");
+    el.innerHTML = '<div class="d-flex"><div class="toast-body"></div><button type="button" class="close mr-2 m-auto" data-bs-dismiss="toast" aria-label="Close" style="color:#fff;text-shadow:none;opacity:.9;"><span aria-hidden="true">&times;</span></button></div>';
+    el.querySelector(".toast-body").textContent = message;
+    cont.appendChild(el);
+    const t = new bootstrap.Toast(el, {delay: 4500});
+    t.show();
+    el.addEventListener("hidden.bs.toast", () => el.remove());
+}
+
+async function loadUsbProfiles() {
+    const d = await apiGet("/usb_profiles?include_inactive=1");
+    const rows = (d.message || []);
+    usbProfilesData = rows;
+    // HP create-form USB dropdown lists only enabled allowlists.
+    const hwSel = document.getElementById("hw-usb-select");
+    hwSel.innerHTML = '<option value="">{{ _("(no USB allowlist)") }}</option>';
+    rows.filter(p => p.is_active !== false).forEach(p => {
+        hwSel.insertAdjacentHTML("beforeend", `<option value="${p.id}">${escapeHtml(p.profile_name)}</option>`);
+    });
+    usbListWorking = rows.map(p => ({
+        id: p.id,
+        profile_name: p.profile_name,
+        description: p.description || "",
+        entry_count: (p.entries || []).length,
+        is_active: p.is_active !== false,
+    }));
+    usbListSaved = JSON.stringify(usbListWorking);
+    renderUsbList();
+}
+
+async function loadSubProfileCatalog() {
+    const d = await apiGet("/hardware_profiles/sub_profile_types");
+    hwCatalog = (d.message || []);
+}
+
+async function loadHardwareProfiles() {
+    const d = await apiGet("/hardware_profiles?include_inactive=1");
+    hwProfilesData = (d.message || []);
+    renderHwMaster();
+    if (selectedHwId != null && hwProfilesData.some(p => p.id === selectedHwId)) {
+        selectHw(selectedHwId);
+    } else {
+        selectedHwId = null;
+        document.getElementById("hw-detail").style.display = "none";
+        document.getElementById("hw-detail-empty").style.display = "";
+    }
+}
+
+// Read-only rollup of Stack/Project -> Hardware Profile bindings. Bindings are
+// set on the Software Stack / Project edit pages; this view only reports them.
+async function loadBindings() {
+    const d = await apiGet("/hardware_profiles/bindings");
+    const rows = (d.message || []);
+    const tbody = document.getElementById("bindings-table");
+    tbody.innerHTML = "";
+    document.getElementById("bindings-empty").style.display = rows.length ? "none" : "";
+    rows.forEach(b => {
+        const isProject = b.target_type === "project";
+        const label = isProject ? "{{ _('Project') }}" : "{{ _('Software Stack') }}";
+        const editUrl = isProject ? "/admin/projects" : "/admin/virtual_desktops/software_stacks";
+        const hpName = b.hardware_profile_name
+            ? escapeHtml(b.hardware_profile_name)
+            : '<span class="text-muted">{{ _("(inactive profile)") }}</span>';
+        tbody.insertAdjacentHTML("beforeend",
+            `<tr><td>${label}</td><td>${escapeHtml(b.target_name||"")}</td><td>${b.target_id}</td>`
+            + `<td>${hpName} <span class="text-muted">(id ${b.hardware_profile_id})</span></td>`
+            + `<td><a class="btn btn-sm btn-outline-secondary" href="${editUrl}" target="_blank" rel="noopener noreferrer">{{ _("Manage") }}</a></td></tr>`);
+    });
+}
+
+let usbWorkingSet = [];
+let usbSavedSnapshot = "[]";
+
+async function manageEntries(id, name) {
+    currentUsbProfileId = id;
+    currentUsbProfileName = name;
+    document.getElementById("usb-entries-card").style.display = "";
+    document.getElementById("usb-entries-title").textContent = name + " (id " + id + ")";
+    const d = await apiGet("/usb_profiles/" + id);
+    const entries = (d.message && d.message.entries) || [];
+    usbWorkingSet = entries.map(e => ({
+        id: e.id,
+        device_label: e.device_label,
+        base_class: e.base_class,
+        sub_class: e.sub_class,
+        protocol: e.protocol,
+        vid: e.vid,
+        pid: e.pid,
+        support_autoshare: !!e.support_autoshare,
+        skip_reset: !!e.skip_reset,
+        enabled: (e.enabled === undefined || e.enabled === null) ? true : !!e.enabled,
+        admin_comment: e.admin_comment || "",
+        _deleted: false,
+    }));
+    usbSavedSnapshot = JSON.stringify(usbWorkingSet);
+    renderEntriesTable();
+    document.getElementById("usb-entries-card").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function renderEntriesTable() {
+    const body = document.getElementById("usb-entries-body");
+    body.innerHTML = "";
+    document.getElementById("usb-entries-empty").style.display = usbWorkingSet.length ? "none" : "";
+    usbWorkingSet.forEach((r, i) => {
+        const line = `${r.device_label},${r.base_class},${r.sub_class},${r.protocol},${r.vid},${r.pid},${r.support_autoshare?1:0},${r.skip_reset?1:0}`;
+        const del = !!r._deleted;
+        const tr = document.createElement("tr");
+        if (del) tr.classList.add("table-danger");
+        else if (!r.enabled) tr.classList.add("table-secondary");
+        const strike = del ? ' style="text-decoration:line-through;opacity:.55;"' : '';
+        // All untrusted fields are HTML-entity encoded at this output sink (escapeHtml).
+        tr.innerHTML =
+            `<td><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" data-i="${i}" data-f="enabled" ${r.enabled?"checked":""} ${del?"disabled":""}></div></td>`
+            + `<td${strike}>${escapeHtml(r.device_label)}</td>`
+            + `<td${strike}>${escapeHtml(r.base_class)}</td>`
+            + `<td${strike}>${escapeHtml(r.sub_class)}</td>`
+            + `<td${strike}>${escapeHtml(r.protocol)}</td>`
+            + `<td class="text-nowrap"${strike}>${_usbVidCell(r.vid)}</td>`
+            + `<td class="text-nowrap"${strike}>${_usbPidCell(r.vid, r.pid)}</td>`
+            + `<td${strike}>${r.support_autoshare?1:0}</td>`
+            + `<td${strike}>${r.skip_reset?1:0}</td>`
+            + `<td>${del
+                ? '<span class="badge bg-danger">{{ _("Will be deleted") }}</span>'
+                : `<input class="form-control form-control-sm" data-i="${i}" data-f="admin_comment" maxlength="512" value="${escapeHtml(r.admin_comment)}" placeholder="{{ _('(internal note)') }}">`}</td>`
+            + `<td class="text-nowrap"><i class="fa-regular fa-copy fa-xs" role="button" style="cursor:pointer;margin-right:0.6rem;" data-act="copy" data-copy="${escapeHtml(line)}" title="{{ _('Click to copy') }}"></i><code${strike}>${escapeHtml(line)}</code></td>`
+            + `<td>${del
+                ? `<button class="btn btn-sm btn-outline-secondary" data-i="${i}" data-act="undel">{{ _("Undo") }}</button>`
+                : `<button class="btn btn-sm btn-outline-danger" data-i="${i}" data-act="del" title="{{ _('Mark for deletion') }}">&times;</button>`}</td>`;
+        body.appendChild(tr);
+    });
+    body.querySelectorAll('input[data-f="enabled"]').forEach(el => {
+        el.addEventListener("change", e => {
+            const i = +e.target.dataset.i;
+            usbWorkingSet[i].enabled = e.target.checked;
+            e.target.closest("tr").classList.toggle("table-secondary", !e.target.checked);
+            updateDirtyBadge();
+        });
+    });
+    body.querySelectorAll('input[data-f="admin_comment"]').forEach(el => {
+        el.addEventListener("input", e => {
+            usbWorkingSet[+e.target.dataset.i].admin_comment = e.target.value;
+            updateDirtyBadge();
+        });
+    });
+    body.querySelectorAll('[data-act="copy"]').forEach(el => {
+        el.addEventListener("click", async e => {
+            const ic = e.currentTarget;
+            const txt = ic.dataset.copy;
+            if (navigator.clipboard && navigator.clipboard.writeText) { try { await navigator.clipboard.writeText(txt); } catch (_) {} }
+            else { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_2) {} ta.remove(); }
+            const orig = ic.className;
+            ic.className = "fa-solid fa-check fa-xs text-success me-3";
+            setTimeout(() => { ic.className = orig; }, 1000);
+        });
+    });
+    body.querySelectorAll('button[data-act="del"]').forEach(el => {
+        el.addEventListener("click", e => { usbWorkingSet[+e.currentTarget.dataset.i]._deleted = true; renderEntriesTable(); });
+    });
+    body.querySelectorAll('button[data-act="undel"]').forEach(el => {
+        el.addEventListener("click", e => { usbWorkingSet[+e.currentTarget.dataset.i]._deleted = false; renderEntriesTable(); });
+    });
+    updateDirtyBadge();
+}
+
+function updateDirtyBadge() {
+    const dirty = JSON.stringify(usbWorkingSet) !== usbSavedSnapshot;
+    document.getElementById("usb-dirty-badge").style.display = dirty ? "" : "none";
+}
+// ---- Shared staged-editor helpers (uniform with the USB devices editor) ----
+function _rowChanged(working, savedJson, i) {
+    const s = JSON.parse(savedJson).find(x => x.id === working[i].id);
+    return JSON.stringify(s) !== JSON.stringify(working[i]);
+}
+function _bindStaged(tbody, working, rowStateFn, dirtyFn) {
+    tbody.querySelectorAll('input[data-f], select[data-f]').forEach(el => {
+        const ev = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+        el.addEventListener(ev, e => {
+            const i = +e.target.dataset.i, f = e.target.dataset.f;
+            working[i][f] = (e.target.type === "checkbox") ? e.target.checked : e.target.value;
+            rowStateFn(i); dirtyFn();
+        });
+    });
+}
+
+// ===== Hardware Profiles master/detail =====
+function _hwSummary(p) {
+    return hwCatalog.map(t => {
+        if (t.id === "usb") { const n = p.usb_profile ? p.usb_profile.profile_name : null; return "USB: " + (n ? n : "\u2014"); }
+        return t.label + ": \u2014";
+    }).join(" \u00b7 ");
+}
+function renderHwMaster() {
+    const box = document.getElementById("hw-master");
+    box.innerHTML = "";
+    document.getElementById("hw-empty").style.display = hwProfilesData.length ? "none" : "";
+    hwProfilesData.forEach(p => {
+        const active = p.is_active !== false;
+        const badge = active
+            ? '<span class="badge bg-success">{{ _("Enabled") }}</span>'
+            : '<span class="badge bg-secondary">{{ _("Disabled") }}</span>';
+        const a = document.createElement("a");
+        a.href = "#";
+        a.className = "list-group-item list-group-item-action" + (p.id === selectedHwId ? " active" : "");
+        a.innerHTML = '<div class="d-flex justify-content-between align-items-center">'
+            + '<span><strong>' + escapeHtml(p.profile_name) + '</strong> <span class="small">(id ' + p.id + ')</span></span>'
+            + badge + '</div>'
+            + '<div class="small text-muted">' + escapeHtml(_hwSummary(p)) + '</div>';
+        a.addEventListener("click", ev => { ev.preventDefault(); selectHw(p.id); });
+        box.appendChild(a);
+    });
+}
+function selectHw(id) {
+    const p = hwProfilesData.find(x => x.id === id);
+    if (!p) return;
+    selectedHwId = id;
+    hwDetailWorking = {
+        id: p.id,
+        profile_name: p.profile_name,
+        description: p.description || "",
+        is_active: p.is_active !== false,
+        usb_profile_id: (p.usb_profile ? String(p.usb_profile.id) : ""),
+    };
+    hwDetailSaved = JSON.stringify(hwDetailWorking);
+    renderHwMaster();
+    renderHwDetail();
+}
+function updateHwDetailDirty() {
+    const b = document.getElementById("hw-detail-dirty");
+    if (b) b.style.display = (JSON.stringify(hwDetailWorking) !== hwDetailSaved) ? "" : "none";
+}
+// registry-driven section renderers: bespoke per type + generic fallback
+function renderUsbSection(t) {
+    const usbActive = usbProfilesData.filter(u => u.is_active !== false);
+    let opts = '<option value="">{{ _("(no USB allowlist)") }}</option>';
+    const seen = {};
+    usbActive.forEach(u => { seen[u.id] = 1; opts += '<option value="' + u.id + '"' + (String(u.id) === hwDetailWorking.usb_profile_id ? " selected" : "") + '>' + escapeHtml(u.profile_name) + '</option>'; });
+    if (hwDetailWorking.usb_profile_id && !seen[hwDetailWorking.usb_profile_id]) {
+        const u = usbProfilesData.find(x => String(x.id) === hwDetailWorking.usb_profile_id);
+        const nm = u ? (u.profile_name + " {{ _('(disabled)') }}") : ("id " + hwDetailWorking.usb_profile_id);
+        opts += '<option value="' + hwDetailWorking.usb_profile_id + '" selected>' + escapeHtml(nm) + '</option>';
+    }
+    const manage = hwDetailWorking.usb_profile_id
+        ? '<button type="button" class="btn btn-sm btn-outline-primary mt-2" id="hw-usb-manage">{{ _("Manage devices in this allowlist \u2192") }}</button>'
+          + '<div class="small text-muted mt-1">{{ _("Editing devices changes the shared allowlist itself \u2014 it affects every Hardware Profile that links it.") }}</div>'
+        : '<div class="small text-muted mt-1">{{ _("Link an allowlist, Apply, then manage its devices.") }}</div>';
+    return '<select class="form-control" id="hw-detail-usb">' + opts + '</select>' + manage;
+}
+function renderGenericSection(t) {
+    return '<div class="text-muted small">{{ _("No editor yet for this sub-profile type.") }}</div>';
+}
+const HW_SECTION_RENDERERS = { usb: renderUsbSection };
+function renderHwDetail() {
+    const host = document.getElementById("hw-detail");
+    const empty = document.getElementById("hw-detail-empty");
+    if (!hwDetailWorking) { host.style.display = "none"; empty.style.display = ""; return; }
+    empty.style.display = "none";
+    host.style.display = "";
+    let sections = "";
+    hwCatalog.forEach(t => {
+        const body = (HW_SECTION_RENDERERS[t.id] || renderGenericSection)(t);
+        sections += '<div class="card mb-2"><div class="card-body py-2">'
+            + '<h6 class="mb-2">' + escapeHtml(t.label) + ' <span class="badge bg-light text-dark border">' + escapeHtml(t.phase) + '</span></h6>'
+            + body + '</div></div>';
+    });
+    host.innerHTML =
+        '<div class="card mb-3"><div class="card-body">'
+        + '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="hw-detail-active" ' + (hwDetailWorking.is_active ? "checked" : "") + '>'
+        + '<label class="form-check-label" for="hw-detail-active">{{ _("Enabled") }}</label></div>'
+        + '<div class="form-group mb-2"><label class="form-label mb-1">{{ _("Name") }}</label>'
+        + '<input class="form-control" id="hw-detail-name" maxlength="255" value="' + escapeHtml(hwDetailWorking.profile_name) + '"></div>'
+        + '<div class="form-group mb-0"><label class="form-label mb-1">{{ _("Description") }}</label>'
+        + '<input class="form-control" id="hw-detail-desc" maxlength="512" value="' + escapeHtml(hwDetailWorking.description) + '"></div>'
+        + '</div></div>'
+        + '<h6 class="text-muted">{{ _("Sub-profiles") }}</h6>'
+        + sections
+        + '<div class="mt-2"><button class="btn btn-success" id="hw-detail-apply" type="button">{{ _("Apply updates") }}</button> '
+        + '<button class="btn btn-outline-secondary" id="hw-detail-discard" type="button">{{ _("Discard changes") }}</button> '
+        + '<span id="hw-detail-dirty" class="badge bg-warning text-dark" style="display:none;">{{ _("Unsaved changes") }}</span></div>'
+        + '<p class="text-muted small mt-2 mb-0">{{ _("Name, description, Enabled, and sub-profile links save together with Apply. Disabling unbinds any Stack/Project using this profile.") }}</p>';
+    document.getElementById("hw-detail-active").addEventListener("change", e => { hwDetailWorking.is_active = e.target.checked; updateHwDetailDirty(); });
+    document.getElementById("hw-detail-name").addEventListener("input", e => { hwDetailWorking.profile_name = e.target.value; updateHwDetailDirty(); });
+    document.getElementById("hw-detail-desc").addEventListener("input", e => { hwDetailWorking.description = e.target.value; updateHwDetailDirty(); });
+    const usbSel = document.getElementById("hw-detail-usb");
+    if (usbSel) usbSel.addEventListener("change", e => { hwDetailWorking.usb_profile_id = e.target.value; updateHwDetailDirty(); renderHwDetail(); });
+    const manage = document.getElementById("hw-usb-manage");
+    if (manage) manage.addEventListener("click", () => {
+        const u = usbProfilesData.find(x => String(x.id) === hwDetailWorking.usb_profile_id);
+        if (!u) return;
+        window.open(location.pathname + "#usb=" + u.id, "_blank", "noopener");
+    });
+    document.getElementById("hw-detail-apply").addEventListener("click", applyHwDetail);
+    document.getElementById("hw-detail-discard").addEventListener("click", () => { hwDetailWorking = JSON.parse(hwDetailSaved); renderHwDetail(); });
+    updateHwDetailDirty();
+}
+async function applyHwDetail() {
+    if (!hwDetailWorking) return;
+    const name = (hwDetailWorking.profile_name || "").trim();
+    if (!name) { uiNotice("{{ _('Name is required') }}", "warning"); return; }
+    const d = await apiSend("/hardware_profiles/" + hwDetailWorking.id, "PUT", {
+        profile_name: name,
+        description: hwDetailWorking.description || "",
+        usb_profile_id: hwDetailWorking.usb_profile_id || "",
+        is_active: hwDetailWorking.is_active ? "1" : "0",
+    });
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    uiNotice("{{ _('Hardware Profile updated') }}", "success");
+    await loadHardwareProfiles();
+    loadBindings();
+}
+
+// ===== USB Allowlists staged editor =====
+function applyUsbRowState(i) {
+    const tr = document.querySelector('#usb-table tr[data-row="' + i + '"]');
+    if (!tr) return;
+    tr.classList.remove("table-secondary", "hwp-dirty");
+    if (_rowChanged(usbListWorking, usbListSaved, i)) tr.classList.add("hwp-dirty");
+    else if (!usbListWorking[i].is_active) tr.classList.add("table-secondary");
+}
+function updateUsbListDirty() {
+    document.getElementById("usblist-dirty-badge").style.display = (JSON.stringify(usbListWorking) !== usbListSaved) ? "" : "none";
+}
+function renderUsbList() {
+    const tbody = document.getElementById("usb-table");
+    tbody.innerHTML = "";
+    document.getElementById("usblist-empty").style.display = usbListWorking.length ? "none" : "";
+    usbListWorking.forEach((r, i) => {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-row", i);
+        tr.innerHTML =
+            '<td><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" data-i="' + i + '" data-f="is_active" ' + (r.is_active ? "checked" : "") + '></div></td>'
+            + '<td>' + r.id + '</td>'
+            + '<td><input class="form-control form-control-sm" data-i="' + i + '" data-f="profile_name" maxlength="255" value="' + escapeHtml(r.profile_name) + '"></td>'
+            + '<td><input class="form-control form-control-sm" data-i="' + i + '" data-f="description" maxlength="512" value="' + escapeHtml(r.description) + '"></td>'
+            + '<td><span class="badge bg-secondary">' + r.entry_count + '</span> <button class="btn btn-sm btn-outline-primary" data-act="devices" data-i="' + i + '">{{ _("Devices") }}</button></td>';
+        tbody.appendChild(tr);
+        applyUsbRowState(i);
+    });
+    _bindStaged(tbody, usbListWorking, applyUsbRowState, updateUsbListDirty);
+    tbody.querySelectorAll('[data-act="devices"]').forEach(el => el.addEventListener("click", e => {
+        const r = usbListWorking[+e.currentTarget.dataset.i];
+        manageEntries(r.id, r.profile_name);
+    }));
+    updateUsbListDirty();
+}
+async function applyUsbList() {
+    const changed = usbListWorking.filter((r, i) => _rowChanged(usbListWorking, usbListSaved, i));
+    if (!changed.length) { uiNotice("{{ _('No changes to apply') }}", "info"); return; }
+    for (const r of changed) {
+        const name = (r.profile_name || "").trim();
+        if (!name) { uiNotice("{{ _('Name is required') }}", "warning"); return; }
+        const d = await apiSend("/usb_profiles/" + r.id, "PUT", {profile_name: name, description: r.description || "", is_active: r.is_active ? "1" : "0"});
+        if (!d.success) { uiNotice(d.message, "danger"); await loadUsbProfiles(); return; }
+    }
+    uiNotice("{{ _('USB allowlists updated') }}", "success");
+    await loadUsbProfiles();
+    loadHardwareProfiles();
+    loadBindings();
+}
+
+document.getElementById("usblist-apply-btn").addEventListener("click", applyUsbList);
+document.getElementById("usblist-discard-btn").addEventListener("click", () => { usbListWorking = JSON.parse(usbListSaved); renderUsbList(); });
+
+document.getElementById("usb-create-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const d = await apiSend("/usb_profiles", "POST", {profile_name: document.getElementById("usb-name").value, description: document.getElementById("usb-desc").value});
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    document.getElementById("usb-create-form").reset(); await loadUsbProfiles(); loadHardwareProfiles();
+});
+document.getElementById("hw-create-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const d = await apiSend("/hardware_profiles", "POST", {profile_name: document.getElementById("hw-name").value, description: document.getElementById("hw-desc").value, usb_profile_id: document.getElementById("hw-usb-select").value});
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    document.getElementById("hw-create-form").reset(); loadHardwareProfiles();
+});
+document.getElementById("entry-parse-btn").addEventListener("click", async () => {
+    const d = await apiSend("/usb_profiles/parse", "POST", {filter_string: document.getElementById("entry-paste").value});
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    const m = d.message;
+    document.getElementById("e-label").value = m.device_label;
+    document.getElementById("e-base").value = m.base_class;
+    document.getElementById("e-sub").value = m.sub_class;
+    document.getElementById("e-proto").value = m.protocol;
+    document.getElementById("e-vid").value = m.vid;
+    document.getElementById("e-pid").value = m.pid;
+    document.getElementById("e-auto").value = m.support_autoshare ? "1" : "0";
+    document.getElementById("e-reset").value = m.skip_reset ? "1" : "0";
+});
+document.getElementById("entry-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    if (currentUsbProfileId === null) return;
+    const label = document.getElementById("e-label").value.trim();
+    if (!label) { uiNotice("{{ _('Label is required') }}", "warning"); return; }
+    usbWorkingSet.push({
+        id: null,
+        device_label: label,
+        base_class: _usbDec(document.getElementById("e-base").value.trim() || "*"),
+        sub_class: _usbDec(document.getElementById("e-sub").value.trim() || "*"),
+        protocol: _usbDec(document.getElementById("e-proto").value.trim() || "*"),
+        vid: _usbDec(document.getElementById("e-vid").value.trim() || "*"),
+        pid: _usbDec(document.getElementById("e-pid").value.trim() || "*"),
+        support_autoshare: document.getElementById("e-auto").value === "1",
+        skip_reset: document.getElementById("e-reset").value === "1",
+        enabled: true,
+        admin_comment: "",
+        _deleted: false,
+    });
+    document.getElementById("entry-add-form").reset();
+    document.getElementById("entry-paste").value = "";
+    renderEntriesTable();
+});
+document.getElementById("usb-apply-btn").addEventListener("click", async () => {
+    if (currentUsbProfileId === null) return;
+    const payload = usbWorkingSet.filter(r => !r._deleted).map(r => ({
+        id: r.id,
+        device_label: r.device_label,
+        base_class: r.base_class,
+        sub_class: r.sub_class,
+        protocol: r.protocol,
+        vid: r.vid,
+        pid: r.pid,
+        support_autoshare: r.support_autoshare ? 1 : 0,
+        skip_reset: r.skip_reset ? 1 : 0,
+        enabled: r.enabled ? 1 : 0,
+        admin_comment: r.admin_comment || "",
+    }));
+    const d = await apiSend("/usb_profiles/" + currentUsbProfileId + "/entries", "PUT", {entries_json: JSON.stringify(payload)});
+    if (!d.success) { uiNotice(d.message, "danger"); return; }
+    await manageEntries(currentUsbProfileId, currentUsbProfileName);
+    loadUsbProfiles();
+});
+document.getElementById("usb-discard-btn").addEventListener("click", () => {
+    if (currentUsbProfileId !== null) manageEntries(currentUsbProfileId, currentUsbProfileName);
+});
+document.getElementById("resolve-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const sid = document.getElementById("resolve-stack").value;
+    const pid = document.getElementById("resolve-project").value;
+    let q = "/hardware_profiles/preview?software_stack_id=" + encodeURIComponent(sid);
+    if (pid) q += "&project_id=" + encodeURIComponent(pid);
+    const d = await apiGet(q);
+    const out = document.getElementById("resolve-output");
+    if (!d.success) { out.textContent = "Error: " + d.message; return; }
+    const lines = (d.message && d.message.lines) || [];
+    out.textContent = lines.length ? lines.join("\n") : "(empty allowlist -- DCV defaults)";
+});
+
+function openUsbFromHash() {
+    const m = (location.hash || "").match(/^#usb=(\d+)$/);
+    if (!m) return;
+    const id = parseInt(m[1], 10);
+    const u = usbProfilesData.find(x => x.id === id);
+    if (!u) return;
+    bootstrap.Tab.getOrCreateInstance(document.querySelector('#hwp-tabs a[href="#nav-usb"]')).show();
+    manageEntries(u.id, u.profile_name);
+}
+
+(async () => { await loadUsbProfiles(); await loadSubProfileCatalog(); await loadHardwareProfiles(); loadBindings(); openUsbFromHash(); })();
+</script>
+
+{% include 'common/footer.html' %}
+</body>
+</html>

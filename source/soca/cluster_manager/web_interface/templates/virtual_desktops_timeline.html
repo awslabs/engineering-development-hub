@@ -1,0 +1,656 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+{% include 'common/horizontal_menu_bar.html' %}
+    {% include 'common/js_i18n.html' %}
+
+    <div id="wrapper">
+        {% include 'common/vertical_menu_bar.html' %}
+        <div id="content-wrapper" class="d-flex flex-column">
+            <div id="content" style="margin-top: 20px;">
+                <div class="container-fluid">
+                    {% include 'common/flashed_messages.html' %}
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fa-solid fa-timeline"></i> {{ _("DCV Session Timeline") }}
+                            </h6>
+                            <a href="/virtual_desktops" class="btn btn-sm btn-outline-secondary">
+                                <i class="fa-solid fa-arrow-left"></i> {{ _("Back to Virtual Desktops") }}
+                            </a>
+                        </div>
+                        <div class="card-body">
+
+                            {# Session summary header #}
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <small class="text-muted">{{ _("Session Name") }}</small>
+                                    <div><strong>{{ session_name or session_uuid[:8] }}</strong></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">{{ _("State") }}</small>
+                                    <div>
+                                        <span class="badge
+                                            {% if session_state == 'running' %}bg-success
+                                            {% elif session_state in ['pending', 'placing'] %}bg-warning text-white
+                                            {% elif session_state == 'error' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ session_state }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">{{ _("Instance") }}</small>
+                                    <div><code>{{ instance_id or "-" }}</code></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">{{ _("Owner") }}</small>
+                                    <div>{{ session_owner }}</div>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            {# Live event log #}
+                            <div class="mb-2 d-flex align-items-center">
+                                <h6 class="mb-0 me-3">{{ _("Event Log") }}</h6>
+                                <span id="dcv-stream-status" class="badge bg-secondary">
+                                    <i class="fa-solid fa-circle"></i> {{ _("connecting...") }}
+                                </span>
+                                <button type="button" class="btn btn-link btn-sm p-0 ms-3 dcv-events-order-toggle" title="{{ _('Toggle order: oldest first / newest first') }}" aria-label="Toggle event order">
+                                    <i class="fa-solid fa-arrow-down-short-wide dcv-events-order-icon"></i>
+                                </button>
+                                <button type="button" class="btn btn-link btn-sm p-0 ms-2 dcv-events-tz-toggle" title="{{ _('Toggle Received timezone: UTC / local') }}" aria-label="Toggle timestamp timezone">
+                                    <i class="fa-solid fa-clock me-1"></i><span class="dcv-events-tz-label">UTC</span>
+                                </button>
+                                <span class="ms-2 text-muted small dcv-events-since" title="{{ _('Time since last event') }}"></span>
+                                <span class="ms-4 text-muted small">
+                                    {{ _("Live updates via Server-Sent Events. Auto-reconnect on drop.") }}
+                                </span>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="dcv-event-log-table"
+                                       data-session-uuid="{{ session_uuid }}"
+                                       data-session-created-on="{{ session_created_on }}"
+                                       data-eta-checkpoints="{{ (eta.checkpoints if eta else {}) | tojson | forceescape }}">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 200px;">{{ _("Received") }}</th>
+                                            <th style="width: 90px;" title="{{ _('Time since session was created') }}">{{ _("T+") }}</th>
+                                            <th style="width: 150px;" title="{{ _('Typical T+ for this checkpoint (p50 / p95) from launch history') }}">{{ _("Expected") }}</th>
+                                            <th style="width: 90px;" title="{{ _('Time since the previous event') }}">{{ _("D+") }}</th>
+                                            <th style="width: 90px;" title="{{ _('This step as a percentage of total launch time') }}">{{ _("Impact") }}</th>
+                                            <th style="width: 220px;">{{ _("Event Type") }}</th>
+                                            <th style="width: 200px;">{{ _("Checkpoint") }}</th>
+                                            <th>{{ _("Sub Status") }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dcv-event-log-body">
+                                        {% if events %}
+                                            {% for ev in events %}
+                                            <tr data-event-id="{{ ev.id }}" data-event-received="{{ ev.received_at }}" data-event-type="{{ ev.event_type }}" data-checkpoint="{{ ev.checkpoint or ev.event_type }}">
+                                                <td><small class="dcv-event-received">{{ (ev.received_at[:19]).replace('T', ' ') if ev.received_at else '' }}</small></td>
+                                                <td><small class="dcv-event-delta text-muted"></small><small class="dcv-event-running text-info ms-2"></small></td>
+                                                <td style="white-space: nowrap;"><small class="dcv-event-expected text-muted"></small></td>
+                                                <td><small class="dcv-event-step-delta text-muted"></small></td>
+                                                <td><small class="dcv-event-impact text-muted"></small></td>
+                                                <td>
+                                                    <span class="dcv-event-status me-1"></span>
+                                                    {% if ev.event_type == 'session-ready' %}<span class="badge bg-success text-white"">{{ ev.event_type }}</span>
+                                                    {% elif ev.event_type == 'session-failed' %}<span class="badge bg-danger text-white"">{{ ev.event_type }}</span>
+                                                    {% elif ev.event_type == 'bootstrap-checkpoint' %}<span class="badge bg-primary text-white"">{{ ev.event_type }}</span>
+                                                    {% elif ev.event_type == 'bootstrap-status' %}<span class="badge bg-info text-white">{{ ev.event_type }}</span>
+                                                    {% else %}<span class="badge bg-secondary text-white">{{ ev.event_type }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{% if ev.checkpoint %}<code>{{ ev.checkpoint }}</code>{% endif %}</td>
+                                                <td><small>{{ ev.sub_status }}</small></td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                        <tr id="dcv-empty-row"><td colspan="8" class="text-muted text-center"><em>{{ _("No events yet -- bootstrap may not have started emitting. Live updates will appear here.") }}</em></td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="text-muted small mt-2">
+                                <i class="fa-solid fa-info-circle"></i>
+                                {{ _("Showing the most recent") }} <strong id="dcv-event-count">{{ events|length }}</strong> {{ _("events. The DcvSessionEventLog table retains 24 hours of history per session.") }}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% include 'common/footer.html' ignore missing %}
+        </div>
+    </div>
+
+<script>
+/*
+ * DCV session detail timeline -- consumes /virtual_desktops/events/stream/<uuid>.
+ * Renders new event rows at the top of the table as they arrive.
+ *
+ * Initial historical events are server-rendered above; SSE delivers only
+ * events with id > the last historical id (via Last-Event-ID).
+ */
+(function () {
+    'use strict';
+
+    if (typeof EventSource === 'undefined') {
+        document.getElementById('dcv-stream-status').innerHTML =
+            '<i class="fa-solid fa-circle text-muted"></i> stream unsupported';
+        return;
+    }
+
+    var sessionUuid = document.getElementById('dcv-event-log-table').dataset.sessionUuid;
+    var tableEl = document.getElementById('dcv-event-log-table');
+    var sessionCreatedOn = tableEl.dataset.sessionCreatedOn || '';
+    var sessionStartMs = sessionCreatedOn ? Date.parse(sessionCreatedOn) : NaN;
+    var tbody = document.getElementById('dcv-event-log-body');
+    var emptyRow = document.getElementById('dcv-empty-row');
+    var statusBadge = document.getElementById('dcv-stream-status');
+    var countEl = document.getElementById('dcv-event-count');
+
+    /*
+     * Format a wall-clock ms-delta as a compact T+ string.
+     *  <  60s   ->  "+12s"
+     *  < 60min  ->  "+2m 34s"
+     *  >= 1h    ->  "+1h 23m"
+     */
+    function formatDelta(deltaMs) {
+        if (!isFinite(deltaMs) || deltaMs < 0) return '';
+        var s = Math.floor(deltaMs / 1000);
+        if (s < 60) return '+' + s + 's';
+        var m = Math.floor(s / 60);
+        var rs = s % 60;
+        if (m < 60) return '+' + m + 'm ' + rs + 's';
+        var h = Math.floor(m / 60);
+        var rm = m % 60;
+        return '+' + h + 'h ' + rm + 'm';
+    }
+
+    function paintExistingDeltas() {
+        if (!isFinite(sessionStartMs)) return;
+        var rows = tbody.querySelectorAll('tr[data-event-id][data-event-received]');
+        var prevT = null;
+        rows.forEach(function (tr) {
+            var t = Date.parse(tr.dataset.eventReceived);
+            if (!isFinite(t)) return;
+            // T+ from session start. Detail page already shows the
+            // full timestamp in the Received column, so no mouseover
+            // tooltip is needed on the T+/D+ cells.
+            var tCell = tr.querySelector('.dcv-event-delta');
+            if (tCell && !tCell.textContent) {
+                tCell.textContent = formatDelta(t - sessionStartMs);
+            }
+            // D+ from previous event (empty for first)
+            var dCell = tr.querySelector('.dcv-event-step-delta');
+            if (dCell && !dCell.textContent && prevT !== null) {
+                dCell.textContent = formatDelta(t - prevT);
+            }
+            prevT = t;
+        });
+    }
+    paintExistingDeltas();
+
+    /*
+     * Impact % per step: each step's D+ as a fraction of total launch
+     * span (last event T+ minus first event T+). Only rendered when
+     * meaningful -- a step must be both >= 3% of total AND >= 5s
+     * absolute, so sub-second checkpoints don't clutter the column
+     * with "1%" noise. Sub-threshold steps get a muted em-dash +
+     * tooltip so a blank cell isn't mistaken for missing data.
+     * Colored by magnitude: >=40% danger, >=20% warn.
+     * Recomputed on every call so SSE-appended rows shift the
+     * denominator correctly as the launch progresses.
+     */
+    var IMPACT_MIN_PCT = 3;
+    var IMPACT_MIN_MS = 5000;
+
+    function paintImpacts() {
+        var rows = Array.prototype.slice.call(
+            tbody.querySelectorAll('tr[data-event-id][data-event-received]')
+        );
+        // Sort chronologically to compute spans + per-step deltas.
+        var pts = [];
+        rows.forEach(function (tr) {
+            var t = Date.parse(tr.dataset.eventReceived || '');
+            if (isFinite(t)) pts.push({ tr: tr, t: t });
+        });
+        pts.sort(function (a, b) { return a.t - b.t; });
+        if (pts.length < 2) return;
+
+        var totalMs = pts[pts.length - 1].t - pts[0].t;
+        if (totalMs <= 0) return;
+
+        for (var i = 0; i < pts.length; i++) {
+            var cell = pts[i].tr.querySelector('.dcv-event-impact');
+            if (!cell) continue;
+            if (i === 0) { cell.textContent = ''; continue; }  // first step has no D+
+            var stepMs = pts[i].t - pts[i - 1].t;
+            var pct = (stepMs / totalMs) * 100;
+            cell.classList.remove('text-warning', 'text-danger', 'fw-semibold');
+            if (stepMs < IMPACT_MIN_MS || pct < IMPACT_MIN_PCT) {
+                cell.textContent = '\u2014';  // muted marker -- below display threshold
+                cell.title = 'Below display threshold (step is <5s or <3% of total launch time)';
+                continue;
+            }
+            cell.title = '';
+            cell.textContent = Math.round(pct) + '%';
+            if (pct >= 40) {
+                cell.classList.add('text-danger', 'fw-semibold');
+            } else if (pct >= 20) {
+                cell.classList.add('text-warning');
+            }
+        }
+    }
+    paintImpacts();
+
+    /*
+     * Per-gate ETA: compares each row's actual T+ against the historical
+     * p50/p75/p95 band for that checkpoint (from get_eta, embedded as
+     * data-eta-checkpoints). Fills the Expected column with "p50 / p95"
+     * and tints the T+ cell:
+     *   <= p75  normal     p75-p95  yellow     > p95  red
+     * Silent for checkpoints without history (no false alarms until
+     * N>=5 samples exist for that gate).
+     */
+    var etaCheckpoints = {};
+    try {
+        etaCheckpoints = JSON.parse(tableEl.dataset.etaCheckpoints || '{}') || {};
+    } catch (e) { etaCheckpoints = {}; }
+
+    function paintExpected() {
+        if (!isFinite(sessionStartMs)) return;
+        tbody.querySelectorAll('tr[data-event-id]').forEach(function (tr) {
+            var cp = tr.dataset.checkpoint || '';
+            var band = cp ? etaCheckpoints[cp] : null;
+            var expCell = tr.querySelector('.dcv-event-expected');
+            var tCell = tr.querySelector('.dcv-event-delta');
+            if (!expCell) return;
+            if (!band) { expCell.textContent = ''; return; }
+
+            // Expected column: p50 / p95 (cumulative T+).
+            expCell.textContent = formatDelta(band.p50) + ' / ' + formatDelta(band.p95);
+            expCell.title = 'p25 ' + formatDelta(band.p25)
+                          + ' | p50 ' + formatDelta(band.p50)
+                          + ' | p75 ' + formatDelta(band.p75)
+                          + ' | p95 ' + formatDelta(band.p95);
+
+            // Tint the actual T+ cell vs the band.
+            var t = Date.parse(tr.dataset.eventReceived || '');
+            if (!tCell || !isFinite(t)) return;
+            var actual = t - sessionStartMs;
+            tCell.classList.remove('text-warning', 'text-danger', 'text-success', 'fw-semibold');
+            if (actual > band.p95) {
+                tCell.classList.add('text-danger', 'fw-semibold');
+                tCell.title = 'Over p95 (' + formatDelta(band.p95) + ') -- anomalously slow';
+            } else if (actual > band.p75) {
+                tCell.classList.add('text-warning');
+                tCell.title = 'Over p75 (' + formatDelta(band.p75) + ') -- slower than usual';
+            } else if (actual < band.p25) {
+                tCell.classList.add('text-success');
+                tCell.title = 'Under p25 (' + formatDelta(band.p25) + ') -- faster than usual';
+            } else {
+                tCell.title = 'Within typical range';
+            }
+        });
+    }
+    paintExpected();
+
+    /*
+     * Per-row status emoji + live in-progress timer.
+     *   - terminal rows: session-ready/resumed -> done; failed -> error
+     *   - completed steps (a newer event exists): emoji reflects how the
+     *     step landed vs its historical band (in-window / slow / anomalous)
+     *   - latest NON-terminal row: treated as still-running -> hourglass +
+     *     a live "running Ns" counter in the T+ cell, tinted if it
+     *     overruns the band for that checkpoint.
+     * Driven off the existing 1s tickSince() interval.
+     */
+    function bandFor(tr) {
+        var cp = tr.dataset.checkpoint || '';
+        if (!cp) return null;
+        // Only band-compare gates that occur once in this session; repeated
+        // generic pings (bootstrap-status) have no 1:1 band -> no slow flag.
+        var n = 0;
+        tbody.querySelectorAll('tr[data-event-id]').forEach(function (r) {
+            if ((r.dataset.checkpoint || '') === cp) n++;
+        });
+        return n === 1 ? etaCheckpoints[cp] : null;
+    }
+    // Status glyph as a Font Awesome icon (consistent cross-platform
+    // rendering vs. color emoji). Static strings only -- safe innerHTML.
+    function faIcon(el, cls, color, title) {
+        el.innerHTML = '<i class="fa-solid ' + cls + ' ' + color + '"></i>';
+        el.title = title;
+    }
+    function paintRowStatus() {
+        var rows = Array.prototype.slice.call(
+            tbody.querySelectorAll('tr[data-event-id][data-event-received]'));
+        if (!rows.length) return;
+        var latest = null, latestT = -1;
+        rows.forEach(function (tr) {
+            var t = Date.parse(tr.dataset.eventReceived || '');
+            if (isFinite(t) && t > latestT) { latestT = t; latest = tr; }
+        });
+        rows.forEach(function (tr) {
+            var statusEl = tr.querySelector('.dcv-event-status');
+            var runEl = tr.querySelector('.dcv-event-running');
+            if (!statusEl) return;
+            if (runEl) runEl.textContent = '';
+            var type = tr.dataset.eventType || '';
+            if (type === 'session-ready' || type === 'session-resumed') {
+                faIcon(statusEl, 'fa-circle-check', 'text-success', 'Session ready'); return;
+            }
+            if (type === 'session-failed') {
+                faIcon(statusEl, 'fa-circle-xmark', 'text-danger', 'Launch failed'); return;
+            }
+            var band = bandFor(tr);
+            var t = Date.parse(tr.dataset.eventReceived || '');
+            if (tr === latest) {
+                faIcon(statusEl, 'fa-spinner fa-spin', 'text-primary', 'In progress');
+                if (runEl && isFinite(t)) {
+                    runEl.textContent = '(running ' + formatDelta(Date.now() - t).replace(/^\+/, '') + ')';
+                    runEl.classList.remove('text-info', 'text-warning', 'text-danger');
+                    if (band && isFinite(sessionStartMs)) {
+                        var cumulative = Date.now() - sessionStartMs;
+                        if (cumulative > band.p95) runEl.classList.add('text-danger');
+                        else if (cumulative > band.p75) runEl.classList.add('text-warning');
+                        else runEl.classList.add('text-info');
+                    } else { runEl.classList.add('text-info'); }
+                }
+                return;
+            }
+            if (band && isFinite(t) && isFinite(sessionStartMs)) {
+                var actual = t - sessionStartMs;
+                if (actual > band.p95) { faIcon(statusEl, 'fa-circle-exclamation', 'text-danger', 'Completed but anomalously slow (over p95)'); }
+                else if (actual > band.p75) { faIcon(statusEl, 'fa-triangle-exclamation', 'text-warning', 'Completed slower than usual (over p75)'); }
+                else { faIcon(statusEl, 'fa-circle-check', 'text-success', 'Completed within expected window'); }
+            } else {
+                faIcon(statusEl, 'fa-circle-check', 'text-success', 'Completed');
+            }
+        });
+    }
+    paintRowStatus();
+
+    /*
+     * ASC/DESC order toggle (shared with the grid card via the same
+     * localStorage key 'dcv-events-order'). Default is asc (oldest at
+     * top, matches dot timeline).
+     */
+    var ORDER_STORAGE_KEY = 'dcv-events-order';
+
+    function getStoredOrder() {
+        try {
+            var v = localStorage.getItem(ORDER_STORAGE_KEY);
+            return (v === 'desc') ? 'desc' : 'asc';
+        } catch (e) {
+            return 'asc';
+        }
+    }
+
+    function setStoredOrder(order) {
+        try { localStorage.setItem(ORDER_STORAGE_KEY, order); } catch (e) {}
+    }
+
+    function applyOrder(order) {
+        tableEl.dataset.order = order;
+        var icon = document.querySelector('.dcv-events-order-icon');
+        if (icon) {
+            icon.classList.remove('fa-arrow-down-short-wide', 'fa-arrow-up-short-wide');
+            icon.classList.add(order === 'desc' ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-short-wide');
+        }
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-event-id]'));
+        if (rows.length < 2) return;
+        rows.sort(function (a, b) {
+            // Sort chronologically by the event's received timestamp.
+            // (Event ids mix integer PKs from the ORM history render with
+            // ULID strings from the live SSE stream, so parseInt(id) cannot
+            // order them -- it would strand control-plane "placed" events.)
+            var ta = Date.parse(a.dataset.eventReceived || '');
+            var tb = Date.parse(b.dataset.eventReceived || '');
+            var fa = isFinite(ta), fb = isFinite(tb);
+            if (fa && fb && ta !== tb) return ta - tb;
+            if (fa !== fb) return fa ? -1 : 1;  // timed rows ahead of timeless
+            // Tiebreak: lexical event id (stable for both PKs and ULIDs).
+            return String(a.dataset.eventId || '').localeCompare(String(b.dataset.eventId || ''));
+        });
+        if (order === 'desc') rows.reverse();
+        rows.forEach(function (r) { tbody.appendChild(r); });
+    }
+    applyOrder(getStoredOrder());
+
+    // Received-timestamp timezone toggle (UTC <-> browser local), persisted
+    // like the order toggle. Rows keep the raw ISO in data-event-received;
+    // only the displayed text is reformatted, so sorting/T+ are unaffected.
+    var TZ_STORAGE_KEY = 'dcv-events-tz';
+    function getStoredTz() {
+        try { return localStorage.getItem(TZ_STORAGE_KEY) === 'local' ? 'local' : 'utc'; }
+        catch (e) { return 'utc'; }
+    }
+    function setStoredTz(tz) { try { localStorage.setItem(TZ_STORAGE_KEY, tz); } catch (e) {} }
+    function paintReceived() {
+        var mode = getStoredTz();
+        var label = document.querySelector('.dcv-events-tz-label');
+        if (label) label.textContent = (mode === 'local') ? 'Local' : 'UTC';
+        tbody.querySelectorAll('tr[data-event-id]').forEach(function (tr) {
+            var cell = tr.querySelector('.dcv-event-received');
+            if (cell) cell.textContent = formatReceived(tr.dataset.eventReceived || '', mode);
+        });
+    }
+    paintReceived();
+
+    document.addEventListener('click', function (ev) {
+        var tzBtn = ev.target.closest('.dcv-events-tz-toggle');
+        if (!tzBtn) return;
+        ev.preventDefault();
+        setStoredTz(getStoredTz() === 'utc' ? 'local' : 'utc');
+        paintReceived();
+    });
+
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.dcv-events-order-toggle');
+        if (!btn) return;
+        ev.preventDefault();
+        var current = getStoredOrder();
+        var next = (current === 'asc') ? 'desc' : 'asc';
+        setStoredOrder(next);
+        applyOrder(next);
+    });
+
+    /*
+     * Live "since last event" counter for the detail page. Ticks once
+     * per second based on the latest tr[data-event-received].
+     * Freezes on session-ready / session-failed (terminal states) and
+     * shows the total bootstrap time instead.
+     */
+    var sinceEl = document.querySelector('.dcv-events-since');
+    function tickSince() {
+        if (!sinceEl) return;
+        var rows = tbody.querySelectorAll('tr[data-event-id][data-event-received]');
+        if (rows.length === 0) {
+            sinceEl.textContent = '';
+            sinceEl.classList.remove('text-success', 'text-danger');
+            return;
+        }
+        var latestT = 0;
+        var latestType = '';
+        rows.forEach(function (tr) {
+            var t = Date.parse(tr.dataset.eventReceived || '');
+            if (isFinite(t) && t > latestT) {
+                latestT = t;
+                latestType = tr.dataset.eventType || '';
+            }
+        });
+        if (latestT === 0) return;
+
+        sinceEl.classList.remove('text-success', 'text-danger');
+
+        if (latestType === 'session-ready' || latestType === 'session-resumed') {
+            if (isFinite(sessionStartMs)) {
+                sinceEl.textContent = 'Completed in ' + formatDelta(latestT - sessionStartMs).replace(/^\+/, '');
+            } else {
+                sinceEl.textContent = 'Completed';
+            }
+            sinceEl.classList.add('text-success');
+            return;
+        }
+        if (latestType === 'session-failed') {
+            if (isFinite(sessionStartMs)) {
+                sinceEl.textContent = 'Failed at +' + formatDelta(latestT - sessionStartMs).replace(/^\+/, '');
+            } else {
+                sinceEl.textContent = 'Failed';
+            }
+            sinceEl.classList.add('text-danger');
+            return;
+        }
+        var elapsed = Date.now() - latestT;
+        sinceEl.textContent = formatDelta(elapsed).replace(/^\+/, '') + ' ago';
+    }
+    tickSince();
+    setInterval(function () { tickSince(); paintRowStatus(); }, 1000);
+
+    function setStatus(label, cls) {
+        statusBadge.className = 'badge ' + cls;
+        statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> ' + label;
+    }
+
+    function escapeText(s) {
+        if (s === null || s === undefined) return '';
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function utcSlice(iso) {
+        // String-trim ISO-8601 to "YYYY-MM-DD HH:MM:SS" (UTC; no fractional/TZ).
+        var m = String(iso).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
+        return m ? m[1] + ' ' + m[2] : String(iso);
+    }
+
+    function formatReceived(iso, mode) {
+        if (!iso) return '';
+        if (mode === 'local') {
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return utcSlice(iso);
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
+                 + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+        }
+        return utcSlice(iso);
+    }
+
+    function eventTypeBadge(eventType) {
+        var cls = 'bg-secondary';
+        if (eventType === 'session-ready') cls = 'bg-success';
+        else if (eventType === 'session-failed') cls = 'bg-danger';
+        else if (eventType === 'bootstrap-checkpoint') cls = 'bg-primary';
+        else if (eventType === 'bootstrap-status') cls = 'bg-info text-white';
+        return '<span class="badge ' + cls + '">' + escapeText(eventType) + '</span>';
+    }
+
+    function appendRow(ev) {
+        if (emptyRow) { emptyRow.remove(); emptyRow = null; }
+        if (document.querySelector('tr[data-event-id="' + ev.id + '"]')) return;
+
+        var tr = document.createElement('tr');
+        tr.setAttribute('data-event-id', ev.id);
+        tr.setAttribute('data-event-received', ev.event_timestamp || '');
+        if (ev.event_type) tr.setAttribute('data-event-type', ev.event_type);
+        tr.setAttribute('data-checkpoint', ev.checkpoint || ev.event_type || '');
+        tr.style.background = 'rgba(59, 130, 246, 0.10)';
+        setTimeout(function () { tr.style.background = ''; tr.style.transition = 'background 1500ms ease'; }, 50);
+
+        var deltaText = '';
+        if (isFinite(sessionStartMs) && ev.event_timestamp) {
+            var t = Date.parse(ev.event_timestamp);
+            if (isFinite(t)) {
+                deltaText = formatDelta(t - sessionStartMs);
+            }
+        }
+
+        // D+ from the latest existing row (by max wall-clock; rows may
+        // not be in DOM order if user toggled DESC).
+        var stepDeltaText = '';
+        if (ev.event_timestamp) {
+            var thisT = Date.parse(ev.event_timestamp);
+            if (isFinite(thisT)) {
+                var latestExistingT = null;
+                tbody.querySelectorAll('tr[data-event-id][data-event-received]').forEach(function (tr) {
+                    var pt = Date.parse(tr.dataset.eventReceived || '');
+                    if (isFinite(pt) && (latestExistingT === null || pt > latestExistingT)) {
+                        latestExistingT = pt;
+                    }
+                });
+                if (latestExistingT !== null && thisT > latestExistingT) {
+                    stepDeltaText = formatDelta(thisT - latestExistingT);
+                }
+            }
+        }
+
+        tr.innerHTML =
+            '<td><small class="dcv-event-received">' + escapeText(formatReceived(ev.event_timestamp, getStoredTz())) + '</small></td>' +
+            '<td><small class="dcv-event-delta text-muted">' + escapeText(deltaText) + '</small><small class="dcv-event-running text-info ms-2"></small></td>' +
+            '<td><small class="dcv-event-expected text-muted"></small></td>' +
+            '<td><small class="dcv-event-step-delta text-muted">' + escapeText(stepDeltaText) + '</small></td>' +
+            '<td><small class="dcv-event-impact text-muted"></small></td>' +
+            '<td><span class="dcv-event-status me-1"></span>' + eventTypeBadge(ev.event_type) + '</td>' +
+            '<td>' + (ev.checkpoint ? '<code>' + escapeText(ev.checkpoint) + '</code>' : '') + '</td>' +
+            '<td><small>' + escapeText(ev.sub_status || '') + '</small></td>';
+
+        // Insert, then re-apply the chronological order so a late-arriving
+        // event (e.g. a control-plane "placed" replayed after the bootstrap
+        // history) lands in its correct position instead of at the end.
+        tbody.appendChild(tr);
+        applyOrder(tableEl.dataset.order || 'asc');
+
+        var count = tbody.querySelectorAll('tr[data-event-id]').length;
+        if (countEl) countEl.textContent = count;
+        // New event shifts the total span -- recompute all impact %s.
+        paintImpacts();
+        paintExpected();
+        paintRowStatus();
+    }
+
+    function handleEvent(rawData) {
+        var ev;
+        try { ev = JSON.parse(rawData); } catch (e) { return; }
+        if (!ev || ev.session_uuid !== sessionUuid) return;
+        appendRow(ev);
+    }
+
+    function start() {
+        var es = new EventSource('/virtual_desktops/events/stream/' + encodeURIComponent(sessionUuid));
+        es.onopen  = function () { setStatus('connected', 'bg-success'); };
+        es.onerror = function () { setStatus('reconnecting', 'bg-warning text-dark'); };
+        es.onmessage = function (msg) { handleEvent(msg.data); };
+        ['bootstrap-checkpoint', 'bootstrap-status', 'session-ready', 'session-failed', 'session-resumed', 'placed', 'placement_failed'].forEach(function (n) {
+            es.addEventListener(n, function (msg) { handleEvent(msg.data); });
+        });
+        window.addEventListener('beforeunload', function () { es.close(); });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+})();
+</script>
+
+</body>
+
+</html>

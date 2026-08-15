@@ -48,6 +48,7 @@
       # - File: 644
       # - Folder: 755
       local FSX_ONTAP_VOLUME_ID="${1}"
+      local FS_NAME_FOR_SSM="${2}"
 
       if [[ -z "${FSX_ONTAP_VOLUME_ID}" ]]; then
         exit_fail "FSX_ONTAP_VOLUME_ID as first parameter is needed for fsx_ontap_first_setup"
@@ -196,6 +197,22 @@
             \"file_umask\": \"025\",
             \"dir_umask\": \"026\"
       }"
+
+      # Publish the share name EDH just created to SSM so Windows VDIs can auto-mount it
+      # with NO admin input. Only written if not already present, so an admin override
+      # (edhctl filesystems ... -k cifs_share_name) is never clobbered.
+      if [[ -n "${FS_NAME_FOR_SSM}" ]]; then
+        local FS_SSM_BASE="/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems/${FS_NAME_FOR_SSM}"
+        local EXISTING_SHARE_NAME=""
+        if EXISTING_SHARE_NAME=$(aws_cli ssm get-parameter --name "${FS_SSM_BASE}/cifs_share_name" --query "Parameter.Value" --output text 2>/dev/null) \
+           && [[ -n "${EXISTING_SHARE_NAME}" && "${EXISTING_SHARE_NAME}" != "None" ]]; then
+          log_info "cifs_share_name already set (${EXISTING_SHARE_NAME}) for ${FS_NAME_FOR_SSM}; preserving existing/admin-override value."
+        else
+          log_info "Publishing EDH-created CIFS share name to SSM: ${FS_SSM_BASE}/cifs_share_name=${FSX_ONTAP_CIFS_SHARE_NAME}"
+          aws_cli ssm put-parameter --name "${FS_SSM_BASE}/cifs_share_name" --value "${FSX_ONTAP_CIFS_SHARE_NAME}" --type "String" --overwrite >/dev/null \
+            || log_warning "Failed to publish cifs_share_name for ${FS_NAME_FOR_SSM}; Windows auto-mount may require setting it via 'edhctl filesystems update'"
+        fi
+      fi
 
       popd
     }

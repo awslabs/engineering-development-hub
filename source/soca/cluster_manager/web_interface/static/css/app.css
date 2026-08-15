@@ -11230,6 +11230,7 @@ color: #016ce0
 .sidebar.toggled {
   width: 0 !important;
   overflow: hidden;
+  display: none !important;
 }
 
 .sidebar.toggled #sidebarToggle::after {

@@ -32,6 +32,14 @@ $env:EDHBootstrapPostRebootTaskName = "EDHBootStrapPostReboot_${instanceId}"
 # Set the EDH_DCV_SESSION_ID (same name on Linux). This is used by the scheduled task to retrieve the DCV Session ID
 [System.Environment]::SetEnvironmentVariable('EDH_DCV_SESSION_ID', "{{ context.get("/dcv/SessionId") }}", [System.EnvironmentVariableTarget]::Machine)
 
+# EDH_DCV_SESSION_OWNER is likewise needed by the post-reboot scheduled task
+# (03_setup_post_reboot: local-admin grant + legacy `dcv create-session --owner`).
+# 00_session_env.ps1.j2 only sets it in PROCESS scope, which the fresh
+# post-reboot process does not inherit -- so persist it to Machine scope here,
+# mirroring EDH_DCV_SESSION_ID above. Without this the owner is empty post-reboot
+# (create-session --owner '' fails -> no session -> "not authorized to join").
+[System.Environment]::SetEnvironmentVariable('EDH_DCV_SESSION_OWNER', "{{ context.get("/dcv/SessionOwner") }}", [System.EnvironmentVariableTarget]::Machine)
+
 $EDHBootstrapAssetsFolder = $env:EDHBootstrapAssetsFolder
 
 # Check if bootstrap has not already been completed for this instance and exit if lock file is found
@@ -51,12 +59,41 @@ if (-not (Test-Path -Path "${EDHBootstrapAssetsFolder}")) {
     Log-Info -Message "Downloading Boostrap Sequence from  {{ context.get("/job/BootstrapScriptsS3Location") }}" | Out-File -FilePath "${EDHBootstrapAssetsFolder}\01_user_data.ps1.log" -Append
     Invoke-SOCAAwsCli s3 sync {{ context.get("/job/BootstrapScriptsS3Location") }} $EDHBootstrapAssetsFolder
 
+    # When BootstrapTemplateCache is enabled, fetch the per-session env
+    # file separately. The cached big bootstrap (02_setup.ps1) references
+    # $env:EDH_* values at runtime instead of baking them in at Jinja2
+    # render time. When the cache is disabled the value is empty and the
+    # big script behaves as it did pre-cache.
+    # See docs/BootstrapTemplateCache.md
+    $SessionEnvS3 = "{{ context.get("/job/SessionEnvS3Location", "") }}"
+    if (-not [string]::IsNullOrEmpty($SessionEnvS3)) {
+        # TrimEnd('/') strips any trailing slash so we never end up
+        # with .../prefix//00_session_env.ps1, which is a *different*
+        # S3 key than .../prefix/00_session_env.ps1 and HeadObject
+        # 404s on the wrong one. The Python side
+        # (utils.aws.s3_helper.s3_join) already returns no trailing
+        # slash, but the worker stub belt-and-suspenders this so a
+        # future drift in the producer can't take VDIs offline.
+        $SessionEnvS3Clean = $SessionEnvS3.TrimEnd('/')
+        Log-Info -Message "Downloading per-session env file from ${SessionEnvS3Clean}/00_session_env.ps1" | Out-File -FilePath "${EDHBootstrapAssetsFolder}\01_user_data.ps1.log" -Append
+        Invoke-SOCAAwsCli s3 cp "${SessionEnvS3Clean}/00_session_env.ps1" "${EDHBootstrapAssetsFolder}\00_session_env.ps1"
+    }
+
     # Track Bootstrap location
     Log-Info -Message "{{ context.get("/job/BootstrapScriptsS3Location") }}" | Out-File -FilePath "${EDHBootstrapAssetsFolder}\bootstrap_s3_location.log" -Append
 }
 
 # CD into boostrap location
 Set-Location -Path $EDHBootstrapAssetsFolder
+
+# Source the per-session env file BEFORE running 02_setup.ps1 so the
+# cached big bootstrap can resolve $env:EDH_* at runtime. No-op when
+# the env file is absent (cache disabled or older worker that pre-dates
+# this change).
+if (Test-Path -Path "${EDHBootstrapAssetsFolder}\00_session_env.ps1") {
+    Log-Info -Message "Sourcing per-session env file" | Out-File -FilePath "${EDHBootstrapAssetsFolder}\01_user_data.ps1.log" -Append
+    . "${EDHBootstrapAssetsFolder}\00_session_env.ps1"
+}
 
 # Executes the script
 Log-Info -Message "Executing 02_setup.ps"  | Out-File -FilePath "${EDHBootstrapAssetsFolder}\01_user_data.ps1.log" -Append

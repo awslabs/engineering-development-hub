@@ -28,7 +28,7 @@ class SocaConfigKeyVerifier:
     ]
 
     _SPECIAL_VALIDATION_TESTS = [
-        "list_of_string",
+        "list_of_strings",
         "list_of_int",
         "valid_iam_role",
         "valid_s3_bucket",
@@ -116,7 +116,7 @@ class SocaConfigKeyVerifier:
             )
         else:
             if _validation_test in SocaConfigKeyVerifier._SPECIAL_VALIDATION_TESTS:
-                if _validation_test == "list_of_string":
+                if _validation_test == "list_of_strings":
                     _result = self.verify_list_of_type(
                         value=value, list_item_type="str", item_pattern=None
                     )
@@ -403,47 +403,53 @@ class SocaConfigKeyVerifier:
         if item_pattern and list_item_type != "str":
             return "item_pattern can only be set if list_item_type is set to str"
 
-        if isinstance(value, list):
-            if list_item_type == "str":
-                if item_pattern:
-                    if all(
-                        isinstance(item, str) and re.match(item_pattern, item)
-                        for item in value
-                    ):
-                        return True
-                    else:
-                        return f"One or more items in the list do not match the pattern {item_pattern}"
-                else:
-                    if all(isinstance(item, str) for item in value):
-                        return True
-                    else:
-                        return f"One or more items in the list are not strings"
+        if not isinstance(value, list):
+            try:
+                value = ast.literal_eval(value)
+            except Exception as err:
+                logger.error(f"Unable to cast {value} as a list due to {err}")
+                return False
 
-            elif list_item_type == "int":
-                if all(isinstance(item, int) for item in value):
+        if list_item_type == "str":
+            if item_pattern:
+                if all(
+                    isinstance(item, str) and re.match(item_pattern, item)
+                    for item in value
+                ):
                     return True
                 else:
-                    return f"One or more items in the list are not integers"
-
-            elif list_item_type == "float":
-                if all(isinstance(item, float) for item in value):
+                    return f"One or more items in the list do not match the pattern {item_pattern}"
+            else:
+                if all(isinstance(item, str) for item in value):
                     return True
                 else:
-                    return f"One or more items in the list are not floats"
+                    return f"One or more items in the list are not strings"
 
-            elif list_item_type == "dict":
-                if all(isinstance(item, dict) for item in value):
-                    return True
-                else:
-                    return f"One or more items in the list are not dictionaries"
+        elif list_item_type == "int":
+            if all(isinstance(item, int) for item in value):
+                return True
+            else:
+                return f"One or more items in the list are not integers"
 
-            elif list_item_type == "list":
-                if all(isinstance(item, list) for item in value):
-                    return True
-                else:
-                    return f"One or more items in the list are not lists"
+        elif list_item_type == "float":
+            if all(isinstance(item, float) for item in value):
+                return True
+            else:
+                return f"One or more items in the list are not floats"
 
-        return False
+        elif list_item_type == "dict":
+            if all(isinstance(item, dict) for item in value):
+                return True
+            else:
+                return f"One or more items in the list are not dictionaries"
+
+        elif list_item_type == "list":
+            if all(isinstance(item, list) for item in value):
+                return True
+            else:
+                return f"One or more items in the list are not lists"
+        else:
+            return f"Unsupported list_item_type: {list_item_type}"
 
     @staticmethod
     def verify_regex(value: str, regex_pattern: str) -> [bool, str]:

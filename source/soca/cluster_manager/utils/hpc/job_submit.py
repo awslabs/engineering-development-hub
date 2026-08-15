@@ -239,19 +239,18 @@ class SocaHpcJobSubmit:
                 f"Job Submit Script Path: {_job_submit_script_path}, creating file "
             )
 
-            with open(_job_submit_script_path, "w") as text_file:
+            _fd = os.open(
+                _job_submit_script_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700
+            )
+            with os.fdopen(_fd, "w") as text_file:
                 text_file.write(_plain_payload)
+                # fchown/fchmod on the fd, not the path -- a symlink swapped in after close can't redirect the root op.
+                os.fchown(text_file.fileno(), _user_info.pw_uid, _user_info.pw_gid)
+                os.fchmod(text_file.fileno(), 0o700)
 
             logger.info(
                 f"{_job_submit_script_path} created successfully, applying correct permissions"
             )
-
-            shutil.chown(
-                _job_submit_script_path,
-                user=_user_info.pw_name,
-                group=_user_info.pw_gid,
-            )
-            os.chmod(_job_submit_script_path, 0o700)
 
             logger.info(f"About to submit job via {_job_submit_script_path}")
             _submit_request = self.submit_script_path(
@@ -384,26 +383,24 @@ class SocaShellScriptSubmit:
                 f"Job Submit Script Path: {_job_submit_script_path}, creating file "
             )
 
-            with open(_job_submit_script_path, "w") as text_file:
+            _fd = os.open(
+                _job_submit_script_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700
+            )
+            with os.fdopen(_fd, "w") as text_file:
                 text_file.write(_plain_payload)
+                # fchown/fchmod on the fd, not the path -- a symlink swapped in after close can't redirect the root op.
+                os.fchown(text_file.fileno(), _user_info.pw_uid, _user_info.pw_gid)
+                os.fchmod(text_file.fileno(), 0o700)
 
             logger.info(
                 f"{_job_submit_script_path} created successfully, applying correct permissions"
             )
 
-            shutil.chown(
-                _job_submit_script_path,
-                user=_user_info.pw_name,
-                group=_user_info.pw_gid,
-            )
-            os.chmod(_job_submit_script_path, 0o700)
-
             logger.info(f"About to submit script via {_job_submit_script_path}")
             _submit_request = SocaSubprocessClient(
                 run_command=f"{self._interpreter} {shlex.quote(_job_submit_script_path)}",
                 run_as=self._user,
-                timeout=5,
-            ).run(cwd=self._cwd)
+            ).run(cwd=self._cwd, timeout=5)
             if _submit_request.get("success") is True:
                 return SocaResponse(
                     success=True, message=_submit_request.get("message")

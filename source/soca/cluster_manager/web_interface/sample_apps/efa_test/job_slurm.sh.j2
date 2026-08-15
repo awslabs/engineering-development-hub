@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# EFA Benchmark Wrapper (Slurm)
+# =============================
+# Renders Jinja variables from the WebUI form, dispatches to the
+# bundled benchmark script at /apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh
+#
+#SBATCH --job-name={{job_name}}
+#SBATCH --partition=normal
+#SBATCH --time={{walltime}}
+#SBATCH --nodes={{node_count}}
+#SBATCH --ntasks-per-node={{ncpus_per_node}}
+#SBATCH --comment="instance_type={{instance_type}};efa_support=true;base_os={{base_os}}"
+
+set -euo pipefail
+
+cd "${SLURM_SUBMIT_DIR:-$HOME}"
+
+echo "=========================================="
+echo "EFA Benchmark Job: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  SLURM_JOBID:     ${SLURM_JOBID:-unknown}"
+echo "  SLURM_NNODES:    ${SLURM_NNODES:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# Locate the bundled benchmark script
+EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh"
+if [[ ! -x "${EFA_SCRIPT}" ]]; then
+    echo "ERROR: EFA benchmark script not found or not executable at ${EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete successfully."
+    exit 2
+fi
+
+# efa_test_job.sh is PBS-native (reads $PBS_NODEFILE, expects K lines per host
+# where K matches mpiprocs/ntasks-per-node). Synthesize a compatible nodefile
+# from Slurm's $SLURM_JOB_NODELIST: scontrol gives one hostname per node, so we
+# repeat each line $SLURM_NTASKS_PER_NODE times to match the PBS convention.
+if [[ -z "${SLURM_JOB_NODELIST:-}" ]]; then
+    echo "ERROR: SLURM_JOB_NODELIST not set. Cannot synthesize PBS_NODEFILE."
+    exit 2
+fi
+if ! command -v scontrol >/dev/null 2>&1; then
+    echo "ERROR: scontrol not found on PATH. Cannot expand SLURM_JOB_NODELIST."
+    exit 2
+fi
+export PBS_NODEFILE
+PBS_NODEFILE=$(mktemp /tmp/pbs_nodefile.XXXXXX)
+trap 'rm -f "${PBS_NODEFILE}"' EXIT
+scontrol show hostnames "${SLURM_JOB_NODELIST}" | \
+    awk -v n="${SLURM_NTASKS_PER_NODE:-1}" '{for (i=0; i<n; i++) print}' \
+    > "${PBS_NODEFILE}"
+
+# Run the benchmark
+bash "${EFA_SCRIPT}"
+
+echo "=========================================="
+echo "EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="

@@ -5,10 +5,10 @@
 
 {% if api_doc_provider == "rapidoc" %}
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang="{{ current_lang }}">
       <head>
       <meta charset="UTF-8">
-      <title>EDH APIs</title>
+      <title>{{ _("EDH APIs") }}</title>
       <script src="{{ url_for('static', filename='vendor/rapidoc/rapidoc-min.js') }}"></script>
       </head>
       <body>
@@ -17,10 +17,10 @@
       </html>
 {% elif api_doc_provider == "swagger" %}
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang="{{ current_lang }}">
       <head>
       <meta charset="UTF-8">
-      <title>EDH APIs</title>
+      <title>{{ _("EDH APIs") }}</title>
       <link rel="stylesheet" href="{{ url_for('static', filename='vendor/swagger-ui/swagger-ui.css') }}" />
       <style>
       html {
@@ -60,7 +60,5 @@
       </html>
 
 {% else %}
-
       Unknown API Doc Provider.
-
 {% endif %}

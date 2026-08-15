@@ -11,11 +11,11 @@
 {% if not context.get("/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD") and context.get("/job/NodeType") == "compute_node" %}
   function sync_ad_users_locally {
     local LOCAL_SOCA_AD_SCRIPT="/opt/edh/{{ context.get("/configuration/ClusterId") }}/sync_ad_users_locally.sh"
-    {% if context.get("/job/JobQueue") == "alwayson" %}
-        local USERS_TO_SYNC="" # sync all users in alwayson nodes, please note this can cause some slowness if you have a large number of users
-    {% else %}
-        local USERS_TO_SYNC="{{ context.get("/job/JobOwner") }}" # Only sync job owner. empty string if you want to sync ALL SOCA users, this may cause some slowness if you have a large number of users.
-    {% endif %}
+    if [[ "${EDH_JOB_QUEUE_IS_ALWAYSON}" == "1" ]]; then
+        local USERS_TO_SYNC=""  # sync all users in alwayson nodes; please note this can cause some slowness if you have a large number of users
+    else
+        local USERS_TO_SYNC="${EDH_JOB_OWNER}"  # Only sync job owner. Empty string would sync ALL SOCA users (slow on large directories).
+    fi
     log_info "Creating local user for ephemeral HPC due to no AD join. User info ${LOCAL_SOCA_AD_USERS}"
 
     log_info "Writing local SOCA AD script to ${LOCAL_SOCA_AD_SCRIPT}"
@@ -76,14 +76,24 @@ EOF
     log_info "Active Directory Domain Name: ${DS_DOMAIN_NAME}"
 
     log_info "Verifying if  AD is reachable from the node"
+    # Helper: emit a bootstrap-status event if the publisher is loaded
+    # (compute_node bootstraps source it; controller bootstrap does not).
+    # Silent no-op everywhere else so this script stays portable.
+    _ad_emit_status() {
+      command -v edh_dcv_publish_event >/dev/null 2>&1 || return 0
+      edh_dcv_publish_event "bootstrap-status" "" "$1" || true
+    }
+    _ad_emit_status "Active Directory: discovering ${DS_DOMAIN_NAME}"
     local LOOP_VERIFY_AD_REACHABILITY=0
     while ! ${REALM} discover "$DS_DOMAIN_NAME" && [[ ${LOOP_VERIFY_AD_REACHABILITY} -lt 30 ]]
       do
         ((LOOP_VERIFY_AD_REACHABILITY++))
         log_info "${DS_DOMAIN_NAME} is not reachable from this host. If using AWS Directory Service, waiting for Route 53 outbound endpoint and rule to become active. Trying again in 2 minutes. Loop count is: ${LOOP_VERIFY_AD_REACHABILITY}/10"
+        _ad_emit_status "AD discover attempt ${LOOP_VERIFY_AD_REACHABILITY}/30 failed -- retrying in 180s"
         sleep 180
       done
     log_info "${DS_DOMAIN_NAME} is reachable"
+    _ad_emit_status "AD reachable: ${DS_DOMAIN_NAME}"
 
     # Create cached location if needed. This location is restricted to admin user only
     local AD_AUTOMATION_CACHED_LOCATION="/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/custom_automation/ad_automation"
@@ -140,11 +150,40 @@ EOF
     # As hosts are recycled, we ensure we register them to AD with unique and random identifier (15 chars max)
     # Name include SOCA information, which can then easily be decipher by AD admins if/when they want to determine what hosts registered on their AD are SOCA related
     log_info "Generating unique & random 15 char SERVER name to be registered to AD"
+    # AWS_REGION must be a function-local; the global is not exported to
+    # /etc/environment (only AWS_DEFAULT_REGION is). Without this line
+    # the SOCA_AD_HOSTNAME hash collapsed to "<cluster_id>--<instance_id>"
+    # with empty region, which is still unique per instance but is fragile
+    # for any external code that recomputes the hostname.
+    local AWS_REGION=$(instance_region)
     local HOSTNAME_DATA=$(echo "${EDH_CLUSTER_ID}-${AWS_REGION}-${AWS_INSTANCE_ID}"  | openssl dgst -sha1 -binary | xxd -p | awk '{split($0,h,"."); print toupper(h[1])}')
-    local HOSTNAME_PREFIX="SOCA-"
-    {{ 'AVAILABLE_CHAR=$((15 - ${#HOSTNAME_PREFIX}))' }} # Jinja2 Escape otherwise $ { # HOSTNAME_PREFIX will return an J2 error
+    local HOSTNAME_PREFIX="EDH-"
+    # Hash-suffix length is PINNED to 10 to stay byte-identical with the Windows
+    # (ad_join_helpers.ps.j2) and Lambda (ADComputerCleaner.py) derivations, both of
+    # which hardcode the last 10 hex chars. Do NOT derive this from the prefix length:
+    # "EDH-" (4) + 10 = 14 <= 15 NetBIOS cap, and all three sites MUST produce the same
+    # name or AD self-heal + ADComputerCleaner parity breaks.
+    AVAILABLE_CHAR=10
     SHAKE_VALUE=${HOSTNAME_DATA: -${AVAILABLE_CHAR}}
     SOCA_AD_HOSTNAME="${HOSTNAME_PREFIX}${SHAKE_VALUE}"
+
+    # Self-tag the EC2 instance with the AD computer name we are about
+    # to register. The ADComputerCleaner Lambda reads this tag on
+    # EC2 shutting-down to know exactly which AD object to delete --
+    # avoiding any drift between bootstrap-side hash logic and the
+    # Lambda's recompute fallback. Tagging is best-effort; if the call
+    # fails (transient API throttle, missing permission), we still
+    # proceed with the AD join because the Lambda also recomputes the
+    # hash from instance metadata as a fallback.
+    log_info "Self-tagging instance with edh:ADComputerName=${SOCA_AD_HOSTNAME} for AD-cleanup correlation"
+    if ! aws ec2 create-tags \
+            --region "${AWS_REGION}" \
+            --resources "${AWS_INSTANCE_ID}" \
+            --tags "Key=edh:ADComputerName,Value=${SOCA_AD_HOSTNAME}" \
+            > /dev/null 2>&1
+    then
+        log_warning "Failed to self-tag edh:ADComputerName -- AD cleanup will fall back to hash recompute"
+    fi
     
     #Note: When using a small CIDR range where IPs are frequently reused, you may encounter an issue where new EC2 instances cannot join the domain because the recycled IP is still tied to an existing AD computer object.
     #You may see errors such as:
@@ -163,15 +202,33 @@ EOF
     # To prevent this, configure SOCA_AD_HOSTNAME to disable hostname randomization and use a deterministic naming pattern instead. This ensures that when an IP is reused, the AD object name remains consistent and the update permissions apply correctly.
     # Uncomment the line below to enable this behavior: the AD Object will be the SC-<private-ip>, example SC-133010119. Name will never be more than 15 chars.
     
-    # SOCA_AD_HOSTNAME=$(hostname -I | tr -d '.-' | tr -d ':-' | tr '[:lower:]' '[:upper:]' | tail -c 15 | sed 's/^/SC-/')
+    # SOCA_AD_HOSTNAME="SC-$(hostname -I | awk '{print $1}' | tr -d '.:' | tr '[:lower:]' '[:upper:]' | tail -c 12)"
 
     # Check if host is not already joined to AD
     if ${REALM} list | grep -q "configured: kerberos-member"; then
       log_info "This machine is already joined to AD, checking if it's the correct domain."
       local DOMAIN_ALREADY_JOINED=$(${REALM} list | grep 'domain-name' | awk '{print $2}')
       if [[ "${DOMAIN_ALREADY_JOINED}" == "${DS_DOMAIN_NAME}" ]]; then
-        log_info "Host is already joined to ${DS_DOMAIN_NAME}."
-        SKIP_AD_JOIN="true"
+        # 'realm list' only proves the host *thinks* it is joined -- it is a presence test, not
+        # a validity test. Per design we NEVER reuse the computer object inherited from an AMI:
+        # a baked AMI ships a SHARED object + keytab whose machine-account name belongs to the
+        # *bake* host, not this instance. We skip the re-join ONLY when the host is already
+        # joined under ITS OWN unique name (${SOCA_AD_HOSTNAME}) AND the keytab still validates.
+        # Any inherited/foreign name (shared baked object) OR a stale keytab -> abandon the
+        # inherited object and rejoin CLEAN as a new unique object.
+        local CURRENT_AD_NAME=$(klist -k /etc/krb5.keytab 2>/dev/null | grep -oE '[A-Za-z0-9-]+\$@' | head -1 | sed 's/\$@$//')
+        log_info "Current machine-account name from keytab: '${CURRENT_AD_NAME:-<none>}'; this instance's unique name: '${SOCA_AD_HOSTNAME}'"
+        if [[ -n "${CURRENT_AD_NAME}" ]] \
+           && [[ "${CURRENT_AD_NAME^^}" == "${SOCA_AD_HOSTNAME^^}" ]] \
+           && ${ADCLI} testjoin --domain="${DS_DOMAIN_NAME}" > /dev/null 2>&1; then
+          log_info "Already joined to ${DS_DOMAIN_NAME} under this instance's own unique name ${SOCA_AD_HOSTNAME} with a valid keytab; skipping re-join."
+          SKIP_AD_JOIN="true"
+        else
+          log_warning "Host is joined under a foreign/inherited name ('${CURRENT_AD_NAME:-<none>}' != '${SOCA_AD_HOSTNAME}') or the keytab is stale -- likely a baked-joined AMI. Abandoning the inherited object and re-joining clean as ${SOCA_AD_HOSTNAME}."
+          echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${ADCLI} delete-computer -U "${DS_DOMAIN_ADMIN_USERNAME}" --stdin-password --domain="${DS_DOMAIN_NAME}" || true
+          echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${REALM} leave --user "${DS_DOMAIN_ADMIN_USERNAME}" "${UPPER_DS_DOMAIN_NAME}" --verbose || true
+          # SKIP_AD_JOIN stays "false" -> the join block below re-joins with a fresh unique name + new keytab
+        fi
       else
         log_info "Host is joined to another domain ${DOMAIN_ALREADY_JOINED}, running realm leave"
         echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${ADCLI} delete-computer -U "${DS_DOMAIN_ADMIN_USERNAME}" --stdin-password --domain="${DOMAIN_ALREADY_JOINED}"
@@ -183,16 +240,20 @@ EOF
     if [[ "${SKIP_AD_JOIN}" == "false" ]]; then
       local JOIN_AD_ATTEMPT=0
       log_info "Trying to join host to AD as ${SOCA_AD_HOSTNAME}"
+      _ad_emit_status "AD: joining domain as ${SOCA_AD_HOSTNAME}"
       while ! echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${REALM} join --user "${DS_DOMAIN_ADMIN_USERNAME}" "${UPPER_DS_DOMAIN_NAME}" --computer-name="${SOCA_AD_HOSTNAME}" --verbose
       do
         ((JOIN_AD_ATTEMPT++))
         local SLEEP_TIME=$(( RANDOM % 60 ))
         log_info "Realm join didn't complete successfully. Retrying in ${SLEEP_TIME} seconds... Loop count is: ${JOIN_AD_ATTEMPT}/10"
+        _ad_emit_status "AD join attempt ${JOIN_AD_ATTEMPT}/10 failed -- retrying in ${SLEEP_TIME}s"
         sleep ${SLEEP_TIME}
         if [[ ${JOIN_AD_ATTEMPT} -eq 10 ]]; then
+          _ad_emit_status "AD join failed after 10 attempts"
           exit_fail "Unable to join domain after 10 attempts"
         fi
       done
+      _ad_emit_status "AD join succeeded"
     fi
 
     log_info "Joined realm ${DS_DOMAIN_NAME} successfully"

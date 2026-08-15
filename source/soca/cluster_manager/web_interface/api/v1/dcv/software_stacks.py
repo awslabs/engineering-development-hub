@@ -16,7 +16,7 @@ from flask_restful import Resource, reqparse
 import logging
 from decorators import admin_api, restricted_api, private_api, feature_flag
 from datetime import datetime, timezone
-from models import db, SoftwareStacks
+from models import db, SoftwareStacks, HardwareProfiles
 import math
 import utils.aws.boto3_wrapper as utils_boto3
 import utils.aws.ec2_helper as ec2_helper
@@ -25,12 +25,39 @@ from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
 from flask import request
+from flask_babel import gettext as _
 import base64
 from sqlalchemy.orm import joinedload
 
 
 logger = logging.getLogger("soca_logger")
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
+
+
+def _normalize_volume_acceleration(raw):
+    """Validate the per-stack volume_acceleration form value.
+
+    Returns SocaResponse(success, message): message is the stored value
+    (None => inherit fleet default, "off", or "100".."300").
+    """
+    if raw is None or str(raw).strip() == "":
+        return SocaResponse(success=True, message=None)  # inherit global default
+    _v = str(raw).strip().lower()
+    if _v == "off":
+        return SocaResponse(success=True, message="off")
+    try:
+        _n = int(_v)
+    except ValueError:
+        return SocaResponse(
+            success=False,
+            message=f"Invalid volume_acceleration {raw}: must be off or 100-300",
+        )
+    if 100 <= _n <= 300:
+        return SocaResponse(success=True, message=str(_n))
+    return SocaResponse(
+        success=False,
+        message=f"Invalid volume_acceleration {raw}: rate must be between 100 and 300 MiB/s",
+    )
 
 
 class SoftwareStacksManager(Resource):
@@ -161,7 +188,7 @@ class SoftwareStacksManager(Resource):
 
         if _list_software_stacks.count() == 0:
             logger.warning("No Software Stack found")
-            return SocaResponse(success=False, message="No AMI found").as_flask()
+            return SocaResponse(success=False, message=_("No AMI found")).as_flask()
         else:
             for session_info in _list_software_stacks.all():
                 _software_stack_info[session_info.id] = session_info.as_dict()
@@ -262,6 +289,10 @@ class SoftwareStacksManager(Resource):
                     type: string
                     format: binary
                     description: Thumbnail image for the software stack
+                  share_scope:
+                    type: string
+                    enum: [none, project, cluster]
+                    description: Visibility scope for the software stack (default cluster)
         responses:
           '200':
             description: Software stack created successfully
@@ -306,6 +337,8 @@ class SoftwareStacksManager(Resource):
         parser.add_argument("launch_host", type=str, location="form")
         parser.add_argument("virtual_desktop_profile_id", type=str, location="form")
         parser.add_argument("description", type=str, location="form")
+        parser.add_argument("share_scope", type=str, location="form")
+        parser.add_argument("volume_acceleration", type=str, location="form")
 
         args = parser.parse_args()
         logger.debug(f"Received SoftwareStack Registration Request args {args}")
@@ -316,7 +349,14 @@ class SoftwareStacksManager(Resource):
         _launch_tenancy = args["launch_tenancy"]
         _launch_host = str(args["launch_host"]) if "launch_host" in args else None
         _thumbnail = request.files.get("thumbnail")
-        _virtual_desktop_profile_id = args["virtual_desktop_profile_id"]
+        _virtual_desktop_profile_id_cast = SocaCastEngine(
+            data=args["virtual_desktop_profile_id"]
+        ).cast_as(int)
+        if _virtual_desktop_profile_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"virtual_desktop_profile_id must be a valid integer {args['virtual_desktop_profile_id']}"
+            ).as_flask()
+        _virtual_desktop_profile_id = _virtual_desktop_profile_id_cast.get("message")
 
         _user = request.headers.get("X-EDH-USER")
         if _user is None:
@@ -481,6 +521,19 @@ class SoftwareStacksManager(Resource):
                 )
                 _family = "windows" if "windows" in _ami_base_os.lower() else "linux"
 
+            # DCV session sharing scope for desktops built from this stack:
+            # 'none' | 'project' | 'cluster' (default when unset/blank).
+            _share_scope = (args.get("share_scope") or "cluster").lower()
+            if _share_scope not in {"none", "project", "cluster"}:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Invalid share_scope {_share_scope}, must be none, project or cluster"
+                ).as_flask()
+
+            _accel_res = _normalize_volume_acceleration(args.get("volume_acceleration"))
+            if _accel_res.get("success") is not True:
+                return SocaError.GENERIC_ERROR(helper=_accel_res.get("message")).as_flask()
+            _volume_acceleration = _accel_res.get("message")
+
             _new_software_stack = SoftwareStacks(
                 ami_id=_ami_id if not _ami_alias else _ami_alias,
                 ami_base_os=_ami_base_os,
@@ -496,6 +549,8 @@ class SoftwareStacksManager(Resource):
                 created_by=_user,
                 description=_description,
                 thumbnail=_thumbnail_b64,
+                share_scope=_share_scope,
+                volume_acceleration=_volume_acceleration,
             )
 
             try:
@@ -636,7 +691,7 @@ class SoftwareStacksManager(Resource):
 
             logger.info(f"AMI Label {_software_stack_id} deleted from SOCA")
             return SocaResponse(
-                success=True, message="Software Stack removed from SOCA"
+                success=True, message=_("Software Stack removed from SOCA")
             ).as_flask()
 
         else:
@@ -734,6 +789,9 @@ class SoftwareStacksManager(Resource):
                     type: string
                     format: binary
                     description: Updated thumbnail image for the software stack
+                  hardware_profile_id:
+                    type: string
+                    description: Hardware profile ID to bind to this software stack
         responses:
           '200':
             description: Software stack updated successfully
@@ -778,16 +836,50 @@ class SoftwareStacksManager(Resource):
         parser.add_argument("virtual_desktop_profile_id", type=str, location="form")
         parser.add_argument("description", type=str, location="form")
         parser.add_argument("software_stack_id", type=str, location="form")
+        parser.add_argument("hardware_profile_id", type=str, location="form")
+        parser.add_argument("volume_acceleration", type=str, location="form")
 
         args = parser.parse_args()
         logger.debug(f"Received SoftwareStack Update Request args {args}")
+
+        # Optional Hardware Profile binding. The edit form always submits this
+        # field: an empty value clears the binding (FK -> NULL), a valid id sets
+        # it. A bound profile must exist and be active.
+        _hardware_profile_id = None
+        _hw_raw = args.get("hardware_profile_id")
+        if _hw_raw is not None and str(_hw_raw).strip() != "":
+            _hw_cast = SocaCastEngine(data=_hw_raw).cast_as(int)
+            if _hw_cast.get("success") is not True:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"hardware_profile_id must be a valid integer {_hw_raw}"
+                ).as_flask()
+            _hardware_profile_id = _hw_cast.get("message")
+            if not HardwareProfiles.query.filter_by(
+                id=_hardware_profile_id, is_active=True
+            ).first():
+                return SocaError.GENERIC_ERROR(
+                    helper=f"HardwareProfile {_hardware_profile_id} not found or inactive"
+                ).as_flask()
+
+        _accel_res = _normalize_volume_acceleration(args.get("volume_acceleration"))
+        if _accel_res.get("success") is not True:
+            return SocaError.GENERIC_ERROR(helper=_accel_res.get("message")).as_flask()
+        _volume_acceleration = _accel_res.get("message")
+
         _ami_id = args["ami_id"]
         _ami_base_os = args["base_os"]
         _description = "" if not args["description"] else args["description"]
         _launch_tenancy = args["launch_tenancy"]
         _launch_host = str(args["launch_host"]) if "launch_host" in args else None
         _thumbnail = request.files.get("thumbnail")
-        _virtual_desktop_profile_id = args["virtual_desktop_profile_id"]
+        _virtual_desktop_profile_id_cast = SocaCastEngine(
+            data=args["virtual_desktop_profile_id"]
+        ).cast_as(int)
+        if _virtual_desktop_profile_id_cast.get("success") is not True:
+            return SocaError.GENERIC_ERROR(
+                helper=f"virtual_desktop_profile_id must be a valid integer {args['virtual_desktop_profile_id']}"
+            ).as_flask()
+        _virtual_desktop_profile_id = _virtual_desktop_profile_id_cast.get("message")
         _software_stack_id = args["software_stack_id"]
 
         _user = request.headers.get("X-EDH-USER")
@@ -839,7 +931,9 @@ class SoftwareStacksManager(Resource):
                 helper="root_size must be a valid integer",
             ).as_flask()
 
-        if SocaCastEngine(data=_software_stack_id).cast_as(int).get("success") is True:
+        _software_stack_id_cast = SocaCastEngine(data=_software_stack_id).cast_as(int)
+        if _software_stack_id_cast.get("success") is True:
+            _software_stack_id = _software_stack_id_cast.get("message")
             _software_stack_to_update = SoftwareStacks.query.filter_by(
                 id=_software_stack_id, is_active=True
             ).first()
@@ -924,11 +1018,38 @@ class SoftwareStacksManager(Resource):
                 _software_stack_to_update.launch_host = _launch_host
                 _software_stack_to_update.ami_root_disk_size = root_size
                 _software_stack_to_update.description = _description
+                _software_stack_to_update.hardware_profile_id = _hardware_profile_id
+                _software_stack_to_update.volume_acceleration = _volume_acceleration
                 if _thumbnail is not None:
                     _software_stack_to_update.thumbnail = _thumbnail_b64
                 _software_stack_to_update.last_updated_on = datetime.now(timezone.utc)
                 _software_stack_to_update.last_updated_by = _user
                 db.session.commit()
+
+                # Immediately converge this stack's pool launch_spec (if it
+                # backs an enabled pool) so an AMI / base_os / root_size edit
+                # propagates now instead of waiting for the periodic sweep. The
+                # reconciler applies the stored launch_spec, which is otherwise
+                # only refreshed on a pool PUT -- so without this a stack AMI
+                # change would never reach running pools until the next sweep.
+                # Best-effort: a refresh failure must never fail the stack edit
+                # (the convergence sweep is the safety net).
+                try:
+                    from helpers import vdi_pool_refresh
+
+                    _refresh = vdi_pool_refresh.refresh_pool_spec(
+                        _software_stack_to_update
+                    )
+                    logger.info(
+                        f"software stack {_software_stack_to_update.id} edited; "
+                        f"pool spec refresh outcome: {_refresh.message}"
+                    )
+                except Exception as _refresh_err:
+                    logger.warning(
+                        f"pool spec refresh after stack {_software_stack_to_update.id} "
+                        f"edit failed (convergence sweep will catch up): {_refresh_err}"
+                    )
+
                 return SocaResponse(
                     success=True,
                     message=f"{_ami_id} updated successfully in SOCA {_extra_logging}",

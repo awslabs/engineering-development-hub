@@ -7,11 +7,29 @@
 ############
 {% include "templates/linux/common.sh.j2" %}
 
+{# log_checkpoint / log_status helpers. Defined here (not in log.sh.j2) #}
+{# because log.sh.j2 is in the controller LT UserData path which is    #}
+{# capped at 16KB. This file is only sourced from compute_node S3      #}
+{# bootstrap scripts where there is no size cap.                        #}
+{% include "templates/linux/common/log_checkpoint.sh.j2" %}
+
+{# DCV event-relay publisher: ONLY include for VDI nodes. Adds ~6.4KB #}
+{# to user_data; controller and HPC compute paths do not need it.    #}
+{% if context.get("/job/NodeType") == "dcv_node" %}
+{% include "templates/linux/dcv/dcv_event_publish.sh.j2" %}
+{% endif %}
+
 # Validate umask
 {% include "templates/linux/umask.sh.j2" %}
 
 log_info "Setup Start Date: $(date)"
 log_info "Running Kernel $(uname -r)"
+
+# DCV event-relay: emit boot-started checkpoint as the first signal that
+# this VDI's userdata has begun. log_checkpoint is a no-op on HPC compute
+# nodes (no EDH_DCV_SESSION_EVENTS_QUEUE_URL / EDH_DCV_SESSION_ID) and on
+# clusters that don't have event-relay enabled.
+log_checkpoint "boot-started" "Bootstrap entered 02_setup"
 
 # Stop/Disable scheduler if running
 {% include "templates/linux/scheduler/stop_scheduler_services.sh.j2" %}
@@ -33,7 +51,7 @@ mkdir -p /opt/edh/{{ context.get('/configuration/ClusterId') }}/
 # Adding additional SOCA Environment Variables
 set_environment_variable "AWS_DEFAULT_REGION" "{{ context.get("/configuration/Region") }}"
 set_environment_variable "EDH_BOOTSTRAP_ASSETS_FOLDER" "/root/edh_bootstrap_$(instance_id)"
-set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "{{ context.get("/job/BootstrapPath") }}/$(hostname -s)"
+set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "${EDH_JOB_BOOTSTRAP_PATH}/$(hostname -s)"
 set_environment_variable "EDH_NODE_TYPE" "{{ context.get("/job/NodeType") }}"
 set_environment_variable "EDH_VERSION" "{{ context.get("/configuration/Version") }}"
 set_environment_variable "EDH_INSTALL_BUCKET" "{{ context.get("/configuration/S3Bucket") }}"
@@ -44,26 +62,33 @@ set_environment_variable "SOCA_CLUSTER_ID" "{{ context.get("/configuration/Clust
 
 {% if context.get("/job/NodeType") == "compute_node" %}
   # Added via cluster_manager/orchestrator/cloudformation_builder.py
-  set_environment_variable "EDH_JOB_QUEUE" "{{ context.get("/job/JobQueue") }}"
-  set_environment_variable "EDH_JOB_OWNER" "{{ context.get("/job/JobOwner") }}"
-  set_environment_variable "EDH_JOB_NAME" "{{ context.get("/job/JobName") }}"
-  set_environment_variable "EDH_JOB_PROJECT" "{{ context.get("/job/JobProject") }}"
-  set_environment_variable "EDH_JOB_ID" "{{ context.get("/job/JobId") }}"
+  set_environment_variable "EDH_JOB_QUEUE" "${EDH_JOB_QUEUE}"
+  set_environment_variable "EDH_JOB_OWNER" "${EDH_JOB_OWNER}"
+  set_environment_variable "EDH_JOB_NAME" "${EDH_JOB_NAME}"
+  set_environment_variable "EDH_JOB_PROJECT" "${EDH_JOB_PROJECT}"
+  set_environment_variable "EDH_JOB_ID" "${EDH_JOB_ID}"
 {% elif context.get("/job/NodeType") == "dcv_node" %}
   # Added via cluster_manager/web_interface/api/v1/dcv/create_linux_desktop.py
-  set_environment_variable "EDH_DCV_SESSION_OWNER" "{{ context.get("/dcv/SessionOwner") }}"
-  # Set the EDH_DCV_SESSION_ID (same name on Windows). This is used by the scheduled task to retrieve the DCV Session ID
-  set_environment_variable "EDH_DCV_SESSION_ID" "{{ context.get("/dcv/SessionId") }}"
-  set_environment_variable "EDH_DCV_SESSION_NAME" "{{ context.get("/dcv/SessionName") }}"
+  # Pool members boot unassigned (session set at claim time), so these are empty
+  # at provision; set_environment_variable fatals on an empty value -- guard it.
+  if [[ -n "${EDH_DCV_SESSION_OWNER}" ]]; then
+    set_environment_variable "EDH_DCV_SESSION_OWNER" "${EDH_DCV_SESSION_OWNER}"
+    # Set the EDH_DCV_SESSION_ID (same name on Windows). This is used by the scheduled task to retrieve the DCV Session ID
+    set_environment_variable "EDH_DCV_SESSION_ID" "${EDH_DCV_SESSION_ID}"
+    set_environment_variable "EDH_DCV_SESSION_NAME" "${EDH_DCV_SESSION_NAME}"
+  fi
+  if [[ -n "${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}" ]]; then
+    set_environment_variable "EDH_DCV_SESSION_EVENTS_QUEUE_URL" "${EDH_DCV_SESSION_EVENTS_QUEUE_URL}"
+  fi
+  # NOTE: pool-member session-env vars are NOT persisted here -- 03_setup_post_reboot
+  # re-sources 00_session_env.sh post-reboot instead.
 {% elif context.get("/job/NodeType") == "login_node" %}
-  # Add any additional variable for login nodes if needed
+  set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/bootstrap/login_node/$(hostname -s)"
 {% endif %}
 
 # Install jq
 {% include "templates/linux/jq.sh.j2" %}
 
-# Check if machine is a login node, if yes perform additional setup actions
-{% include "compute_node/extra/login_node.sh.j2" %}
 
 # Configure Scratch Partition is scratch_size is specified or instance has local disks
 {% include "templates/linux/configure_scratch_partition.sh.j2" %}
@@ -91,7 +116,12 @@ set_environment_variable "SOCA_CLUSTER_ID" "{{ context.get("/configuration/Clust
   # OpenLDAP configuration
   {% include "templates/linux/user_directory/openldap/openldap_client.sh.j2" %}
 {% elif context.get("/configuration/UserDirectory/provider") in ["existing_active_directory","aws_ds_managed_activedirectory"] %}
-  # Active Directory configuration
+  # Active Directory configuration. The included script has its own
+  # built-in retry loops (realm discover up to 30x with 180s backoff,
+  # realm join up to 10x with random backoff) so we DO NOT wrap with
+  # edh_retry_phase here -- that would multiply the retry count and
+  # blow up the worst-case bootstrap time. Status events are emitted
+  # from inside the inner loops via guarded edh_dcv_publish_event calls.
   {% include "templates/linux/user_directory/active_directory/join_activedirectory.sh.j2" %}
 {% else %}
   exit_fail "UserDirectory/provider must be one of existing_active_directory, existing_openldap, openldap, or aws_ds_managed_activedirectory. Detected {{ context.get("/configuration/UserDirectory/provider") }}"
@@ -116,56 +146,13 @@ log_info "Setup End Date: $(date)"
 
 # Prepare crontab for post-reboot or execute the post-reboot script automatically
 REBOOT_REQUIRED=$(get_reboot_required)
-{% if context.get("/job/NodeType") in ("dcv_node", "compute_node") %}
 if [[ "${REBOOT_REQUIRED}" == "yes" ]]; then
-  (crontab -l 2>/dev/null; echo "@reboot /bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup_post_reboot.sh >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/03_setup_post_reboot.log 2>&1") | crontab -
-  log_info "Final bootstrap sequence will be executed post reboot, verifying crontab"
-  crontab -l
-  log_info "Rebooting the machine"
-  reboot
-else
-  log_info "No reboot needed, continuing bootstrap sequence"
-  /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup_post_reboot.sh" >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/03_setup_post_reboot.log 2>&1
-fi
-
-{% else %} 
- log_info "No post_reboot customizations for login_nodes"
- {% include "templates/linux/motd.sh.j2" %}
- if [[ "${REBOOT_REQUIRED}" == "yes" ]]; then
+    (crontab -l 2>/dev/null; echo "@reboot /bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup_post_reboot.sh >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/03_setup_post_reboot.log 2>&1") | crontab -
+    log_info "Final bootstrap sequence will be executed post reboot, verifying crontab"
+    crontab -l
     log_info "Rebooting the machine"
-    log_info "Final reboot needed, preparing rc.local to be executed post final reboot"
-    cat << 'EOF' >> /etc/rc.local
-{% if "openpbs" in context.get("/configuration/HPC/SOCAInstalledSchedulerList") %}
-# Start OpenPBS
-systemctl enable pbs
-systemctl start pbs
-{% endif %}
-{% if "lsf" in context.get("/configuration/HPC/SOCAInstalledSchedulerList") %}
-# Start LSF
-systemctl enable soca_lsfdaemons.service
-systemctl start soca_lsfdaemons.service
-{% endif %}
-source /etc/environment
-echo "Node Ready - ${EDH_NODE_TYPE}" > /etc/motd
-EOF
-    chmod +x /etc/rc.d/rc.local
-    systemctl enable rc-local
-    unset_reboot_required
     reboot
- 
- else
-    log_info "No reboot needed, starting scheduler process"
-    {% if "openpbs" in context.get("/configuration/HPC/SOCAInstalledSchedulerList") %}
-        # Start OpenPBS
-        systemctl enable pbs
-        systemctl start pbs
-    {% endif %}
-    
-    {% if "lsf" in context.get("/configuration/HPC/SOCAInstalledSchedulerList") %}
-        # Start LSF
-        systemctl enable soca_lsfdaemons.service
-        systemctl start soca_lsfdaemons.service
-        ps aux | grep lsf 
-    {% endif %}
- fi
-{% endif %}
+else
+    log_info "No reboot needed, continuing bootstrap sequence"
+    /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/03_setup_post_reboot.sh" >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/03_setup_post_reboot.log 2>&1
+fi

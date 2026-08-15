@@ -1,0 +1,52 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# log_checkpoint <name> [sub_status]   drive grid timeline state change
+# log_status     <sub_status>          free-form detail-page only event
+#
+# Both log locally via log_info first; publish via edh_dcv_publish_event
+# when defined (declare -F guard). Safe on any bootstrap context.
+# log_status rate-limited to 1 publish/sec/process via tmpfs marker.
+
+function log_checkpoint() {
+  local checkpoint_name="$1"
+  shift
+  local sub_status="${*:-}"
+  if [[ -z "${checkpoint_name}" ]]; then
+    log_warning "log_checkpoint called without a checkpoint name"
+    return 0
+  fi
+  if [[ -n "${sub_status}" ]]; then
+    log_info "checkpoint: ${checkpoint_name} -- ${sub_status}"
+  else
+    log_info "checkpoint: ${checkpoint_name}"
+  fi
+  if declare -F edh_dcv_publish_event >/dev/null 2>&1; then
+    edh_dcv_publish_event "bootstrap-checkpoint" "${checkpoint_name}" "${sub_status}" || true
+  fi
+  return 0
+}
+
+function log_status() {
+  local sub_status="${*:-}"
+  if [[ -z "${sub_status}" ]]; then
+    log_warning "log_status called without a message"
+    return 0
+  fi
+  log_info "status: ${sub_status}"
+  if ! declare -F edh_dcv_publish_event >/dev/null 2>&1; then
+    return 0
+  fi
+  local marker="/tmp/.edh_log_status.$$"
+  local now last
+  now=$(date +%s)
+  if [[ -f "${marker}" ]]; then
+    last=$(cat "${marker}" 2>/dev/null || echo 0)
+    if [[ -n "${last}" ]] && [[ "$((now - last))" -lt 1 ]]; then
+      return 0
+    fi
+  fi
+  echo "${now}" > "${marker}" 2>/dev/null || true
+  edh_dcv_publish_event "bootstrap-status" "" "${sub_status}" || true
+  return 0
+}

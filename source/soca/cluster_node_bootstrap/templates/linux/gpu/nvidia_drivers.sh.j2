@@ -56,7 +56,7 @@ function install_nvidia_grid_drivers () {
         packages_install vulkan-loader
     {% elif context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
         log_info "Installing additional packages for Ubuntu"
-        packages_install dkms linux-headers-aws linux-modules-extra-aws 
+        packages_install dkms linux-headers-$(uname -r) linux-modules-extra-$(uname -r) 
     {% endif %}
 
     local x_server_pid=$(cat /tmp/.X0-lock)
@@ -68,18 +68,24 @@ function install_nvidia_grid_drivers () {
     pushd "${EDH_BOOTSTRAP_ASSETS_FOLDER}/gpu_drivers"
     rm -rf NVIDIA-Linux-*.run || log_info "No previous NVIDIA-Linux-*.run file detected"
     
-    local DRIVER_BUCKET_REGION=$(curl -s --head "{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/s3_bucket_url") }}" | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
-    aws_cli --region ${DRIVER_BUCKET_REGION} s3 cp --quiet --recursive "{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/s3_bucket_path") }}/${GRID_VERSION}/" .
+    aws_cli s3 cp --quiet --recursive "{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/s3_bucket_path") }}/${GRID_VERSION}/" .
     
     # Try pinned GRID version first
     PINNED_NVIDIA_DRIVER_RUN_NAME=(NVIDIA-Linux-*.run)
 
     if ! wrapper_install_driver "${PINNED_NVIDIA_DRIVER_RUN_NAME}"; then
+        # vGPU host caps the GRID branch; 'latest' can exceed it -> Xid 78. Off by default.
+        local ALLOW_LATEST_FALLBACK="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/allow_latest_fallback", "false") }}"
+        if [[ "${ALLOW_LATEST_FALLBACK,,}" != "true" ]]; then
+            log_error "Pinned GRID driver ${PINNED_NVIDIA_DRIVER_RUN_NAME} failed to build; not falling back to 'latest' (a newer-than-host GRID branch causes Xid 78 on vGPU). Pin the kernel to a supported series or set grid_drivers/allow_latest_fallback=true to override."
+            popd
+            return 1
+        else
         log_warning "Failed to install pinned driver version ${PINNED_NVIDIA_DRIVER_RUN_NAME}, attempting fallback to latest driver"
         
         # Rename failed driver
         mv ${PINNED_NVIDIA_DRIVER_RUN_NAME} "failed_driver_${PINNED_NVIDIA_DRIVER_RUN_NAME}"
-        aws_cli --region "${DRIVER_BUCKET_REGION}" s3 cp --quiet --recursive "{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/s3_bucket_path") }}/latest/" .
+        aws_cli s3 cp --quiet --recursive "{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/s3_bucket_path") }}/latest/" .
 
         # Pin new driver (latest available)
         LATEST_NVIDIA_DRIVER_RUN_NAME=(NVIDIA-Linux-*.run)
@@ -88,13 +94,17 @@ function install_nvidia_grid_drivers () {
 
         if [[ "${FAILED_DRIVER_CHECKSUM}" == "${NEW_DRIVER_CHECKSUM}" ]]; then
             log_error "Latest driver is identical to failed driver. Skipping ..."
+            popd
+            return 1
         else
             if ! wrapper_install_driver ${LATEST_NVIDIA_DRIVER_RUN_NAME}; then
                 log_error "Failed to install latest driver version ${LATEST_NVIDIA_DRIVER_RUN_NAME}. GPU drivers were not installed on this machine. See logs for more details"
-
+                popd
+                return 1
             else
                 configure_xconfig
             fi
+        fi
         fi
     else
         configure_xconfig

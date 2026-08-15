@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 
 # SOCA Specific
+installer/resources/functions/UsbAllowlistResolver/psycopg*/
+installer/resources/functions/UsbAllowlistResolver/psycopg_binary*/
 installer/resources/src/venv*
 installer/dist*
 installer/resources/src/installer_history.txt
@@ -11,9 +13,6 @@ installer/resources/src/cdk.context.json
 installer/resources/src/cdk.out/
 installer/resources/src/envs/
 installer/resources/src/.requirements_installed
-installer/resources/functions/CreateELBSSLCertificate/*cffi*
-installer/resources/functions/CreateELBSSLCertificate/cryptography*
-installer/resources/functions/CreateELBSSLCertificate/pycparser*
 installer/resources/user_data/upload_to_s3/*
 installer/resources/upload_to_s3
 github/
@@ -98,6 +97,11 @@ celerybeat-schedule
 
 # Environments
 .env
+.env.local
+.env.local.*
+# but DO commit .env.local.example templates
+!.env.local.example
+!**/.env.local.example
 .venv
 env/
 venv/

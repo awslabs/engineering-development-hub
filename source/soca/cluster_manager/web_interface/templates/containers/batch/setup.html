@@ -1,7 +1,7 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -9,6 +9,7 @@
 
 <body id="page-top">
                 {% include 'common/horizontal_menu_bar.html' %}
+        {% include 'common/js_i18n.html' %}
 
     <div id="wrapper">
         {% include 'common/vertical_menu_bar.html' %}
@@ -20,27 +21,27 @@
          
                         <div class="card-body">
                             <div class="d-flex align-items-center">
-                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="Setup your AWS Batch Job">My AWS Batch Job <i class="fas fa-question-circle"></i></h3>
+                            <h3 class="mb-0" data-toggle="tooltip" data-placement="top" title="{{ _("Setup your AWS Batch Job") }}">{{ _("My AWS Batch Job") }} <i class="fas fa-question-circle"></i></h3>
                             </div>
                                        <br>
                                         {% if batch_job_queues == [] %}
                                           <div class="alert alert-warning">
-                                            Unable to find any and <a href="https://docs.aws.amazon.com/batch/latest/userguide/job_queues.html" target="_blank">AWS Batch Job Queues</a> onboarded to this EDH environment. <br>
-                                            Add the following tag  <kbd>edh:visibility:{{cluster_id}} = true</kbd> to the AWS Batch job queue(s) you want to onboard. <br>
-                                            Additionally, your job queue state must be <kbd>ENABLED</kbd> and status must be <kbd>VALID</kbd>.
+                                            {{ _("Unable to find any AWS Batch Job Queues onboarded to this EDH environment.") }} <a href="https://docs.aws.amazon.com/batch/latest/userguide/job_queues.html" target="_blank">AWS Batch Job Queues</a> <br>
+                                            {% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe %}Add the following tag {{ tag }} to the AWS Batch job queue(s) you want to onboard.{% endtrans %} <br>
+                                            {{ _("Additionally, your job queue state must be ENABLED and status must be VALID.") }}
                                           </div>
                                         {% elif batch_job_definitions == [] %}
                                          <div class="alert alert-warning">
-                                            Unable to find any and <a href="https://docs.aws.amazon.com/batch/latest/userguide/job_definitions.html" target="_blank">AWS Batch Job Definition</a> onboarded to this EDH environment. <br>
-                                            Add the following tag  <kbd>edh:visibility:{{cluster_id}} = true</kbd> to the AWS Batch job definition(s) you want to onboard. <br> 
-                                             Additionally, your job definition status must be <kbd>ACTIVE</kbd>.
+                                            {{ _("Unable to find any AWS Batch Job Definition onboarded to this EDH environment.") }} <a href="https://docs.aws.amazon.com/batch/latest/userguide/job_definitions.html" target="_blank">AWS Batch Job Definition</a> <br>
+                                            {% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe %}Add the following tag {{ tag }} to the AWS Batch job definition(s) you want to onboard.{% endtrans %} <br> 
+                                             {{ _("Additionally, your job definition status must be ACTIVE.") }}
                                           </div>
                                         {% else %}
                                             <form action="/containers/batch/submit" method="post" id="commandForm">      
                                             
                                                 <div class="row mb-3 align-items-center">
                                                 <label for="job_name" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Name of your job">Job Name</label>
+                                                       title="{{ _("Name of your job") }}">{{ _("Job Name") }}</label>
                                                 <div class="col-sm-9">
                                                   <input id="job_name" name="job_name" type="text" class="form-control" required>
                                                 </div>
@@ -48,27 +49,27 @@
                                                 
                                               <div class="row mb-3 align-items-center">
                                                 <label for="eks_cluster" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Name of the AWS Batch Job Definition to use">Job Definition</label>
+                                                       title="{{ _("Name of the AWS Batch Job Definition to use") }}">{{ _("Job Definition") }}</label>
                                                 <div class="col-sm-9">
                                                   <select required class="form-control" id="job_definition" name="job_definition">
                                                     {% for job_definition in batch_job_definitions %}
                                                     <option value="{{job_definition.get('jobDefinitionArn')}}">{{job_definition.get('jobDefinitionName')}}</option>
                                                     {% endfor %}
                                                   </select>
-                                                  <small class="form-text text-muted">Note: AWS Batch Job Definitions clusters must have the tag <kbd>edh:visibility:{{cluster_id}} = true</kbd> and be <kbd>ACTIVE</kbd> to be visible on EDH</small>
+                                                  <small class="form-text text-muted">{% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe, status='<kbd>ACTIVE</kbd>'|safe %}Note: AWS Batch Job Definitions clusters must have the tag {{ tag }} and be {{ status }} to be visible on EDH{% endtrans %}</small>
                                                 </div>
                                               </div>
 
                                               <div class="row mb-3 align-items-center">
                                                 <label for="job_queue" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
-                                                       title="Name of the AWS Batch Job Queue to use">Job Queue</label>
+                                                       title="{{ _("Name of the AWS Batch Job Queue to use") }}">{{ _("Job Queue") }}</label>
                                                 <div class="col-sm-9">
                                                   <select required class="form-control" id="job_queue" name="job_queue">
                                                     {% for job_queue in batch_job_queues %}
                                                     <option value="{{job_queue.get('jobQueueArn')}}">{{job_queue.get('jobQueueName')}} ({{job_queue.get('jobQueueType')}})</option>
                                                     {% endfor %}
                                                   </select>
-                                                  <small class="form-text text-muted">Note: AWS Batch Job Queues  must have the tag <kbd>edh:visibility:{{cluster_id}} = true</kbd>, state must be <kbd>ENABLED</kbd> and status must be <kbd>VALID</kbd> to be visible on EDH</small>
+                                                  <small class="form-text text-muted">{% trans tag='<kbd>edh:visibility:' ~ cluster_id ~ ' = true</kbd>'|safe, state='<kbd>ENABLED</kbd>'|safe, status='<kbd>VALID</kbd>'|safe %}Note: AWS Batch Job Queues must have the tag {{ tag }}, state must be {{ state }} and status must be {{ status }} to be visible on EDH{% endtrans %}</small>
                                                 </div>
                                               </div>
 
@@ -77,21 +78,21 @@
                                               
                                         
                                               <!-- Section 3: Container Command & Arguments -->
-                                              <h5 class="mt-4">(Optional) Advanced Customizations</h5>
+                                              <h5 class="mt-4">{{ _("(Optional) Advanced Customizations") }}</h5>
                                               <hr>
 
                                             <ul class="nav nav-tabs" id="myTab" role="tablist">
                                                  <li class="nav-item">
-                                                    <a class="nav-link active" id="general-tab" data-bs-toggle="tab" href="#general" role="tab" aria-controls="general" aria-selected="true">General Options</a>
+                                                    <a class="nav-link active" id="general-tab" data-bs-toggle="tab" href="#general" role="tab" aria-controls="general" aria-selected="true">{{ _("General Options") }}</a>
                                                 </li>
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="home-tab" data-bs-toggle="tab" href="#job_override" role="tab" aria-controls="job_override" aria-selected="true">Job Overrides</a>
+                                                    <a class="nav-link" id="home-tab" data-bs-toggle="tab" href="#job_override" role="tab" aria-controls="job_override" aria-selected="true">{{ _("Job Overrides") }}</a>
                                                 </li>
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#container_overrides" role="tab" aria-controls="container_overrides" aria-selected="false">Container Overrides</a>
+                                                    <a class="nav-link" id="profile-tab" data-bs-toggle="tab" href="#container_overrides" role="tab" aria-controls="container_overrides" aria-selected="false">{{ _("Container Overrides") }}</a>
                                                 </li>
                                                 <li class="nav-item">
-                                                    <a class="nav-link" id="consumable-tab" data-bs-toggle="tab" href="#consumable_resources" role="tab" aria-controls="consumable_resources" aria-selected="false">Consumable Resource Override</a>
+                                                    <a class="nav-link" id="consumable-tab" data-bs-toggle="tab" href="#consumable_resources" role="tab" aria-controls="consumable_resources" aria-selected="false">{{ _("Consumable Resource Override") }}</a>
                                                 </li>
 
                                             </ul>
@@ -103,9 +104,9 @@
                                                 <label for="job_name" class="col-sm-3 col-form-label"  data-toggle="tooltip" data-placement="top"
                                                        title="Comma separated list of job ids (up to 20). When you create an AWS Batch job, you can specify a list of job IDs that the new job depends on. The AWS Batch scheduler then ensures that the new job is run only after the specified dependencies successfully completed. After the all the job that you specify as dependencies succeed, the dependent job transitions from the PENDING to RUNNABLE status. If any of the dependencies fail, the new job automatically transitions to the FAILED status.
 
-To specify a job as a dependency for the new job, choose Add job dependencies and enter the job ID for the dependency. Then choose Add job dependencies. You can enter a maximum of 20 dependencies for the new job.">Job Dependencies</label>
+To specify a job as a dependency for the new job, choose Add job dependencies and enter the job ID for the dependency. Then choose Add job dependencies. You can enter a maximum of 20 dependencies for the new job.">{{ _("Job Dependencies") }}</label>
                                                 <div class="col-sm-9">
-                                                  <input id="job_dependencies" name="job_dependencies" type="text" class="form-control" placeholder="comma separated list of job ids e,g: 1,2,3">
+                                                  <input id="job_dependencies" name="job_dependencies" type="text" class="form-control" placeholder="{{ _("comma separated list of job ids e,g: 1,2,3") }}">
                                                 </div>
                                               </div>
 
@@ -115,7 +116,7 @@ To specify a job as a dependency for the new job, choose Add job dependencies an
 
 When you create an AWS Batch job, you can turn on Array job. In the Array size box, enter a number between 2 and 10,000 to define how many child jobs are created.
 
-All child jobs are terminated or canceled if the parent job is terminated or canceled. You can terminate or cancel a child job without affecting other jobs. If a child array job fails or is canceled or terminated manually, the parent job also fails.">Array Size</label>
+All child jobs are terminated or canceled if the parent job is terminated or canceled. You can terminate or cancel a child job without affecting other jobs. If a child array job fails or is canceled or terminated manually, the parent job also fails.">{{ _("Array Size") }}</label>
                                                 <div class="col-sm-9">
                                                   <input id="array_size" name="array_size" type="number" class="form-control">
                                                 </div>
@@ -131,25 +132,25 @@ All child jobs are terminated or canceled if the parent job is terminated or can
 
                                                         <div class="row mb-3 align-items-center">
                                                             <label for="scheduling_priority" class="col-sm-3 col-form-label" data-toggle="tooltip" data-placement="top"
-                                                                   title="Prioritize jobs in a queue with a scheduling policy. A number between 0 and 9999.">Scheduling priority <i class="fas fa-info-circle"></i></label>
+                                                                   title="Prioritize jobs in a queue with a scheduling policy. A number between 0 and 9999.">{{ _("Scheduling priority") }} <i class="fas fa-info-circle"></i></label>
                                                             <div class="col-sm-9">
-                                                                <input id="scheduling_priority" name="scheduling_priority" type="number" class="form-control" min="0" max="9999" placeholder="0-9999">
+                                                                <input id="scheduling_priority" name="scheduling_priority" type="number" class="form-control" min="0" max="9999" placeholder="{{ _("0-9999") }}">
                                                             </div>
                                                         </div>
 
                                                         <div class="row mb-3 align-items-center">
                                                             <label for="job_attempts" class="col-sm-3 col-form-label" data-toggle="tooltip" data-placement="top"
-                                                                   title="The number of times to move a job to the runnable status. Job attempts must be between 1-10.">Job attempts <i class="fas fa-info-circle"></i></label>
+                                                                   title="The number of times to move a job to the runnable status. Job attempts must be between 1-10.">{{ _("Job attempts") }} <i class="fas fa-info-circle"></i></label>
                                                             <div class="col-sm-9">
-                                                                <input id="job_attempts" name="job_attempts" type="number" class="form-control" min="1" max="10" placeholder="1-10">
+                                                                <input id="job_attempts" name="job_attempts" type="number" class="form-control" min="1" max="10" placeholder="{{ _("1-10") }}">
                                                             </div>
                                                         </div>
 
                                                         <div class="row mb-3 align-items-center">
                                                             <label for="execution_timeout" class="col-sm-3 col-form-label" data-toggle="tooltip" data-placement="top"
-                                                                   title="The time duration (in seconds) after which AWS Batch terminates unfinished jobs.">Execution timeout <i class="fas fa-info-circle"></i></label>
+                                                                   title="The time duration (in seconds) after which AWS Batch terminates unfinished jobs.">{{ _("Execution timeout") }} <i class="fas fa-info-circle"></i></label>
                                                             <div class="col-sm-9">
-                                                                <input id="execution_timeout" name="execution_timeout" type="number" class="form-control" min="60" placeholder="Time in seconds">
+                                                                <input id="execution_timeout" name="execution_timeout" type="number" class="form-control" min="60" placeholder="{{ _("Time in seconds") }}">
                                                             </div>
                                                         </div>
 
@@ -161,14 +162,14 @@ All child jobs are terminated or canceled if the parent job is terminated or can
                                                     <div class="card card-body">
                                                         <label for="command_override" class="form-label" data-toggle="tooltip" data-placement="top"
                                                                title="Override the command that is passed to the container. Each line represents one element in the command array. The first line is typically the executable, and subsequent lines are arguments.">
-                                                            Command Override <i class="fas fa-info-circle"></i>
+                                                            {{ _("Command Override") }} <i class="fas fa-info-circle"></i>
                                                         </label>
                                                         <textarea id="command_override" name="command_override" class="form-control" rows="6" placeholder="One argument per line, e.g.:&#10;python&#10;train.py&#10;--epochs&#10;10"></textarea>
                                                         <hr class="my-4">
 
                                                         <div class="row mb-3 align-items-center">
                                                             <label for="vcpus" class="col-sm-3 col-form-label" data-toggle="tooltip" data-placement="top"
-                                                                   title="The number of vCPUs reserved for the container. Each vCPU is equivalent to 1,024 CPU shares.">vCPUs <i class="fas fa-info-circle"></i></label>
+                                                                   title="The number of vCPUs reserved for the container. Each vCPU is equivalent to 1,024 CPU shares.">{{ _("vCPUs") }} <i class="fas fa-info-circle"></i></label>
                                                             <div class="col-sm-9">
                                                                 <input id="vcpus" name="vcpus" type="number" class="form-control" min="0.25" step="0.25" placeholder="e.g. 0.25, 1, 2">
                                                             </div>
@@ -176,9 +177,9 @@ All child jobs are terminated or canceled if the parent job is terminated or can
 
                                                         <div class="row mb-3 align-items-center">
                                                             <label for="memory" class="col-sm-3 col-form-label" data-toggle="tooltip" data-placement="top"
-                                                                   title="The hard limit (in GB) of memory to present to the container.">Memory (GB) <i class="fas fa-info-circle"></i></label>
+                                                                   title="The hard limit (in GB) of memory to present to the container.">{{ _("Memory (GB)") }} <i class="fas fa-info-circle"></i></label>
                                                             <div class="col-sm-9">
-                                                                <input id="memory" name="memory" type="number" class="form-control" min="0.5" step="0.5" placeholder="Memory in GB">
+                                                                <input id="memory" name="memory" type="number" class="form-control" min="0.5" step="0.5" placeholder="{{ _("Memory in GB") }}">
                                                             </div>
                                                         </div>
 
@@ -186,11 +187,11 @@ All child jobs are terminated or canceled if the parent job is terminated or can
 
                                                         <label for="env_vars" class="form-label" data-toggle="tooltip" data-placement="top"
                                                                title="Override or add environment variables to the container. Each line should be in KEY=VALUE format.">
-                                                            Environment Variables <i class="fas fa-info-circle"></i>
+                                                            {{ _("Environment Variables") }} <i class="fas fa-info-circle"></i>
                                                         </label>
                                                         <textarea id="env_vars" name="env_vars" class="form-control" rows="6" placeholder="One variable per line in KEY=VALUE format, e.g.:&#10;AWS_REGION=us-east-1&#10;LOG_LEVEL=debug&#10;BATCH_SIZE=32"></textarea>
                                                         <small class="form-text text-muted">
-                                                            Enter one environment variable per line in KEY=VALUE format.<br>
+                                                            {{ _("Enter one environment variable per line in KEY=VALUE format.") }}<br>
                                                             Example:<br>
                                                             <code>AWS_REGION=us-east-1</code><br>
                                                             <code>LOG_LEVEL=debug</code><br>
@@ -203,25 +204,25 @@ All child jobs are terminated or canceled if the parent job is terminated or can
                                                 <div class="tab-pane fade" id="consumable_resources" role="tabpanel" aria-labelledby="consumable_resources-tab">
                                                     <br>
                                                     <div class="card card-body">
-                                                        <div class="alert alert-info">
-                                                            <i class="fas fa-info-circle"></i> AWS Batch will use values from your job definition for these fields unless you override them here. The value from the job definition will be displayed as the placeholders in your fields below. Additional consumable resources can be added that override the job definition, up to a maximum of 5 total consumable resources.
+                                                        <div class="alert alert-primary">
+                                                            AWS Batch will use values from your job definition for these fields unless you override them here. The value from the job definition will be displayed as the placeholders in your fields below. Additional consumable resources can be added that override the job definition, up to a maximum of 5 total consumable resources.
                                                         </div>
 
-                                                        <label class="form-label">Custom Consumable Resources</label>
+                                                        <label class="form-label">{{ _("Custom Consumable Resources") }}</label>
                                                         <div id="consumableResourcesInputs">
                                                             <div class="input-group mb-2">
-                                                                <input type="text" class="form-control" placeholder="Resource Type (e.g., GPU, FPGA)">
-                                                                <input type="text" class="form-control" placeholder="Value (e.g., 1, 2)">
-                                                                <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeConsumableResource(this)">Remove</button>
+                                                                <input type="text" class="form-control" placeholder='{{ _("Resource Type (e.g., GPU, FPGA)") }}'>
+                                                                <input type="text" class="form-control" placeholder='{{ _("Value (e.g., 1, 2)") }}'>
+                                                                <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeConsumableResource(this)">{{ _("Remove") }}</button>
                                                             </div>
                                                         </div>
-                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addConsumableResource()">Add Resource</button>
+                                                        <button type="button" class="btn btn-primary btn-sm mb-2" onclick="addConsumableResource()">{{ _("Add Resource") }}</button>
                                                         <input type="hidden" name="consumableResources" id="consumableResourcesArray">
                                                         <small class="form-text text-muted">
-                                                            Define custom consumable resources beyond vCPU and Memory.<br>
-                                                            Example:<br>
-                                                            <strong>Type:</strong> <code>GPU</code> | <strong>Value:</strong> <code>1</code><br>
-                                                            <strong>Type:</strong> <code>FPGA</code> | <strong>Value:</strong> <code>2</code>
+                                                            {{ _("Define custom consumable resources beyond vCPU and Memory.") }}<br>
+                                                            {{ _("Example:") }}<br>
+                                                            <strong>{{ _("Type:") }}</strong> <code>GPU</code> | <strong>{{ _("Value:") }}</strong> <code>1</code><br>
+                                                            <strong>{{ _("Type:") }}</strong> <code>FPGA</code> | <strong>{{ _("Value:") }}</strong> <code>2</code>
                                                         </small>
                                                     </div>
                                                 </div>
@@ -240,7 +241,7 @@ All child jobs are terminated or canceled if the parent job is terminated or can
                                               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                               <div class="text-center mt-4">
                                                 <button type="submit" class="btn btn-primary px-5 py-3">
-                                                    Submit AWS Batch Job
+                                                    {{ _("Submit AWS Batch Job") }}
                                                 </button>
                                                 </div>
                                                 {% endif %}
@@ -285,7 +286,7 @@ All child jobs are terminated or canceled if the parent job is terminated or can
                         <span class="spinner-border spinner-border-lg" role="status" aria-hidden="true">  </span>
                      </span>
                      <span class="text">
-                        Please wait ...
+                        {{ _("Please wait ...") }}
                      </span>`;
                 }
                 // Trigger form submission manually after processing
@@ -314,16 +315,16 @@ All child jobs are terminated or canceled if the parent job is terminated or can
     const currentCount = container.querySelectorAll('.input-group').length;
 
     if (currentCount >= 5) {
-      alert('Maximum of 5 consumable resources allowed.');
+      alert(i18n.max_consumable_resources);
       return;
     }
 
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
     div.innerHTML = `
-      <input type="text" class="form-control" placeholder="Resource Type (e.g., GPU, FPGA)">
-      <input type="text" class="form-control" placeholder="Value (e.g., 1, 2)">
-      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeConsumableResource(this)">Remove</button>
+      <input type="text" class="form-control" placeholder="${i18n.resource_type_placeholder}">
+      <input type="text" class="form-control" placeholder="${i18n.resource_value_placeholder}">
+      <button type="button" class="btn btn-danger" style="border-radius: 0;" onclick="removeConsumableResource(this)">${i18n.remove}</button>
     `;
     container.appendChild(div);
   }

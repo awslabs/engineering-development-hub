@@ -19,6 +19,9 @@
 
 {% include "templates/linux/shared_storage/mount_s3.sh.j2" %}
 
+# Defensive: ensure SSM tree is populated even if the caller forgot to wait.
+wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
+
 # Retrieve SocaConfig "/configuration/Filesystems" which contains all the FileSystem mount logic, return a dictionary of key/v
 SOCA_FILESYSTEMS_SSM_TREE=$(aws_cli ssm get-parameters-by-path --path "/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems"  \
   --recursive \
@@ -27,6 +30,11 @@ SOCA_FILESYSTEMS_SSM_TREE=$(aws_cli ssm get-parameters-by-path --path "/edh/{{ c
   --output json)
 
 log_info "Retrieved SOCA FileSystem Tree: ${SOCA_FILESYSTEMS_SSM_TREE}"
+
+# Empty tree post-sentinel means BulkSSMWriter partially failed -- fail loud.
+if [[ "${SOCA_FILESYSTEMS_SSM_TREE}" == "[]" ]] || [[ -z "${SOCA_FILESYSTEMS_SSM_TREE}" ]]; then
+  exit_fail "FileSystems SSM tree is empty after cdk_completed=true. BulkSSMWriter may have partially failed; check the BulkSSMWriterLambda CloudWatch log group."
+fi
 
 # Install jq if not already there
 if ! verify_package_installed jq; then
@@ -63,6 +71,7 @@ echo "${FS_MAP}" | jq -r 'keys[]' | while read FS_NAME; do
 
   log_info "Processing ${PROVIDER}: $(echo "${FS_MAP}" | jq -r ".${FS_NAME}")"
 
+  EXTRA_ARGS=""
   case "${PROVIDER}" in
   "efs")
     MOUNT_FUNCTION="mount_efs"
@@ -75,6 +84,10 @@ echo "${FS_MAP}" | jq -r 'keys[]' | while read FS_NAME; do
     ;;
   "fsx_ontap")
     MOUNT_FUNCTION="mount_fsx_ontap"
+    # Pass the FileSystem name so the controller can publish the resolved CIFS
+    # endpoint (smb_dns + cifs_share_name) back to this filesystem's SSM subtree,
+    # enabling Windows VDIs to auto-mount the share without any FSx API calls.
+    EXTRA_ARGS="--filesystem-name=${FS_NAME}"
     ;;
   "fsx_openzfs")
     MOUNT_FUNCTION="mount_fsx_openzfs"
@@ -91,7 +104,8 @@ echo "${FS_MAP}" | jq -r 'keys[]' | while read FS_NAME; do
         --mount-target="${MOUNT_TARGET}" \
         --mount-options="${MOUNT_OPTIONS}" \
         --on-mount-failure="${ON_MOUNT_FAILURE}" \
-        --enabled="${ENABLED}"; then
+        --enabled="${ENABLED}" \
+        ${EXTRA_ARGS}; then
 
       exit_fail "Error while trying to mount ${MOUNT_TARGET} via ${MOUNT_FUNCTION}, check log"
   fi

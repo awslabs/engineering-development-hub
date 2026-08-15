@@ -3,6 +3,16 @@
 
 {% include "templates/linux/common/log.sh.j2" %}
 
+{# DCV event-relay publisher is NOT included here -- common.sh.j2 is #}
+{# sourced by the controller and HPC compute_node bootstraps which do #}
+{# not publish DCV events. Including it here pushes controller        #}
+{# user_data over the 16KB EC2 cap. The publisher is included only    #}
+{# from the VDI bootstrap path: compute_node/02_setup.sh.j2 and       #}
+{# compute_node/03_setup_post_reboot.sh.j2, gated on NodeType=dcv_node.#}
+{# log_checkpoint and log_status in log.sh.j2 detect publisher absence #}
+{# via `declare -F` and silently no-op the publish (log line still     #}
+{# fires locally), so they remain safe to call from any bootstrap.     #}
+
 {% include "templates/linux/common/hostname_functions.sh.j2" %}
 
 {% include "templates/linux/common/file_download.sh.j2" %}
@@ -19,6 +29,8 @@
 
 {% include "templates/linux/common/wrapper_secretsmanager.sh.j2" %}
 
+{% include "templates/linux/common/wait_for_ssm_sentinel.sh.j2" %}
+
 {% include "templates/linux/common/setup_environment_file.sh.j2" %}
 
 {% include "templates/linux/common/cloud_init.sh.j2" %}
@@ -27,7 +39,9 @@
 export PATH={{ PATH }}:${PATH}
 
 # Source environment
+set -a  # auto-export vars (bare /etc/environment KEY=value lines are not exported on source)
 source /etc/environment
+set +a
 
 # Source SOCA_PYTHON if exist
 SOCA_PYTHON_ENV_PATH="/opt/edh/{{ context.get("/configuration/ClusterId") }}/python/latest/edh_python.env"

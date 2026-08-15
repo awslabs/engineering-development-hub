@@ -1,0 +1,106 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DcvBrokerS3Access",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/*",
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerDynamoDB",
+            "Action": [
+                "dynamodb:BatchGetItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:CreateTable",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeStream",
+                "dynamodb:DescribeTable",
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:UpdateItem",
+                "dynamodb:UpdateTable"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:dynamodb:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:table/%%CLUSTER_ID%%.dcv-broker.*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerCloudWatchMetrics",
+            "Action": [
+                "cloudwatch:PutMetricData"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "cloudwatch:namespace": "DCV Session Manager Broker"
+                }
+            },
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerELBDiscovery",
+            "Action": [
+                "elasticloadbalancing:DescribeTargetHealth",
+                "elasticloadbalancing:DescribeTargetGroups"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerEC2Discovery",
+            "Action": [
+                "ec2:DescribeInstances",
+                "autoscaling:DescribeAutoScalingGroups",
+                "autoscaling:DescribeAutoScalingInstances"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerSSMRead",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:parameter/edh/%%CLUSTER_ID%%/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerCloudWatchLogs",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/dcv-broker*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvBrokerEventBridge",
+            "Action": [
+                "events:EnableRule",
+                "events:DescribeRule"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:events:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:rule/%%CLUSTER_ID%%-*"
+            ],
+            "Effect": "Allow"
+        }
+    ]
+}

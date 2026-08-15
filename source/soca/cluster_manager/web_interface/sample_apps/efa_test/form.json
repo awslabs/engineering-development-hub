@@ -1,0 +1,159 @@
+[
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "EFA Benchmark Configuration"
+  },
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "This sample runs the SOCA EFA validation benchmark across a multi-node MPI cluster. It verifies EFA hardware presence, runs OpenMPI ring + alltoall tests, measures NIC saturation via OSU MBW_MR, and produces a structured pass/fail report. <a href=\"#\">Learn more</a>."
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Cluster Topology"
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "EFA-capable instance type (instance_type)",
+    "description": "Only EFA-capable instances are listed. For full bandwidth testing, use HPC-family (hpc6id, hpc7a, hpc8a) or compute-optimized network instances (c6in, c7gn, c8gn).",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "hpc6id.32xlarge — 64 vCPU, 1024 GiB, 2x100 Gbps EFA (200 Gbps)",
+        "value": "hpc6id.32xlarge",
+        "selected": true
+      },
+      {
+        "label": "hpc7a.96xlarge — 192 vCPU, 768 GiB, 2x150 Gbps EFA (300 Gbps)",
+        "value": "hpc7a.96xlarge",
+        "selected": false
+      },
+      {
+        "label": "hpc8a.96xlarge — 192 vCPU, 768 GiB, 2x150 Gbps EFA (300 Gbps)",
+        "value": "hpc8a.96xlarge",
+        "selected": false
+      },
+      {
+        "label": "hpc6a.48xlarge — 96 vCPU, 384 GiB, 1x100 Gbps EFA",
+        "value": "hpc6a.48xlarge",
+        "selected": false
+      },
+      {
+        "label": "c8gn.48xlarge — 192 vCPU, 384 GiB, 2x300 Gbps EFA (600 Gbps)",
+        "value": "c8gn.48xlarge",
+        "selected": false
+      },
+      {
+        "label": "c7gn.16xlarge — 64 vCPU, 128 GiB, 1x200 Gbps EFA",
+        "value": "c7gn.16xlarge",
+        "selected": false
+      },
+      {
+        "label": "c6in.32xlarge — 128 vCPU, 256 GiB, 1x200 Gbps EFA",
+        "value": "c6in.32xlarge",
+        "selected": false
+      },
+      {
+        "label": "c5n.18xlarge — 72 vCPU, 192 GiB, 1x100 Gbps EFA (1st-gen, no rdma-read)",
+        "value": "c5n.18xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Number of nodes",
+    "description": "Minimum 2 nodes required for cross-node MPI tests. 4-8 nodes recommended for representative benchmark results.",
+    "className": "form-control",
+    "name": "node_count",
+    "values": [
+      {"label": "2 nodes", "value": "2", "selected": true},
+      {"label": "4 nodes", "value": "4", "selected": false},
+      {"label": "8 nodes", "value": "8", "selected": false},
+      {"label": "16 nodes", "value": "16", "selected": false}
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "MPI ranks per node (ncpus_per_node)",
+    "description": "Should match the physical core count of the chosen instance type so Phase 7 (full-cores saturation, the headline benchmark) runs. If smaller than physical cores, Phase 7 will SKIP. Common values: hpc6id.32xlarge=64, hpc6a.48xlarge=96, hpc7a.96xlarge / hpc8a.96xlarge / c8gn.48xlarge=192, c7gn.16xlarge=64, c6in.32xlarge=64 (physical cores; SMT-on hardware), c5n.18xlarge=36.",
+    "className": "form-control",
+    "name": "ncpus_per_node",
+    "values": [
+      {"label": "32 (small / smoke)", "value": "32", "selected": false},
+      {"label": "36 (c5n.18xlarge physical cores)", "value": "36", "selected": false},
+      {"label": "48 (half hpc6a.48xlarge)", "value": "48", "selected": false},
+      {"label": "64 (hpc6id.32xlarge / c7gn.16xlarge / c6in.32xlarge physical) - default", "value": "64", "selected": true},
+      {"label": "96 (hpc6a.48xlarge full physical)", "value": "96", "selected": false},
+      {"label": "128 (c6in.32xlarge full vCPU)", "value": "128", "selected": false},
+      {"label": "192 (hpc7a / hpc8a / c8gn full physical)", "value": "192", "selected": false}
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Operating system",
+    "description": "Recommended: amazonlinux2023 (most thoroughly validated). RHEL/Rocky/Ubuntu also supported.",
+    "className": "form-control",
+    "name": "base_os",
+    "values": [
+      {"label": "Amazon Linux 2023", "value": "amazonlinux2023", "selected": true},
+      {"label": "Rocky Linux 9", "value": "rocky9", "selected": false},
+      {"label": "RHEL 9", "value": "rhel9", "selected": false},
+      {"label": "Ubuntu 22.04", "value": "ubuntu2204", "selected": false}
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Job Naming"
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job name (job_name)",
+    "description": "Used as the scheduler job name and prefixed onto the output file. No spaces or special characters.",
+    "placeholder": "efa_validation",
+    "value": "efa_validation",
+    "className": "form-control",
+    "name": "job_name",
+    "subtype": "text",
+    "maxlength": 64
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Advanced (optional)"
+  },
+  {
+    "type": "select",
+    "required": false,
+    "label": "Walltime override",
+    "description": "Set conservatively. Default 30 minutes is sufficient for hpc6id/hpc7a/hpc8a 2-node smoke runs; full-cores Alltoall sweep on 8 nodes may need 60+ minutes.",
+    "className": "form-control",
+    "name": "walltime",
+    "values": [
+      {"label": "30 minutes (smoke run)", "value": "00:30:00", "selected": true},
+      {"label": "60 minutes", "value": "01:00:00", "selected": false},
+      {"label": "2 hours", "value": "02:00:00", "selected": false},
+      {"label": "4 hours (large sweep)", "value": "04:00:00", "selected": false}
+    ]
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "Additional pre-exec commands (user_pre_exec)",
+    "description": "Optional shell commands to run before efa_test_job.sh. Useful for setting custom env vars or activating module files.",
+    "placeholder": "e.g. module load openmpi/5.0\\nexport MY_DEBUG=1",
+    "className": "form-control",
+    "name": "user_pre_exec",
+    "subtype": "textarea",
+    "rows": 3
+  }
+]

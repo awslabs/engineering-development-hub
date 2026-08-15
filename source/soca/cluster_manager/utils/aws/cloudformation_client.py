@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.error import SocaError
 from utils.response import SocaResponse
+from utils.cast import SocaCastEngine
 from datetime import datetime, timezone
 
 logger = logging.getLogger("soca_logger")
@@ -96,7 +97,8 @@ class SocaCfnClient:
             return resp  # already a SocaError
 
     def create_stack(
-        self, template_body: str, tags: dict, on_failure: str = "DO_NOTHING"
+        self, template_body: str, tags: dict, on_failure: str = "DO_NOTHING",
+        notification_arns: list = None,
     ) -> SocaResponse:
         logger.info(
             f"Creating CloudFormation stack {self._stack_name}, tags={tags}, on_failure={on_failure}"
@@ -108,13 +110,26 @@ class SocaCfnClient:
                 "on_failure must be DELETE, ROLLBACK, or DO_NOTHING"
             )
 
-        resp = self._call_cfn(
+        _kwargs = dict(
             action="create_stack",
             StackName=self._stack_name,
             TemplateBody=template_body,
             Tags=tags,
             OnFailure=on_failure,
         )
+        # NotificationARNs subscribes one or more SNS topics to receive
+        # stack lifecycle events (CREATE_IN_PROGRESS / CREATE_COMPLETE /
+        # ROLLBACK_*). Optional -- omit if no per-cluster topic is set up.
+        if notification_arns:
+            _cast = SocaCastEngine(notification_arns).cast_as(list)
+            if _cast.get("success") is not True:
+                logger.warning(
+                    f"Ignoring notification_arns; could not cast to list: {notification_arns!r}"
+                )
+            else:
+                _kwargs["NotificationARNs"] = _cast.get("message")
+
+        resp = self._call_cfn(**_kwargs)
         if resp.get("success") is True:
             return SocaResponse(
                 success=True,

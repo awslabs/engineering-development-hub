@@ -1,0 +1,342 @@
+#!/bin/bash -x
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# DCV Session Manager Broker bootstrap
+# As UserData length is limited to 16KB, this template uses Jinja2 includes.
+
+{% include "templates/linux/common.sh.j2" %}
+
+# Validate umask
+{% include "templates/linux/umask.sh.j2" %}
+
+# Verify previous EDH Bootstrap lock presence
+if [[ -f "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed" ]]; then
+  exit_fail "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed already exist. To prevent configuration overwrite, we exit the script, since this machine seems to be already configured"
+fi
+
+{% include "templates/linux/system_packages/packages_management.sh.j2" %}
+
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
+{% include "templates/linux/awscli.sh.j2" %}
+
+# Configure environment
+set_environment_variable "AWS_DEFAULT_REGION" "{{ context.get("/configuration/Region") }}"
+set_environment_variable "EDH_BASE_OS" "{{ context.get("/configuration/BaseOS") }}"
+set_environment_variable "EDH_NODE_TYPE" "{{context.get("/job/NodeType")}}"
+set_environment_variable "EDH_CLUSTER_ID" "{{ context.get("/configuration/ClusterId") }}"
+set_environment_variable "EDH_S3_BUCKET" "{{ context.get("/configuration/S3Bucket") }}"
+set_environment_variable "EDH_VERSION" "{{ context.get("/configuration/Version") }}"
+
+# Wait for BulkSSMDcvParams Custom Resource to populate the SSM tree
+# before reading any /edh/${EDH_CLUSTER_ID}/dcv/* parameters below.
+wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
+
+log_info "Starting DCV Session Manager Broker bootstrap"
+
+# Install Java (required by DCV Broker)
+if ! verify_package_installed jq; then
+    packages_install jq
+fi
+
+# Download and install DCV Session Manager Broker from NICE CDN
+DCV_STAGING="/root/edh_bootstrap_$(instance_id)/dcv_staging"
+mkdir -p ${DCV_STAGING}
+pushd ${DCV_STAGING}
+
+{% if context.get("/configuration/BaseOS") == "amazonlinux2" %}
+  {% set BROKER_OS = "al2" %}
+{% elif context.get("/configuration/BaseOS") == "amazonlinux2023" %}
+  {% set BROKER_OS = "al2023" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel8", "rocky8") %}
+  {% set BROKER_OS = "el8" %}
+{% elif context.get("/configuration/BaseOS") in ("rhel9", "rocky9") %}
+  {% set BROKER_OS = "el9" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2204" %}
+  {% set BROKER_OS = "ubuntu2204" %}
+{% elif context.get("/configuration/BaseOS") == "ubuntu2404" %}
+  {% set BROKER_OS = "ubuntu2404" %}
+{% else %}
+  exit_fail "Unsupported OS for DCV Broker: $BROKER_OS"
+{% endif %}
+
+BROKER_URL="{{ context.get("/system/dcv/session_manager_broker/" ~ BROKER_OS ~ "/url") }}"
+BROKER_SHA256="{{ context.get("/system/dcv/session_manager_broker/" ~ BROKER_OS ~ "/sha256") }}"
+
+{% if BROKER_OS == "al2023" %}
+    if ! verify_package_installed java-11-amazon-corretto; then
+        packages_install java-11-amazon-corretto
+    fi
+{% elif BROKER_OS in ("el8", "el9") %}
+    if ! verify_package_installed java-11-openjdk; then
+        packages_install java-11-openjdk
+    fi
+{% elif BROKER_OS in ("ubuntu2204", "ubuntu2404") %}
+    if ! verify_package_installed openjdk-11-jdk; then
+        packages_install openjdk-11-jdk
+    fi
+{% else %}
+    exit_fail "Unsupported OS for DCV Broker: $BROKER_OS"
+{% endif %}
+
+
+if ! verify_package_installed dcv-session-manager-broker; then
+    log_info "DCV Session Manager Broker not found, installing it from $BROKER_URL..."
+    file_download --download-url="{{context.get("/system/dcv/gpg_key_url")}}" --save-as="NICE-GPG-KEY"
+    {% if context.get("/configuration/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+        gpg --import NICE-GPG-KEY
+        file_download --download-url="${BROKER_URL}" --save-as="nice-dcv-session-manager-broker.deb" --sha256-checksum="${BROKER_SHA256}"
+        if ! packages_install_file ./nice-dcv-session-manager-broker.deb; then
+            exit_fail "Unable to Install NICE DCV Session Manager Broker package. Please check the logs for more details."
+        fi
+    {% else %}
+        rpm --import "NICE-GPG-KEY"
+        file_download --download-url="${BROKER_URL}" --save-as="nice-dcv-session-manager-broker.rpm" --sha256-checksum="${BROKER_SHA256}"
+        if ! packages_install_file ./nice-dcv-session-manager-broker.rpm; then
+            exit_fail "Unable to Install NICE DCV Session Manager Broker package. Please check the logs for more details."
+        fi
+    {% endif %}
+else
+    log_info "DCV Session Manager Broker already installed, skipping installation"
+fi
+popd
+
+# Read cluster config from SSM
+BROKER_CLIENT_PORT=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/client_port" --query 'Parameter.Value' --output text 2>/dev/null || echo "8443")
+BROKER_AGENT_PORT=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/agent_port" --query 'Parameter.Value' --output text 2>/dev/null || echo "8445")
+BROKER_GATEWAY_PORT=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/gateway_port" --query 'Parameter.Value' --output text 2>/dev/null || echo "8447")
+BROKER_TG_ARN=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/target_group_arn" --query 'Parameter.Value' --output text 2>/dev/null || echo "")
+
+# Lifetime of the broker-issued connection JWT, in minutes. Configurable
+# via default_config.yml (Config.dcv.broker.connect_session_token_duration_minutes).
+# Default 720 (12h) -- a downloaded .dcv stays usable through a business day.
+CONNECT_SESSION_TOKEN_DURATION_MINUTES=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/connect_session_token_duration_minutes" --query 'Parameter.Value' --output text 2>/dev/null || echo "720")
+
+# Configure broker properties
+TIMESTAMP=$(date +%s)
+if [[ -f /etc/dcv-session-manager-broker/session-manager-broker.properties ]]; then
+    mv /etc/dcv-session-manager-broker/session-manager-broker.properties /etc/dcv-session-manager-broker/session-manager-broker.properties.${TIMESTAMP}
+fi
+
+cat > /etc/dcv-session-manager-broker/session-manager-broker.properties << BROKER_EOF
+# EDH DCV Broker Configuration — generated at ${TIMESTAMP}
+enable-authorization-server = false
+enable-authorization = false
+enable-agent-authorization = false
+
+# Persistence via DynamoDB
+enable-persistence = true
+persistence-db = dynamodb
+dynamodb-region = ${AWS_DEFAULT_REGION}
+dynamodb-table-rcu = 5
+dynamodb-table-wcu = 5
+dynamodb-table-name-prefix = ${EDH_CLUSTER_ID}.dcv-broker.
+
+# Session tokens
+connect-session-token-duration-minutes = ${CONNECT_SESSION_TOKEN_DURATION_MINUTES}
+delete-session-duration-seconds = 3600
+seconds-before-deleting-unreachable-dcv-server = 900
+seconds-before-deleting-sessions-unreachable-server = 900
+
+{% set _dcv_bind = "::" if context.get("/configuration/Networking/EnableIPv6") else "0.0.0.0" %}
+# Client-to-Broker
+client-to-broker-connector-https-port = ${BROKER_CLIENT_PORT}
+client-to-broker-connector-bind-host = {{ _dcv_bind }}
+
+# Agent-to-Broker
+agent-to-broker-connector-https-port = ${BROKER_AGENT_PORT}
+agent-to-broker-connector-bind-host = {{ _dcv_bind }}
+
+# Gateway-to-Broker
+enable-gateway = true
+gateway-to-broker-connector-https-port = ${BROKER_GATEWAY_PORT}
+gateway-to-broker-connector-bind-host = {{ _dcv_bind }}
+
+# Broker-to-Broker clustering (via NLB target group discovery)
+broker-to-broker-port = 47100
+cli-to-broker-port = 47200
+broker-to-broker-bind-host = {{ _dcv_bind }}
+broker-to-broker-discovery-port = 47500
+broker-to-broker-discovery-aws-region = ${AWS_DEFAULT_REGION}
+broker-to-broker-discovery-aws-alb-target-group-arn = ${BROKER_TG_ARN}
+broker-to-broker-distributed-memory-max-size-mb = 4096
+broker-to-broker-connection-login = dcvsm-user
+broker-to-broker-connection-pass = dcvsm-pass
+
+# CloudWatch metrics
+metrics-fleet-name-dimension = ${EDH_CLUSTER_ID}
+enable-cloud-watch-metrics = true
+session-manager-working-path = /var/lib/dcvsmbroker
+BROKER_EOF
+
+chown root:dcvsmbroker /etc/dcv-session-manager-broker/session-manager-broker.properties
+chmod 640 /etc/dcv-session-manager-broker/session-manager-broker.properties
+
+# ----------------------------------------------------------------------
+# Shared broker CA (operator-controlled trust root) -- READ-ONLY consumer
+#
+# OPTIONAL (Config.dcv.broker.shared_ca, default on). Clustering does NOT
+# require a shared CA -- brokers cluster fine with their own self-signed CAs
+# (the SG self-ingress on the Ignite ports is what enables clustering). When
+# enabled, the CA is minted ONCE at deploy by the DcvBrokerCaGenerator
+# custom-resource Lambda and stored in Secrets Manager
+# (/edh/<cluster>/dcv/broker/ca_secret_arn -> {ca_pem, ca_key}); brokers are
+# read-only consumers that install it BEFORE first start so every keystore
+# chains to one operator-controlled CA (consistency + a 10y validity that
+# avoids the DCV self-signed ~2y expiry). If the param/secret is absent (toggle
+# off, or generator not ready), the broker falls back to the DCV self-signed
+# CA and still clusters.
+SEC_DIR=/var/lib/dcvsmbroker/security
+CA_SECRET_ARN=$(aws_cli ssm get-parameter --name "/edh/${EDH_CLUSTER_ID}/dcv/broker/ca_secret_arn" --query 'Parameter.Value' --output text 2>/dev/null || echo "")
+
+install_shared_broker_ca() {
+    # $1 = secret JSON. Installs .ca_pem/.ca_key into the broker security
+    # dir and drops the keystores so the broker regenerates them chained to
+    # the shared CA. Returns 0 on success, 1 if the JSON has no CA.
+    local _json="$1"
+    echo "${_json}" | jq -e '.ca_pem and .ca_key' >/dev/null 2>&1 || return 1
+    mkdir -p "${SEC_DIR}"
+    echo "${_json}" | jq -r '.ca_pem' > "${SEC_DIR}/dcvsmbroker_ca.pem"
+    echo "${_json}" | jq -r '.ca_key' > "${SEC_DIR}/dcvsmbroker_ca.key"
+    rm -f "${SEC_DIR}"/keystore_*.jks
+    chown -R dcvsmbroker:dcvsmbroker "${SEC_DIR}"
+    chmod 600 "${SEC_DIR}/dcvsmbroker_ca.key"
+    return 0
+}
+
+if [[ -n "${CA_SECRET_ARN}" ]]; then
+    _CA_WAIT_MAX=30   # up to ~5 min (30 x 10s) for the deploy-time generator
+    _CA_INSTALLED=false
+    for _i in $(seq 1 "${_CA_WAIT_MAX}"); do
+        _CA_JSON=$(aws_cli secretsmanager get-secret-value --secret-id "${CA_SECRET_ARN}" --query 'SecretString' --output text 2>/dev/null || echo "")
+        if install_shared_broker_ca "${_CA_JSON}"; then
+            log_info "Installed shared broker CA from Secrets Manager (attempt ${_i})"
+            _CA_INSTALLED=true
+            break
+        fi
+        log_warning "Shared broker CA not present yet (attempt ${_i}/${_CA_WAIT_MAX}); waiting 10s..."
+        sleep 10
+    done
+    unset _CA_JSON
+    if [[ "${_CA_INSTALLED}" != "true" ]]; then
+        log_warning "Shared broker CA never appeared in ${CA_SECRET_ARN}; starting with the DCV self-signed CA (the fleet still clusters -- the shared CA is for trust-root consistency + a 10y validity, not a clustering requirement)"
+    fi
+fi
+
+# Start broker
+systemctl enable dcv-session-manager-broker
+systemctl start dcv-session-manager-broker
+
+# Install + start CloudWatch Agent for host-level metrics (mem, swap,
+# disk, procstat). Config lives in SSM Parameter Store at
+# /edh/${EDH_CLUSTER_ID}/cwagent/dcv-host-config -- single source of
+# truth so config changes don't require redeploy. Best-effort: never
+# fail the broker boot if cwagent install hiccups.
+if ! verify_package_installed amazon-cloudwatch-agent-ctl; then
+    packages_install amazon-cloudwatch-agent
+fi
+
+if command -v amazon-cloudwatch-agent-ctl >/dev/null 2>&1; then
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+        -a fetch-config -m ec2 -s \
+        -c "ssm:/edh/${EDH_CLUSTER_ID}/cwagent/dcv-host-config" || \
+        echo "WARN: cwagent fetch-config failed, host metrics will be unavailable"
+fi
+
+# Verify broker is responding. We use POST /describeSessions {} which the
+# broker honors regardless of authorization mode (HTTP 200 + JSON body
+# containing "Sessions" key once Ignite/Jetty are fully wired). Earlier
+# revisions polled GET /sessionConnectionData/aSession/aOwner expecting the
+# string "No authorization header" — but enable-authorization=false (as
+# configured here) never returns that string, so the probe never matched.
+#
+# Allow up to 20 minutes total (40 attempts × 30s) for first-boot Ignite
+# cluster bootstrap. If the probe fails we log loudly but DO NOT exit;
+# subsequent bootstrap steps (screenshot rule enable, CLI install) are still
+# valuable for operator follow-up debug, and the broker may come up shortly
+# after the readiness window.
+VERIFY_MAX_ATTEMPTS=40
+VERIFY_COUNT=0
+BROKER_READY=false
+while [[ ${VERIFY_COUNT} -lt ${VERIFY_MAX_ATTEMPTS} ]]; do
+    HTTP_CODE=$(curl -k -s -o /tmp/dcv_broker_probe.json -w "%{http_code}" \
+        -X POST -H "Content-Type: application/json" \
+        --data '{}' \
+        "https://localhost:${BROKER_CLIENT_PORT}/describeSessions" 2>/dev/null || echo "000")
+    if [[ "${HTTP_CODE}" == "200" ]] && grep -q '"Sessions"' /tmp/dcv_broker_probe.json 2>/dev/null; then
+        log_info "DCV Broker verification succeeded (attempt $((VERIFY_COUNT + 1)))"
+        BROKER_READY=true
+        break
+    fi
+    log_warning "DCV Broker not ready yet (attempt $((VERIFY_COUNT + 1))/${VERIFY_MAX_ATTEMPTS}, HTTP ${HTTP_CODE}), waiting 30s..."
+    VERIFY_COUNT=$((VERIFY_COUNT + 1))
+    sleep 30
+done
+
+if [[ "${BROKER_READY}" != "true" ]]; then
+    log_error "DCV Broker failed to verify after ${VERIFY_MAX_ATTEMPTS} attempts; continuing bootstrap so dependent steps (screenshot rule enable, CLI install) still execute"
+fi
+rm -f /tmp/dcv_broker_probe.json
+
+# ----------------------------------------------------------------------
+# DCV Session Manager CLI (admin convenience tool)
+#
+# Installed alongside the broker so cluster operators can issue
+# session-manager API calls locally over the loopback interface
+# without needing to set up a separate workstation. The CLI is a
+# Python 3 zip (noarch) and only requires the python3 interpreter,
+# which is already present from the broker prereqs.
+# ----------------------------------------------------------------------
+log_info "Installing DCV Session Manager CLI"
+
+CLI_URL="{{ context.get('/system/dcv/session_manager_cli/noarch/url') }}"
+CLI_SHA256="{{ context.get('/system/dcv/session_manager_cli/noarch/sha256') }}"
+CLI_VERSION="{{ context.get('/system/dcv/session_manager_cli/noarch/version') }}"
+CLI_INSTALL_DIR="/opt/edh/{{context.get("/configuration/ClusterId")}}/dcv-session-manager-cli"
+CLI_ZIP="/tmp/dcv-session-manager-cli.zip"
+
+file_download --download-url="${CLI_URL}" --save-as="${CLI_ZIP}" --sha256-checksum="${CLI_SHA256}"
+
+if ! verify_package_installed unzip; then
+    packages_install unzip
+fi
+
+mkdir -p "${CLI_INSTALL_DIR}"
+unzip -q -o "${CLI_ZIP}" -d "${CLI_INSTALL_DIR}"
+
+# The zip extracts to a versioned subfolder (e.g.
+#   nice-dcv-session-manager-cli-2025.0.0-159/
+#     dcvsmcli/         <- python package (not the launcher)
+#     dcvsm             <- the CLI launcher (this is what we want)
+#     conf/dcvsmcli.conf
+# ).
+#
+# Older builds shipped a single-file launcher named
+# 'dcv-session-manager-cli' -- the new build (NICE 2025.0.0-159+) renamed it to
+# 'dcvsm'. Look for both so this works across versions.
+CLI_BIN=$(find "${CLI_INSTALL_DIR}" -maxdepth 3 -type f \( -name 'dcvsm' -o -name 'dcv-session-manager-cli' \) | head -1)
+if [[ -z "${CLI_BIN}" ]]; then
+    log_error "DCV Session Manager CLI launcher not found after unzip; manual ops will be unavailable but bootstrap will continue (subsequent steps such as screenshot rule enable must still run)"
+else
+    chmod +x "${CLI_BIN}"
+    # Symlink under both legacy and current names so callers using
+    # either name keep working.
+    ln -sf "${CLI_BIN}" /usr/local/bin/dcv-session-manager-cli
+    ln -sf "${CLI_BIN}" /usr/local/bin/dcvsm
+    log_info "DCV Session Manager CLI ${CLI_VERSION} installed at ${CLI_BIN}"
+fi
+
+# Enable the screenshot poller schedule now that broker is ready
+# Rule starts disabled in CDK to avoid wasted invocations during bootstrap
+SCREENSHOT_RULE="${EDH_CLUSTER_ID}-DcvScreenshotPoller"
+if aws_cli events describe-rule --name "${SCREENSHOT_RULE}" &>/dev/null; then
+    log_info "Enabling DCV screenshot poller schedule: ${SCREENSHOT_RULE}"
+    aws_cli events enable-rule --name "${SCREENSHOT_RULE}"
+fi
+
+# Create bootstrap lock
+touch "/root/.edh_bootstrap_dcv_{{ context.get('/configuration/ClusterId') }}_completed"
+
+log_info "DCV Session Manager Broker bootstrap complete"

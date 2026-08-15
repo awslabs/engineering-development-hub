@@ -8,6 +8,20 @@ mv /etc/dcv/default.perm /etc/dcv/default.perm.original.$(date +%s)
 # Add any additional permissions as needed:
 # https://docs.aws.amazon.com/dcv/latest/adminguide/security-authorization-file-create-permission.html
 
+# %owner% allow builtin   -- session owner gets the full default capability set.
+#
+# DO NOT add `%any% allow display` here. It grants EVERY authenticated user view
+# access to EVERY session unconditionally, defeating per-user session sharing
+# grants AND DCV's `unsupervised-access` owner-presence supervision (a denied
+# guest is never gated/evicted because %any% already grants display). The DCV
+# server authenticates each broker connection as the REAL user (verified in
+# server.log: "user: <name>"), NOT %any%, so it is not needed for routing.
+#
+# NOTE: The SM Agent's screenshot path is gated by `administrators=` in
+# dcv.conf, NOT by this perm file. Without that admin grant the agent
+# (running as dcvsmagent) gets "user is not authorized" from
+# `dcv get-screenshot`. See dcv_server.sh.j2 [security] block when
+# DCV_HIGH_SCALE_ENABLED=true.
 echo -e "
 [groups]
 ; Example:
@@ -18,11 +32,8 @@ echo -e "
 ; testalias = display, clipboard-copy, clipboard-paste, file-download, file-upload, mouse, keyboard, audio-in, audio-out, printer, usb, smartcard
 
 [permissions]
-; Example:
-; %owner% allow builtin
-; %any% deny clipboard-copy clipboard-paste smartcard
-; actor allow display
-; group:testgroup disallow testalias" > /etc/dcv/default.perm
+%owner% allow builtin
+" > /etc/dcv/default.perm
 
 log_info "/etc/dcv/default.perm updated"
 # End: Configure default DCV Permissions

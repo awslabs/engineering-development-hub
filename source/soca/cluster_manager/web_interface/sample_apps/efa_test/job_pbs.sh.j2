@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# EFA Benchmark Wrapper (PBS / OpenPBS / PBSPro)
+# ============================================
+# Renders Jinja variables from the WebUI form, dispatches to the
+# bundled benchmark script at /apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh
+#
+# {{instance_type}}    is the EFA-capable EC2 instance type from the form.
+# {{node_count}}       is the number of nodes (minimum 2 for cross-node tests).
+# {{ncpus_per_node}}   is MPI ranks per node. SHOULD match the instance's
+#                      physical core count so Phase 7 (full-cores saturation)
+#                      actually runs.
+# {{job_name}}         is the human-readable job name (no spaces).
+# {{walltime}}         is HH:MM:SS for scheduler walltime budget.
+# {{user_pre_exec}}    is optional user-provided shell commands executed
+#                      before the benchmark.
+#
+#PBS -N {{job_name}}
+#PBS -q normal
+#PBS -k oed
+#PBS -l walltime={{walltime}}
+#PBS -l select={{node_count}}:ncpus={{ncpus_per_node}}:mpiprocs={{ncpus_per_node}}
+#PBS -l instance_type={{instance_type}}
+#PBS -l efa_support=true
+#PBS -l base_os={{base_os}}
+
+set -euo pipefail
+
+cd $PBS_O_WORKDIR
+
+echo "=========================================="
+echo "EFA Benchmark Job: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  PBS_JOBID:       ${PBS_JOBID:-unknown}"
+echo "  PBS_NODEFILE:    ${PBS_NODEFILE:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# Locate the bundled benchmark script
+EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh"
+if [[ ! -x "${EFA_SCRIPT}" ]]; then
+    echo "ERROR: EFA benchmark script not found or not executable at ${EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete successfully."
+    exit 2
+fi
+
+# Run the benchmark
+bash "${EFA_SCRIPT}"
+
+echo "=========================================="
+echo "EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Output is in $HOME/{{job_name}}.o${PBS_JOBID:-unknown}"
+echo "=========================================="

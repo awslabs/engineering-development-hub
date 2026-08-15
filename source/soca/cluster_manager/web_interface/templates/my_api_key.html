@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -29,32 +29,25 @@
                     <div class="col-md-12">
                         <div class="alert alert-primary">
                             <h3>
-  Your API key:
+  {{ _("Your API key:") }}
   <strong class="apiToken blurred">{{ user_token }}</strong>
-  <button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">Show</button>
+  <button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">{{ _("Show") }}</button>
 </h3>
 
-
-
-
-                            This API key is only available to you.
-                            Do not share it externally as this key is used to authorize requests on your behalf.
+                            {{ _("This API key is only available to you. Do not share it externally as this key is used to authorize requests on your behalf.") }}
                             <hr>
-                            If you think your key has been compromised, reset it using the link available at the bottom
-                            of the page.
-
+                            {{ _("If you think your key has been compromised, reset it using the link available at the bottom of the page.") }}
+                            <hr>
+                            <strong>EDH API Keys will be replaced <a href="/my_api_tokens">by scoped API tokens in the future EDH releases</a>. 
+                            </strong>
                         </div>
                         <div class="card shadow mb-4">
-                          
-
                             <div class="card-body">
-                                 <h3>How to interact with EDH APIs</h3>
-                             
+                                 <h3>{{ _("How to interact with EDH APIs") }}</h3>
 
-                                <div class="alert alert-warning"><strong>API Documentation</strong><br>
-                                    You can interact with your EDH cluster (create users, groups, queue, submit jobs,
-                                    view jobs etc.) via a simple REST interface. <br>
-                                    Additional documentation and examples can be found here:
+                                <div class="alert alert-warning"><strong>{{ _("API Documentation") }}</strong><br>
+                                    {{ _("You can interact with your EDH cluster (create users, groups, queue, submit jobs, view jobs etc.) via a simple REST interface.") }} <br>
+                                    {{ _("Additional documentation and examples can be found here:") }}
                                     <ul>
                                         <li><a href="{{ scheduler_host }}api/doc?ui=swagger" target="_blank" rel="noopener,noreferrer">{{ scheduler_host }}api/doc?ui=swagger (Swagger UI)</a></li>
                                         <li><a href="{{ scheduler_host }}api/doc?ui=rapidoc" target="_blank" rel="noopener,noreferrer">{{ scheduler_host }}api/doc?ui=rapidoc (RapiDoc UI)</a></li>
@@ -63,10 +56,10 @@
                                 </div>
                                 <br>
 
-                                <h3>Example: How to submit/query and delete a job via HTTP API</h3>
+                                <h3>{{ _("Example: How to submit/query and delete a job via HTTP API") }}</h3>
 
-                                <h4>Prepare the input</h4>
-                                Let's assume you want to submit a simple job on the default OpenPBS
+                                <h4>{{ _("Prepare the input") }}</h4>
+                                {{ _("Let us assume you want to submit a simple job on the default OpenPBS") }}
                                 <pre><code class="language-bash">
 #!/bin/bash
 #PBS -N testjob
@@ -78,7 +71,7 @@
 /bin/echo "Hello World"</code></pre>
                                 The first action is to encode the payload using Base64. There are multiple ways to
                                 create
-                                a base64 hash. On Linux/Mac, you can use <code>base64</code> encode function:
+                                a base64 hash. On Linux/Mac, you can use') }} <code>{{ _("base64") }}</code> {{ _("encode function:") }}
 
                                 <pre><code class="language-bash">$ base64 test_input_file.sh
 IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo=                                   </code></pre>
@@ -97,45 +90,45 @@ $ echo "IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9v
 #PBS -l nodes=1,instance_type=c6i.large
 /bin/echo "Hello World"</code></pre>
                                 <br>
-                                <h4>Prepare the request</h4>
-                                You will need to specify three headers:
+                                <h4>{{ _("Prepare the request") }}</h4>
+                                {{ _("You will need to specify three headers:") }}
                                 <ul>
-                                    <li>X-EDH-USER and set the value to <code>{{ user }}</code></li>
-                                    <li>X-EDH-TOKEN and set the value to <code class="apiToken blurred">{{ user_token }}</code><button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">Show</button></li>
+                                    <li>{{ _("X-EDH-USER and set the value to") }} <code>{{ user }}</code></li>
+                                    <li>{{ _("X-EDH-TOKEN and set the value to") }} <code class="apiToken blurred">{{ user_token }}</code><button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">{{ _("Show") }}</button></li>
                                 </ul>
-                                You will also need to pass the Base64 encoded string as payload. See below for examples:
+                                {{ _("You will also need to pass the Base64 encoded string as payload. See below for examples:") }}
                                 <br><br>
                                 
                                 <h4>
                                     <a href="#submitJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                                    Submit a job</a>
+                                    {{ _("Submit a job") }}</a>
                                 </h4>
                                 <hr>
                                 <!-- submit job -->
 <div class="collapse mt-3" id="submitJob">
     <div class="row">
         <div class="col-md-6">
-            <h5>Using Bash</h5>
+            <h5>{{ _("Using Bash") }}</h5>
             <pre><code class="language-bash">
 # remove -k when using a trusted SSL cert
 curl -k -X POST \
    -H "X-EDH-TOKEN: {{ user_token }}" \
    -H "X-EDH-USER: {{ user }}" \
    -F interpreter="{{openpbs_scheduler}}" \
-   -F payload="IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9i..."
+   -F payload="IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo="
    {{ scheduler_host }}api/scheduler/job
             </code></pre>
         </div>
 
         <div class="col-md-6">
-            <h5>Using Python</h5>
+            <h5>{{ _("Using Python") }}</h5>
             <pre><code class="language-python">
 import requests
 import json
 hdrs = {"X-EDH-TOKEN": "{{ user_token }}",
         "X-EDH-USER": "{{ user }}"}
 api_endpoint="{{ scheduler_host }}api/scheduler/job"
-payload = {"interpreter": "{{openpbs_scheduler}}", "payload": "..."}
+payload = {"interpreter": "{{openpbs_scheduler}}", "payload": "IyEvYmluL2Jhc2gKI1BCUyAtTiB0ZXN0am9iCiNQQlMgLVYgLWogb2UgLW8gdGVzdGpvYl9vdXRwdXQucWxvZwojUEJTIC1QIG15cHJvamVjdAojUEJTIC1xIG5vcm1hbAojUEJTIC1sIG5vZGVzPTEsaW5zdGFuY2VfdHlwZT1jNS5sYXJnZQovYmluL2VjaG8gIkhlbGxvIFdvcmxkIgo="}
 req = requests.post(api_endpoint,
                    headers=hdrs,
                    data=payload,
@@ -145,7 +138,7 @@ print(req.json())
             </code></pre>
         </div>
 
-        <p>Both commands will return the ID associated to the job you just submitted</p>
+        <p>{{ _("Both commands will return the ID associated to the job you just submitted") }}</p>
     </div>
 </div>                                
 <!-- end submit job -->
@@ -154,13 +147,13 @@ print(req.json())
                                 <br>
                                 <h4>
                                     <a href="#queryJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                                    Query a job</a>
+                                    {{ _("Query a job") }}</a>
                                 </h4>
                                 <hr>
                                 <div class="collapse mt-3" id="queryJob">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <h5>Using Bash</h5>
+                                        <h5>{{ _("Using Bash") }}</h5>
                                         <pre><code class="language-bash">
 # remove -k when using a trusted SSL cert
 curl -k -X GET  \
@@ -169,7 +162,7 @@ curl -k -X GET  \
    {{ scheduler_host }}api/scheduler/job?job_id=%YOUR_JOB_ID%&scheduler_id={{openpbs_scheduler}}</code></pre>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5>Using Python</h5>
+                                        <h5>{{ _("Using Python") }}</h5>
                                         <pre><code class="language-python">
 import requests
 import json
@@ -182,7 +175,7 @@ print(req.status_code)
 print(req.json())
                                   </code></pre>
                                     </div>
-                                    Both commands will return a JSON object with all information regarding your job.
+                                    {{ _("Both commands will return a JSON object with all information regarding your job.") }}
                                 </div> </div>
 
 
@@ -191,13 +184,13 @@ print(req.json())
                                 <br>
                                 <h4>
                                     <a href="#deleteJob" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                                    Delete a job</a>
+                                    {{ _("Delete a job") }}</a>
                                 </h4>
                                 <hr>
                                 <div class="collapse mt-3" id="deleteJob">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <h5>Using Bash</h5>
+                                        <h5>{{ _("Using Bash") }}</h5>
                                         <pre><code class="language-bash">
 # remove -k when using a trusted SSL cert
 curl -k -X DELETE  \
@@ -208,7 +201,7 @@ curl -k -X DELETE  \
    {{ scheduler_host }}api/scheduler/job</code></pre>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5>Using Python</h5>
+                                        <h5>{{ _("Using Python") }}</h5>
                                         <pre><code class="language-python">
 import requests
 import json
@@ -231,16 +224,13 @@ print(req.json())
                         <div class="card shadow mb-4">
                             
                             <div class="card-body">
-                                <h3>DANGER ZONE - Reset my API key</h3>
+                                <h3>{{ _("DANGER ZONE - Reset my API key") }}</h3>
 
                                 <div class="alert alert-danger">
-                                    Generating a new API key will invalidate the previous key
-                                    (<strong class="apiToken blurred">{{ user_token }}</strong> <button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">Show</button>).
+                                    {% trans token='<strong class="apiToken blurred">' ~ user_token ~ '</strong>'|safe, show_btn='<button class="btn btn-sm btn-primary toggleTokenBtn" onclick="toggleToken()">' ~ _("Show") ~ '</button>'|safe %}Generating a new API key will invalidate the previous key ({{ token }} {{ show_btn }}).{% endtrans %}
                                     <hr>
-                                    <strong>Any script authenticating to SOCA using this key will return <code>HTTP
-                                        401/Unauthorized</code>.
-                                        <br>To prevent outage, you must update all your scripts (if any) with the new
-                                        key</strong>.<br>
+                                    <strong>{{ _("Any script authenticating to SOCA using this key will return") }} <code>{{ _("HTTP 401/Unauthorized") }}</code>.
+                                        <br>{{ _("To prevent outage, you must update all your scripts (if any) with the new key") }}</strong>.<br>
                                     <hr>
                                     <form action="/reset_api_key" method="post">
                                         <div class="form-group form-check">
@@ -250,14 +240,13 @@ print(req.json())
                                                 new key and delete this key</label><br>
                                             <input type="checkbox" class="form-check-input" name="verif2" id="verif2"
                                                    required>
-                                            <label class="form-check-label" for="verif2">I understand I will need to
-                                                update my scripts with the new key to prevent any outage</label>
+                                            <label class="form-check-label" for="verif2">{{ _("I understand I will need to update my scripts with the new key to prevent any outage") }}</label>
                                         </div>
 
                                         <div>
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="user" value="{{ user }}">
-                                            <button type="submit" class="btn btn-danger">Regenerate new key
+                                            <button type="submit" class="btn btn-danger">{{ _("Regenerate new key") }}
                                             </button>
                                         </div>
                                     </form>

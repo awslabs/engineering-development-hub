@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#
+# EFA Benchmark Wrapper (LSF)
+# ===========================
+# Renders Jinja variables from the WebUI form, dispatches to the
+# bundled benchmark script at /apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh
+#
+#BSUB -J {{job_name}}
+#BSUB -q normal
+#BSUB -W {{walltime}}
+#BSUB -n {{ node_count|int * ncpus_per_node|int }}
+#BSUB -R "span[ptile={{ncpus_per_node}}]"
+#BSUB -Jd "instance_type = {{instance_type}}, efa_support = true, base_os = {{base_os}}"
+
+set -euo pipefail
+
+cd "${LS_SUBCWD:-$HOME}"
+
+echo "=========================================="
+echo "EFA Benchmark Job: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  LSB_JOBID:       ${LSB_JOBID:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# Locate the bundled benchmark script
+EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh"
+if [[ ! -x "${EFA_SCRIPT}" ]]; then
+    echo "ERROR: EFA benchmark script not found or not executable at ${EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete successfully."
+    exit 2
+fi
+
+# efa_test_job.sh is PBS-native (reads $PBS_NODEFILE). Synthesize a compatible
+# nodefile from LSF's $LSB_DJOB_HOSTFILE so the script runs unmodified under LSF.
+if [[ -z "${LSB_DJOB_HOSTFILE:-}" || ! -f "${LSB_DJOB_HOSTFILE}" ]]; then
+    echo "ERROR: LSB_DJOB_HOSTFILE not set or missing. Cannot synthesize PBS_NODEFILE."
+    exit 2
+fi
+export PBS_NODEFILE
+PBS_NODEFILE=$(mktemp /tmp/pbs_nodefile.XXXXXX)
+trap 'rm -f "${PBS_NODEFILE}"' EXIT
+cp "${LSB_DJOB_HOSTFILE}" "${PBS_NODEFILE}"
+
+# Run the benchmark
+bash "${EFA_SCRIPT}"
+
+echo "=========================================="
+echo "EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="

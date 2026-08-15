@@ -12,11 +12,11 @@ function tags_ebs_volumes () {
   {% elif context.get("/job/NodeType") == "login_node" %}
     local TAGS="Key=Name,Value=\"${CLUSTER_ID}-LoginNode\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
   {% elif context.get("/job/NodeType") == "dcv_node" %}
-    local NAME_VALUE="${CLUSTER_ID}-DCV-{{ context.get("/dcv/SessionOwner") }}-{{ context.get("/dcv/SessionName") }}"
-    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"{{ context.get("/dcv/SessionOwner") }}\" Key=edh:JobProject,Value=\"dcv\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
+    local NAME_VALUE="${CLUSTER_ID}-DCV-${EDH_DCV_SESSION_OWNER}-${EDH_DCV_SESSION_NAME}"
+    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"${EDH_DCV_SESSION_OWNER}\" Key=edh:JobProject,Value=\"dcv\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
    {% else %}
-   local NAME_VALUE="${CLUSTER_ID}-Job-{{ context.get("/job/JobId") }}"
-    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"{{ context.get("/job/JobOwner") }}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=edh:JobId,Value=\"{{ context.get("/job/JobId") }}\" Key=edh:JobQueue,Value=\"{{ context.get("/job/JobQueue") }}\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
+   local NAME_VALUE="${CLUSTER_ID}-Job-${EDH_JOB_ID}"
+    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
   {% endif %}
 
   local CURRENT_ATTEMPT=0

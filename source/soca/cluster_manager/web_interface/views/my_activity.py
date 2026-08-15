@@ -36,7 +36,10 @@ def index():
         .get("message")
     )
     user = session["user"]
-    if _opensearch_engine == "opensearch":
+    _is_serverless = _opensearch_engine in ("opensearch_serverless", "aoss_serverless")
+    if _is_serverless:
+        _dashboard_endpoint = None
+    elif _opensearch_engine == "opensearch":
         _dashboard_endpoint = f"{_opensearch_endpoint}/_dashboards/"
     else:
         _dashboard_endpoint = f"{_opensearch_endpoint}/_plugin/kibana/"
@@ -46,4 +49,5 @@ def index():
         dashboard_endpoint=_dashboard_endpoint,
         opensearch_engine=_opensearch_engine,
         opensearch_enabled=_opensearch_enabled,
+        is_serverless=_is_serverless,
     )

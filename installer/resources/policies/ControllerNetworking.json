@@ -1,0 +1,114 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SNSClusterTopicsByClusterTag",
+            "Condition": {
+                "StringLike": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%*"
+                }
+            },
+            "Action": [
+                "sns:*"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:sns:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:edh-*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "elasticloadbalancing:DeleteRule"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:listener-rule/app/%%CLUSTER_ID%%*/*/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "elasticloadbalancing:CreateRule"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:listener/app/%%CLUSTER_ID%%*/*/*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DescribeTagsNoResourceLevel",
+            "Action": [
+                "elasticloadbalancing:DescribeTags",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetHealth",
+                "elasticloadbalancing:DescribeListeners"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "AddTagsOnOwnedResources",
+            "Action": [
+                "elasticloadbalancing:AddTags"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:listener-rule/app/%%CLUSTER_ID%%*/*/*/*",
+                "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:listener/app/%%CLUSTER_ID%%*/*/*",
+                "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:targetgroup/%%CLUSTER_ID%%*/*",
+                "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:targetgroup/edh*/*",
+                "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:loadbalancer/app/%%CLUSTER_ID%%*/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "elasticloadbalancing:DeleteTargetGroup",
+                "elasticloadbalancing:RegisterTargets"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:targetgroup/*/*",
+            "Effect": "Allow",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            }
+        },
+        {
+            "Action": [
+                "elasticloadbalancing:CreateTargetGroup",
+                "elasticloadbalancing:AddTags"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:elasticloadbalancing:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:targetgroup/edh*/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "cloudformation:CreateStack",
+                "cloudformation:DeleteStack"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:cloudformation:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:stack/%%CLUSTER_ID%%*/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "cloudformation:DescribeStackResources",
+                "cloudformation:DescribeStacks",
+                "cloudformation:ListStacks"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "iam:CreateServiceLinkedRole",
+                "iam:AttachRolePolicy",
+                "iam:PutRolePolicy"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/s3.data-source.lustre.fsx.%%AWS_URL_SUFFIX%%/*",
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/autoscaling.%%AWS_URL_SUFFIX%%/*",
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/spot.%%AWS_URL_SUFFIX%%/*",
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/spotfleet.%%AWS_URL_SUFFIX%%/*",
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/ec2fleet.%%AWS_URL_SUFFIX%%/AWSServiceRoleForEC2Fleet",
+                "arn:%%AWS_PARTITION%%:iam::%%AWS_ACCOUNT_ID%%:role/%%AWS_PARTITION%%-service-role/fsx.%%AWS_URL_SUFFIX%%/*"
+            ],
+            "Effect": "Allow"
+        }
+    ]
+}

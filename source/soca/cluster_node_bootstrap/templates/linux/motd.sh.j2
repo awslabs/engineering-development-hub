@@ -31,7 +31,7 @@ Virtual Desktop Node Ready - dcv_node " >> /etc/motd
 
   {% elif context.get("/job/NodeType") == "compute_node" %}
   echo "
-HPC Job Node Ready - compute_node - {{ context.get("/job/JobId") }}" >> /etc/motd
+HPC Job Node Ready - compute_node - ${EDH_JOB_ID}" >> /etc/motd
 
   {% elif context.get("/job/NodeType") == "controller" %}
   echo "

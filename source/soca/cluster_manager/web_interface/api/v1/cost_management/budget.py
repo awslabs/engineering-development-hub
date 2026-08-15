@@ -95,6 +95,7 @@ class AwsBudgetInfo(Resource):
                         - budget_exist
                         - current_spend
                         - forecast_spend
+                        - forecast_available
                         - total_budget
                         - usage_pct
                       properties:
@@ -112,6 +113,10 @@ class AwsBudgetInfo(Resource):
                           minimum: 0
                           description: Forecasted spend amount in USD
                           example: 1800.50
+                        forecast_available:
+                          type: boolean
+                          description: Whether forecast data is available from AWS
+                          example: true
                         total_budget:
                           type: number
                           minimum: 0
@@ -120,7 +125,6 @@ class AwsBudgetInfo(Resource):
                         usage_pct:
                           type: number
                           minimum: 0
-                          maximum: 100
                           description: Usage percentage of total budget
                           example: 25.02
                         forecast_pct:
@@ -208,13 +212,25 @@ class AwsBudgetInfo(Resource):
                         "budget_exist": False,
                         "current_spend": 0,
                         "forecast_spend": 0,
+                        "forecast_available": False,
                         "total_budget": 0,
                         "usage_pct": 0,
                     }
                 else:
                     logger.info(f"Budget found for project {_project_name}")
                     try:
-                        account_id = sts_client.get_caller_identity()["Account"]
+                        _identity = sts_client.get_caller_identity()
+                        account_id = _identity["Account"]
+                        if _identity["Arn"].split(":")[1] == "aws-us-gov":
+                            logger.info("AWS Budgets is not callable in the aws-us-gov partition; returning no budget data.")
+                            return SocaResponse(success=True, message={
+                                "budget_exist": False,
+                                "current_spend": 0,
+                                "forecast_spend": 0,
+                                "forecast_available": False,
+                                "total_budget": 0,
+                                "usage_pct": 0,
+                            }).as_flask()
 
                         try:
                             budget_response = budgets_client.describe_budget(
@@ -238,12 +254,13 @@ class AwsBudgetInfo(Resource):
                                 ).as_flask()
 
                             total_budget = float(budget["BudgetLimit"]["Amount"])
+                            _calc = budget.get("CalculatedSpend", {})
                             current_spend = float(
-                                budget["CalculatedSpend"]["ActualSpend"]["Amount"]
+                                _calc.get("ActualSpend", {}).get("Amount", 0) or 0
                             )
-                            forecast_spend = float(
-                                budget["CalculatedSpend"]["ForecastedSpend"]["Amount"]
-                            )
+                            _forecast = _calc.get("ForecastedSpend", {})
+                            forecast_available = "Amount" in _forecast
+                            forecast_spend = float(_forecast.get("Amount", 0) or 0)
                             usage_pct = (
                                 (current_spend / total_budget * 100)
                                 if total_budget > 0
@@ -265,6 +282,7 @@ class AwsBudgetInfo(Resource):
                             "budget_exist": True,
                             "current_spend": current_spend,
                             "forecast_spend": forecast_spend,
+                            "forecast_available": forecast_available,
                             "total_budget": total_budget,
                             "usage_pct": round(usage_pct, 2),
                             "forecast_pct": round(forecast_pct, 2),

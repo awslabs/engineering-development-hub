@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import logging
+import re
 import shlex
 from typing import Optional
 from utils.datamodels.hpc.scheduler import SocaHpcSchedulerProvider
@@ -40,7 +41,7 @@ class SocaHpcBaseJobCommandBuilder(ABC):
         This output is meant to be send to SocaSubprocessClient
         """
         if args:
-            command += f" {args}"
+            command += " " + " ".join(shlex.quote(a) for a in shlex.split(args))
 
         if self.scheduler_info.provider != self.provider:
             logger.error(
@@ -55,6 +56,10 @@ class SocaHpcBaseJobCommandBuilder(ABC):
         logger.debug(f"{self.__class__.__name__} Run Command: {_cmd}")
 
         return _cmd
+
+    def normalize_job_name(self, job_name: str) -> str:
+        """Return the job name unchanged. Scheduler-specific builders override to sanitize."""
+        return job_name
 
 
 class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
@@ -86,6 +91,16 @@ class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
 
     def qmgr(self, args: Optional[str] = None) -> str:
         return self._build_cmd("qmgr", args)
+
+    def normalize_job_name(self, job_name: str) -> str:
+        """Sanitize a job name for PBS `-N`; qsub/qalter reject chars outside PBS's set."""
+        if not job_name:
+            return job_name
+        # PBS accepts alphanumerics plus . _ - ; the first char must be alphanumeric.
+        _normalized = re.sub(r"[^A-Za-z0-9._-]", "_", job_name)
+        if not _normalized[0].isalnum():
+            _normalized = f"j{_normalized}"
+        return _normalized[:230]  # stay within PBS Pro's job-name length ceiling
 
 
 class SocaHpcLSFJobCommandBuilder(SocaHpcBaseJobCommandBuilder):

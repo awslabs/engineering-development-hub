@@ -20,6 +20,7 @@ from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
 from utils.config import SocaConfig
+from utils.validators import Validators
 
 
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
@@ -215,7 +216,7 @@ def describe_instances_as_soca_nodes(
 def describe_instance_types(instance_types: list[str]) -> SocaResponse:
     logger.info(f"Describe Instance Type for {instance_types}")
     try:
-        if len(instance_types) >= 100:
+        if Validators.is_list_length_greater_than(instance_types, 100):  # AWS DescribeInstanceTypes max is 100 (inclusive)
             return SocaError.GENERIC_ERROR(
                 helper="You cannot pass more than 100 instance types in a single call."
             )

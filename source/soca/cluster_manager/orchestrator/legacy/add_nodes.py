@@ -29,7 +29,6 @@ sys.path.append(
 import cloudformation_builder
 from utils.config import SocaConfig
 from utils.aws.boto3_wrapper import get_boto
-from utils.cast import SocaCastEngine
 import logging
 
 logger = logging.getLogger("soca_logger")
@@ -1227,34 +1226,7 @@ def main(**kwargs):
                 else:
                     cfn_stack_parameters[k] = v["Default"]
 
-        # Get custom tags if specified
-        _tags_allowed = SocaConfig(
-            key="/configuration/FeatureFlags/Hpc/AllowCustomTags"
-        ).get_value(return_as=bool)
-        if _tags_allowed.get("success") is True:
-            if _tags_allowed.get("message") is True:
-                _get_tags = SocaConfig(key="/configuration/Tags/CustomTags/").get_value(
-                    allow_unknown_key=True
-                )
-                if _get_tags.get("success") is True:
-                    _tag_dict = SocaCastEngine(data=_get_tags.get("message")).autocast(
-                        preserve_key_name=True
-                    )
-                    if _tag_dict.get("success") is True:
-                        cfn_stack_parameters["CustomTags"] = _tag_dict.get("message")
-                    else:
-                        print(f"Unable to autocast custom tags {_tag_dict=} ")
-                else:
-                    print(
-                        "/configuration/CustomTags/ does not exist in this environment"
-                    )
-            else:
-                print(
-                    f"Unable to determine if tags are allowed because of: {_tags_allowed=} "
-                )
-
-        else:
-            print("Custom tags are not allowed. AllowCustomTagsHPC is set to false")
+        # Custom tags are read by cloudformation_builder via get_cluster_custom_tags().
 
         cfn_stack_body = cloudformation_builder.main(**cfn_stack_parameters)
         if cfn_stack_body["success"] is False:

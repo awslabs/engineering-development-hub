@@ -12,20 +12,24 @@
 ######################################################################################################################
 
 from flask_restful import Resource, reqparse
+from flask_babel import gettext as _
 import config
 import ldap
-from models import db, ApiKeys
 from decorators import restricted_api, private_api, admin_api, feature_flag
 import errors
 import logging
 import os
 import sys
+import time
 from utils.config import SocaConfig
 from utils.identity_provider_client import SocaIdentityProviderClient
 from utils.response import SocaResponse
 from utils.error import SocaError
 
 logger = logging.getLogger("soca_logger")
+
+_sudo_cache = {}
+_SUDO_CACHE_TTL = 60
 
 
 class Sudo(Resource):
@@ -126,6 +130,13 @@ class Sudo(Resource):
         if user is None:
             return SocaError.CLIENT_MISSING_PARAMETER(parameter="user").as_flask()
 
+        cached = _sudo_cache.get(user)
+        if cached and (time.time() - cached[1]) < _SUDO_CACHE_TTL:
+            if cached[0]:
+                return SocaResponse(success=True, message=_(f"{user} has SUDO permissions")).as_flask()
+            else:
+                return SocaResponse(success=False, message=_(f"{user} does not have SUDO permissions"), status_code=403).as_flask()
+
         if config.Config.DIRECTORY_AUTH_PROVIDER in ["openldap", "existing_openldap"]:
             _user_filter = f"(&(objectClass=sudoRole)(sudoUser={user}))"
             _attr_list = ["cn"]
@@ -146,12 +157,14 @@ class Sudo(Resource):
             )
             if _is_sudo.success:
                 if len(_is_sudo.message) == 1:
+                    _sudo_cache[user] = (True, time.time())
                     return SocaResponse(
-                        success=True, message=f"{user} has SUDO permissions"
+                        success=True, message=_(f"{user} has SUDO permissions")
                     ).as_flask()
                 else:
+                    _sudo_cache[user] = (False, time.time())
                     return SocaResponse(
-                        success=False, message=f"{user} does not have SUDO permissions"
+                        success=False, message=_(f"{user} does not have SUDO permissions"), status_code=403
                     ).as_flask()
             else:
                 return SocaError.IDENTITY_PROVIDER_ERROR(
@@ -272,20 +285,14 @@ class Sudo(Resource):
                 )
 
             if _add_sudo.success:
-                change_user_key_scope = ApiKeys.query.filter_by(
-                    user=user, is_active=True
-                ).all()
-                if change_user_key_scope:
-                    for key in change_user_key_scope:
-                        key.scope = "sudo"
-                        db.session.commit()
+                _sudo_cache.pop(user, None)
                 return SocaResponse(
-                    success=True, message=f"{user} has now SUDO permissions"
+                    success=True, message=_(f"{user} has now SUDO permissions")
                 ).as_flask()
             else:
                 return SocaResponse(
                     success=False,
-                    message=f"Unable to grant SUDO permission to {user} because of {_add_sudo.get('message')}",
+                    message=_(f"Unable to grant SUDO permission to {user} because of {_add_sudo.get('message')}"),
                 ).as_flask()
 
         except Exception as err:
@@ -392,21 +399,15 @@ class Sudo(Resource):
                 )
 
             if _delete_sudo.get("success"):
-                change_user_key_scope = ApiKeys.query.filter_by(
-                    user=user, is_active=True
-                ).all()
-                if change_user_key_scope:
-                    for key in change_user_key_scope:
-                        key.scope = "user"
-                        db.session.commit()
+                _sudo_cache.pop(user, None)
                 return SocaResponse(
                     success=True,
-                    message=f"{user} does not have admin permission anymore",
+                    message=_(f"{user} does not have admin permission anymore"),
                 ).as_flask()
             else:
                 return SocaResponse(
                     success=False,
-                    message=f"Unable to remove admin permission for {user} because of {_delete_sudo.get('message')}",
+                    message=_(f"Unable to remove admin permission for {user} because of {_delete_sudo.get('message')}"),
                 ).as_flask()
 
         except Exception as err:

@@ -138,9 +138,41 @@ openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
     -subj "/C=US/ST=California/L=Sunnyvale/CN=internal.edh.webui.cert" \
     -keyout cert.key -out cert.crt
 
-# Append the cluster name on the SOCA HTML template
-IFS="-" read name sanitized_cluster_name <<< "echo {{ context.get("/configuration/ClusterId") }}"
-sed -i "s/__SOCA_CLUSTER__NAME__/${sanitized_cluster_name}/g" /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web_interface/templates/common/horizontal_menu_bar.html
+# Append the cluster name on the SOCA HTML template.
+#
+# Historical note: an earlier version of this script tried to strip a
+# leading "soca-" prefix from the cluster id using
+#     IFS="-" read name sanitized_cluster_name <<< "echo {{ ClusterId }}"
+# which was buggy on two counts -
+#   1. `<<<` takes a string, so it was splitting the literal "echo foo"
+#      (including the word "echo").
+#   2. For cluster ids with no dash (e.g. "shell1") the split produced
+#      an empty sanitized_cluster_name, which then sed-substituted the
+{% raw %}#      placeholder with "" - leaving `{{ _('') }}` in the template and{% endraw %}  # i18n-ok
+#      producing garbage output at runtime because gettext treats empty
+#      msgid as a lookup for the catalog header entry.
+# Use the raw cluster id directly - no prefix stripping. Operators who
+# want a friendly name can re-edit the template after install.
+_SOCA_CLUSTER_NAME="{{ context.get('/configuration/ClusterId') }}"
+if [[ -z "${_SOCA_CLUSTER_NAME}" ]]; then
+    echo "ERROR: ClusterId is empty; refusing to substitute placeholder with empty string" >&2
+    exit 1
+fi
+# Escape sed special characters in the value (&, /, \).
+_SOCA_CLUSTER_NAME_ESCAPED=$(printf '%s' "${_SOCA_CLUSTER_NAME}" | sed -e 's/[\/&]/\\&/g')
+sed -i "s/__SOCA_CLUSTER__NAME__/${_SOCA_CLUSTER_NAME_ESCAPED}/g" /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web_interface/templates/common/horizontal_menu_bar.html
+
+{% raw %}# Post-substitution guardrail: if any `{{ _('') }}` slipped through here or  # i18n-ok
+# in another template (e.g. an unrelated placeholder was substituted with
+# an empty string by a later pipeline step), fail loudly so the operator
+# can diagnose before the WebUI ships broken i18n. Empty-msgid gettext
+# lookups return the catalog's header metadata block.{% endraw %}
+_EDH_TEMPLATE_DIR="/opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/web_interface/templates"
+{% raw %}if grep -Rln --include='*.html' "{{ _('') }}" "${_EDH_TEMPLATE_DIR}" >/dev/null 2>&1; then  # i18n-ok
+    echo "ERROR: templates contain empty gettext call {{ _('') }} - an installer placeholder substitution produced an empty value" >&2  # i18n-ok
+    grep -Rn --include='*.html' "{{ _('') }}" "${_EDH_TEMPLATE_DIR}" >&2 || true  # i18n-ok
+    exit 1
+fi{% endraw %}
 
 # Start Web UI
 chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web_interface/edhwebui.sh
@@ -268,5 +300,9 @@ touch "/root/.edh_bootstrap_controller_{{ context.get('/configuration/ClusterId'
 
 # Todo? run some awscli describe-instance and populate the cache?
 
+# Stage shared sample-app payloads under /apps/edh/<cluster_id>/job_samples/
+{% include "templates/linux/edh_job_samples.sh.j2" %}
+
 # Install OpenMPI
 {% include "templates/linux/openmpi.sh.j2" %}
+

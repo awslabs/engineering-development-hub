@@ -4,7 +4,7 @@
 -->
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 
 <head>
     {% include 'common/header.html' %}
@@ -27,17 +27,16 @@
                         <nav>
                             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                 <a class="nav-item nav-link active" id="nav-home-tab" data-bs-toggle="tab"
-                                   href="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">Add
-                                    new user</a>
+                                   href="#nav-add" role="tab" aria-controls="nav-home" aria-selected="true">{{ _("Add new user") }}</a>
                                 <a class="nav-item nav-link" id="nav-profile-tab" data-bs-toggle="tab"
                                    href="#nav-delete" role="tab" aria-controls="nav-profile"
-                                   aria-selected="false">Delete user</a>
+                                   aria-selected="false">{{ _("Delete user") }}</a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                    href="#nav-reset" role="tab" aria-controls="nav-contact"
-                                   aria-selected="false">Reset user password</a>
+                                   aria-selected="false">{{ _("Reset user password") }}</a>
                                 <a class="nav-item nav-link" id="nav-contact-tab" data-bs-toggle="tab"
                                    href="#nav-admin" role="tab" aria-controls="nav-contact"
-                                   aria-selected="false">Grant/Revoke Admin permissions</a>
+                                   aria-selected="false">{{ _("Grant/Revoke Admin permissions") }}</a>
                             </div>
                         </nav>
                         <div class="tab-content" id="nav-tabContent">
@@ -47,65 +46,62 @@
                                 <div class="card shadow mb-4">
                                        
                                     <div class="card-body">
-                                         <h3>Add New User</h3>
+                                         <h3>{{ _("Add New User") }}</h3>
                                         {% if directory in ["aws_ds_managed_activedirectory"] %}
                                             <div class="alert alert-primary" role="alert">
-                                                <strong>Important: Active Directory</strong> <br>
-                                                Creating a user on Active Directory can take up to 1 minute. Do not
-                                                refresh the page while EDH is creating a new account.
+                                                <strong>{{ _("Important: Active Directory") }}</strong> <br>
+                                                {{ _("Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account.") }}
                                             </div>
                                         {% endif %}
 
                                         <form action="/admin/create_user" method="post"
                                               oninput='password_verif.setCustomValidity(password_verif.value != password.value ? "Passwords do not match." : "")'>
                                             <div class="form-group">
-                                                <input id="user" placeholder="User" class="form-control" type="text"
+                                                <input id="user" placeholder="{{ _("User") }}" class="form-control" type="text"
                                                        required name="user">
                                             </div>
                                             <div class="form-group">
-                                                <input id="password" placeholder="Password" class="form-control"
+                                                <input id="password" placeholder="{{ _("Password") }}" class="form-control"
                                                        type="password" required name="password">
                                             </div>
                                             <div class="form-group">
-                                                <input placeholder="Confirm Password" id="password_verif"
+                                                <input placeholder="{{ _("Confirm Password") }}" id="password_verif"
                                                        class="form-control" type="password" name="password_verif">
                                             </div>
 
                                             <div class="form-group">
-                                                <input id="email" placeholder="Email" class="form-control" type="email"
+                                                <input id="email" placeholder="{{ _("Email") }}" class="form-control" type="email"
                                                        required name="email">
                                             </div>
                                             <div class="form-group">
-                                                <input id="uid" placeholder="(Optional) User UID" class="form-control"
+                                                <input id="uid" placeholder="{{ _("(Optional) User UID") }}" class="form-control"
                                                        type="number" min=5000 max=65534 name="uid">
                                             </div>
                                             <div class="form-group">
-                                                <input id="gid" placeholder="(Optional) User GID" class="form-control"
+                                                <input id="gid" placeholder="{{ _("(Optional) User GID") }}" class="form-control"
                                                        type="number" min=5000 max=65534 name="gid">
                                             </div>
                                             <div class="form-group">
                                                 <select class="form-control" id="shell" name="shell">
-                                                    <option selected value="/bin/bash">(Default Shell) /bin/bash
+                                                    <option selected value="/bin/bash">{{ _("(Default Shell) /bin/bash") }}
                                                     </option>
-                                                    <option value="" disabled="disabled">--Other Shells --</option>
+                                                    <option value="" disabled="disabled">-- {{ _("Other Shells") }} --</option>
                                                     {% for shell in all_shells %}
                                                         <option value="{{ shell }}">{{ shell }}</option>
                                                     {% endfor %}
                                                 </select>
                                                 <br>
                                                 <div class="alert alert-warning">
-                                                    <strong>/bin/bash is the preferred shell</strong>. If using a
-                                                    new/custom shell, make sure your shell is installed on all compute
-                                                    nodes
+                                                    {% trans em_prefix='<strong>/bin/bash is the preferred shell</strong>'|safe %}{{ em_prefix }}. If using a new/custom shell, make sure your shell is installed on all compute nodes{% endtrans %}
                                                 </div>
                                             </div>
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="sudo" id="sudo">
-                                                <label class="form-check-label" for="sudo">Enable Sudo Access</label>
+                                                <label class="form-check-label" for="sudo">{{ _("Enable Sudo Access") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">Create Account
+                                                <button type="submit" class="btn btn-primary">{{ _("Create Account") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -118,33 +114,31 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Delete User</h3>
+                                        <h3>{{ _("Delete User") }}</h3>
 
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important </strong>
-                                            Deleting user will prevent user to access the cluster but does not remove
-                                            associated $HOME directory and data
+                                            <strong>{{ _("Important") }} </strong>
+                                            {{ _("Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data") }}
                                         </div>
 
                                         <form action="/admin/delete_user" method="post"
                                               oninput='password_verif.setCustomValidity(password_verif.value != password.value ? "Passwords do not match." : "")'>
-                                            <div class="form-group">
-                                                <select class="form-control" id="user_to_delete" name="user_to_delete">
-                                                    {% for user in all_users %}
-                                                        <option value="{{ user }}">{{ user }}</option>
-                                                    {% endfor %}
-
-                                                </select>
+                                            <div class="form-group position-relative">
+                                                <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                       data-endpoint="/api/ldap/users" data-require="true"
+                                                       data-hidden="del_user_hidden" data-results="del_user_results"
+                                                       placeholder="{{ _('Type at least 2 characters to search users') }}">
+                                                <input type="hidden" id="del_user_hidden" name="user_to_delete">
+                                                <div id="del_user_results" class="list-group soca-user-results"></div>
                                             </div>
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="verif" id="verif"
                                                        required>
-                                                <label class="form-check-label" for="verif">I am sure I want to delete
-                                                    this user</label>
+                                                <label class="form-check-label" for="verif">{{ _("I am sure I want to delete this user") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">Delete User</button>
+                                                <button type="submit" class="btn btn-danger">{{ _("Delete User") }}</button>
                                             </div>
                                         </form>
                                     </div>
@@ -154,33 +148,32 @@
                                 <br>
                                 <div class="card shadow mb-4">
                                     <div class="card-body">
-                                        <h3>Reset Password</h3>
+                                        <h3>{{ _("Reset Password") }}</h3>
 
                                         <div class="alert alert-primary" role="alert">
-                                            <strong>Important </strong>
-                                            This will generate a temporary password for a given user
+                                            <strong>{{ _("Important") }} </strong>
+                                            {{ _("This will generate a temporary password for a given user") }}
                                         </div>
                                         <form action="/reset_password" method="post"
                                               oninput='password_verif.setCustomValidity(password_verif.value != password.value ? "Passwords do not match." : "")'>
-                                            <div class="form-group">
-                                                <select class="form-control" id="user" name="user">
-                                                    {% for user in all_users %}
-                                                        <option value="{{ user }}">{{ user }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                            <div class="form-group position-relative">
+                                                <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                       data-endpoint="/api/ldap/users" data-require="true"
+                                                       data-hidden="reset_user_hidden" data-results="reset_user_results"
+                                                       placeholder="{{ _('Type at least 2 characters to search users') }}">
+                                                <input type="hidden" id="reset_user_hidden" name="user">
+                                                <div id="reset_user_results" class="list-group soca-user-results"></div>
                                             </div>
 
                                             <div class="form-group form-check">
                                                 <input type="checkbox" class="form-check-input" name="admin_reset_verif"
                                                        id="admin_reset_verif" required>
-                                                <label class="form-check-label" for="admin_reset_verif">I am sure I want
-                                                    to reset the password for this user</label>
+                                                <label class="form-check-label" for="admin_reset_verif">{{ _("I am sure I want to reset the password for this user") }}</label>
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <input type="hidden" name="admin_reset" value="yes">
-                                                <button type="submit" class="btn btn-danger">Generate temporary
-                                                    password
+                                                <button type="submit" class="btn btn-danger">{{ _("Generate temporary password") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -194,29 +187,27 @@
                                         <div class="card shadow mb-4">
                                            
                                             <div class="card-body">
-                                                <h3>Grant user Admin
-                                                    permission</h3>
+                                                <h3>{{ _("Grant user Admin permission") }}</h3>
                                                 <form action="/admin/manage_sudo" method="post">
-                                                    <div class="form-group">
-                                                        <select class="form-control" id="user" name="user">
-                                                            {% for user in all_users %}
-                                                                <option value="{{ user }}">{{ user }}</option>
-                                                            {% endfor %}
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/users" data-require="true"
+                                                               data-hidden="grant_user_hidden" data-results="grant_user_results"
+                                                               placeholder="{{ _('Type at least 2 characters to search users') }}">
+                                                        <input type="hidden" id="grant_user_hidden" name="user">
+                                                        <div id="grant_user_results" class="list-group soca-user-results"></div>
                                                     </div>
                                                     <div class="form-group form-check">
                                                         <input type="checkbox" class="form-check-input"
                                                                name="admin_verif" id="admin_reset_verif" required>
-                                                        <label class="form-check-label" for="admin_verif">I am sure I
-                                                            want to <strong>grant</strong> Admin permission to this user</label>
+                                                        <label class="form-check-label" for="admin_verif">{% trans action='<strong>grant</strong>'|safe %}I am sure I want to {{ action }} Admin permission to this user{% endtrans %}</label>
                                                     </div>
                                                     <div>
                                                         <input type="hidden" name="action" value="grant">
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-success">Grant Admin
-                                                            permission
+                                                        <button type="submit" class="btn btn-success">{{ _("Grant Admin permission") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -227,29 +218,26 @@
                                         <div class="card shadow mb-4">
                                            
                                             <div class="card-body">
-                                                  <h3>Revoke user Admin
-                                                    permission</h3>
+                                                  <h3>{{ _("Revoke user Admin permission") }}</h3>
                                                 <form action="/admin/manage_sudo" method="post">
-                                                    <div class="form-group">
-                                                        <select class="form-control" id="user" name="user">
-                                                            {% for user in all_users %}
-                                                                <option value="{{ user }}">{{ user }}</option>
-                                                            {% endfor %}
-                                                        </select>
+                                                    <div class="form-group position-relative">
+                                                        <input type="text" class="form-control soca-typeahead" autocomplete="off"
+                                                               data-endpoint="/api/ldap/users" data-require="true"
+                                                               data-hidden="revoke_user_hidden" data-results="revoke_user_results"
+                                                               placeholder="{{ _('Type at least 2 characters to search users') }}">
+                                                        <input type="hidden" id="revoke_user_hidden" name="user">
+                                                        <div id="revoke_user_results" class="list-group soca-user-results"></div>
                                                     </div>
                                                     <div class="form-group form-check">
                                                         <input type="checkbox" class="form-check-input"
                                                                name="sudo_revoke_verif" id="sudo_revoke_verif" required>
-                                                        <label class="form-check-label" for="sudo_revoke_verif">I am
-                                                            sure I want to <strong>revoke</strong> Admin permission to
-                                                            this user</label>
+                                                        <label class="form-check-label" for="sudo_revoke_verif">{% trans action='<strong>revoke</strong>'|safe %}I am sure I want to {{ action }} Admin permission to this user{% endtrans %}</label>
                                                     </div>
                                                     <div>
                                                         <input type="hidden" name="action" value="revoke">
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-danger">Revoke Admin
-                                                            permission
+                                                        <button type="submit" class="btn btn-danger">{{ _("Revoke Admin permission") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -259,6 +247,8 @@
                                 </div>
                             </div>
                         </div>
+
+                        <script src="/static/js/soca_typeahead.js"></script>
 
                         <a class="scroll-to-top rounded" href="#page-top">
                             <i class="fas fa-angle-up"></i>

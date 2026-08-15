@@ -8,7 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="description" content="Engineering Development Hub (EDH) is an unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows">
 <meta name="author" content="Mickael Crozes">
-<title>EDH - Engineering Development Hub</title>
+<title>{{ _("EDH - Engineering Development Hub") }}</title>
 <link rel="shortcut icon" href={{ url_for('static', filename='img/soca_logo.ico') }}/>
 <meta name="robots" content="noindex">
 <link href="{{ url_for('static', filename='css/icons.css') }}" rel="stylesheet">
@@ -32,8 +32,11 @@
     <script src="{{ url_for('static', filename='vendor/choices-js/choices.min.js') }}"></script>
     <link href="{{ url_for('static', filename='vendor/choices-js/choices.min.css') }}" rel="stylesheet" />
 
-{% elif page in ['admin_virtual_desktop_list_all', 'containers_list_images', 'admin_projects_per_user'] %}
+{% elif page in ['admin_virtual_desktop_list_all', 'containers_list_images', 'admin_projects_per_user', 'admin_cluster_status_dcv_overview'] %}
     <script src="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.css') }}"></script>
+    {% if page == 'admin_cluster_status_dcv_overview' %}
+    <script src="{{ url_for('static', filename='vendor/chart-js/chart.umd.js') }}"></script>
+    {% endif %}
 
 {% elif page == 'file_explorer' %}
     <script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
@@ -52,6 +55,9 @@
 {% elif page in ["admin_profiles", "admin_projects", "admin_target_node_profiles"] %}
     <link href="{{ url_for('static', filename='vendor/use-bootstrap-tag/use-bootstrap-tag.css') }}" rel="stylesheet" />
 
+{% elif page == "ai_assistant" %}
+    <script src="{{ url_for('static', filename='vendor/marked-js/marked.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/dompurify/purify.min.js') }}"></script>
 {% else %}
 
 {% endif %}

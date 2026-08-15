@@ -1,0 +1,54 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DcvGatewayS3Access",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/*",
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvGatewaySecretsManager",
+            "Action": [
+                "secretsmanager:GetSecretValue"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            },
+            "Resource": "arn:%%AWS_PARTITION%%:secretsmanager:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:secret:edh-%%CLUSTER_ID%%-dcv-gateway-*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvGatewaySSMRead",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:parameter/edh/%%CLUSTER_ID%%/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "DcvGatewayCloudWatchLogs",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/dcv-gateway*"
+            ],
+            "Effect": "Allow"
+        }
+    ]
+}

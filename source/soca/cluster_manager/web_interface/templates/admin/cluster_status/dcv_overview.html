@@ -1,0 +1,1861 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+    <link href="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.css') }}" rel="stylesheet" />
+    <script src="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.js') }}"></script>
+    <style>
+        .kpi-card {
+            border-radius: 8px;
+            padding: 14px 18px;
+            min-height: 118px;          /* uniform height across the 4-card row */
+            display: flex;
+            flex-direction: column;
+        }
+        .kpi-card .kpi-value {
+            font-size: 1.9rem;
+            font-weight: 600;
+            line-height: 1.1;
+            word-break: break-all;      /* keep big numbers from blowing up the layout */
+        }
+        .kpi-card .kpi-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        .kpi-card .kpi-spark {
+            margin-top: auto;            /* push sparkline to the bottom of the card */
+            position: relative;
+            height: 32px;
+        }
+        .kpi-card .kpi-spark canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        .kpi-card.kpi-ok { border-left: 4px solid #28a745; }
+        .kpi-card.kpi-warn { border-left: 4px solid #ffc107; }
+        .kpi-card.kpi-info { border-left: 4px solid #17a2b8; }
+        .kpi-card.kpi-muted { border-left: 4px solid #adb5bd; }
+        .breakdown-list { font-size: 0.85rem; }
+        .breakdown-list .breakdown-key { font-family: ui-monospace, monospace; }
+        .availability-badge { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+        .metric-card {
+            background: var(--card, #fff);
+            border: 1px solid var(--border, #dee2e6);
+            border-radius: 6px;
+            padding: 12px 14px;
+            min-height: 160px;             /* uniform card heights in a row */
+            display: flex;
+            flex-direction: column;
+        }
+        .metric-card .metric-name {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted, #6c757d);
+        }
+        .metric-card .metric-latest {
+            font-size: 1.55rem;
+            font-weight: 600;
+            line-height: 1.15;
+            word-break: break-word;
+            margin-top: 2px;
+        }
+        .metric-card .metric-sub {
+            font-size: 11px;
+            color: var(--muted, #6c757d);
+            margin-top: 4px;
+            line-height: 1.45;             /* let multi-line subtitles breathe */
+            /* No monospace here — proportional reads better with the new
+               'AVG of N brokers · range X–Y Δ Z%' subtitle */
+        }
+        .metric-card canvas {
+            display: block;
+            max-width: 100%;
+            width: 100% !important;
+            height: 60px !important;
+            margin-top: auto;              /* pin chart to bottom of card */
+        }
+    </style>
+</head>
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+    <div id="wrapper">
+        {% include 'common/vertical_menu_bar.html' %}
+        <div id="content-wrapper" class="d-flex flex-column">
+            <div id="content" style="margin-top: 20px;">
+                <div class="container-fluid">
+
+                    {% include 'common/flashed_messages.html' %}
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <h3 class="mb-0">{{ _("DCV / VDI Overview") }}</h3>
+                            <small class="text-muted">{{ _("Cluster:") }} <code>{{ cluster_id }}</code></small>
+                        </div>
+                        <div>
+                            <span id="autoRefreshState" class="badge bg-secondary me-2" style="font-family: ui-monospace, monospace;">auto: off</span>
+                            <button id="autoRefreshToggle" type="button" class="btn btn-sm btn-outline-primary me-1" onclick="toggleAutoRefresh()">
+                                <i class="fa-solid fa-circle-play"></i> {{ _("Auto 60s") }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshNow()">
+                                <i class="fa-solid fa-arrows-rotate"></i> {{ _("Refresh") }}
+                            </button>
+                            <span id="defaultTab" data-default-tab="{{ default_tab }}" style="display:none;"></span>
+                            <span id="autoRefreshDefault" data-auto-refresh="{{ '1' if auto_refresh_default else '0' }}" style="display:none;"></span>
+                            <small id="lastUpdated" class="text-muted ms-2" style="font-family: ui-monospace, monospace;"></small>
+                            <small id="dataLoadTiming" class="text-muted ms-2" style="font-family: ui-monospace, monospace;"
+                                   title="Server-side AWS data fetch (sections run concurrently; total = slowest) — broker {{ data_load.sections.broker }}s · metrics {{ data_load.sections.metrics }}s · infra {{ data_load.sections.infra }}s · screenshots {{ data_load.sections.screenshots }}s · streaming {{ data_load.sections.streaming }}s">
+                                {% if data_load.total_s %}<i class="fa-regular fa-clock"></i> {{ data_load.total_s }}s{% endif %}
+                                {% if data_load.timed_out %}<span class="text-warning ms-1" title="Exceeded the fetch budget; retried on next refresh: {{ data_load.timed_out|join(', ') }}"><i class="fa-solid fa-triangle-exclamation"></i> {{ data_load.timed_out|length }} slow</span>{% endif %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Time-window selector -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="btn-group btn-group-sm" role="group" id="windowSelector" aria-label="{{ _('Metric window') }}">
+                            {% for k, p in window_presets.items() %}
+                            <button type="button"
+                                    class="btn btn-outline-secondary{% if k == window_key %} active{% endif %}"
+                                    data-window="{{ k }}"
+                                    onclick="selectWindow('{{ k }}')">
+                                {{ k }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted">{{ _("Showing data for the last") }} <strong>{{ window_label }}</strong></small>
+                    </div>
+
+                    {% if not high_scale %}
+                    <div class="alert alert-warning">
+                        {{ _("DCV high-scale mode is disabled. This dashboard is only meaningful when DCV is deployed with broker + gateway. Enable via") }}
+                        <code>Config.dcv.high_scale: true</code>.
+                    </div>
+                    {% endif %}
+
+                    {% if broker.error %}
+                    <div class="alert alert-danger">
+                        <strong>{{ _("Broker query failed:") }}</strong>
+                        <code>{{ broker.error }}</code>
+                    </div>
+                    {% endif %}
+
+                    <!-- TABS -->
+                    <ul class="nav nav-pills mb-3" id="clusterStatusTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="infra-tab" data-bs-toggle="pill" data-bs-target="#infra-pane" type="button" role="tab">
+                                <i class="fa-solid fa-server"></i> {{ _("Infrastructure") }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="sessions-tab" data-bs-toggle="pill" data-bs-target="#sessions-pane" type="button" role="tab">
+                                <i class="fa-solid fa-display"></i> {{ _("Sessions") }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pools-tab" data-bs-toggle="pill" data-bs-target="#pools-pane" type="button" role="tab">
+                                <i class="fa-solid fa-layer-group"></i> {{ _("Pools") }}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+
+                        <!-- ==================== SESSIONS TAB ==================== -->
+                        <div class="tab-pane fade" id="sessions-pane" role="tabpanel">
+
+                            {% if broker.available %}
+                            <div class="row g-3 mb-4" data-refresh-region="kpis">
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-info h-100">
+                                        <div class="kpi-value" data-kpi="servers_total">{{ broker.totals.servers }}</div>
+                                        <div class="kpi-label">{{ _("DCV Servers Registered") }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-ok h-100">
+                                        <div class="kpi-value" data-kpi="servers_available">{{ broker.totals.servers_available }}</div>
+                                        <div class="kpi-label">{{ _("Servers Available") }}</div>
+                                        <div class="kpi-spark">
+                                            <canvas data-kpi-spark="Number Of Ready DCV Servers"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-info h-100">
+                                        <div class="kpi-value" data-kpi="sessions_total">{{ broker.totals.sessions }}</div>
+                                        <div class="kpi-label">{{ _("Sessions Total") }}</div>
+                                        <div class="kpi-spark">
+                                            <canvas data-kpi-spark="Number Of DCV Sessions"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-ok h-100">
+                                        <div class="kpi-value" data-kpi="sessions_ready">{{ broker.totals.sessions_ready }}</div>
+                                        <div class="kpi-label">{{ _("Sessions Ready") }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-4" data-refresh-region="breakdowns">
+                                <div class="col-md-4">
+                                    <div class="card shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ _("Servers by OS Family") }}</h6>
+                                            <ul class="list-unstyled breakdown-list mb-0">
+                                                {% for os_fam, count in broker.by_os_family.items() %}
+                                                <li class="d-flex justify-content-between"><span class="breakdown-key">{{ os_fam }}</span><span class="badge bg-secondary">{{ count }}</span></li>
+                                                {% else %}
+                                                <li class="text-muted">{{ _("(no servers)") }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ _("Server Unavailability Reasons") }}</h6>
+                                            <ul class="list-unstyled breakdown-list mb-0">
+                                                {% for reason, count in broker.by_unavailability_reason.items() %}
+                                                <li class="d-flex justify-content-between"><span class="breakdown-key">{{ reason }}</span><span class="badge bg-warning text-dark">{{ count }}</span></li>
+                                                {% else %}
+                                                <li class="text-muted">{{ _("(all available)") }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ _("Sessions by State / Type") }}</h6>
+                                            <ul class="list-unstyled breakdown-list mb-0">
+                                                {% for state, count in broker.by_session_state.items() %}
+                                                <li class="d-flex justify-content-between"><span class="breakdown-key">state: {{ state }}</span><span class="badge bg-info text-dark">{{ count }}</span></li>
+                                                {% endfor %}
+                                                {% for stype, count in broker.by_session_type.items() %}
+                                                <li class="d-flex justify-content-between"><span class="breakdown-key">type: {{ stype }}</span><span class="badge bg-secondary">{{ count }}</span></li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Broker CloudWatch metrics -- as charts -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">{{ _("Broker CloudWatch Metrics") }} <small class="text-muted">({{ window_label }})</small></h5>
+                                        <small class="text-muted">{{ _("Namespace:") }} <code>{{ broker_namespace }}</code></small>
+                                    </div>
+                                    {% if metrics.error %}
+                                    <div class="alert alert-warning mb-0">{{ metrics.error }}</div>
+                                    {% elif metrics.available %}
+                                    <div class="row g-2" id="brokerMetricsRow" data-refresh-region="metrics-cards">
+                                        {% for s in metrics.series %}
+                                        <div class="col-12 col-lg-6 col-xxl-4">
+                                            <div class="metric-card h-100">
+                                                <div class="metric-name">{{ s.label }}</div>
+                                                <div class="metric-latest" data-metric-latest="{{ s.metric }}">
+                                                    {% if s.latest is none %}<span class="text-muted">-</span>{% elif s.latest_human %}{{ s.latest_human }}{% else %}{{ '%.0f' % s.latest if s.latest|float >= 1 else '%.2f' % s.latest }}{% endif %}
+                                                </div>
+                                                <div class="metric-sub">
+                                                    {{ s.metric }}
+                                                    {% if s.members_count and s.members_count > 0 %}
+                                                        &middot; {{ s.aggregate.stat | default(s.stat) }} of {{ s.members_count }} broker{{ 's' if s.members_count != 1 else '' }}
+                                                        {% if s.latest_min_human and s.latest_max_human and s.members_count > 1 %}
+                                                            &middot; range {{ s.latest_min_human }}&ndash;{{ s.latest_max_human }}
+                                                        {% endif %}
+                                                        {% if s.spread is not none and s.members_count > 1 %}
+                                                            <span class="badge bg-{{ 'warning' if s.spread > 0.30 else 'secondary' }} ms-1" title="{{ _('Fleet spread (max-min)/avg. >30%% suggests one broker diverging.') }}">
+                                                                Δ {{ s.spread_human }}
+                                                            </span>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        ({{ s.stat }})
+                                                    {% endif %}
+                                                </div>
+                                                <canvas data-metric="{{ s.metric }}" style="max-height: 110px;"></canvas>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <small class="text-muted d-block mt-2">{{ _("Window:") }} {{ metrics.window_minutes }} min, {{ _("Period:") }} {{ metrics.period_seconds }} s.</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Servers DataTable -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ _("DCV Servers (live from broker)") }}</h5>
+                                    <table id="dcvServersTable" class="display" style="width:100%">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Hostname") }}</th>
+                                                <th>{{ _("Private IP") }}</th>
+                                                <th>{{ _("EC2 Instance") }}</th>
+                                                <th>{{ _("OS") }}</th>
+                                                <th>{{ _("Availability") }}</th>
+                                                <th>{{ _("Reason") }}</th>
+                                                <th>{{ _("Sessions") }}</th>
+                                                <th>{{ _("Owner") }}</th>
+                                                <th>{{ _("Server Version") }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody data-refresh-region="dt-servers">
+                                        {% for s in broker.servers %}
+                                            {% set host = s.Host or {} %}
+                                            {% set os_obj = host.Os or {} %}
+                                            {% set aws_obj = host.Aws or {} %}
+                                            {% set tag_map = {} %}
+                                            {% for t in s.Tags or [] %}{% if tag_map.update({t.Key: t.Value}) %}{% endif %}{% endfor %}
+                                            <tr>
+                                                <td>{{ s.Hostname or "-" }}</td>
+                                                <td>{{ s.Ip or "-" }}</td>
+                                                <td><code>{{ aws_obj.EC2InstanceId or tag_map.get("instance", "-") }}</code></td>
+                                                <td>
+                                                    {% if s.SocaInstanceBaseOs %}
+                                                        <code>{{ s.SocaInstanceBaseOs }}</code>
+                                                        {% if os_obj.Name %}<br><small class="text-muted" title="As reported by DCV agent">DCV: {{ os_obj.Name }}</small>{% endif %}
+                                                    {% else %}
+                                                        {{ os_obj.Family or "-" }} {% if os_obj.Name %}<small class="text-muted">{{ os_obj.Name }}</small>{% endif %}
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if s.Availability == "AVAILABLE" %}
+                                                    <span class="badge bg-success availability-badge">AVAILABLE</span>
+                                                    {% else %}
+                                                    <span class="badge bg-warning text-dark availability-badge">{{ s.Availability or "?" }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td><small>{{ s.UnavailabilityReason or "-" }}</small></td>
+                                                <td>console: {{ s.ConsoleSessionCount|default(0) }}<br>virtual: {{ s.VirtualSessionCount|default(0) }}</td>
+                                                <td>{{ tag_map.get("owner", "-") }}</td>
+                                                <td><small>{{ s.Version or "-" }} / agent {{ s.SessionManagerAgentVersion or "?" }}</small></td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Sessions DataTable -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ _("DCV Sessions (live from broker)") }}</h5>
+                                    <table id="dcvSessionsTable" class="display" style="width:100%">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Session ID") }}</th>
+                                                <th>{{ _("Name") }}</th>
+                                                <th>{{ _("Owner") }}</th>
+                                                <th>{{ _("Type") }}</th>
+                                                <th>{{ _("State") }}</th>
+                                                <th>{{ _("Server IP") }}</th>
+                                                <th>{{ _("Connections") }}</th>
+                                                <th>{{ _("Created") }}</th>
+                                                <th>{{ _("Path") }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody data-refresh-region="dt-sessions">
+                                        {% for sess in broker.sessions %}
+                                            {% set svr = sess.Server or {} %}
+                                            <tr>
+                                                <td><code>{{ sess.Id|truncate(12, true, '…') }}</code></td>
+                                                <td><small>{{ sess.Name or "-" }}</small></td>
+                                                <td>{{ sess.Owner or "-" }}</td>
+                                                <td>{{ sess.Type or "-" }}</td>
+                                                <td>
+                                                    {% if sess.State == "READY" %}
+                                                    <span class="badge bg-success">READY</span>
+                                                    {% elif sess.State == "CREATING" %}
+                                                    <span class="badge bg-primary">CREATING</span>
+                                                    {% else %}
+                                                    <span class="badge bg-secondary">{{ sess.State or "?" }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ svr.Ip or "-" }}</td>
+                                                <td>{{ sess.NumOfConnections|default(0) }}</td>
+                                                <td><small>{{ sess.CreationTime or "-" }}</small></td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="showSessionPath('{{ sess.Id }}')" title="{{ _('Show end-to-end session path') }}">
+                                                        <i class="fa-solid fa-route"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                        </div>
+                        <!-- ==================== END SESSIONS TAB ==================== -->
+
+                        <!-- ==================== INFRASTRUCTURE TAB ==================== -->
+                        <!-- ==================== POOLS TAB ==================== -->
+                        <div class="tab-pane fade" id="pools-pane" role="tabpanel">
+                            {% if not pools.available %}
+                            <div class="alert alert-secondary">{{ pools.error or _("Pool data not available yet -- still being assembled.") }}</div>
+                            {% elif pools.pools|length == 0 %}
+                            <div class="alert alert-secondary">{{ _("No VDI pools are configured. Add a pool from a VDI software stack to populate this tab.") }}</div>
+                            {% else %}
+                            <!-- KPI strip (point-in-time) -->
+                            <div class="row g-3 mb-4" data-refresh-region="pools-kpis">
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-info h-100">
+                                        <div class="kpi-value">{{ pools.kpis.pool_count }}</div>
+                                        <div class="kpi-label">{{ _("Configured Pools") }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-success h-100">
+                                        <div class="kpi-value">{{ pools.kpis.ready_now }}</div>
+                                        <div class="kpi-label">{{ _("Ready Now (hot)") }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-info h-100">
+                                        <div class="kpi-value">{{ pools.kpis.warm }}</div>
+                                        <div class="kpi-label">{{ _("Warm (pre-stopped)") }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-xl-3">
+                                    <div class="card shadow-sm kpi-card kpi-info h-100">
+                                        <div class="kpi-value">{{ pools.kpis.hot_insvc }}</div>
+                                        <div class="kpi-label">{{ _("Hot InService") }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if pools.series %}
+                            <div class="row g-3 mb-4" data-refresh-region="pools-claims">
+                                <div class="col-12 col-md-4">
+                                    <div class="card shadow-sm h-100"><div class="card-body py-2">
+                                        <div class="text-muted small">{{ _("Claims") }} <span class="text-muted">({{ window_label }})</span></div>
+                                        <div class="h4 mb-1">{{ pools.series.claims.sum if pools.series.claims else 0 }}</div>
+                                        {% if pools.series.claims and pools.series.claims.points %}<svg viewBox="0 0 100 26" preserveAspectRatio="none" width="100%" height="26"><polyline fill="none" stroke="#0d6efd" stroke-width="1.5" points="{{ pools.series.claims.points }}"/></svg>{% endif %}
+                                    </div></div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="card shadow-sm h-100"><div class="card-body py-2">
+                                        <div class="text-muted small">{{ _("Hot-served") }} <span class="text-muted">({{ window_label }})</span></div>
+                                        <div class="h4 mb-1 text-success">{{ pools.series.hot.sum if pools.series.hot else 0 }}</div>
+                                        {% if pools.series.hot and pools.series.hot.points %}<svg viewBox="0 0 100 26" preserveAspectRatio="none" width="100%" height="26"><polyline fill="none" stroke="#198754" stroke-width="1.5" points="{{ pools.series.hot.points }}"/></svg>{% endif %}
+                                    </div></div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="card shadow-sm h-100"><div class="card-body py-2">
+                                        <div class="text-muted small">{{ _("Collisions") }} <span class="text-muted">({{ window_label }})</span></div>
+                                        <div class="h4 mb-1 text-warning">{{ pools.series.collisions.sum if pools.series.collisions else 0 }}</div>
+                                        {% if pools.series.collisions and pools.series.collisions.points %}<svg viewBox="0 0 100 26" preserveAspectRatio="none" width="100%" height="26"><polyline fill="none" stroke="#ffc107" stroke-width="1.5" points="{{ pools.series.collisions.points }}"/></svg>{% endif %}
+                                    </div></div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Per-pool cards (Phase 2.5): one card per ASG;
+                                 click to expand inline (members + full log +
+                                 metrics). Each card is its OWN refresh-region so
+                                 the partial-refresh innerHTML swap updates its
+                                 body while the root (and any .open class) is
+                                 preserved -> accordion state survives refresh. -->
+                            <style>
+                                .pool-card .pool-head{cursor:pointer;user-select:none}
+                                .pool-card .pool-chev{transition:transform .15s ease;font-size:.8em}
+                                .pool-card.open .pool-chev{transform:rotate(90deg)}
+                                .pool-card .pool-deep{display:none}
+                                .pool-card.open .pool-deep{display:block}
+                                .pool-card.open .pool-mini-log{display:none}
+                                .pool-log{max-height:80px;overflow:auto;font-family:monospace;font-size:11px;line-height:1.6}
+                                .pool-deep .pool-log{max-height:220px}
+                                .pool-mem td,.pool-mem th{padding:.15rem .4rem;font-size:11px}
+                                .pool-mem{font-family:monospace}
+                            </style>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">{{ _("Pools") }} <small class="text-muted">({{ pools.pools|length }})</small></h5>
+                                <small class="text-muted">{{ _("Click a card to expand: members, full event log, metrics.") }}</small>
+                            </div>
+                            <div id="poolStackGroups">
+                                {% for _sname, _grp in pools.pools | groupby('stack_name') %}
+                                <div class="card shadow-sm mb-3">
+                                    <div class="card-header d-flex align-items-center gap-2" data-bs-toggle="collapse" data-bs-target="#poolstack-{{ loop.index }}" style="cursor:pointer">
+                                        <i class="fa-solid fa-layer-group text-muted"></i>
+                                        <span class="fw-semibold">{{ _sname }}</span>
+                                        <span class="badge bg-secondary">{{ _grp|length }}</span>
+                                        <span class="ms-auto text-muted small">
+                                            {{ _grp|sum(attribute='ready_now') }} {{ _("ready") }}
+                                            &middot; {{ _grp|sum(attribute='hot_insvc') }} {{ _("hot") }}
+                                            &middot; {{ _grp|sum(attribute='warm_size') }} {{ _("warm") }}
+                                        </span>
+                                    </div>
+                                    <div class="collapse show" id="poolstack-{{ loop.index }}">
+                                        <div class="card-body">
+                                            <div class="row g-3">
+                                                {% for p in _grp %}
+                                                {% set _pe = pools.events | selectattr('pool_id','equalto',p.pool_id) | list %}
+                                <div class="col-12 col-xl-6">
+                                    <div class="card shadow-sm pool-card h-100 {% if p.display_status == 'ACTIVE' %}border-start border-success border-3{% elif p.display_status == 'DRAINING' %}border-start border-warning border-3{% else %}border-start border-secondary border-3{% endif %}"
+                                         data-refresh-region="poolcard-{{ p.pool_id }}">
+                                        <div class="card-body py-2">
+                                            <div class="pool-head d-flex align-items-center gap-2" onclick="togglePoolCard(this)">
+                                                <i class="fa-solid fa-chevron-right pool-chev text-muted"></i>
+                                                <span style="font-family:monospace;font-weight:600">{{ p.instance_type }}</span>
+                                                {% if p.label %}<span class="badge bg-primary">{{ p.label }}</span>{% endif %}
+                                                {% if p.display_status == "ACTIVE" %}<span class="badge bg-success">ACTIVE</span>
+                                                {% elif p.display_status == "PARKED" %}<span class="badge bg-secondary">PARKED</span>
+                                                {% elif p.display_status == "DRAINING" %}<span class="badge bg-warning text-dark">DRAINING</span>
+                                                {% elif p.display_status == "EMPTY" %}<span class="badge bg-light text-muted border">EMPTY</span>
+                                                {% else %}<span class="badge bg-secondary">{{ p.display_status }}</span>{% endif %}
+                                                <span class="ms-auto text-muted small">{{ p.members_count }} {{ _("member") }}{{ "s" if p.members_count != 1 else "" }}</span>
+                                            </div>
+                                            <div class="text-muted small mt-1" style="font-family:monospace">{{ p.pool_id }}</div>
+                                            <div class="mt-2 mb-1">
+                                                {% if p.display_status == "ACTIVE" or p.hot_insvc or p.warm_size or p.desired %}
+                                                <span class="text-success fw-semibold">{{ p.ready_now }}</span> {{ _("ready") }}
+                                                &middot; {{ p.hot_insvc }} {{ _("hot") }}
+                                                &middot; {{ p.warm_size }} {{ _("warm") }}
+                                                &middot; <span class="text-muted">{{ _("desired") }} {{ p.desired }}</span>
+                                                {% if p.stale_delta and p.stale_delta > 0 %}
+                                                &middot; <span class="badge bg-warning text-dark" title="{{ _('Ledger AVAILABLE rows the broker cannot yet serve (members mid broker-registration, or stale rows pending the zombie sweep). Not necessarily an error; should trend to 0.') }}">{{ _("ledger") }} {{ p.ledger_available }} &middot; &Delta;{{ p.stale_delta }}</span>
+                                                {% endif %}
+                                                {% else %}
+                                                <span class="text-muted">0 {{ _("ready") }} &middot; 0 {{ _("hot") }} &middot; 0 {{ _("warm") }} &middot; {{ _("desired") }} 0</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-muted small">{{ _("Claims") }} <span class="text-muted">({{ window_label }})</span> {% if p.claims_sum %}<span class="text-primary">{{ p.claims_sum }}</span>{% endif %}</div>
+                                            {% if p.claims_points %}<svg viewBox="0 0 100 24" preserveAspectRatio="none" width="100%" height="24"><polyline fill="none" stroke="#0d6efd" stroke-width="1.5" points="{{ p.claims_points }}"/></svg>{% else %}<svg viewBox="0 0 100 24" preserveAspectRatio="none" width="100%" height="24"><polyline fill="none" stroke="#adb5bd" stroke-width="1.5" points="0,12 100,12"/></svg>{% endif %}
+
+                                            <!-- collapsed: mini log (last 3 for this pool) -->
+                                            <div class="pool-mini-log pool-log border-top mt-2 pt-2">
+                                                {% for e in _pe[:3] %}
+                                                <div>
+                                                    <span class="text-muted">{{ e.ts[11:19] }}</span>
+                                                    {% if e.severity == 'danger' %}<span class="text-danger">&#9679;</span>{% elif e.severity == 'warn' %}<span class="text-warning">&#9679;</span>{% elif e.severity == 'info' %}<span class="text-primary">&#9679;</span>{% elif e.severity == 'ok' %}<span class="text-success">&#9679;</span>{% else %}<span class="text-secondary">&#9679;</span>{% endif %}
+                                                    {{ e.description }}
+                                                </div>
+                                                {% else %}
+                                                <div class="text-muted">{{ _("No recent activity.") }}</div>
+                                                {% endfor %}
+                                            </div>
+
+                                            <!-- expanded: members + metrics + full log -->
+                                            <div class="pool-deep border-top mt-2 pt-2">
+                                                <div class="row g-3">
+                                                    <div class="col-12 col-md-6">
+                                                        <div class="text-muted small text-uppercase mb-1">{{ _("Members") }} ({{ p.members_count }})</div>
+                                                        {% if p.members %}
+                                                        <table class="table table-sm pool-mem mb-0">
+                                                            <thead><tr><th>{{ _("Instance") }}</th><th>{{ _("State") }}</th><th>{{ _("AZ") }}</th></tr></thead>
+                                                            <tbody>
+                                                                {% for m in p.members %}
+                                                                <tr>
+                                                                    <td>{{ m.iid }}</td>
+                                                                    <td>{% if m.state_class == 'insvc' %}<span class="badge bg-success">{{ m.state }}</span>{% elif m.state_class == 'warm' %}<span class="badge bg-info text-dark">{{ m.state }}</span>{% elif m.state_class == 'pend' %}<span class="badge bg-warning text-dark">{{ m.state }}</span>{% else %}<span class="badge bg-light text-muted border">{{ m.state }}</span>{% endif %}</td>
+                                                                    <td class="text-muted">{{ m.az }}</td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                        {% else %}
+                                                        <div class="text-muted small">{{ _("No members -- ASG retained for reuse (reaper deferred).") }}</div>
+                                                        {% endif %}
+                                                        <div class="text-muted small text-uppercase mt-3 mb-1">{{ _("Metrics") }} <span class="text-muted">({{ window_label }})</span></div>
+                                                        {% if p.claims_points %}<svg viewBox="0 0 100 44" preserveAspectRatio="none" width="100%" height="44"><polyline fill="none" stroke="#0d6efd" stroke-width="1.5" points="{{ p.claims_points }}"/></svg>{% endif %}
+                                                        <div class="small"><span class="text-muted">{{ _("Claims") }}</span> <span class="text-primary fw-semibold">{{ p.claims_sum }}</span></div>
+                                                        {% if p.tts_p50 is not none %}
+                                                        <div class="small"><span class="text-muted">{{ _("TimeToServe") }}</span> p50 <b>{{ p.tts_p50 }}s</b> &middot; p99 <b>{{ p.tts_p99 if p.tts_p99 is not none else p.tts_p50 }}s</b></div>
+                                                        {% else %}
+                                                        <div class="small text-muted">{{ _("TimeToServe: no claims in window") }}</div>
+                                                        {% endif %}
+                                                        {% if p.ready_points %}
+                                                        <div class="text-muted small mt-2">{{ _("Ready-now depth") }}</div>
+                                                        <svg viewBox="0 0 100 30" preserveAspectRatio="none" width="100%" height="30"><polyline fill="none" stroke="#198754" stroke-width="1.5" points="{{ p.ready_points }}"/></svg>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <div class="text-muted small text-uppercase mb-1">{{ _("Event log (this pool)") }}</div>
+                                                        <div class="pool-log">
+                                                            {% for e in _pe[:40] %}
+                                                            <div>
+                                                                <span class="text-muted">{{ e.ts[11:19] }}</span>
+                                                                {% if e.severity == 'danger' %}<span class="text-danger">&#9679;</span>{% elif e.severity == 'warn' %}<span class="text-warning">&#9679;</span>{% elif e.severity == 'info' %}<span class="text-primary">&#9679;</span>{% elif e.severity == 'ok' %}<span class="text-success">&#9679;</span>{% else %}<span class="text-secondary">&#9679;</span>{% endif %}
+                                                                {{ e.description }}{% if e.status %} <span class="text-muted">[{{ e.status }}]</span>{% endif %}
+                                                            </div>
+                                                            {% else %}
+                                                            <div class="text-muted">{{ _("No recent scaling activity.") }}</div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-muted small mt-2" style="font-family:monospace">ASG: {{ p.asg_name }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="text-muted small mt-2">
+                                {{ _("Per-pool cards from live ASG + warm pool + ledger + scaling activities. Click a card to expand. Reconciler/relay health and durable per-pool telemetry arrive in later phases.") }}
+                            </div>
+
+                            <!-- Phase 4: control-plane health (reconciler + relay), CloudWatch-only -->
+                            <div class="card shadow-sm mt-3" data-refresh-region="pools-control">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ _("Control plane health") }}
+                                        <small class="text-muted">({{ _("reconciler + relay") }}, {{ window_label }})</small>
+                                    </h5>
+                                    {% if pools.control and pools.control.available %}
+                                    <div class="row g-3">
+                                        {% for svc in [pools.control.reconciler, pools.control.relay] %}
+                                        <div class="col-12 col-md-6">
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if svc.healthy %}<span class="text-success">&#9679;</span>{% else %}<span class="text-danger">&#9679;</span>{% endif %}
+                                                <span style="font-family:monospace;font-weight:600">{{ svc.function }}</span>
+                                                {% if svc.healthy %}<span class="badge bg-success">{{ _("healthy") }}</span>{% else %}<span class="badge bg-danger">{{ _("attention") }}</span>{% endif %}
+                                            </div>
+                                            <div class="small mt-1">
+                                                <span class="text-muted">{{ _("invocations") }}</span> {{ svc.invocations }}
+                                                &middot; <span class="text-muted">{{ _("errors") }}</span> <span class="{{ 'text-danger fw-semibold' if svc.errors else '' }}">{{ svc.errors }}</span>
+                                                {% if svc.rejections is defined %} &middot; <span class="text-muted">{{ _("rejected") }}</span> <span class="{{ 'text-danger fw-semibold' if svc.rejections else '' }}">{{ svc.rejections }}</span>{% endif %}
+                                            </div>
+                                            <div class="small text-muted">
+                                                {{ _("avg") }} {{ '%.0f'|format(svc.duration_ms) if svc.duration_ms is not none else '--' }} ms
+                                                &middot; {{ _("last") }} {{ svc.last_seen[11:19] if svc.last_seen else _("none in window") }}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="text-muted small mt-2">{{ _("Liveness from CloudWatch (AWS/Lambda + relay rejections). Queue backlog + last-reconcile detail arrive with the persisted event store.") }}</div>
+                                    {% else %}
+                                    <div class="text-muted small">{{ _("Control-plane metrics unavailable.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="tab-pane fade" id="infra-pane" role="tabpanel">
+
+                            {% if infra and infra.error %}
+                            <div class="alert alert-warning">{{ infra.error }}</div>
+                            {% endif %}
+
+                            <!-- Bootstrap template cache (independent of broker/gateway availability) -->
+                            <div class="card shadow-sm mb-4" id="bootstrapCacheCard">
+                                <div class="card-body" data-refresh-region="infra-bootstrap-cache">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="card-title mb-0">
+                                            <i class="fa-solid fa-database"></i> {{ _("Bootstrap template cache") }}
+                                        </h5>
+                                        <button type="button" class="btn btn-sm btn-outline-warning"
+                                                id="bootstrapCacheRefreshBtn"
+                                                onclick="refreshBootstrapCache()"
+                                                title="{{ _('Delete every cached bootstrap entry (including pool launch-template renders); the next VDI/HPC create per stack will re-render fresh.') }}">
+                                            <i class="fa-solid fa-broom"></i> {{ _("Flush cache") }}
+                                        </button>
+                                    </div>
+                                    <div class="text-muted small mb-2">
+                                        {{ _("Content-addressable cache of rendered SOCA bootstrap templates. Hits eliminate the per-create Jinja render + S3 upload (~1.0-1.5s savings per VDI/HPC node create).") }}
+                                    </div>
+                                    <div id="bootstrapCacheStats" class="row g-2">
+                                        <div class="col-md-3"><strong>{{ _("Status") }}:</strong> <span id="bcEnabled">--</span></div>
+                                        <div class="col-md-3"><strong>{{ _("Entries") }}:</strong> <span id="bcEntryCount">--</span></div>
+                                        <div class="col-md-3"><strong>{{ _("TTL") }}:</strong> <span id="bcTtl">--</span> {{ _("min") }}</div>
+                                        <div class="col-md-3"><strong>{{ _("Retention") }}:</strong> <span id="bcRetention">--</span> {{ _("days") }}</div>
+                                    </div>
+                                    <div id="bootstrapCacheMessage" class="mt-2" style="display:none;"></div>
+                                </div>
+                            </div>
+
+                            {% if infra and infra.available %}
+                            <!-- Broker fleet -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-broker">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="card-title mb-0">{{ _("DCV Broker fleet") }}</h5>
+                                        <small class="text-muted">ASG: <code>{{ infra.broker.asg_name or '-' }}</code> ({{ infra.broker.desired }}/{{ infra.broker.in_service }} desired/in-service)</small>
+                                    </div>
+                                    <div class="mb-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#asgSizingBroker" aria-expanded="false" aria-controls="asgSizingBroker">
+                                            <i class="fa-solid fa-sliders me-1"></i>{{ _("Resize fleet") }}
+                                        </button>
+                                    </div>
+                                    <div class="collapse" id="asgSizingBroker">
+                                        <div class="d-flex flex-wrap align-items-end gap-2 mb-2 dcv-asg-sizing" data-fleet="broker">
+                                            <div><label class="form-label mb-0 small text-muted">Min</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-min" style="width:80px" value="{{ infra.broker.min }}"></div>
+                                            <div><label class="form-label mb-0 small text-muted">Desired</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-desired" style="width:80px" value="{{ infra.broker.desired }}"></div>
+                                            <div><label class="form-label mb-0 small text-muted">Max</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-max" style="width:80px" value="{{ infra.broker.max }}"></div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="applyAsgSizing('broker')" {% if not infra.broker.asg_name %}disabled{% endif %}>Apply</button>
+                                            <span class="dcv-asg-msg small ms-2"></span>
+                                        </div>
+                                    </div>
+                                    {% if infra.broker.instances %}
+                                    <table class="table table-sm table-hover mb-0" id="dcvBrokerFleetTable">
+                                        <thead>
+                                            <tr><th>Instance</th><th>State</th><th>AZ</th><th>Type</th><th>Uptime</th><th>CPU% <small class="text-muted">(last {{ period_label }})</small></th><th>NetIn / NetOut <small class="text-muted">(last {{ period_label }})</small></th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for inst in infra.broker.instances %}
+                                            <tr>
+                                                <td><code>{{ inst.instance_id }}</code><br><small class="text-muted">{{ inst.private_ip }}</small></td>
+                                                <td>
+                                                    {% if inst.state == 'running' %}<span class="badge bg-success">{{ inst.state }}</span>
+                                                    {% else %}<span class="badge bg-secondary">{{ inst.state }}</span>{% endif %}
+                                                </td>
+                                                <td>{{ inst.az }}</td>
+                                                <td>{{ inst.instance_type }}</td>
+                                                <td>{{ inst.uptime }}</td>
+                                                <td>{% if inst.cpu_latest is not none %}{{ '%.1f' % inst.cpu_latest }}%{% else %}-{% endif %}</td>
+                                                <td><small>↓ {{ inst.network_in_5m_human or '-' }} / ↑ {{ inst.network_out_5m_human or '-' }}</small></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}<div class="text-muted">{{ _("(no broker instances reported)") }}</div>{% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Gateway fleet -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-gateway">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="card-title mb-0">{{ _("DCV Gateway fleet") }}</h5>
+                                        <small class="text-muted">ASG: <code>{{ infra.gateway.asg_name or '-' }}</code> ({{ infra.gateway.desired }}/{{ infra.gateway.in_service }} desired/in-service)</small>
+                                    </div>
+                                    <div class="mb-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#asgSizingGateway" aria-expanded="false" aria-controls="asgSizingGateway">
+                                            <i class="fa-solid fa-sliders me-1"></i>{{ _("Resize fleet") }}
+                                        </button>
+                                    </div>
+                                    <div class="collapse" id="asgSizingGateway">
+                                        <div class="d-flex flex-wrap align-items-end gap-2 mb-2 dcv-asg-sizing" data-fleet="gateway">
+                                            <div><label class="form-label mb-0 small text-muted">Min</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-min" style="width:80px" value="{{ infra.gateway.min }}"></div>
+                                            <div><label class="form-label mb-0 small text-muted">Desired</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-desired" style="width:80px" value="{{ infra.gateway.desired }}"></div>
+                                            <div><label class="form-label mb-0 small text-muted">Max</label><input type="number" min="0" class="form-control form-control-sm dcv-asg-max" style="width:80px" value="{{ infra.gateway.max }}"></div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="applyAsgSizing('gateway')" {% if not infra.gateway.asg_name %}disabled{% endif %}>Apply</button>
+                                            <span class="dcv-asg-msg small ms-2"></span>
+                                        </div>
+                                    </div>
+                                    {% if infra.gateway.instances %}
+                                    <table class="table table-sm table-hover mb-0" id="dcvGatewayFleetTable">
+                                        <thead>
+                                            <tr><th>Instance</th><th>State</th><th>AZ</th><th>Type</th><th>Uptime</th><th>CPU% <small class="text-muted">(last {{ period_label }})</small></th><th>NetIn / NetOut <small class="text-muted">(last {{ period_label }})</small></th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for inst in infra.gateway.instances %}
+                                            <tr>
+                                                <td><code>{{ inst.instance_id }}</code><br><small class="text-muted">{{ inst.private_ip }}</small></td>
+                                                <td>
+                                                    {% if inst.state == 'running' %}<span class="badge bg-success">{{ inst.state }}</span>
+                                                    {% else %}<span class="badge bg-secondary">{{ inst.state }}</span>{% endif %}
+                                                </td>
+                                                <td>{{ inst.az }}</td>
+                                                <td>{{ inst.instance_type }}</td>
+                                                <td>{{ inst.uptime }}</td>
+                                                <td>{% if inst.cpu_latest is not none %}{{ '%.1f' % inst.cpu_latest }}%{% else %}-{% endif %}</td>
+                                                <td><small>↓ {{ inst.network_in_5m_human or '-' }} / ↑ {{ inst.network_out_5m_human or '-' }}</small></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}<div class="text-muted">{{ _("(no gateway instances reported)") }}</div>{% endif %}
+                                </div>
+                            </div>
+
+                            <!-- NLBs / Target Groups -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-lbs">
+                                    <h5 class="card-title">{{ _("Load Balancers") }}</h5>
+                                    {% if infra.load_balancers %}
+                                    <table class="table table-sm table-hover mb-0" id="dcvLoadBalancersTable">
+                                        <thead>
+                                            <tr><th>Name</th><th>Type</th><th>State</th><th>Active flow count (last 5m)</th><th>New flows (last 5m)</th><th>Target groups</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for nlb in infra.load_balancers %}
+                                            <tr>
+                                                <td><code>{{ nlb.name }}</code><br><small class="text-muted">{{ nlb.scheme }}</small></td>
+                                                <td>{{ nlb.type }}</td>
+                                                <td>
+                                                    {% if nlb.state == 'active' %}<span class="badge bg-success">{{ nlb.state }}</span>
+                                                    {% else %}<span class="badge bg-secondary">{{ nlb.state or '?' }}</span>{% endif %}
+                                                </td>
+                                                <td>{{ nlb.active_flow_count|default('-') }}</td>
+                                                <td>{{ nlb.new_flow_count_5m|default('-') }}</td>
+                                                <td>
+                                                    {% for tg in nlb.target_groups %}
+                                                    <small>{{ tg.name }} -- healthy {{ tg.healthy }} / unhealthy {{ tg.unhealthy }}</small><br>
+                                                    {% endfor %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}<div class="text-muted">{{ _("(no NLBs reported)") }}</div>{% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Screenshot pipeline -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-screenshots">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">{{ _("Screenshot Pipeline") }}</h5>
+                                        <small class="text-muted">{{ _("From custom CW namespace") }} <code>EDH/DCVHighScale</code></small>
+                                    </div>
+                                    {% if screenshots and screenshots.error %}
+                                    <div class="alert alert-warning mb-0">{{ screenshots.error }}</div>
+                                    {% elif screenshots and screenshots.available %}
+                                        {% set ss = screenshots.latest %}
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Bucket Objects") }}</div>
+                                                    <div class="metric-latest">{{ ss.objects }}</div>
+                                                    <div class="metric-sub">{{ _("S3 keys under prefix") }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Bucket Size") }}</div>
+                                                    <div class="metric-latest">{{ screenshots.bytes_human or '-' }}</div>
+                                                    <div class="metric-sub">{{ _("Sum of object sizes") }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Oldest Capture") }}</div>
+                                                    <div class="metric-latest">{{ screenshots.max_age_human or '-' }}</div>
+                                                    <div class="metric-sub">{{ _("ago -- max age in bucket") }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Active Sessions") }}</div>
+                                                    <div class="metric-latest">{{ ss.active_sessions }}</div>
+                                                    <div class="metric-sub">{{ _("Poller last cycle") }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Captured") }} <small class="text-muted">({{ window_label }})</small></div>
+                                                    <div class="metric-latest" data-screenshot-latest="captured">{{ ss.captured_60m }}</div>
+                                                    <div class="metric-sub">{{ _("New screenshots written") }}</div>
+                                                    <canvas data-screenshot-spark="captured" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Skipped") }} <small class="text-muted">({{ window_label }})</small></div>
+                                                    <div class="metric-latest">{{ ss.skipped_60m }}</div>
+                                                    <div class="metric-sub">{{ _("Non-READY or no image") }}</div>
+                                                    <canvas data-screenshot-spark="skipped" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Blank Suppressed") }} <small class="text-muted">({{ window_label }})</small></div>
+                                                    <div class="metric-latest">{{ ss.blank_60m }}</div>
+                                                    <div class="metric-sub">{{ _("Below 1KB threshold") }}</div>
+                                                    <canvas data-screenshot-spark="blank" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Cycle Duration") }}</div>
+                                                    <div class="metric-latest">{{ ss.duration_ms }} ms</div>
+                                                    <div class="metric-sub">{{ _("Avg over last cycle") }}</div>
+                                                    <canvas data-screenshot-spark="duration" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if ss.broker_errors_60m and ss.broker_errors_60m > 0 %}
+                                        <div class="alert alert-danger mb-0 py-2">
+                                            <strong>{{ _("Broker reachability issues:") }}</strong>
+                                            {{ ss.broker_errors_60m }} {{ _("failed cycles in last 60 min.") }}
+                                        </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="text-muted">{{ _("No screenshot metrics yet -- next poller cycle will publish.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Lambdas -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-lambdas">
+                                    <h5 class="card-title">{{ _("Cluster Lambdas") }}</h5>
+                                    {% if infra.lambdas %}
+                                    <table class="table table-sm table-hover mb-0" id="dcvLambdasTable">
+                                        <thead>
+                                            <tr><th>Function</th><th>Runtime</th><th>State</th><th>Invocations <small class="text-muted">({{ window_label }})</small></th><th>Errors <small class="text-muted">({{ window_label }})</small></th><th>Throttles <small class="text-muted">({{ window_label }})</small></th><th>Avg duration</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for fn in infra.lambdas %}
+                                            <tr>
+                                                <td><code>{{ fn.name }}</code><br><small class="text-muted">{{ fn.last_modified }}</small></td>
+                                                <td>{{ fn.runtime }}</td>
+                                                <td>
+                                                    {% if fn.state == 'Active' %}<span class="badge bg-success">Active</span>
+                                                    {% else %}<span class="badge bg-warning text-dark">{{ fn.state or '?' }}</span>{% endif %}
+                                                </td>
+                                                <td>{{ fn.invocations_window|default(0) }}</td>
+                                                <td>
+                                                    {% if (fn.errors_window|default(0)) > 0 %}<span class="badge bg-danger">{{ fn.errors_window }}</span>
+                                                    {% else %}<span class="text-muted">0</span>{% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if (fn.throttles_window|default(0)) > 0 %}<span class="badge bg-warning text-dark">{{ fn.throttles_window }}</span>
+                                                    {% else %}<span class="text-muted">0</span>{% endif %}
+                                                </td>
+                                                <td>{% if fn.avg_duration_ms is not none %}{{ '%.0f' % fn.avg_duration_ms }} ms{% else %}-{% endif %}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}<div class="text-muted">{{ _("(no cluster lambdas)") }}</div>{% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Streaming health (DCV streaming metrics from VDI hosts) -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body" data-refresh-region="infra-streaming">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">{{ _("Streaming Health") }}</h5>
+                                        <small class="text-muted">{{ _("From custom CW namespace") }} <code>EDH/DCVStreaming</code></small>
+                                    </div>
+                                    {% if streaming and streaming.error %}
+                                    <div class="alert alert-warning mb-0">{{ streaming.error }}</div>
+                                    {% elif streaming and streaming.available %}
+                                        {% set st = streaming.latest %}
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Active Sessions") }}</div>
+                                                    <div class="metric-latest">{{ st.active_sessions }}</div>
+                                                    <div class="metric-sub">{{ _("Reported by VDI collectors") }}</div>
+                                                    <canvas data-streaming-spark="active" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Degraded Sessions") }}</div>
+                                                    <div class="metric-latest">
+                                                        {% if st.degraded_sessions and st.degraded_sessions > 0 %}
+                                                            <span class="text-danger">{{ st.degraded_sessions }}</span>
+                                                        {% else %}{{ st.degraded_sessions }}{% endif %}
+                                                    </div>
+                                                    <div class="metric-sub">{{ _("frame loss > 5%% or latency > 100ms") }}</div>
+                                                    <canvas data-streaming-spark="degraded" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Degraded Ratio") }}</div>
+                                                    <div class="metric-latest">
+                                                        {% if st.degraded_ratio and st.degraded_ratio > 0.10 %}
+                                                            <span class="text-danger">{{ st.degraded_ratio_human }}</span>
+                                                        {% elif st.degraded_ratio and st.degraded_ratio > 0.05 %}
+                                                            <span class="text-warning">{{ st.degraded_ratio_human }}</span>
+                                                        {% else %}{{ st.degraded_ratio_human }}{% endif %}
+                                                    </div>
+                                                    <div class="metric-sub">{{ _("Alarm fires above 10%%") }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("p95 Network Latency") }}</div>
+                                                    <div class="metric-latest">{{ st.p95_latency_ms_human or '-' }}</div>
+                                                    <div class="metric-sub">{{ _("Across all reporting sessions") }}</div>
+                                                    <canvas data-streaming-spark="latency_p95" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-2 mb-0">
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("p95 Frame Loss") }}</div>
+                                                    <div class="metric-latest">
+                                                        {% if st.p95_frame_loss and st.p95_frame_loss > 0.05 %}
+                                                            <span class="text-danger">{{ st.p95_frame_loss_human }}</span>
+                                                        {% else %}{{ st.p95_frame_loss_human or '-' }}{% endif %}
+                                                    </div>
+                                                    <div class="metric-sub">{{ _("Per-session loss rate, p95") }}</div>
+                                                    <canvas data-streaming-spark="frame_loss_p95" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-xl-3">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Sleeping Sessions") }}</div>
+                                                    <div class="metric-latest">{{ st.sleeping_sessions }}</div>
+                                                    <div class="metric-sub">{{ _("Sessions with no client connected") }}</div>
+                                                    <canvas data-streaming-spark="sleeping" height="40"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-md-6 col-xl-6">
+                                                <div class="metric-card h-100">
+                                                    <div class="metric-name">{{ _("Active Connections by Transport") }}</div>
+                                                    <div class="metric-latest">
+                                                        {{ st.transport_total }}
+                                                        <small class="text-muted ms-2" style="font-size:0.7em; font-weight:400;">
+                                                            {% set tr = st.transport %}
+                                                            {% if tr.websocket %}<span class="badge bg-info me-1">ws {{ tr.websocket }}</span>{% endif %}
+                                                            {% if tr.quic %}<span class="badge bg-success me-1">quic {{ tr.quic }}</span>{% endif %}
+                                                            {% if tr.http %}<span class="badge bg-secondary me-1">http {{ tr.http }}</span>{% endif %}
+                                                            {% if tr.dvtc %}<span class="badge bg-secondary me-1">dvtc {{ tr.dvtc }}</span>{% endif %}
+                                                        </small>
+                                                    </div>
+                                                    <div class="metric-sub">{{ _("Stacked over last hour: WebSocket / QUIC / HTTP / DVTC") }}</div>
+                                                    <canvas data-streaming-transport-stack height="60"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                    <div class="alert alert-secondary mb-0">{{ _("DCV streaming metrics not available yet. Collector needs at least 2 cycles (~2 min) after VDI bootstrap.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-secondary">{{ _("Infrastructure data not available yet -- still being assembled.") }}</div>
+                            {% endif %}
+
+                        </div>
+                        <!-- ==================== END INFRASTRUCTURE TAB ==================== -->
+
+                    </div>
+
+                    <script type="application/json" id="brokerMetricsData">{{ metrics_json | safe }}</script>
+                    <script type="application/json" id="screenshotsData">{{ screenshots_json | safe }}</script>
+                    <script type="application/json" id="streamingData">{{ streaming_json | safe }}</script>
+
+                    <script>
+                        // Embed broker metrics for Chart.js. Also exposed as a
+                        // JSON <script> tag so partial-refresh DOMParser can
+                        // re-extract on each fetch and rebuild charts.
+                        const _BROKER_METRICS_EL = document.getElementById('brokerMetricsData');
+                        const METRICS = _BROKER_METRICS_EL ? JSON.parse(_BROKER_METRICS_EL.textContent || '{}') : {};
+                        const _SCREENSHOTS_EL = document.getElementById('screenshotsData');
+                        let SCREENSHOTS = _SCREENSHOTS_EL ? JSON.parse(_SCREENSHOTS_EL.textContent || '{}') : {};
+                        const _STREAMING_EL = document.getElementById('streamingData');
+                        let STREAMING = _STREAMING_EL ? JSON.parse(_STREAMING_EL.textContent || '{}') : {};
+
+                        function formatMetricValue(v, unit) {
+                            // Mirror of _format_metric_latest in dcv_overview.py.
+                            // Keep the two in sync when adding new units.
+                            if (v === null || v === undefined || isNaN(v)) return '-';
+                            if (unit === 'bytes') {
+                                const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+                                let n = Math.abs(v);
+                                let i = 0;
+                                while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+                                return (v < 0 ? '-' : '') + n.toFixed(1) + ' ' + units[i];
+                            }
+                            if (unit === 'ratio') return (v * 100).toFixed(1) + '%';
+                            if (unit === 'ms') return Math.abs(v) < 1 ? v.toFixed(2) + ' ms' : Math.round(v) + ' ms';
+                            if (unit === 'count') return Math.round(v).toString();
+                            return Math.abs(v) < 1 ? v.toFixed(2) : Math.round(v).toString();
+                        }
+
+                        // Stable color for a broker EC2 instance id. Hash the id
+                        // into the HSL hue space so the same broker keeps its
+                        // color across refreshes / windows. Saturation/lightness
+                        // tuned to be readable on both light and dark themes.
+                        function _brokerColor(id) {
+                            let h = 0;
+                            for (let i = 0; i < id.length; i++) {
+                                h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+                            }
+                            const hue = Math.abs(h) % 360;
+                            return {
+                                line: `hsl(${hue}, 70%, 50%)`,
+                                fill: `hsla(${hue}, 70%, 50%, 0.10)`,
+                            };
+                        }
+
+                        // Build a Chart.js dataset for the aggregate line. Bold,
+                        // theme-accent colored. The min/max band datasets are
+                        // wired with `fill: '-1'` so Chart.js fills the band
+                        // between the max and min lines.
+                        function _aggregateDataset(series) {
+                            return {
+                                label: (series.aggregate && series.aggregate.stat) || series.stat || 'Aggregate',
+                                data: (series.aggregate && series.aggregate.values) || series.values || [],
+                                borderColor: '#17a2b8',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2.0,
+                                tension: 0.25,
+                                fill: false,
+                                pointRadius: 0,
+                                pointHoverRadius: 3,
+                                order: 1,
+                            };
+                        }
+
+                        function _bandDatasets(series) {
+                            const min = series.min_band || {};
+                            const max = series.max_band || {};
+                            if (!min.values || !min.values.length || !max.values || !max.values.length) return [];
+                            return [
+                                {
+                                    // Max line — drawn first
+                                    label: 'max',
+                                    data: max.values,
+                                    borderColor: 'rgba(108, 117, 125, 0.45)',
+                                    backgroundColor: 'rgba(108, 117, 125, 0.10)',
+                                    borderWidth: 0.6,
+                                    borderDash: [3, 3],
+                                    tension: 0.25,
+                                    fill: false,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0,
+                                    order: 4,
+                                },
+                                {
+                                    // Min line — fills the band up to the max line above it
+                                    label: 'min',
+                                    data: min.values,
+                                    borderColor: 'rgba(108, 117, 125, 0.45)',
+                                    backgroundColor: 'rgba(108, 117, 125, 0.12)',
+                                    borderWidth: 0.6,
+                                    borderDash: [3, 3],
+                                    tension: 0.25,
+                                    fill: '-1',  // fill toward the previous dataset (max)
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0,
+                                    order: 5,
+                                },
+                            ];
+                        }
+
+                        function _memberDatasets(series) {
+                            const members = (series.members || []);
+                            return members.map(m => {
+                                const c = _brokerColor(m.id || m.label || '');
+                                return {
+                                    label: m.id || 'broker',
+                                    data: m.values || [],
+                                    borderColor: c.line,
+                                    backgroundColor: c.fill,
+                                    borderWidth: 1.1,
+                                    tension: 0.25,
+                                    fill: false,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 3,
+                                    order: 2,
+                                };
+                            });
+                        }
+
+                        function makeMiniChart(canvas, series) {
+                            // Backwards-compatible name. Renders an aggregate line +
+                            // optional MIN/MAX band + per-broker fleet lines when
+                            // the series carries `members`. Falls through to the
+                            // legacy single-line behavior for screenshots/sparks.
+                            const _unit = series && series.unit;
+                            const labels = (series.aggregate && series.aggregate.timestamps && series.aggregate.timestamps.length
+                                            ? series.aggregate.timestamps : (series.timestamps || []))
+                                            .map(t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+
+                            let datasets;
+                            if (series.members && series.members.length) {
+                                datasets = [
+                                    ..._bandDatasets(series),
+                                    ..._memberDatasets(series),
+                                    _aggregateDataset(series),
+                                ];
+                            } else {
+                                // Legacy single-line behavior (screenshots sparklines, KPI sparks).
+                                datasets = [{
+                                    data: series.values || [],
+                                    borderColor: '#17a2b8',
+                                    backgroundColor: 'rgba(23,162,184,0.10)',
+                                    borderWidth: 1.5,
+                                    tension: 0.25,
+                                    fill: true,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 3,
+                                }];
+                            }
+
+                            return new Chart(canvas, {
+                                type: 'line',
+                                data: { labels: labels, datasets: datasets },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    animation: false,
+                                    plugins: {
+                                        legend: {
+                                            // Show a compact legend only when multiple brokers exist.
+                                            display: !!(series.members && series.members.length > 1),
+                                            position: 'bottom',
+                                            labels: {
+                                                boxWidth: 8,
+                                                boxHeight: 8,
+                                                font: { size: 10 },
+                                                filter: (item) => item.text && item.text !== 'min' && item.text !== 'max',
+                                            },
+                                        },
+                                        tooltip: {
+                                            displayColors: false,
+                                            callbacks: {
+                                                label: (ctx) => `${ctx.dataset.label || ''}: ${formatMetricValue(ctx.parsed.y, _unit)}`.trim()
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: { display: false },
+                                        y: { display: false, beginAtZero: true }
+                                    }
+                                }
+                            });
+                        }
+
+                        function renderBrokerCharts() {
+                            if (typeof Chart === 'undefined' || !METRICS || !METRICS.series) return;
+                            const seriesByMetric = {};
+                            METRICS.series.forEach(s => seriesByMetric[s.metric] = s);
+                            document.querySelectorAll('canvas[data-metric]').forEach(c => {
+                                const m = c.dataset.metric;
+                                const s = seriesByMetric[m];
+                                if (!s || !s.values || s.values.length === 0) return;
+                                if (c._chart) c._chart.destroy();
+                                c._chart = makeMiniChart(c, s);
+                            });
+                        }
+
+                        // Render or update the Screenshots sparklines from
+                        // the snapshot's per-spec series fields. Each canvas
+                        // declares its key via data-screenshot-spark="<key>"
+                        // and we read from SCREENSHOTS.<key>_series.
+                        function renderScreenshotSpark() {
+                            if (typeof Chart === 'undefined' || !SCREENSHOTS) return;
+                            const seriesByKey = {
+                                captured: SCREENSHOTS.capture_series || [],
+                                skipped:  SCREENSHOTS.skipped_series  || [],
+                                blank:    SCREENSHOTS.blank_series    || [],
+                                duration: SCREENSHOTS.duration_series || [],
+                            };
+                            document.querySelectorAll('canvas[data-screenshot-spark]').forEach(c => {
+                                const key = c.dataset.screenshotSpark;
+                                const pairs = seriesByKey[key] || [];
+                                if (!pairs.length) return;
+                                const adapted = {
+                                    metric: 'screenshot.' + key,
+                                    timestamps: pairs.map(p => p[0]),
+                                    values: pairs.map(p => p[1] || 0),
+                                };
+                                if (c._chart) {
+                                    c._chart.data.labels = adapted.timestamps.map(
+                                        t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+                                    c._chart.data.datasets[0].data = adapted.values;
+                                    c._chart.update('none');
+                                } else {
+                                    c._chart = makeMiniChart(c, adapted);
+                                }
+                            });
+                        }
+
+                        // Render the Streaming Health sparklines from the
+                        // streaming snapshot. Same shape as
+                        // renderScreenshotSpark — canvases declare
+                        // data-streaming-spark="<key>" matching one of the
+                        // STREAMING.*_series fields.
+                        function renderStreamingSpark() {
+                            if (typeof Chart === 'undefined' || !STREAMING) return;
+                            const seriesByKey = {
+                                active:         STREAMING.active_series         || [],
+                                degraded:       STREAMING.degraded_series       || [],
+                                sleeping:       STREAMING.sleeping_series       || [],
+                                latency_p95:    STREAMING.latency_p95_series    || [],
+                                frame_loss_p95: STREAMING.frame_loss_p95_series || [],
+                            };
+                            document.querySelectorAll('canvas[data-streaming-spark]').forEach(c => {
+                                const key = c.dataset.streamingSpark;
+                                const pairs = seriesByKey[key] || [];
+                                if (!pairs.length) return;
+                                const adapted = {
+                                    metric: 'streaming.' + key,
+                                    timestamps: pairs.map(p => p[0]),
+                                    values: pairs.map(p => p[1] || 0),
+                                };
+                                if (c._chart) {
+                                    c._chart.data.labels = adapted.timestamps.map(
+                                        t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+                                    c._chart.data.datasets[0].data = adapted.values;
+                                    c._chart.update('none');
+                                } else {
+                                    c._chart = makeMiniChart(c, adapted);
+                                }
+                            });
+
+                            // Stacked bar/area for transport breakdown over the window
+                            const tCanvas = document.querySelector('canvas[data-streaming-transport-stack]');
+                            if (tCanvas) {
+                                const TRANSPORTS = ['websocket', 'quic', 'http', 'dvtc'];
+                                const COLORS = {
+                                    websocket: 'rgba(13,202,240,0.55)',  // info
+                                    quic:      'rgba(40,167,69,0.55)',   // ok
+                                    http:      'rgba(173,181,189,0.55)', // muted
+                                    dvtc:      'rgba(108,117,125,0.55)', // muted darker
+                                };
+                                const tSeries = (STREAMING.transport_series || {});
+                                // Use the longest series as the time axis
+                                let labels = [];
+                                for (const t of TRANSPORTS) {
+                                    const s = tSeries[t] || [];
+                                    if (s.length > labels.length) labels = s.map(p => p[0]);
+                                }
+                                if (labels.length) {
+                                    const datasets = TRANSPORTS.map(t => ({
+                                        label: t,
+                                        data: (tSeries[t] || []).map(p => p[1] || 0),
+                                        backgroundColor: COLORS[t],
+                                        borderColor: COLORS[t].replace('0.55', '0.9'),
+                                        borderWidth: 0.5,
+                                        fill: true,
+                                        stack: 'connections',
+                                        tension: 0.2,
+                                        pointRadius: 0,
+                                    }));
+                                    if (tCanvas._chart) tCanvas._chart.destroy();
+                                    tCanvas._chart = new Chart(tCanvas, {
+                                        type: 'line',
+                                        data: {
+                                            labels: labels.map(ts => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})),
+                                            datasets: datasets,
+                                        },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false, animation: false,
+                                            plugins: {
+                                                legend: { display: true, position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, font: { size: 10 } } },
+                                                tooltip: { displayColors: true, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}` } },
+                                            },
+                                            scales: {
+                                                x: { display: false, stacked: true },
+                                                y: { display: false, stacked: true, beginAtZero: true },
+                                            },
+                                        },
+                                    });
+                                }
+                            }
+                        }
+
+                        // Render KPI sparklines on the Sessions tab from the
+                        // already-loaded METRICS payload. Each canvas
+                        // declares the broker metric name via
+                        // data-kpi-spark="<exact metric name>". Falls
+                        // through silently when the matching series isn't
+                        // present (e.g. missing metric, no data yet).
+                        function renderKpiSparks() {
+                            if (typeof Chart === 'undefined' || !METRICS || !METRICS.series) return;
+                            const seriesByMetric = {};
+                            METRICS.series.forEach(s => seriesByMetric[s.metric] = s);
+                            document.querySelectorAll('canvas[data-kpi-spark]').forEach(c => {
+                                const m = c.dataset.kpiSpark;
+                                const s = seriesByMetric[m];
+                                if (!s || !s.values || !s.values.length) return;
+                                if (c._chart) {
+                                    c._chart.data.labels = s.timestamps.map(
+                                        t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+                                    c._chart.data.datasets[0].data = s.values;
+                                    c._chart.update('none');
+                                } else {
+                                    c._chart = makeMiniChart(c, s);
+                                }
+                            });
+                        }
+
+                        // Update Chart.js datasets in place from a fresh metrics
+                        // payload. Avoids destroy/recreate flicker so the user
+                        // sees a smooth slide of the line chart on each refresh.
+                        function updateBrokerChartsInPlace(newMetrics) {
+                            if (typeof Chart === 'undefined' || !newMetrics || !newMetrics.series) return;
+                            const seriesByMetric = {};
+                            newMetrics.series.forEach(s => seriesByMetric[s.metric] = s);
+                            document.querySelectorAll('canvas[data-metric]').forEach(c => {
+                                const m = c.dataset.metric;
+                                const s = seriesByMetric[m];
+                                if (!s) return;
+                                // No prior chart -> create now (e.g. metric became
+                                // available between the original render and now)
+                                if (!c._chart) {
+                                    if (s.values && s.values.length) c._chart = makeMiniChart(c, s);
+                                    return;
+                                }
+                                c._chart.data.labels = (s.timestamps || []).map(
+                                    t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+                                c._chart.data.datasets[0].data = s.values || [];
+                                c._chart.update('none');
+                                // Latest value text below chart name
+                                const latestEl = document.querySelector(
+                                    '[data-metric-latest="' + CSS.escape(m) + '"]');
+                                if (latestEl && s.latest !== null && s.latest !== undefined) {
+                                    const v = parseFloat(s.latest);
+                                    latestEl.textContent = (v >= 1) ? v.toFixed(0) : v.toFixed(2);
+                                }
+                            });
+                        }
+
+                        // Auto-refresh -- pulls live JSON from the API and patches DOM in place
+                        let _autoRefreshTimer = null;
+                        const REFRESH_INTERVAL_MS = 60 * 1000;
+
+                        function setAutoRefreshUi(on) {
+                            const badge = document.getElementById('autoRefreshState');
+                            const btn = document.getElementById('autoRefreshToggle');
+                            if (on) {
+                                badge.textContent = 'auto: ON (60s)';
+                                badge.classList.remove('bg-secondary');
+                                badge.classList.add('bg-success');
+                                btn.innerHTML = '<i class="fa-solid fa-circle-pause"></i> {{ _("Pause auto-refresh") }}';
+                            } else {
+                                badge.textContent = 'auto: off';
+                                badge.classList.remove('bg-success');
+                                badge.classList.add('bg-secondary');
+                                btn.innerHTML = '<i class="fa-solid fa-circle-play"></i> {{ _("Auto 60s") }}';
+                            }
+                        }
+
+                        // Mark the page as fetching so concurrent refreshes are
+                        // suppressed (e.g. user spamming the Refresh button).
+                        let _refreshInFlight = false;
+
+                        // Centralised DataTable definitions. Each entry is
+                        // [tableId, defaultOptions]. The default options are
+                        // applied on first init and used as the fallback when
+                        // a saved order isn't available. AZ-default sorts on
+                        // the broker/gateway fleet tables put us-east-2a
+                        // first, b second, c third (plain alpha works
+                        // because the only varying suffix is the AZ letter).
+                        const _DT_TABLES = [
+                            ['dcvServersTable',       {order: [[4, 'asc'], [0, 'asc']], pageLength: 25}],
+                            ['dcvSessionsTable',      {order: [[4, 'asc'], [7, 'desc']], pageLength: 25, columnDefs: [{orderable: false, targets: 8}]}],
+                            ['dcvBrokerFleetTable',   {order: [[2, 'asc'], [0, 'asc']], paging: false, info: false, searching: false}],
+                            ['dcvGatewayFleetTable',  {order: [[2, 'asc'], [0, 'asc']], paging: false, info: false, searching: false}],
+                            ['dcvLoadBalancersTable', {order: [[0, 'asc']], paging: false, info: false, searching: false}],
+                            ['dcvLambdasTable',       {order: [[4, 'desc'], [3, 'desc']], paging: false, info: false, searching: false}],
+                        ];
+
+                        // Pull a fresh full-page render and swap only the regions
+                        // marked with data-refresh-region. Preserves: scroll
+                        // position, active tab, DataTable order/page state, and
+                        // Chart.js instances. Falls back to full page reload on
+                        // any error so the user is never stranded with stale UI.
+                        // Per-pool card accordion. The class lives on the card
+                        // root (the refresh-region element), which the partial
+                        // refresh never replaces -- only its innerHTML -- so the
+                        // open/closed state survives auto-refresh for free.
+                        function togglePoolCard(headEl) {
+                            const card = headEl.closest('.pool-card');
+                            if (card) card.classList.toggle('open');
+                        }
+
+                        async function refreshNow() {
+                            if (_refreshInFlight) return;
+                            _refreshInFlight = true;
+                            const _last = document.getElementById('lastUpdated');
+                            if (_last) _last.textContent = 'updating...';
+                            const _tm = document.getElementById('dataLoadTiming');
+                            if (_tm) _tm.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> refreshing\u2026';
+                            const _t0 = performance.now();
+                            try {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('partial', '1');
+                                const resp = await fetch(url.toString(), {
+                                    credentials: 'same-origin',
+                                    headers: {'X-Partial-Refresh': '1'},
+                                });
+                                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                                const html = await resp.text();
+                                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                                // Save DataTable state before swap
+                                const _dtState = {};
+                                _DT_TABLES.forEach(([tid, _opts]) => {
+                                    const tbl = document.getElementById(tid);
+                                    if (!tbl || typeof DataTable === 'undefined') return;
+                                    if (!DataTable.isDataTable('#' + tid)) return;
+                                    const dt = new DataTable('#' + tid);
+                                    _dtState[tid] = {
+                                        order: dt.order(),
+                                        page: dt.page.info().page,
+                                        search: dt.search(),
+                                        pageLength: dt.page.len(),
+                                    };
+                                });
+
+                                // Swap regions
+                                document.querySelectorAll('[data-refresh-region]').forEach(target => {
+                                    const key = target.dataset.refreshRegion;
+                                    const fresh = doc.querySelector(
+                                        '[data-refresh-region="' + CSS.escape(key) + '"]');
+                                    if (!fresh) return;
+                                    target.innerHTML = fresh.innerHTML;
+                                });
+
+                                // Re-init DataTables on the freshly-populated
+                                // tbodies and restore their order/page/search.
+                                _DT_TABLES.forEach(([tid, defaultOpts]) => {
+                                    const tbl = document.getElementById(tid);
+                                    if (!tbl || typeof DataTable === 'undefined') return;
+                                    if (DataTable.isDataTable('#' + tid)) {
+                                        new DataTable('#' + tid).destroy();
+                                    }
+                                    const opts = Object.assign({}, defaultOpts);
+                                    const saved = _dtState[tid];
+                                    if (saved) {
+                                        opts.order = saved.order;
+                                        if (saved.pageLength) opts.pageLength = saved.pageLength;
+                                        if (saved.search) opts.search = {search: saved.search};
+                                    }
+                                    const dt = new DataTable('#' + tid, opts);
+                                    if (saved && saved.page > 0) dt.page(saved.page).draw('page');
+                                });
+
+                                // Re-extract metrics JSON and update charts in
+                                // place (no flicker) instead of destroy/recreate.
+                                const newMetricsTag = doc.getElementById('brokerMetricsData');
+                                if (newMetricsTag) {
+                                    try {
+                                        const newMetrics = JSON.parse(newMetricsTag.textContent || '{}');
+                                        Object.assign(METRICS, newMetrics);
+                                        updateBrokerChartsInPlace(newMetrics);
+                                        renderKpiSparks();
+                                    } catch (err) { console.warn('metrics parse failed', err); }
+                                }
+
+                                // Re-extract screenshot snapshot JSON and update
+                                // the Captured sparkline + the latest cell.
+                                const newScreenshotsTag = doc.getElementById('screenshotsData');
+                                if (newScreenshotsTag) {
+                                    try {
+                                        SCREENSHOTS = JSON.parse(newScreenshotsTag.textContent || '{}');
+                                        renderScreenshotSpark();
+                                    } catch (err) { console.warn('screenshots parse failed', err); }
+                                }
+
+                                // Re-extract streaming snapshot JSON and update
+                                // the Streaming Health sparklines.
+                                const newStreamingTag = doc.getElementById('streamingData');
+                                if (newStreamingTag) {
+                                    try {
+                                        STREAMING = JSON.parse(newStreamingTag.textContent || '{}');
+                                        renderStreamingSpark();
+                                    } catch (err) { console.warn('streaming parse failed', err); }
+                                }
+
+                                if (_last) _last.textContent = 'updated ' + new Date().toLocaleTimeString();
+                                if (_tm) {
+                                    const _dt = ((performance.now() - _t0) / 1000).toFixed(1);
+                                    _tm.innerHTML = '<i class="fa-regular fa-clock"></i> ' + _dt + 's';
+                                    _tm.title = 'Last refresh round-trip (client-measured): ' + _dt + 's';
+                                }
+                            } catch (err) {
+                                console.warn('partial refresh failed, falling back to full reload:', err);
+                                window.location.reload();
+                            } finally {
+                                _refreshInFlight = false;
+                            }
+                        }
+
+                        function toggleAutoRefresh() {
+                            if (_autoRefreshTimer) {
+                                clearInterval(_autoRefreshTimer);
+                                _autoRefreshTimer = null;
+                                setAutoRefreshUi(false);
+                            } else {
+                                _autoRefreshTimer = setInterval(refreshNow, REFRESH_INTERVAL_MS);
+                                setAutoRefreshUi(true);
+                            }
+                        }
+
+                        // Switch the time-window of all metric pulls. Updates
+                        // the URL (so reload / share preserves the window),
+                        // toggles the active button, then triggers an in-place
+                        // refresh which re-renders KPIs, charts, infra
+                        // tables, sparkline, and Lambda totals at the new
+                        // resolution.
+                        function selectWindow(key) {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('window', key);
+                            // Preserve the currently-active tab so the
+                            // post-reload page stays where the user was
+                            // (otherwise the server-side default_tab kicks
+                            // back in and we land on Infrastructure).
+                            const activePill = document.querySelector(
+                                '#clusterStatusTabs .nav-link.active');
+                            if (activePill) {
+                                if (activePill.id === 'sessions-tab') {
+                                    url.searchParams.set('tab', 'sessions');
+                                } else if (activePill.id === 'infra-tab') {
+                                    url.searchParams.set('tab', 'infra');
+                                }
+                            }
+                            // Drop ?partial=1 if present from a prior fetch
+                            url.searchParams.delete('partial');
+                            window.history.pushState({}, '', url);
+                            document.querySelectorAll('#windowSelector .btn').forEach(b => {
+                                b.classList.toggle('active', b.dataset.window === key);
+                            });
+                            // Force full reload at this window so the title
+                            // labels (which are server-rendered with
+                            // window_label / period_label) update too.
+                            // refreshNow() would only swap data-refresh-region
+                            // contents, leaving stale labels around them.
+                            window.location.assign(url.toString().replace(/[?&]partial=1\b/, ''));
+                        }
+
+                        document.addEventListener("DOMContentLoaded", function() {
+                            if (typeof DataTable !== "undefined") {
+                                _DT_TABLES.forEach(([tid, opts]) => {
+                                    if (document.getElementById(tid)) {
+                                        new DataTable("#" + tid, opts);
+                                    }
+                                });
+                            }
+
+                            // Apply default tab from server (query string > view default).
+                            const _defaultTab = (document.getElementById("defaultTab") || {}).dataset?.defaultTab || "infra";
+                            const _tabBtnId = (_defaultTab === "sessions") ? "sessions-tab" : "infra-tab";
+                            const _tabBtn = document.getElementById(_tabBtnId);
+                            if (_tabBtn && typeof bootstrap !== "undefined" && bootstrap.Tab) {
+                                new bootstrap.Tab(_tabBtn).show();
+                            } else if (_tabBtn) {
+                                // Fallback: manual class toggle if bootstrap.Tab API isn't loaded yet.
+                                document.querySelectorAll("#clusterStatusTabs .nav-link").forEach(b => b.classList.remove("active"));
+                                document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("show", "active"));
+                                _tabBtn.classList.add("active");
+                                const targetId = _tabBtn.getAttribute("data-bs-target");
+                                if (targetId) {
+                                    const pane = document.querySelector(targetId);
+                                    if (pane) pane.classList.add("show", "active");
+                                }
+                            }
+
+                            // Apply auto-refresh default. If on, kick the timer once charts are rendered.
+                            const _autoOn = ((document.getElementById("autoRefreshDefault") || {}).dataset?.autoRefresh === "1");
+                            if (_autoOn) {
+                                _autoRefreshTimer = setInterval(refreshNow, REFRESH_INTERVAL_MS);
+                                setAutoRefreshUi(true);
+                            } else {
+                                setAutoRefreshUi(false);
+                            }
+
+                            renderBrokerCharts();
+                            renderScreenshotSpark();
+                            renderStreamingSpark();
+                            renderKpiSparks();
+                            const _last = document.getElementById('lastUpdated');
+                            if (_last) _last.textContent = 'updated ' + new Date().toLocaleTimeString();
+                        });
+
+                        // ===== Session Path drill-down =====
+                        // Opens a Bootstrap modal showing the end-to-end
+                        // path for one session: SOCA UUID -> client ->
+                        // gateway fleet -> broker (Ignite node) -> DCV
+                        // server (instance). Driven by the JSON
+                        // endpoint at /admin/cluster_status/dcv_session_path/<id>.
+                        async function showSessionPath(sessionId) {
+                            const modalEl = document.getElementById('sessionPathModal');
+                            if (!modalEl) return;
+                            const bodyEl = document.getElementById('sessionPathBody');
+                            // Wire the modal's "Pop out" button to open the
+                            // standalone view in a new window. Done here (not
+                            // in the static markup) so the URL carries the
+                            // session id at click-time.
+                            const popBtn = document.getElementById('sessionPathPopOut');
+                            if (popBtn) {
+                                popBtn.onclick = () => {
+                                    const url = '/admin/cluster_status/dcv_session_path_view/' + encodeURIComponent(sessionId);
+                                    window.open(url, 'sessionPath_' + sessionId,
+                                                'width=1300,height=900,resizable=yes,scrollbars=yes');
+                                };
+                            }
+                            bodyEl.innerHTML = '<div class="text-muted small">Loading session path...</div>';
+                            const modal = new bootstrap.Modal(modalEl);
+                            modal.show();
+                            try {
+                                const resp = await fetch(
+                                    '/admin/cluster_status/dcv_session_path/' + encodeURIComponent(sessionId),
+                                    {credentials: 'same-origin'}
+                                );
+                                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                                const data = await resp.json();
+                                bodyEl.innerHTML = window.__renderSessionPathHTML(data);
+                                window.__renderSessionPathSparks(data);
+                            } catch (err) {
+                                bodyEl.innerHTML = '<div class="alert alert-danger">Failed to load: ' + err + '</div>';
+                            }
+                        }
+
+                        // -----------------------------------------------------------
+                        // DCV broker/gateway ASG sizing (min/desired/max)
+                        // -----------------------------------------------------------
+                        async function applyAsgSizing(fleet) {
+                            const root = document.querySelector('.dcv-asg-sizing[data-fleet="' + fleet + '"]');
+                            if (!root) return;
+                            const msg = root.querySelector('.dcv-asg-msg');
+                            const min = parseInt(root.querySelector('.dcv-asg-min').value, 10);
+                            const desired = parseInt(root.querySelector('.dcv-asg-desired').value, 10);
+                            const max = parseInt(root.querySelector('.dcv-asg-max').value, 10);
+                            if (![min, desired, max].every(Number.isFinite) || min < 0 || !(min <= desired && desired <= max)) {
+                                msg.className = 'dcv-asg-msg small ms-2 text-danger';
+                                msg.textContent = 'Require 0 <= min <= desired <= max';
+                                return;
+                            }
+                            if (!confirm('Resize the ' + fleet + ' ASG to min=' + min + ' / desired=' + desired + ' / max=' + max + '?')) return;
+                            msg.className = 'dcv-asg-msg small ms-2 text-muted';
+                            msg.textContent = 'Applying...';
+                            try {
+                                const headers = {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRFToken': "{{ csrf_token() | safe }}"
+                                };
+                                const r = await fetch('/admin/cluster_status/dcv_asg_sizing', {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    headers: headers,
+                                    body: JSON.stringify({ fleet: fleet, min: min, desired: desired, max: max }),
+                                });
+                                const body = await r.json();
+                                if (r.ok && body && body.success) {
+                                    msg.className = 'dcv-asg-msg small ms-2 text-success';
+                                    msg.textContent = 'Updated -- new capacity applying.';
+                                } else {
+                                    msg.className = 'dcv-asg-msg small ms-2 text-danger';
+                                    msg.textContent = 'Failed: ' + ((body && body.message) || ('HTTP ' + r.status));
+                                }
+                            } catch (err) {
+                                msg.className = 'dcv-asg-msg small ms-2 text-danger';
+                                msg.textContent = 'Error: ' + err;
+                            }
+                        }
+
+                        // -----------------------------------------------------------
+                        // Bootstrap template cache: status panel + admin refresh
+                        // -----------------------------------------------------------
+                        async function loadBootstrapCacheStatus() {
+                            try {
+                                const r = await fetch('/admin/cluster_status/bootstrap_cache', {
+                                    method: 'GET',
+                                    credentials: 'same-origin',
+                                });
+                                if (!r.ok) {
+                                    document.getElementById('bcEnabled').textContent = '(error ' + r.status + ')';
+                                    return;
+                                }
+                                const body = await r.json();
+                                const m = (body && body.message) ? body.message : {};
+                                document.getElementById('bcEnabled').innerHTML = m.enabled
+                                    ? '<span class="badge bg-success">enabled</span>'
+                                    : '<span class="badge bg-secondary">disabled</span>';
+                                document.getElementById('bcEntryCount').textContent = (m.entry_count != null) ? m.entry_count : '--';
+                                document.getElementById('bcTtl').textContent = (m.ttl_minutes != null) ? m.ttl_minutes : '--';
+                                document.getElementById('bcRetention').textContent = (m.cleanup_retention_days != null) ? m.cleanup_retention_days : '--';
+                            } catch (err) {
+                                document.getElementById('bcEnabled').textContent = '(error)';
+                            }
+                        }
+                        async function refreshBootstrapCache() {
+                            const btn = document.getElementById('bootstrapCacheRefreshBtn');
+                            const msg = document.getElementById('bootstrapCacheMessage');
+                            if (!confirm('Delete every cached bootstrap entry?\n\nThe next VDI/HPC create per stack-config will re-render fresh (~1.5s extra latency on those creates only).')) {
+                                return;
+                            }
+                            btn.disabled = true;
+                            msg.style.display = 'none';
+                            try {
+                                const headers = {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRFToken': "{{ csrf_token() | safe }}"
+                                };
+                                const r = await fetch('/admin/cluster_status/bootstrap_cache/refresh', {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    headers: headers,
+                                });
+                                const body = await r.json();
+                                if (r.ok && body && body.success) {
+                                    const deleted = (body.message && body.message.markers_deleted) || 0;
+                                    msg.className = 'alert alert-success';
+                                    msg.textContent = 'Refreshed cache: ' + deleted + ' marker(s) deleted.';
+                                } else {
+                                    msg.className = 'alert alert-danger';
+                                    msg.textContent = 'Failed: ' + ((body && body.message) || ('HTTP ' + r.status));
+                                }
+                                msg.style.display = '';
+                                loadBootstrapCacheStatus();
+                            } catch (err) {
+                                msg.className = 'alert alert-danger';
+                                msg.textContent = 'Failed: ' + err;
+                                msg.style.display = '';
+                            } finally {
+                                btn.disabled = false;
+                            }
+                        }
+                        // Load once on page-render and on every Infrastructure-tab activation.
+                        document.addEventListener('DOMContentLoaded', loadBootstrapCacheStatus);
+                        document.getElementById('infra-tab')?.addEventListener('shown.bs.tab', loadBootstrapCacheStatus);
+                    </script>
+
+                </div>
+            </div>
+
+            {% include 'admin/cluster_status/dcv_session_path_renderer.html' %}
+
+            <!-- Session Path drill-down modal -->
+            <div class="modal fade" id="sessionPathModal" tabindex="-1" aria-labelledby="sessionPathLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="sessionPathLabel"><i class="fa-solid fa-route"></i> {{ _("Session Path") }}</h5>
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="sessionPathPopOut" title="{{ _('Open in a separate window') }}">
+                                <i class="fa-solid fa-up-right-from-square"></i> {{ _("Pop out") }}
+                            </button>
+                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="sessionPathBody">
+                                <div class="text-muted small">{{ _("Click the route icon next to a session to see its end-to-end path.") }}</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Close") }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% include 'common/footer.html' %}
+        </div>
+    </div>
+</body>
+</html>

@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Begin: Configure Proxy variable (disabled by default) if not already set
+set -a  # auto-export vars (bare /etc/environment KEY=value lines are not exported on source)
 source /etc/environment
+set +a
 
 if [[ -z "${http_proxy}" ]] && [[ -z "${HTTP_PROXY}" ]]; then
    echo "#export http_proxy=" >> /etc/environment

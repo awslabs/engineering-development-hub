@@ -1,0 +1,81 @@
+#!/bin/bash -xe
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Important: Keep this file < 16 KBs (AWS EC2 UserData requirement)
+# Edit 02_pre_requisites.sh.j2 / 03_setup.sh.j2 instead
+
+# Load common logging feature
+{% include "templates/linux/common/log.sh.j2" %}
+
+# Load  reboot management
+{% include "templates/linux/common/reboot_management.sh.j2" %}
+
+# Load cloud-init wrapper
+{% include "templates/linux/common/cloud_init.sh.j2" %}
+
+# Patch DNS Resolver when using Debian based distributions
+{% include "templates/linux/dns_resolver.sh.j2" %}
+
+# Configure HTTP proxy if any
+{% include "templates/linux/http_proxy.sh.j2" %}
+
+# Load Custom Wrappers
+{% include "templates/linux/common/file_download.sh.j2" %}
+{% include "templates/linux/common/wrapper_awscli.sh.j2" %}
+{% include "templates/linux/common/wrapper_imds.sh.j2" %}
+
+# Load packages management functions
+{% include "templates/linux/system_packages/packages_management.sh.j2" %}
+
+# Install awscli
+{% include "templates/linux/awscli.sh.j2" %}
+
+# Install AWS Systems Manager agent
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
+# Remove any previous references of SOCA/EDH to the environment file (if any)
+cp /etc/environment /etc/environment.original.$(date +%s)
+sed -i '/SOCA_\|EDH_/d' /etc/environment
+log_info "Running Kernel $(uname -r)"
+unset_reboot_required
+
+# Create SOCA Bootstrap structure
+EDH_BOOTSTRAP_ASSETS_FOLDER="/root/edh_bootstrap_$(instance_id)"
+EDH_BOOTSTRAP_LOGS_FOLDER="${EDH_BOOTSTRAP_ASSETS_FOLDER}/logs"
+
+if [[ ! -d "${EDH_BOOTSTRAP_ASSETS_FOLDER}" ]]; then
+    log_info "First user data execution, downloading bootstrap sequence"
+    # Retrieve Boostrap sequence from S3
+    {% if context.get("/configuration/Region").startswith("us-gov-")  %}
+        S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+    {% elif context.get("/configuration/Region").startswith("cn-")  %}
+        S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+    {% elif context.get("/configuration/Region").startswith("eusc-") %}
+        S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+    {% else %}
+        S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+    {% endif %}
+
+    log_info "Detected S3 Bucket Region: ${S3_BUCKET_REGION}"
+    # Retrieve Boostrap sequences
+    aws_cli s3 --region ${S3_BUCKET_REGION} sync s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/config/do_not_delete/bootstrap/{{context.get("/job/NodeType")}}/ ${EDH_BOOTSTRAP_ASSETS_FOLDER}
+fi
+
+mkdir -p ${EDH_BOOTSTRAP_LOGS_FOLDER}
+log_info "EC2 UserData script is being executed, check logs in /var/log/cloud-init*" >> "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/01_user_data.sh.log" 2>&1
+
+# Install Required System library/packages
+/bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/install_required_packages.sh >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/install_required_packages.sh.log 2>&1
+
+if [[ "$(get_reboot_required)" == "yes" ]]; then
+    cp /var/log/cloud-init-output.log "${EDH_BOOTSTRAP_LOGS_FOLDER}/cloud-init-output-post-install-required-packages-$(date +%s).log" || echo "/cloud-init-output not found"
+    log_info "Rebooting and re-running user data post install_required_packages"
+    cloud_init_rerun_user_data
+    reboot
+    exit 0 # force cloud-init to stop
+fi
+
+# Continue Bootstrap sequence
+/bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/02_setup.sh >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/02_setup.sh.log 2>&1

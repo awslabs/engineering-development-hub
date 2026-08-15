@@ -12,8 +12,30 @@ function Configure-DCVSession {
     $DCVHostAltname = ${hostname}.split(".")[0]
 
     Log-Info -Message "Creating DCV Default console session"
-    New-ItemProperty -Path "${dcvPath}\session-management" -Name create-session -PropertyType DWORD -Value 1 -Force
-    New-ItemProperty -Path "${dcvPath}\session-management\automatic-console-session" -Name "owner" -Value "{{ context.get('/dcv/SessionOwner') }}" -Force
+    {% if context.get("/configuration/DcvHighScale", false) | string | lower == "true" %}
+    # High-scale: do NOT auto-create the console session. The broker drives
+    # session creation via /createSessions API, which tells the SM Agent to
+    # run `dcv create-session` with the SOCA-issued UUID. Auto-creating
+    # would produce a session the broker has no record of, breaking
+    # token validation at connect time.
+    Log-Info -Message "DCV High-Scale mode -- skipping automatic console session"
+    New-ItemProperty -Path "${dcvPath}\session-management" -Name create-session -PropertyType DWORD -Value 0 -Force
+    {% else %}
+    # Legacy mode: disable the auto-console session. DCV always names the
+    # auto-created console session "console", which does NOT match the SOCA
+    # session UUID the WebUI connects with (-> "sessionId not available").
+    # Instead we create the UUID-named console session explicitly once
+    # dcvserver is up (03_setup_post_reboot.ps1.j2), mirroring Linux
+    # socadcv's `dcv create-session ${EDH_DCV_SESSION_ID}`.
+    New-ItemProperty -Path "${dcvPath}\session-management" -Name create-session -PropertyType DWORD -Value 0 -Force
+    {% endif %}
+    New-ItemProperty -Path "${dcvPath}\session-management\automatic-console-session" -Name "owner" -Value "$env:EDH_DCV_SESSION_OWNER" -Force
+
+    # Override the auto-console session name so each Windows VDI registers
+    # with the broker under a unique session ID. Without this, every Windows
+    # session would be named "console" -- colliding at the broker level (only
+    # one survives) and in the S3 screenshot prefix.
+    New-ItemProperty -Path "${dcvPath}\session-management\automatic-console-session" -Name "name" -PropertyType "String" -Value "$env:EDH_DCV_SESSION_ID" -Force
 
     Log-Info -Message "Update DCV web-url-path"
     New-ItemProperty -Path "${dcvPath}\connectivity" -Name "web-url-path" -PropertyType "String" -Value "/${DCVHostAltname}" -Force
@@ -33,6 +55,28 @@ function Configure-DCVSession {
         Log-Info -Message "Folder $storageRootPath already exist"
     }
     New-ItemProperty -Path "${dcvPath}\session-management\automatic-console-session" -Name "storage-root" -PropertyType "String" -Value ${storageRootPath} -Force
+
+    {% if context.get("/configuration/DcvHighScale", false) | string | lower == "true" %}
+    # High-scale mode: DCV server validates connection tokens against the
+    # broker's external authenticator. Per the NICE DCV docs (Step 4):
+    # https://docs.aws.amazon.com/dcv/latest/sm-admin/configure-dcv-server.html
+    # Port 8445 is the broker agent connector. We use no-tls-strict because
+    # the broker presents a self-signed cert; production deployments should
+    # also configure ca-file pointing at the broker's CA.
+    Log-Info -Message "DCV High-Scale mode -- configuring broker as auth-token-verifier"
+    if (-not (Test-Path "${dcvPath}\security")) {
+        New-Item -Path "${dcvPath}" -Name security -Force
+    }
+    New-ItemProperty -Path "${dcvPath}\security" -Name "auth-token-verifier" -PropertyType "String" -Value "{{ context.get('/dcv/AuthTokenVerifier') }}" -Force
+    New-ItemProperty -Path "${dcvPath}\security" -Name "no-tls-strict" -PropertyType "DWord" -Value 1 -Force
+    New-ItemProperty -Path "${dcvPath}\security" -Name "authentication" -PropertyType "String" -Value "system" -Force
+    # Supervision control: 'enforced' makes DCV honor the per-guest
+    # 'unsupervised-access' permission -- a guest lacking it cannot connect
+    # while the session owner is absent and is dropped when the owner
+    # disconnects. The default ('disabled') makes DCV ignore unsupervised-access
+    # entirely, which would silently break DCV session-sharing supervised mode.
+    New-ItemProperty -Path "${dcvPath}\security" -Name "supervision-control" -PropertyType "String" -Value "enforced" -Force
+    {% endif %}
 
     # Disabling external authenticator when using console session on Windows
     #Log-Info -Message "Non-AD use Custom Authenticator for DCV session authentication via authToken"

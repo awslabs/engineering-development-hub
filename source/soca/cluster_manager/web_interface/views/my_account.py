@@ -14,10 +14,11 @@
 import logging
 import config
 from flask import render_template, Blueprint, request, redirect, session, flash
+from flask_babel import gettext as _
 from requests import get, post, put
 from decorators import login_required, feature_flag
 import string
-import random
+import secrets
 from utils.error import SocaError
 from utils.identity_provider_client import SocaIdentityProviderClient
 from utils.response import SocaResponse
@@ -36,9 +37,7 @@ def index():
     _get_user_ldap_group = SocaHttpClient(
         endpoint="/api/ldap/group", headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY}
     ).get(params={"group": group_name})
-    _get_user_ldap_users = SocaHttpClient(
-        endpoint="/api/ldap/users", headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY}
-    ).get()
+    # Add-user picker uses /api/ldap/users?q= typeahead; no full fetch here.
     all_users = []
     group_members = []
 
@@ -50,16 +49,43 @@ def index():
             ):
                 group_members.append(_member)
 
-    if _get_user_ldap_users.success:
-        for _user in _get_user_ldap_users.message.keys():
-            # do not show current user, cannot being added/removed to its own group
-            if _user != session["user"]:
-                all_users.append(_user)
+    # Resolved user preferences for the generic Preferences panel (one control
+    # per catalog pref). Best-effort: a store error yields an empty list and the
+    # panel simply renders nothing. (The add-user picker uses the /api/ldap/users
+    # ?q= typeahead from the ldap-paging change merged here -- no eager full-user
+    # fetch -- so all_users stays empty.)
+    _prefs_view = []
+    try:
+        from utils import user_pref_store as _user_prefs
+        from utils import user_pref_catalog as _user_pref_catalog
+        from utils.datamodels.soca_user_preferences import ResolvedPrefView
+
+        _resolved_resp = _user_prefs.resolve_all(session["user"])
+        _resolved = _resolved_resp.message if _resolved_resp.success else {}
+        for _key in _user_pref_catalog._all_keys():
+            _spec = _user_pref_catalog._spec(_key) or {}
+            _meta = _resolved.get(_key, {})
+            _prefs_view.append(
+                ResolvedPrefView(
+                    key=_key,
+                    type=_spec.get("type"),
+                    value=_meta.get("value"),
+                    is_set=_meta.get("is_set", False),
+                    source=_meta.get("source"),
+                    allowed=_meta.get("allowed"),
+                    min=_meta.get("min"),
+                    max=_meta.get("max"),
+                ).model_dump()
+            )
+    except Exception as _pref_err:
+        logger.warning(f"user preferences panel resolve failed: {_pref_err}")
+        _prefs_view = []
 
     return render_template(
         "my_account.html",
         group_members=group_members,
         all_users=all_users,
+        user_preferences=_prefs_view,
     )
 
 
@@ -75,9 +101,9 @@ def manage_group():
     ).put(data={"group": group_name, "user": user, "action": action})
 
     if _update_group.success:
-        flash("Group update successfully", "success")
+        flash(_("Group update successfully"), "success")
     else:
-        flash(f"Unable to update group:{_update_group.message}", "error")
+        flash(_(f"Unable to update group:{_update_group.message}"), "error")
 
     return redirect("/my_account")
 
@@ -95,14 +121,14 @@ def reset_key():
         if user is None:
             return redirect("/admin/users")
         elif user == session["user"]:
-            flash(
-                "You can not reset your own password using this tool. Please visit 'My Account' section for that",
+            flash(_(
+                "You can not reset your own password using this tool. Please visit 'My Account' section for that"),
                 "error",
             )
             return redirect("/admin/users")
         else:
             password = "".join(
-                random.choice(
+                secrets.choice(
                     string.ascii_lowercase + string.ascii_uppercase + string.digits
                 )
                 for _i in range(25)
@@ -117,8 +143,8 @@ def reset_key():
                 verify=False,
             )  # nosec
             if change_password.status_code == 200:
-                flash(
-                    "Password for "
+                flash(_(
+                    "Password for ")
                     + user
                     + " has been changed to "
                     + password
@@ -127,8 +153,8 @@ def reset_key():
                 )
                 return redirect("/admin/users")
             else:
-                flash(
-                    "Unable to reset password. Error: " + str(change_password._content),
+                flash(_(
+                    "Unable to reset password. Error: ") + str(change_password._content),
                     "error",
                 )
                 return redirect("/admin/users")
@@ -147,17 +173,17 @@ def reset_key():
                 )  # nosec
 
                 if change_password.status_code == 200:
-                    flash("Your password has been changed successfully.", "success")
+                    flash(_("Your password has been changed successfully."), "success")
                     return redirect("/my_account")
                 else:
-                    flash(
-                        "Unable to reset your password. Error: "
+                    flash(_(
+                        "Unable to reset your password. Error: ")
                         + str(change_password._content),
                         "error",
                     )
                     return redirect("/my_account")
             else:
-                flash("Password does not match", "error")
+                flash(_("Password does not match"), "error")
                 return redirect("/my_account")
         else:
             return redirect("/my_account")
