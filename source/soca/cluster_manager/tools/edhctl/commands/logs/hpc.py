@@ -14,7 +14,7 @@ from utils.validators import Validators
 
 logger = logging.getLogger("soca_logger")
 
-from commands.common import print_output, is_controller_instance
+from commands.common import print_output, is_controller_instance, get_cluster_id
 from commands.logs.common import (
     AI_ELIGIBLE_LEVELS,
     LOG_LEVELS,
@@ -27,21 +27,20 @@ from commands.logs.common import (
 )
 from utils.ai_assistant.assistant import SocaAiAssistant
 
-_HPC_LOG_BASE = Path("/apps/edh/shared/logs/compute_node")
-
+def _hpc_log_base() -> Path:
+    """Base dir for compute node bootstrap logs: /apps/edh/<cluster_id>/shared/logs/bootstrap/compute_node/"""
+    return Path(f"/apps/edh/{get_cluster_id()}/shared/logs/bootstrap/compute_node/")
 
 
 def _resolve_job_log_dir(job_id: str) -> Path | None:
-    """Resolve the log directory for a job: <base>/<job_id>/uuid1/uuid2/"""
-    job_dir = _HPC_LOG_BASE / job_id
+    """Resolve the log directory for a job: <base>/<job_id>/<uuid>/
+    The <uuid> dir holds per-node subdirectories (<node_name>/*.log)."""
+    job_dir = _hpc_log_base() / job_id
     if not job_dir.exists():
         return None
     for uuid1 in job_dir.iterdir():
-        if not uuid1.is_dir():
-            continue
-        for uuid2 in uuid1.iterdir():
-            if uuid2.is_dir():
-                return uuid2
+        if uuid1.is_dir():
+            return uuid1
     return None
 
 
@@ -84,7 +83,7 @@ def list_logs(ctx: click.Context, job_id: str, output_format: str) -> None:
 
     log_dir = _resolve_job_log_dir(job_id)
     if not log_dir:
-        print_output(f"No logs found for job {job_id} under {_HPC_LOG_BASE / job_id}", error=True)
+        print_output(f"No logs found for job {job_id} under {_hpc_log_base() / job_id}", error=True)
         return
 
     nodes = _discover_nodes(log_dir)
@@ -185,7 +184,7 @@ def fetch(
 
     log_dir = _resolve_job_log_dir(job_id)
     if not log_dir:
-        print_output(f"No logs found for job {job_id} under {_HPC_LOG_BASE / job_id}", error=True)
+        print_output(f"No logs found for job {job_id} under {_hpc_log_base() / job_id}", error=True)
         return
 
     nodes = _discover_nodes(log_dir)
@@ -278,5 +277,4 @@ def fetch(
         assistant = SocaAiAssistant(username=getpass.getuser())
         stream = assistant.converse_stream("\n".join(log_texts), system_prompt=get_ai_system_prompt("node-bootstrap"))
         render_ai_analysis_stream(stream)
-
-
+        
