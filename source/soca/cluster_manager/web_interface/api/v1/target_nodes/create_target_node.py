@@ -219,7 +219,7 @@ class CreateTargetNode(Resource):
         )
         try:
             _user = request.headers.get("X-EDH-USER")
-            if _user is None:
+            if not _user:
                 return SocaError.CLIENT_MISSING_HEADER(header="X-EDH-USER").as_flask()
 
             _check_disk_size = SocaCastEngine(args["disk_size"]).cast_as(
@@ -234,7 +234,7 @@ class CreateTargetNode(Resource):
                     helper=f"disk_size error: {_check_disk_size.message} ",
                 ).as_flask()
 
-            if args["session_name"] is None:
+            if not args["session_name"]:
                 return SocaError.CLIENT_MISSING_PARAMETER(
                     helper="session_name",
                 ).as_flask()
@@ -539,9 +539,9 @@ class CreateTargetNode(Resource):
 
             # Must add the variable specific to the software stack
             _user_data_variables = {
+                **_extra_user_data_variables,
                 "EDH_USER": _user,  # default
                 "EDH_USER_PUBLIC_KEYS": _user_public_keys,  # default
-                **_extra_user_data_variables,
             }
 
             logger.info(f"{_user_data_variables=} requested for target node")
@@ -572,7 +572,7 @@ class CreateTargetNode(Resource):
                 owner=_user,
                 session_uuid=_session_uuid,
             )
-            logger.debug(f"VDI will be provisioned by {_stack_name=}")
+            logger.debug(f"Target Node  will be provisioned by {_stack_name=}")
 
             launch_parameters = {
                 "security_group_id": _get_soca_parameters.get(
@@ -802,3 +802,4 @@ class CreateTargetNode(Resource):
             return SocaError.GENERIC_ERROR(
                 helper=f"{err}, {exc_type}, {fname}, {exc_tb.tb_lineno}"
             ).as_flask()
+
