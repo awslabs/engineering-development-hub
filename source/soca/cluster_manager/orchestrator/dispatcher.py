@@ -409,7 +409,16 @@ if __name__ == "__main__":
                 continue
 
             # Checking if we don't already have hit the queue limit for concurrent provisioned nodes
-            _current_provisioned_instances = sum(job.nodes for job in get_jobs)
+            _current_provisioned_instances = sum(
+                job.nodes
+                for job in get_jobs
+                if job.job_provisioning_state
+                in [
+                    SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_IN_PROGRESS,
+                    SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_COMPLETE,
+                    SocaHpcJobProvisioningState.RUNNING,
+                ]
+            )
             logger.info(
                 f"Detected {_current_provisioned_instances=} provisioned nodes in {queue=}, max_provisioned_instances is {_queues_configuration.max_provisioned_instances=}"
             )
