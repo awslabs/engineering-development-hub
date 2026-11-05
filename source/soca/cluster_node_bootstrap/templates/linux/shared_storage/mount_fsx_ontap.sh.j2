@@ -20,7 +20,9 @@
     local MOUNT_PATH
     local MOUNT_OPTIONS
     local ON_MOUNT_FAILURE
+    local ENABLED
     local FS_NAME
+    local ENDPOINT
     for arg in "$@"; do
         case $arg in
             --mount-target=*) MOUNT_TARGET="${arg#*=}" ;;
@@ -87,18 +89,28 @@
         # used by the controller to publish the CIFS mount info to SSM for Windows VDIs.
         local SMB_DNS_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[].Endpoints.Smb.DNSName // "NO_VALUE"' )
 
-        local DS_DOMAIN_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // "NO_VALUE"')
+        # The SVM's own AD config is not reliable here: the SVM is created
+        # unjoined and joined later by fsx_ontap_first_setup, so at mount time
+        # this read returns NO_VALUE and NFSv4 reports every file as nobody.
+        # The cluster config carries the same domain and is populated earlier.
+        local DS_DOMAIN_NAME=$(aws_cli ssm get-parameter --name "/edh/{{ context.get("/configuration/ClusterId") }}/configuration/UserDirectory/domain_name" --query "Parameter.Value" --output text 2>/dev/null)
+        if [[ -z "${DS_DOMAIN_NAME}" || "${DS_DOMAIN_NAME}" == "None" ]]; then
+          DS_DOMAIN_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // "NO_VALUE"')
+        fi
         if [[ ${DS_DOMAIN_NAME} == "NO_VALUE" ]]; then
           log_warning "Unable to determine AD Domain Name for ${FSX_VOLUME_SVM_ID}, group membership may default to nobody. API Result ${FSX_DESCRIBE_SVM}"
         else
            log_info "Updating idmap.conf to support correct AD group/user membership when using FSxN with nfs4"
             # Valid idmapd configuration is required when using NetApp otherwise group membership will be set to `nobody`
             # > https://kb.netapp.com/on-prem/ontap/da/NAS/NAS-KBs/NFSv4.x_mounts_show_file_and_group_owner_as_nobody
-            cp /etc/idmapd.conf /etc/idmapd.conf.original.$(date +%s)
             log_info "Check if Domain=${DS_DOMAIN_NAME} exists in idmapd.conf"
             if grep -q "^[^#]*Domain=${DS_DOMAIN_NAME}" /etc/idmapd.conf; then
               log_info "Domain=${DS_DOMAIN_NAME} already found in idmapd.conf, ignoring ..."
             else
+              # Back up only when a change is about to be made. This function runs once per
+              # ONTAP filesystem, and `edhctl filesystems apply` re-runs it on demand, so an
+              # unconditional copy accumulated one file per volume per invocation.
+              cp /etc/idmapd.conf /etc/idmapd.conf.original.$(date +%s)
               if grep -q '^[^#]*Domain=' /etc/idmapd.conf; then
                 log_info "Domain= found but not pointing to ${DS_DOMAIN_NAME}, remove the line ... "
                 sed -i '/^[^#]*Domain=/d' /etc/idmapd.conf
@@ -112,6 +124,13 @@
       fi
 
       if [[ "${EDH_NODE_TYPE}" == "controller" ]]; then
+      {% if context.get("/job/FilesystemsApply") %}
+        # Rendered by `edhctl filesystems apply`, which re-runs this script on an
+        # already-bootstrapped node. edh:OntapFirstSetup is never cleared after a
+        # successful setup, so the tag cannot distinguish a first boot from a
+        # re-run -- gate on the render instead and leave the SVM alone.
+        log_info "filesystems apply: skipping fsx_ontap_first_setup for ${MOUNT_TARGET}"
+      {% else %}
        # Check if tag edh:OntapFirstSetup == true is there, only applicable on the controller
        # If yes, SOCA will proceed to initial CIFS/SVM configuration
         local FSX_VOLUME_TAG_ONTAP_FIRST_SETUP=$(aws_cli fsx list-tags-for-resource --resource-arn "${FSX_VOLUME_RESOURCE_ARN}" --query "Tags[?Key=='edh:OntapFirstSetup'].Value" --output text)
@@ -121,6 +140,36 @@
           fsx_ontap_first_setup "${MOUNT_TARGET}" "${FS_NAME}"
         else
           log_info "edh:OntapFirstSetup not present or not true, fsx_ontap_first_setup is not needed"
+        fi
+      {% endif %}
+
+        # The SMB endpoint does not exist until the SVM is AD-joined, and the
+        # describe above was taken before the join, so re-read it here. FSx may
+        # publish the endpoint a moment after the join returns, so retry while
+        # the SVM reports an AD config; an NFS-only SVM must not pay the wait.
+        if [[ "${SMB_DNS_NAME}" == "NO_VALUE" || -z "${SMB_DNS_NAME}" ]]; then
+          local SMB_ATTEMPT
+          local SMB_DESCRIBE
+          local SMB_AD_DOMAIN
+          for SMB_ATTEMPT in $(seq 1 6); do
+            SMB_DESCRIBE=$(aws_cli fsx describe-storage-virtual-machines --storage-virtual-machine-ids "${FSX_VOLUME_SVM_ID}")
+            SMB_DNS_NAME=$(echo ${SMB_DESCRIBE} | jq -r '.StorageVirtualMachines[].Endpoints.Smb.DNSName // "NO_VALUE"')
+            if [[ "${SMB_DNS_NAME}" != "NO_VALUE" && -n "${SMB_DNS_NAME}" ]]; then
+              log_info "Resolved SMB endpoint for ${FSX_VOLUME_SVM_ID} after the domain join on attempt ${SMB_ATTEMPT}: ${SMB_DNS_NAME}"
+              break
+            fi
+            SMB_AD_DOMAIN=$(echo ${SMB_DESCRIBE} | jq -r '.StorageVirtualMachines[].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // "NO_VALUE"')
+            if [[ "${SMB_AD_DOMAIN}" == "NO_VALUE" ]]; then
+              log_info "SVM ${FSX_VOLUME_SVM_ID} reports no Active Directory configuration; treating it as NFS-only and not waiting for an SMB endpoint."
+              break
+            fi
+            if [[ ${SMB_ATTEMPT} -lt 6 ]]; then
+              log_info "SVM ${FSX_VOLUME_SVM_ID} is joined to ${SMB_AD_DOMAIN} but FSx has not published its SMB endpoint yet (attempt ${SMB_ATTEMPT}/6); retrying in 10s"
+              sleep 10
+            else
+              log_warning "SVM ${FSX_VOLUME_SVM_ID} is joined to ${SMB_AD_DOMAIN} but FSx never published an SMB endpoint after 6 attempts; Windows auto-mount will be unavailable until 'edhctl filesystems apply' is re-run."
+            fi
+          done
         fi
 
         # Publish the SMB endpoint (AWS-assigned, from the FSx API) to SSM so Windows

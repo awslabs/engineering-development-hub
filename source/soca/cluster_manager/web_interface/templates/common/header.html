@@ -21,7 +21,7 @@
 <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/brands.css') }}" rel="stylesheet" />
 
 
-<script src="{{ url_for('static', filename='vendor/jquery/jquery.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
 
 <!-- Page Specific -->
@@ -32,8 +32,8 @@
     <script src="{{ url_for('static', filename='vendor/choices-js/choices.min.js') }}"></script>
     <link href="{{ url_for('static', filename='vendor/choices-js/choices.min.css') }}" rel="stylesheet" />
 
-{% elif page in ['admin_virtual_desktop_list_all', 'containers_list_images', 'admin_projects_per_user', 'admin_cluster_status_dcv_overview'] %}
-    <script src="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.css') }}"></script>
+{% elif page in ['admin_virtual_desktop_list_all', 'containers_list_images', 'admin_projects_per_user', 'admin_cluster_status_dcv_overview', 'admin_pcs_detail', 'admin_pcs'] %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables-bs/datatables.min.css') }}">
     {% if page == 'admin_cluster_status_dcv_overview' %}
     <script src="{{ url_for('static', filename='vendor/chart-js/chart.umd.js') }}"></script>
     {% endif %}
@@ -50,7 +50,7 @@
 
 {% elif page == 'submit_job' %}
     <script src="{{ url_for('static', filename='vendor/jquery-formbuilder/form-render.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/jquery-ui/jquery-ui.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/jquery-ui/jquery-ui.js') }}"></script>
 
 {% elif page in ["admin_profiles", "admin_projects", "admin_target_node_profiles"] %}
     <link href="{{ url_for('static', filename='vendor/use-bootstrap-tag/use-bootstrap-tag.css') }}" rel="stylesheet" />

@@ -52,6 +52,9 @@ def index():
     else:
         mcp_servers = _mcp_resp.get("message")
 
+    # Fetch allowed Knowledge Bases
+    knowledge_bases = SocaAiAssistant.list_knowledge_bases().get("message")
+
     _cluster_id = SocaConfig(key="/configuration/ClusterId").get_value().message
 
     template = "ai_assistant_file_context.html" if file_path else "ai_assistant.html"
@@ -63,6 +66,7 @@ def index():
         allowed_models=allowed_models,
         agents=agents,
         mcp_servers=mcp_servers,
+        knowledge_bases=knowledge_bases,
         cluster_id=_cluster_id,
         user=session.get("user", "unknown-user"),
     )

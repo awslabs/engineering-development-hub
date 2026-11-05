@@ -6,12 +6,17 @@
 
 from __future__ import annotations
 
+import atexit
 import datetime
+import signal
 import urllib3
 import questionary
 import ipaddress
 import traceback
 import os
+import re
+import shutil
+import textwrap
 import time
 import json
 import base64
@@ -19,6 +24,7 @@ import sys
 
 
 from questionary import Choice, Separator
+from urllib.parse import urlparse
 from requests.exceptions import Timeout, ConnectionError
 from botocore.client import ClientError
 from botocore.exceptions import ValidationError
@@ -31,6 +37,9 @@ from rich.table import Table
 from helpers.installer.install_cli_args import build_arg_parser
 from helpers.installer.install_model import (
     BaseOS,
+    BASE_OS_LABELS,
+    BASE_OS_PREVIEW,
+    base_os_choice_rows,
     FilesystemProvider,
     InstallParameters,
 )
@@ -41,6 +50,7 @@ from helpers.installer.helpers import (
     build_logger,
     detect_customer_ip,
     get_install_properties,
+    resolve_config_paths,
     get_sts_info,
     get_ami_mapping,
     stream_subprocess,
@@ -48,15 +58,32 @@ from helpers.installer.helpers import (
     upload_objects,
     build_lambda_dependency,
     inline_validate_with,
+    normalize_cidr_input,
+    is_private_deployment,
+    existing_vpc_subnet_requirement,
+    supplied_subnets_error,
     check_prefix_list,
     list_acm_certificates,
     create_self_signed_certificate_and_upload_to_acm,
     check_kms_key_principals,
     resources_mirroring,
+    get_edh_version,
+    report_installer_tree_integrity,
 )
 
 import helpers.installer.constants as constants
 from helpers.installer import bucket_picker
+from helpers.installer.cdk_bootstrap import (
+    CDK_BOOTSTRAP_MIN_VERSION,
+    build_bootstrap_command,
+    cdk_bootstrap_is_current,
+)
+from helpers.installer.existing_resources import (
+    check_nfs_cidr_access,
+    discover_filesystems,
+    discover_opensearch_domains,
+    get_mount_target_security_groups,
+)
 from helpers.installer.i18n import _
 
 console = Console()
@@ -102,7 +129,7 @@ def show_banner(config_path: str) -> None:
             ),
             title=_("[bold #e8eef7]Engineering Development Hub (EDH)[/]"),
             border_style="cyan",
-            subtitle="Version 26.8.0",
+            subtitle=f"Version {get_edh_version()}",
             padding=(1, 4),
         )
     )
@@ -385,6 +412,309 @@ def _pick_s3_bucket(region: str, aws_profile: str | None) -> str | None:
         return None
 
 
+def _print_filesystem_table(
+    filesystems: list, region: str, vpc_id: str, claimed: dict = None
+) -> None:
+    """Render discovered filesystems as a rich Table before selection.
+
+    Rows are never removed between prompts so a row number means the same
+    filesystem for the whole wizard. Anything already chosen is marked in the
+    "Mounted as" column rather than dropped.
+    """
+
+    claimed = claimed or {}
+    _table = Table(
+        show_header=True, header_style="bold #ffcc00", expand=True, padding=(0, 1)
+    )
+    _table.add_column("#", style="#a0aec0", justify="right")
+    if claimed:
+        _table.add_column("Mounted as", style="#ffcc00")
+    _table.add_column("Filesystem ID", style="#4db8ff")
+    _table.add_column("Type", style="#ffcc00")
+    _table.add_column("Name", style="#e8eef7")
+    _table.add_column("Size", style="#00cc66", justify="right")
+    _table.add_column("Mount target", style="#e8eef7")
+    _table.add_column("Features", style="#a0aec0")
+    for _index, _fs in enumerate(filesystems, start=1):
+        _row = [str(_index)]
+        if claimed:
+            _row.append(f"/{claimed[_fs['id']]}" if _fs["id"] in claimed else "")
+        _row.extend(
+            [
+                _fs["id"],
+                _fs["fs_type"],
+                _fs["name"],
+                _fs["size"],
+                _fs["dns_name"],
+                _fs["features"],
+            ]
+        )
+        _table.add_row(*_row)
+    console.print()
+    console.print(
+        Panel(
+            _table,
+            title=f"[bold #4db8ff]Existing filesystems in {region}/{vpc_id}[/]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+    )
+
+
+def _print_opensearch_table(domains: list, region: str, vpc_id: str) -> None:
+    """Render discovered OpenSearch domains as a rich Table before selection."""
+
+    _table = Table(
+        show_header=True, header_style="bold #ffcc00", expand=True, padding=(0, 1)
+    )
+    _table.add_column("#", style="#a0aec0", justify="right")
+    _table.add_column("Domain", style="#4db8ff")
+    _table.add_column("Engine", style="#ffcc00")
+    _table.add_column("Version", style="#e8eef7")
+    _table.add_column("Endpoint", style="#00cc66")
+    for _index, _domain in enumerate(domains, start=1):
+        _table.add_row(
+            str(_index),
+            _domain["name"],
+            _domain["engine"],
+            _domain["version"],
+            _domain["endpoint"],
+        )
+    console.print()
+    console.print(
+        Panel(
+            _table,
+            title=f"[bold #4db8ff]Existing OpenSearch domains in {region}/{vpc_id}[/]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+    )
+
+
+def _ip_family(cidr: str) -> str:
+    """Label a client entry as IPv4/IPv6 for display, tolerating junk input.
+
+    Validation of these values happens in InstallParameters; this is display
+    only, so an unparseable entry gets a marker rather than raising and taking
+    the whole wizard down at render time.
+    """
+    try:
+        return f"IPv{ipaddress.ip_network(cidr, strict=False).version}"
+    except ValueError:
+        return "?"
+
+
+def _print_client_ip_table(
+    client_ips: list[str],
+    cluster_id: str | None = None,
+    auto_mpl: bool = True,
+    prefix_list_id: str | None = None,
+    prefix_list_id_ipv6: str | None = None,
+) -> None:
+    """Render everything that will be granted ingress, before asking about
+    deployment mode.
+
+    Two reasons this is a table and not prompt text. First, the client IPs used
+    to be interpolated into the deployment-mode questionary prompt, which tied
+    that prompt's width to how many addresses the operator has -- an IPv4 plus an
+    IPv6 CIDR ran past the terminal edge, and questionary truncates rather than
+    wrapping. Second, and more importantly, the prompt implied the client IPs
+    became raw security-group CIDR rules. Under the default
+    Config.feature_flags.Networking.AutoManagedPrefixList they do not: EDH
+    creates its OWN managed prefix lists named "<cluster_id>-Clients-IP_V4" /
+    "-IP_V6" and adds the client IPs as entries, then points the security groups
+    at those lists. Naming the destination lets the operator find the list in the
+    console afterwards, which is where they will go to add a colleague.
+
+    An externally supplied --prefix-list-id is a SECOND, independent grant. It
+    gets its own row, because a table that claims to show everything with ingress
+    while silently omitting an attached prefix list is worse than no table.
+    """
+
+    _table = Table(
+        show_header=True, header_style="bold #ffcc00", expand=True, padding=(0, 1)
+    )
+    _table.add_column("#", style="#a0aec0", justify="right")
+    _table.add_column("Family", style="#ffcc00")
+    # overflow="fold" rather than the default ellipsis: on a narrow terminal rich
+    # would otherwise clip a CIDR mid-address ("2600:1700:16e0:991f::…"), losing
+    # the exact value this table exists to show. Folding keeps every character.
+    _table.add_column("Authorized source", style="#4db8ff", overflow="fold")
+    _table.add_column("Granted via", style="#e8eef7", overflow="fold")
+
+    def _granted_via(af: str) -> str:
+        """Where an entry lands: an EDH-created MPL, or a plain CIDR rule."""
+        if not auto_mpl:
+            return "Security group CIDR rule"
+        _af_suffix = "IP_V6" if af == "IPv6" else "IP_V4"
+        _name = (
+            f"{cluster_id}-Clients-{_af_suffix}"
+            if cluster_id
+            else f"Clients-{_af_suffix}"
+        )
+        return f"EDH-managed prefix list [#a0aec0]{_name}[/]"
+
+    _row_number = 0
+    for _cidr in client_ips:
+        _row_number += 1
+        _af = _ip_family(_cidr)
+        _table.add_row(str(_row_number), _af, _cidr, _granted_via(_af))
+
+    if not client_ips:
+        # Never leave the prompt's "listed above" pointing at an empty panel.
+        _table.add_row("-", "[#ff5555]none[/]", "[#ff5555](none specified)[/]", "-")
+
+    # An operator-supplied prefix list is an additional, independent grant --
+    # its contents are not ours to enumerate, so show the list itself.
+    for _pl_id, _pl_af in (
+        (prefix_list_id, "IPv4"),
+        (prefix_list_id_ipv6, "IPv6"),
+    ):
+        if not _pl_id:
+            continue
+        _row_number += 1
+        _table.add_row(
+            str(_row_number),
+            _pl_af,
+            _pl_id,
+            "Your existing prefix list [#a0aec0](--prefix-list-id)[/]",
+        )
+
+    # Ports are identical for every row, so they belong in the note rather than
+    # in a column that repeats itself and steals width from the CIDRs.
+    _ports_note = "Ingress is limited to TCP 443 and 22. "
+    if auto_mpl:
+        _note = (
+            f"[#a0aec0]{_ports_note}"
+            "EDH creates the prefix lists above and adds your IPs to them as entries. "
+            "To change who has access after install, edit the prefix list rather than the security groups. "
+            "If the deploy identity cannot create prefix lists, EDH falls back to writing direct CIDR rules.[/]"
+        )
+    else:
+        _note = (
+            f"[#a0aec0]{_ports_note}"
+            "Config.feature_flags.Networking.AutoManagedPrefixList is disabled, so these are "
+            "written as direct security group CIDR rules instead of managed prefix lists.[/]"
+        )
+
+    console.print()
+    console.print(
+        Panel(
+            # Group rather than Panel(subtitle=...): rich truncates a subtitle to
+            # the panel width, which would clip this note exactly the way the
+            # original prompt clipped the client IPs.
+            Group(_table, "", _note),
+            title="[bold #4db8ff]Authorized client access — only these sources can reach EDH[/]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+    )
+
+
+def _wrap_prompt(message: str, margin: int = 2, min_width: int = 40) -> str:
+    """Hard-wrap a questionary prompt message to the terminal width.
+
+    Wrap per physical line so intentional "\\n" breaks survive, and re-apply
+    each line's own leading whitespace to its continuations (plus two spaces) so
+    the indented option bullets keep their shape instead of collapsing to the
+    left margin. Long tokens -- CIDRs, URLs, ARNs -- are never split, since a
+    broken URL is worse than a slightly over-long line.
+    """
+    width = max(
+        min_width, shutil.get_terminal_size(fallback=(80, 24)).columns - margin
+    )
+    wrapped: list[str] = []
+    for line in message.split("\n"):
+        if not line.strip():
+            wrapped.append(line)
+            continue
+        indent = line[: len(line) - len(line.lstrip())]
+        wrapped.extend(
+            textwrap.wrap(
+                # Strip first: textwrap adds initial_indent ON TOP of any
+                # leading whitespace still in the text, which would double the
+                # indent of every already-indented bullet.
+                line.lstrip(),
+                width=width,
+                initial_indent=indent,
+                subsequent_indent=indent + "  ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+            # textwrap.wrap returns [] for whitespace-only input; keep the line.
+            or [line]
+        )
+    return "\n".join(wrapped)
+
+
+def _prompt_row_number(prompt: str, row_count: int) -> int:
+    """Ask for a 1-based row number from the table just printed.
+
+    A single-line prompt is used deliberately: questionary.select renders its own
+    full-height list, which would push the reference table off screen and force
+    the operator to choose without the detail the table exists to provide.
+    """
+
+    def _validate(value: str) -> bool | str:
+        _value = value.strip()
+        if not _value.isdigit():
+            return _("Enter a row number from the table above")
+        if not 1 <= int(_value) <= row_count:
+            return _("Enter a row number between 1 and {row_count}").format(
+                row_count=row_count
+            )
+        return True
+
+    _answer = questionary.text(
+        prompt,
+        validate=_validate,
+        style=constants.EDH_STYLE,
+    ).unsafe_ask()
+    return int(_answer.strip())
+
+
+_TERMINAL_COLOR_RE = re.compile(r"^rgb:[0-9a-fA-F]{1,4}/[0-9a-fA-F]{1,4}/[0-9a-fA-F]{1,4}$")
+
+
+def _query_terminal_background() -> str | None:
+    """
+    Return the terminal's current background colour ("rgb:RRRR/GGGG/BBBB") so it can be
+    restored on exit, or None when it is unknown. Uses EDH_ORIGINAL_BG from edh_installer.sh
+    when present, otherwise asks the terminal itself (OSC 11 ;? query, 0.5s timeout). Only a
+    well-formed colour is returned, so nothing arbitrary is ever replayed to the terminal.
+    """
+    _from_env = os.environ.get("EDH_ORIGINAL_BG", "")
+    if _TERMINAL_COLOR_RE.match(_from_env):
+        return _from_env
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return None
+    try:
+        import select
+        import termios
+        import tty
+
+        _fd = sys.stdin.fileno()
+        _saved = termios.tcgetattr(_fd)
+        try:
+            tty.setcbreak(_fd)  # no echo / line buffering while reading the reply
+            sys.stdout.write("\033]11;?\007")
+            sys.stdout.flush()
+            _reply = b""
+            _deadline = time.time() + 0.5
+            while time.time() < _deadline and not _reply.endswith((b"\007", b"\033\\")):
+                if not select.select([_fd], [], [], max(0.0, _deadline - time.time()))[0]:
+                    break
+                _reply += os.read(_fd, 64)
+        finally:
+            termios.tcsetattr(_fd, termios.TCSADRAIN, _saved)
+        _color = (
+            _reply.decode("ascii", "ignore").split("]11;", 1)[-1].rstrip("\007").rstrip("\\").rstrip("\033")
+        )
+        return _color if _TERMINAL_COLOR_RE.match(_color) else None
+    except Exception:
+        return None
+
+
 if __name__ == "__main__":
     parser = build_arg_parser()
     args = parser.parse_args()
@@ -393,9 +723,36 @@ if __name__ == "__main__":
 
     console.clear()
 
+    # Remember the current terminal background before changing it, so it can be restored.
+    # edh_installer.sh already queried it (EDH_ORIGINAL_BG); query it here when run directly.
+    _original_background = _query_terminal_background()
+
     # Set a dark background for better visibility
     sys.stdout.write("\033]11;#1a1b26\033\\")
     sys.stdout.flush()
+
+    # Restore the terminal background whatever way the installer ends: success, sys.exit(),
+    # unhandled exception or Ctrl+C all run atexit handlers. SIGTERM / SIGHUP would kill the
+    # process without them, so turn those into a normal exit. The saved colour is set back
+    # explicitly because some terminals (e.g. macOS Terminal.app) ignore OSC 111 ("reset to
+    # default background"), which is still sent for terminals where the query failed.
+    # edh_installer.sh also restores it from an EXIT trap for crashes atexit cannot catch.
+    def _reset_terminal_background():
+        try:
+            if _original_background:
+                sys.stdout.write(f"\033]11;{_original_background}\007")
+            sys.stdout.write("\033]111\033\\")
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+    atexit.register(_reset_terminal_background)
+    for _signal_name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, _signal_name):
+            signal.signal(
+                getattr(signal, _signal_name),
+                lambda signum, frame: sys.exit(128 + signum),
+            )
 
     # Check if AWS_PROFILE or AWS_DEFAULT_PROFILE exist
     # If environment variable and --profile are  not set, we will use the default profile in .aws/credentials
@@ -413,14 +770,30 @@ if __name__ == "__main__":
     with spinner("Fetching AWS STS caller identity ..."):
         _sts_caller_identity = get_sts_info(aws_profile=_aws_profile)
 
+    # Config layers, lowest precedence first. Resolved before the banner so the
+    # banner names every file that will be read, not just the base.
+    _config_paths: list = resolve_config_paths(
+        explicit_paths=args.config,
+        default_config_path=args.default_config,
+    )
+    _config_display: str = " + ".join(_config_paths)
+
     # Print banner
-    show_banner(config_path=args.config)
+    show_banner(config_path=_config_display)
+
+    # Phase 7 installer target. Verified here because the workstation is the only
+    # place installer/** exists -- and before the deploy, so a forked or tampered
+    # installer tree is caught before it builds a cluster rather than after.
+    # Advisory only: failure to produce a diagnostic must never block an install.
+    report_installer_tree_integrity(
+        release_root=os.path.join(_install_directory, "..", "..", "..")
+    )
 
     with spinner("Building Lambda dependency ..."):
         build_lambda_dependency(install_directory=_install_directory)
 
     with spinner("Fetching install properties ..."):
-        _get_install_properties = get_install_properties(path=args.config)
+        _get_install_properties = get_install_properties(paths=_config_paths)
 
     with spinner("Checking Configuration overrides ..."):
         if args.override:
@@ -439,6 +812,23 @@ if __name__ == "__main__":
             "--ipv6 set: enabling Config.feature_flags.Networking.EnableIPv6"
         )
 
+    # Read the effective flag, not args.ipv6: EnableIPv6 can also come from the
+    # config file or --override, and the IPv6 client prompt has to follow it.
+    _ipv6_enabled: bool = bool(
+        _get_install_properties.get("Config", {})
+        .get("feature_flags", {})
+        .get("Networking", {})
+        .get("EnableIPv6", False)
+    )
+
+    # Without the address-family these ranges reach no rule and no prefix list.
+    if args.client_ipv6 and not _ipv6_enabled:
+        logger.error(
+            "--client-ipv6 requires the IPv6 address-family. Re-run with --ipv6, or set "
+            "Config.feature_flags.Networking.EnableIPv6 to true in your config file."
+        )
+        sys.exit(1)
+
     install_parameters = {
         "deployment_mode": args.deployment_mode,
         "skip_config_message": args.skip_config_message,
@@ -449,7 +839,9 @@ if __name__ == "__main__":
         "cluster_name": args.name,
         "cluster_id": args.name,
         "region": args.region,
-        "client_ip": args.client_ip,
+        # or None: the cdk context line filters on `is not None`, so an empty
+        # list would be passed as the literal "[]".
+        "client_ip": normalize_cidr_input(args.client_ip) or None,
         "vpc_id": args.vpc_id,
         "vpc_cidr": args.vpc_cidr,
         "partition": _sts_caller_identity.get("Partition"),
@@ -462,9 +854,16 @@ if __name__ == "__main__":
         "fs_data": args.fs_data,
         "create_es_service_role": False,
         "os_domain": args.os_domain,
+        # CDK reads os_endpoint, not os_domain, so --os-domain has to seed both
+        # or the requested domain is silently ignored and a new one is created.
+        # os_endpoint must stay scheme-less: cdk_construct builds the Dashboards
+        # URL as f"https://{os_endpoint}/..." without checking for a scheme.
+        "os_endpoint": (
+            urlparse(args.os_domain).netloc or args.os_domain if args.os_domain else None
+        ),
         "prefix_list_id": None,
         "prefix_list_id_ipv6": None,
-        "client_ipv6": None,
+        "client_ipv6": normalize_cidr_input(args.client_ipv6) or None,
         "tls_certificate": args.tls_certificate,
     }
 
@@ -513,7 +912,7 @@ if __name__ == "__main__":
                 _(
                     "EDH will create AWS resources using the default parameters specified in {config_file}.\n"
                     "Make sure you have read, reviewed and updated them (if needed). Continue?"
-                ).format(config_file=args.config),
+                ).format(config_file=_config_display),
                 choices=[
                     _("Continue"),
                     _("Abort"),
@@ -606,6 +1005,13 @@ if __name__ == "__main__":
             )
             client_fsx = build_boto3_client(
                 service_name="fsx",
+                region_name=install_parameters["region"],
+                aws_profile=_aws_profile,
+            )
+            # "es" is the OpenSearch Service control-plane client; it exposes
+            # list_domain_names / describe_elasticsearch_domain for re-use discovery.
+            client_es = build_boto3_client(
+                service_name="es",
                 region_name=install_parameters["region"],
                 aws_profile=_aws_profile,
             )
@@ -882,11 +1288,32 @@ if __name__ == "__main__":
             )
 
         if not install_parameters.get("base_os"):
+            # Rows are built by install_model.base_os_choice_rows() so the same logic is
+            # unit-tested without a TTY. `value` stays the bare base_os token, which is
+            # what --base-os and `qsub -l base_os=` take; the token is kept visible in
+            # the title so whoever picks from this list knows what to type later.
+            _base_os_choices = [
+                Choice(title=_title, value=_value, description=_description)
+                for _title, _value, _description in base_os_choice_rows(
+                    preview_tag=_("PREVIEW"),
+                    preview_help=_(
+                        "Preview release. Not for production use."
+                    ),
+                    substitution_help=_(
+                        "Unsupported roles run on another OS: {substitutions}."
+                    ),
+                    include_preview=args.preview,
+                    # questionary does not wrap descriptions; the same margin
+                    # _wrap_prompt() uses is applied here.
+                    width=shutil.get_terminal_size(fallback=(80, 24)).columns - 2,
+                )
+            ]
+
             install_parameters["base_os"] = questionary.select(
                 _(
                     "Select the default operating system for your EDH cluster (this can be changed post deployment):"
                 ),
-                choices=[Choice(title=e.value, value=e.value) for e in BaseOS],
+                choices=_base_os_choices,
                 default="amazonlinux2023",
                 style=constants.EDH_STYLE,
             ).unsafe_ask()
@@ -911,22 +1338,22 @@ if __name__ == "__main__":
                     logger.error(f"Error detecting customer IPv4 address: {err}")
                     detected_ip = ""
 
-            install_parameters["client_ip"] = [
+            install_parameters["client_ip"] = normalize_cidr_input(
                 questionary.text(
-                    _(
-                        "Client IPv4 or CIDR range authorized to access EDH on TCP ports 443/22 (this can be changed post-install):"
+                    _wrap_prompt(
+                        _(
+                            "Client IPv4 CIDR(s) authorized to access EDH on TCP ports 443/22. Separate several with a comma or a space (this can be changed post-install):"
+                        )
                     ),
-                    validate=lambda val: inline_validate_with(
-                        InstallParameters, "client_ip"
-                    )([val]),
+                    validate=inline_validate_with(InstallParameters, "client_ip"),
                     style=constants.EDH_STYLE,
                     default=detected_ip,
                 ).unsafe_ask()
-            ]
+            )
             logger.debug(f"User specified client IP: {install_parameters['client_ip']}")
 
         # Dual-stack: detect + prompt a separate IPv6 client range when IPv6 is enabled
-        if args.ipv6 and not install_parameters.get("client_ipv6"):
+        if _ipv6_enabled and not install_parameters.get("client_ipv6"):
             with spinner("Detecting your IPv6 address ..."):
                 try:
                     detected_ipv6 = detect_customer_ip(address_family="ipv6")
@@ -935,32 +1362,46 @@ if __name__ == "__main__":
                     logger.error(f"Error detecting customer IPv6 address: {err}")
                     detected_ipv6 = ""
 
-            install_parameters["client_ipv6"] = [
+            install_parameters["client_ipv6"] = normalize_cidr_input(
                 questionary.text(
-                    _(
-                        "Client IPv6 or CIDR range authorized to access EDH on TCP ports 443/22 (this can be changed post-install):"
+                    _wrap_prompt(
+                        _(
+                            "Client IPv6 CIDR(s) authorized to access EDH on TCP ports 443/22. Separate several with a comma or a space (this can be changed post-install):"
+                        )
                     ),
-                    validate=lambda val: inline_validate_with(
-                        InstallParameters, "client_ipv6"
-                    )([val]),
+                    validate=inline_validate_with(InstallParameters, "client_ipv6"),
                     style=constants.EDH_STYLE,
                     default=detected_ipv6,
                 ).unsafe_ask()
-            ]
+            )
             logger.debug(
                 f"User specified client IPv6: {install_parameters['client_ipv6']}"
             )
 
         if not install_parameters.get("deployment_mode"):
+            # Show every ingress grant as a table rather than inlining the client
+            # IPs in the prompt: the list is operator-dependent (unpredictable
+            # prompt width) and the prompt cannot express WHERE the IPs land.
+            # See _print_client_ip_table.
+            _print_client_ip_table(
+                client_ips=(install_parameters.get("client_ip") or [])
+                + (install_parameters.get("client_ipv6") or []),
+                cluster_id=install_parameters.get("cluster_id"),
+                auto_mpl=bool(
+                    _get_install_properties.get("Config", {})
+                    .get("feature_flags", {})
+                    .get("Networking", {})
+                    .get("AutoManagedPrefixList", True)
+                ),
+                prefix_list_id=install_parameters.get("prefix_list_id"),
+                prefix_list_id_ipv6=install_parameters.get("prefix_list_id_ipv6"),
+            )
             install_parameters["deployment_mode"] = questionary.select(
-                _(
-                    "How should EDH be deployed?\n"
-                    "  Public: Load balancers are placed in public subnets, protected by security groups and prefix lists. Only your authorized IPs ({client_ip}) can reach EDH (this list can be changed post-install).\n"
-                    "  Private: Load balancers are placed in private subnets. Requires a VPN or Direct Connect for access."
-                ).format(
-                    client_ip=", ".join(
-                        (install_parameters.get("client_ip") or [])
-                        + (install_parameters.get("client_ipv6") or [])
+                _wrap_prompt(
+                    _(
+                        "How should EDH be deployed?\n"
+                        "  Public: Load balancers are placed in public subnets, with ingress restricted to the authorized sources listed above (this can be changed post-install).\n"
+                        "  Private: Load balancers are placed in private subnets. Requires a VPN or Direct Connect for access."
                     )
                 ),
                 choices=[
@@ -1029,8 +1470,10 @@ if __name__ == "__main__":
 
             while True:
                 _bucket_answer = questionary.text(
-                    _(
-                        "Enter the name of an S3 bucket that the application will use to store cluster data (or type '?' to list buckets you own):"
+                    _wrap_prompt(
+                        _(
+                            "Enter the name of an S3 bucket that the application will use to store cluster data (or type '?' to list buckets you own):"
+                        )
                     ),
                     validate=_bucket_or_list,
                     style=constants.EDH_STYLE,
@@ -1059,14 +1502,28 @@ if __name__ == "__main__":
             )
             sys.exit(1)
 
-        if install_parameters.get("vpc_id") and not (
-            install_parameters.get("public_subnets")
-            and install_parameters.get("private_subnets")
-        ):
-            logger.error(
-                "vpc_id is provided without subnet_ids. Please provide both public_subnets and private_subnets or remove vpc_id."
+        # A private deployment places every entry point in a private subnet, so
+        # no public subnet is selected or consumed and public_subnets is left
+        # empty. Public deployments still need both lists.
+        if install_parameters.get("vpc_id"):
+            _subnets_error = supplied_subnets_error(
+                deployment_mode=install_parameters.get("deployment_mode"),
+                public_subnets=install_parameters.get("public_subnets"),
+                private_subnets=install_parameters.get("private_subnets"),
             )
-            sys.exit(1)
+            if _subnets_error:
+                logger.error(_subnets_error)
+                sys.exit(1)
+
+            if is_private_deployment(
+                deployment_mode=install_parameters.get("deployment_mode")
+            ):
+                # Normalized rather than left unset: the CDK layer iterates this
+                # list on the existing-VPC path (helpers/network.py) and None is
+                # not iterable.
+                install_parameters["public_subnets"] = (
+                    install_parameters.get("public_subnets") or []
+                )
 
         # CLI-supplied subnets need to match the format the interactive
         # picker stores ("<subnet-id>,<az>"). Bare IDs get enriched; entries
@@ -1091,7 +1548,7 @@ if __name__ == "__main__":
             _id_to_az = {s["subnet_id"]: s["az"] for s in _vpc_subnets}
 
             for _key in ("public_subnets", "private_subnets"):
-                _items = install_parameters.get(_key, [])
+                _items = install_parameters.get(_key) or []
                 _enriched = []
                 for _sn in _items:
                     _flag = f"--{_key.replace('_', '-')}"
@@ -1253,10 +1710,19 @@ if __name__ == "__main__":
                         logger.error(str(e))
                         sys.exit(1)
 
-                if len(_available_subnets) < 4:
+                # A private deployment consumes no public subnet, so it only
+                # needs the 2 private subnets the pickers below require.
+                _private_only: bool = is_private_deployment(
+                    deployment_mode=install_parameters.get("deployment_mode")
+                )
+                _min_subnets, _subnet_requirement = existing_vpc_subnet_requirement(
+                    deployment_mode=install_parameters.get("deployment_mode")
+                )
+
+                if len(_available_subnets) < _min_subnets:
                     logger.error(
                         f"VPC {install_parameters['vpc_id']} has only {len(_available_subnets)} subnet(s). "
-                        "At least 4 subnets are required (2 public + 2 private)."
+                        f"At least {_min_subnets} subnets are required ({_subnet_requirement})."
                     )
                     sys.exit(1)
 
@@ -1276,15 +1742,21 @@ if __name__ == "__main__":
                     for s in _available_subnets
                 ]
 
-                while True:
-                    install_parameters["public_subnets"] = questionary.checkbox(
-                        _("Select at least 2 public subnets:"),
-                        choices=_subnet_choices,
-                        style=constants.EDH_STYLE,
-                    ).unsafe_ask()
-                    if len(install_parameters["public_subnets"]) >= 2:
-                        break
-                    logger.error("You must select at least 2 public subnets.")
+                if _private_only:
+                    # Nothing to ask: no public subnet is used, and leaving the
+                    # list empty keeps every subnet available to the private
+                    # picker below.
+                    install_parameters["public_subnets"] = []
+                else:
+                    while True:
+                        install_parameters["public_subnets"] = questionary.checkbox(
+                            _("Select at least 2 public subnets:"),
+                            choices=_subnet_choices,
+                            style=constants.EDH_STYLE,
+                        ).unsafe_ask()
+                        if len(install_parameters["public_subnets"]) >= 2:
+                            break
+                        logger.error("You must select at least 2 public subnets.")
                 logger.debug(
                     f"User specified public subnets: {install_parameters['public_subnets']}"
                 )
@@ -1308,33 +1780,334 @@ if __name__ == "__main__":
                     f"User specified private subnets: {install_parameters['private_subnets']}"
                 )
 
-        if not install_parameters.get("fs_apps_provider"):
-            install_parameters["fs_apps_provider"] = questionary.select(
-                _(
-                    "Select the filesystem provider for /apps (where applications will be installed):"
-                ),
-                choices=[
-                    Choice(title=e.value, value=e.value) for e in FilesystemProvider
-                ],
-                style=constants.EDH_STYLE,
-            ).unsafe_ask()
-            logger.debug(
-                f"User specified filesystem provider for /apps: {install_parameters['fs_apps_provider']}"
-            )
+        # /apps and /data are decided independently: either may re-use an
+        # existing filesystem while the other is created fresh. Re-use is only
+        # offered inside an existing VPC, since the filesystem has to already be
+        # reachable from the subnets this cluster will run in.
+        _fs_candidates: list = None
+        _claimed_fs: dict = {}
+        # CIDRs of the subnets the nodes will run in. These are what an operator
+        # can pre-authorize on a foreign filesystem, since the cluster's node
+        # security groups do not exist until CDK creates them.
+        _private_subnet_cidrs: list = []
+        if install_parameters.get("vpc_id") and install_parameters.get(
+            "private_subnets"
+        ):
+            _selected_subnet_ids = {
+                _s.split(",")[0] for _s in install_parameters["private_subnets"]
+            }
+            try:
+                _private_subnet_cidrs = [
+                    _s["cidr"]
+                    for _s in InstallParameters._list_subnets(
+                        install_parameters["region"], install_parameters["vpc_id"]
+                    )
+                    if _s["subnet_id"] in _selected_subnet_ids and _s.get("cidr")
+                ]
+            except Exception as _err:
+                logger.debug(f"Unable to resolve private subnet CIDRs: {_err}")
+        _mount_point_purpose = {
+            "apps": _("where applications will be installed"),
+            "data": _("where user data will be stored"),
+        }
 
-        if not install_parameters.get("fs_data_provider"):
-            install_parameters["fs_data_provider"] = questionary.select(
-                _(
-                    "Select the filesystem provider for /data (where user data will be stored):"
-                ),
+        for _mount_point in ("apps", "data"):
+            _purpose = _mount_point_purpose[_mount_point]
+            _reuse_existing = False
+
+            # An explicit --fs-apps / --fs-data already names a filesystem, so
+            # only its provider is still needed.
+            if not install_parameters.get(f"fs_{_mount_point}") and (
+                install_parameters.get("vpc_id")
+            ):
+                _reuse_existing = questionary.select(
+                    _("Filesystem for /{mount_point} ({purpose}):").format(
+                        mount_point=_mount_point, purpose=_purpose
+                    ),
+                    choices=[
+                        Choice(title=_("Create a new filesystem"), value=False),
+                        Choice(
+                            title=_("Re-use an existing filesystem in this VPC"),
+                            value=True,
+                        ),
+                    ],
+                    style=constants.EDH_STYLE,
+                ).unsafe_ask()
+
+            if _reuse_existing:
+                # Discover once, then reuse the result for the second mount point.
+                if _fs_candidates is None:
+                    with spinner("Discovering EFS and FSx filesystems ..."):
+                        _fs_discovery = discover_filesystems(
+                            efs_client=client_efs,
+                            fsx_client=client_fsx,
+                            region=install_parameters["region"],
+                            vpc_id=install_parameters["vpc_id"],
+                        )
+                    _fs_candidates = _fs_discovery.get("filesystems", [])
+                    for _skipped_fs in _fs_discovery.get("skipped", []):
+                        logger.debug(
+                            f"Skipped filesystem {_skipped_fs['id']}: {_skipped_fs['reason']}"
+                        )
+
+                if not _fs_candidates:
+                    logger.error(
+                        "No re-usable filesystem found in "
+                        f"{install_parameters['vpc_id']}. Re-run and choose to create a "
+                        "new filesystem, or re-run with EDH_DEBUG=1 to see why each "
+                        "filesystem was skipped."
+                    )
+                    sys.exit(1)
+
+                # Outer loop so "pick a different filesystem" after a failed NFS
+                # check returns to the table instead of advancing to the next
+                # mount point. The full list is always shown so a row number
+                # identifies the same filesystem on every prompt.
+                while True:
+                    _print_filesystem_table(
+                        filesystems=_fs_candidates,
+                        region=install_parameters["region"],
+                        vpc_id=install_parameters["vpc_id"],
+                        claimed=_claimed_fs,
+                    )
+
+                    while True:
+                        _row = _prompt_row_number(
+                            prompt=_(
+                                "Row number of the filesystem to mount as /{mount_point}:"
+                            ).format(mount_point=_mount_point),
+                            row_count=len(_fs_candidates),
+                        )
+                        _selected_fs = _fs_candidates[_row - 1]
+                        _already_used_by = _claimed_fs.get(_selected_fs["id"])
+                        if not _already_used_by:
+                            break
+
+                        # Sharing one filesystem across both paths works, but every
+                        # provider mounts a fixed root (ONTAP mounts a volume), so
+                        # both paths resolve to one directory tree.
+                        console.print()
+                        console.print(
+                            Panel(
+                                f"[#ffcc00]{_selected_fs['id']}[/] is already mounted as "
+                                f"[#ffcc00]/{_already_used_by}[/].\n\n"
+                                f"/{_already_used_by} and /{_mount_point} would be the same "
+                                "directory tree, sharing capacity and throughput, and a "
+                                "single encryption key. Per-path CMK settings under "
+                                "Config.storage would no longer apply.",
+                                title="[bold #ffcc00]Same filesystem for both mount points[/]",
+                                border_style="#ffcc00",
+                                padding=(1, 2),
+                            )
+                        )
+                        if questionary.select(
+                            _("Mount {fs_id} as /{mount_point} as well?").format(
+                                fs_id=_selected_fs["id"], mount_point=_mount_point
+                            ),
+                            choices=[
+                                Choice(title=_("Pick a different filesystem"), value=False),
+                                Choice(
+                                    title=_("Yes, share this filesystem"), value=True
+                                ),
+                            ],
+                            style=constants.EDH_STYLE,
+                        ).unsafe_ask():
+                            break
+
+                    # NFS authorization. CIDR is the only mechanism the operator
+                    # can pre-authorize: the cluster's node security groups are
+                    # created by CDK during this deploy, so they cannot be
+                    # referenced here, and EDH does not modify groups it does not
+                    # own. Validate against the selected private subnets and let
+                    # the operator fix it and re-check without restarting.
+                    _fs_sgs = get_mount_target_security_groups(
+                        efs_client=client_efs,
+                        fsx_client=client_fsx,
+                        ec2_client=client_ec2,
+                        filesystem=_selected_fs,
+                    )
+                    _accepted = True
+                    while True:
+                        _access = check_nfs_cidr_access(
+                            ec2_client=client_ec2,
+                            security_group_ids=_fs_sgs,
+                            subnet_cidrs=_private_subnet_cidrs,
+                        )
+                        _sg_label = ", ".join(_fs_sgs) if _fs_sgs else "unknown"
+                        if _access["covered"]:
+                            console.print(
+                                f"[#00cc66]NFS access verified: {_sg_label} admits "
+                                f"TCP 2049 from the selected private subnets[/]"
+                            )
+                            break
+
+                        console.print()
+                        console.print(
+                            Panel(
+                                f"[#4db8ff]{_selected_fs['id']}[/] is guarded by "
+                                f"[#ffcc00]{_sg_label}[/], which does not admit NFS "
+                                "(TCP 2049) from:\n\n    "
+                                + "\n    ".join(_access["uncovered_cidrs"])
+                                + (
+                                    "\n\nCurrently permitted: "
+                                    + ", ".join(_access["permitted_cidrs"])
+                                    if _access["permitted_cidrs"]
+                                    else "\n\nNo TCP 2049 CIDR ingress found."
+                                )
+                                + (
+                                    f"\n\nRule lookup failed: {_access['error']}"
+                                    if _access["error"]
+                                    else ""
+                                ),
+                                title="[bold #ffcc00]NFS access not authorized[/]",
+                                border_style="#ffcc00",
+                                padding=(1, 2),
+                            )
+                        )
+                        if _fs_sgs and _access["uncovered_cidrs"]:
+                            console.print(
+                                "\n[#a0aec0]Add the rule, then choose Re-check:[/]"
+                            )
+                            for _sg_id in _fs_sgs:
+                                for _cidr in _access["uncovered_cidrs"]:
+                                    # soft_wrap keeps the command on one logical
+                                    # line so it stays copy-pasteable.
+                                    console.print(
+                                        "[#e8eef7]aws ec2 authorize-security-group-ingress"
+                                        f" --group-id {_sg_id} --protocol tcp --port 2049"
+                                        f" --cidr {_cidr} --region "
+                                        f"{install_parameters['region']}[/]",
+                                        soft_wrap=True,
+                                    )
+                            console.print()
+
+                        _nfs_choice = questionary.select(
+                            _("NFS access for /{mount_point}:").format(
+                                mount_point=_mount_point
+                            ),
+                            choices=[
+                                Choice(title=_("Re-check now"), value="recheck"),
+                                Choice(
+                                    title=_("Pick a different filesystem"),
+                                    value="reselect",
+                                ),
+                                Choice(
+                                    title=_("Continue anyway, deployment may fail"),
+                                    value="override",
+                                ),
+                            ],
+                            style=constants.EDH_STYLE,
+                        ).unsafe_ask()
+
+                        if _nfs_choice == "recheck":
+                            continue
+                        if _nfs_choice == "override":
+                            logger.warning(
+                                f"Operator overrode unauthorized NFS access for "
+                                f"/{_mount_point} on {_selected_fs['id']} ({_sg_label}); "
+                                f"uncovered: {','.join(_access['uncovered_cidrs'])}"
+                            )
+                            break
+                        _accepted = False
+                        break
+
+                    if _accepted:
+                        break
+
+                _claimed_fs[_selected_fs["id"]] = _mount_point
+
+                # mount_target is provider-correct: a DNS name for efs/lustre/
+                # openzfs (reduced on-host with cut -d'.' -f1) and a bare
+                # fsvol- volume ID for fsx_ontap, which describe-volumes needs.
+                install_parameters[f"fs_{_mount_point}"] = _selected_fs["mount_target"]
+                install_parameters[f"fs_{_mount_point}_provider"] = _selected_fs[
+                    "fs_type"
+                ]
+                console.print(
+                    f"[#00cc66]Using existing {_selected_fs['fs_type']} "
+                    f"{_selected_fs['id']} for /{_mount_point}[/]"
+                )
+                logger.debug(
+                    f"User selected {_selected_fs['id']} "
+                    f"({_selected_fs['fs_type']}) for /{_mount_point}"
+                )
+                continue
+
+            if not install_parameters.get(f"fs_{_mount_point}_provider"):
+                install_parameters[f"fs_{_mount_point}_provider"] = (
+                    questionary.select(
+                        _(
+                            "Select the filesystem provider for /{mount_point} ({purpose}):"
+                        ).format(mount_point=_mount_point, purpose=_purpose),
+                        choices=[
+                            Choice(title=e.value, value=e.value)
+                            for e in FilesystemProvider
+                        ],
+                        style=constants.EDH_STYLE,
+                    ).unsafe_ask()
+                )
+                logger.debug(
+                    f"User specified filesystem provider for /{_mount_point}: "
+                    f"{install_parameters[f'fs_{_mount_point}_provider']}"
+                )
+
+        # Analytics back-end: re-use an existing VPC-attached OpenSearch domain
+        # instead of provisioning a new one. CDK keys off os_endpoint.
+        if install_parameters.get("vpc_id") and not install_parameters.get(
+            "os_endpoint"
+        ):
+            _reuse_opensearch = questionary.select(
+                _("Analytics back-end (OpenSearch):"),
                 choices=[
-                    Choice(title=e.value, value=e.value) for e in FilesystemProvider
+                    Choice(title=_("Create a new OpenSearch domain"), value=False),
+                    Choice(
+                        title=_("Re-use an existing OpenSearch domain in this VPC"),
+                        value=True,
+                    ),
                 ],
                 style=constants.EDH_STYLE,
             ).unsafe_ask()
-            logger.debug(
-                f"User specified filesystem provider for /data: {install_parameters['fs_data_provider']}"
-            )
+
+            if _reuse_opensearch:
+                with spinner("Discovering OpenSearch domains ..."):
+                    _os_discovery = discover_opensearch_domains(
+                        es_client=client_es,
+                        vpc_id=install_parameters["vpc_id"],
+                    )
+
+                _available_domains = _os_discovery.get("domains", [])
+                for _skipped_domain in _os_discovery.get("skipped", []):
+                    logger.debug(
+                        f"Skipped OpenSearch domain {_skipped_domain['name']}: "
+                        f"{_skipped_domain['reason']}"
+                    )
+
+                if not _available_domains:
+                    logger.error(
+                        "No re-usable VPC-attached OpenSearch domains found in "
+                        f"{install_parameters['vpc_id']}. Re-run and choose to create a "
+                        "new domain, or re-run with EDH_DEBUG=1 to see why each domain "
+                        "was skipped."
+                    )
+                    sys.exit(1)
+
+                _print_opensearch_table(
+                    domains=_available_domains,
+                    region=install_parameters["region"],
+                    vpc_id=install_parameters["vpc_id"],
+                )
+
+                _row = _prompt_row_number(
+                    prompt=_("Row number of the OpenSearch domain to re-use:"),
+                    row_count=len(_available_domains),
+                )
+                _selected_endpoint = _available_domains[_row - 1]["endpoint"]
+
+                # os_endpoint is the key CDK reads, and it prepends the scheme
+                # itself. os_domain is typed HttpUrl, so it needs one here.
+                install_parameters["os_endpoint"] = _selected_endpoint
+                install_parameters["os_domain"] = f"https://{_selected_endpoint}"
+                logger.debug(f"User selected OpenSearch endpoint: {_selected_endpoint}")
 
         # Validate the parameters
         try:
@@ -1354,6 +2127,7 @@ if __name__ == "__main__":
                     vpc_cidr=install_parameters.get("vpc_cidr"),
                     vpc_id=install_parameters.get("vpc_id"),
                     client_ip=install_parameters.get("client_ip"),
+                    client_ipv6=install_parameters.get("client_ipv6"),
                     fs_apps_provider=install_parameters.get("fs_apps_provider"),
                     fs_data_provider=install_parameters.get("fs_data_provider"),
                     public_subnet_ids=install_parameters.get("public_subnets"),
@@ -1412,13 +2186,15 @@ if __name__ == "__main__":
         if _mirror_cfg.get("enabled") is True:
             if _mirror_method == "ask":
                 _mirror_choice = questionary.select(
-                    _(
-                        "EDH download required external resources (Python, DCV, EFA, GPU drivers, etc.) from trusted sources such as python.org, github.com, nodejs.org, efa-installer.amazonaws.com.\n"
-                        "  You can mirror these resources to your own in-account S3 bucket so EDH nodes download from S3 instead of the internet.\n"
-                        "  This is recommended for reliability and faster provisioning.\n"
-                        "  All external resources can be found on {config_file}, section 'Parameters'.\n"
-                        "  How would you like to handle external resources (~5GB)?"
-                    ).format(config_file=args.config),
+                    _wrap_prompt(
+                        _(
+                            "EDH download required external resources (Python, DCV, EFA, GPU drivers, etc.) from trusted sources such as python.org, github.com, nodejs.org, efa-installer.amazonaws.com.\n"
+                            "  You can mirror these resources to your own in-account S3 bucket so EDH nodes download from S3 instead of the internet.\n"
+                            "  This is recommended for reliability and faster provisioning.\n"
+                            "  All external resources can be found on {config_file}, section 'Parameters'.\n"
+                            "  How would you like to handle external resources (~5GB)?"
+                        ).format(config_file=_config_display)
+                    ),
                     choices=[
                         Choice(
                             title=_(
@@ -1622,8 +2398,15 @@ if __name__ == "__main__":
                 "Permissions Boundary", args.cdk_custom_permissions_boundary
             )
 
-        # --termination-protection is bootstrap-only (cdk deploy rejects it); app-stack protection comes from the Stack construct. Applied to cmd_bootstrap below.
-        _cdk_table.add_row("Termination Protection", "[#00cc66]Enabled[/]")
+        # --termination-protection is bootstrap-only (cdk deploy rejects it); app-stack
+        # protection comes from the Stack construct. Bootstrapping an environment that is
+        # already bootstrapped is an UpdateStack on CDKToolkit, so passing this flag
+        # changes the setting on a toolkit stack EDH does not own. Applied by
+        # build_bootstrap_command below.
+        if args.cdk_no_termination_protection:
+            _cdk_table.add_row("Termination Protection", "[#ff6b6b]Disabled[/]")
+        else:
+            _cdk_table.add_row("Termination Protection", "[#00cc66]Enabled[/]")
 
         if args.cdk_debug:
             _cdk_common_args += " --debug -v -v -v"
@@ -1672,7 +2455,27 @@ if __name__ == "__main__":
         console.print()
 
         cmd = f"cdk {cdk_cmd} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)} --require-approval never"
-        cmd_bootstrap = f"cdk bootstrap --termination-protection {_cdk_common_args} aws://{install_parameters['account_id']}/{install_parameters['region']} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)}"
+        cmd_bootstrap = build_bootstrap_command(
+            common_args=_cdk_common_args,
+            context=f"-c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)}",
+            account_id=install_parameters["account_id"],
+            region=install_parameters["region"],
+            termination_protection=not args.cdk_no_termination_protection,
+        )
+        # _cdk_common_args carries the global CDK options (--profile, --output,
+        # --role-arn, --strict, --debug), so the teardown must include it: it is the
+        # only invocation of the destroy path, and without it a teardown requested
+        # with --cdk-profile would run under the default credentials. The CLI warns
+        # and ignores the bootstrap-only options the string may also hold.
+        cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
+
+        # --cdk-cmd bootstrap and --cdk-cmd destroy both run the one command their
+        # own path needs, rather than a second differently-shaped one. Set before the
+        # history write so the log records the command that actually runs.
+        if cdk_cmd == "bootstrap":
+            cmd = cmd_bootstrap
+        elif cdk_cmd == "destroy":
+            cmd = cmd_destroy
 
         # Log command in history book
         with open("installer_history.txt", "a+") as f:
@@ -1681,9 +2484,90 @@ if __name__ == "__main__":
     {str(install_parameters)}
     =============================""")
 
-        # First, Bootstrap the environment. This will create a staging S3 bucket if needed
-        with spinner(message=_("Bootstrapping CDK environment ...")):
-            stream_subprocess(console=console, command=cmd_bootstrap)
+        # Bootstrap on deploy only, and only when the environment is not already at
+        # a version this app accepts. synth/ls/destroy must not mutate CDKToolkit.
+        if cdk_cmd == "deploy":
+            _upload_directory = f"{_install_directory}/../upload_to_s3/{install_parameters['cluster_id']}/{install_parameters['region']}/"
+
+            # Remove any bootstrap payload left behind by an earlier run of this
+            # cluster_id/region, so the guard below reports on THIS run. The
+            # directory is written while the CDK app executes and survives a run
+            # that ends after it: a crash mid-render leaves a partial tree, and a
+            # successful run leaves a complete one, because cdk deploy synthesizes
+            # again after upload_objects() has already moved and removed it. Either
+            # one makes the guard read "already synthesized" and ship the earlier
+            # run's scripts, which is silent when the tree is complete and produces
+            # a node whose bootstrap cannot run when it is not.
+            if os.path.isdir(_upload_directory):
+                logger.debug(
+                    f"Removing bootstrap payload from an earlier run: "
+                    f"{_upload_directory}"
+                )
+                try:
+                    shutil.rmtree(_upload_directory)
+                except OSError as _e:
+                    logger.error(
+                        f"Unable to remove {_upload_directory} left by an earlier "
+                        f"run: {_e}. Delete it and re-run the installer."
+                    )
+                    sys.exit(1)
+
+            _bootstrap_ok, _bootstrap_version = cdk_bootstrap_is_current(
+                ssm_client=client_ssm
+            )
+            _detected = (
+                _bootstrap_version if _bootstrap_version is not None else "unknown"
+            )
+
+            if _bootstrap_ok:
+                logger.info(
+                    f"CDK environment already bootstrapped at version "
+                    f"{_bootstrap_version}, skipping bootstrap"
+                )
+            elif args.cdk_skip_bootstrap:
+                logger.warning(
+                    f"Bootstrap skipped by --cdk-skip-bootstrap, detected version "
+                    f"{_detected}. Deployment fails if the environment is below "
+                    f"version {CDK_BOOTSTRAP_MIN_VERSION}."
+                )
+            else:
+                logger.debug(
+                    f"Bootstrapping CDK environment, detected version {_detected}, "
+                    f"required {CDK_BOOTSTRAP_MIN_VERSION}"
+                )
+                with spinner(message=_("Bootstrapping CDK environment ...")):
+                    stream_subprocess(console=console, command=cmd_bootstrap)
+
+            # upload_objects() below ships the bootstrap scripts the CDK app renders into
+            # upload_to_s3/<cluster_id>/<region>/ at synth time. cdk bootstrap used to
+            # synthesize the app as a side effect; when it is skipped, synth explicitly
+            # (read-only, CDKToolkit untouched) so the files exist before the upload.
+            if not os.path.isdir(_upload_directory):
+                # Drop deploy/bootstrap-only options that cdk synth rejects
+                _synth_args = re.sub(
+                    r" --(method|cloudformation-execution-policies|bootstrap-kms-key-id|custom-permissions-boundary) \S+",
+                    "",
+                    _cdk_common_args,
+                )
+                cmd_synth = f"cdk synth {_synth_args} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)} --quiet"
+                with spinner(message=_("Synthesizing CDK application ...")):
+                    stream_subprocess(console=console, command=cmd_synth)
+
+            # Neither branch above can leave a usable payload behind silently:
+            # stream_subprocess exits on a non-zero return code, so a CDK app that
+            # raises never reaches this point. An app that renders nothing and still
+            # exits 0 does, and upload_objects() would then raise FileNotFoundError
+            # from os.listdir() or ship an empty prefix. Fail here with the path
+            # instead.
+            if not os.path.isdir(_upload_directory) or not os.listdir(
+                _upload_directory
+            ):
+                logger.error(
+                    f"No node bootstrap payload was generated in {_upload_directory}. "
+                    f"The nodes cannot boot without it. Re-run with --cdk-debug for "
+                    f"the CDK output."
+                )
+                sys.exit(1)
 
         # Increase SSM Throughput if needed (https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-throughput.html)
         # Settings will be restored if needed post deployment
@@ -1762,12 +2646,17 @@ if __name__ == "__main__":
                 )
                 console.print()
 
-                if _get_install_properties.get("Config", {}).get(
-                    "directoryservice", {}
-                ).get("provider", "") not in [
+                # An existing directory supplies its own accounts, so EDH creates
+                # no default admin and no EDHAdminUser secret. Resolved once; the
+                # closing panel below reads the same flag.
+                _edh_creates_default_admin: bool = _get_install_properties.get(
+                    "Config", {}
+                ).get("directoryservice", {}).get("provider", "") not in [
                     "existing_openldap",
                     "existing_active_directory",
-                ]:
+                ]
+
+                if _edh_creates_default_admin:
                     with spinner(
                         message=_(
                             "Retrieving EDH Admin credentials from AWS Secrets Manager ..."
@@ -1935,26 +2824,38 @@ if __name__ == "__main__":
                                         )
                                         sys.exit(1)
 
-                            # at this point EDH Web UI is fully operational, however the user creation will happen within the next 20 to 40 seconds.
-                            # Adding extra delay to be sure the user is created and customer can click and login.
-                            with spinner(
-                                message=_(
-                                    "Waiting for EDH Admin user to be created ..."
+                            # The wait and the credential lines both apply only
+                            # when EDH created the admin: an existing directory
+                            # has no such user to wait for or report.
+                            if _edh_creates_default_admin:
+                                # at this point EDH Web UI is fully operational, however the user creation will happen within the next 20 to 40 seconds.
+                                # Adding extra delay to be sure the user is created and customer can click and login.
+                                with spinner(
+                                    message=_(
+                                        "Waiting for EDH Admin user to be created ..."
+                                    )
+                                ):
+                                    logger.info(
+                                        "⏳  EDH environment not ready yet, waiting for default EDH Admin user to be created. Checking again in 120 seconds ... "
+                                    )
+                                    time.sleep(120)
+                                _edh_login_lines = (
+                                    f"\n"
+                                    f"👤 Username:    [bold white]{_get_admin_password.get('username')}[/]\n"
+                                    f"🔑 Password:    [bold white]{_get_admin_password.get('password')}[/]\n"
                                 )
-                            ):
-                                logger.info(
-                                    "⏳  EDH environment not ready yet, waiting for default EDH Admin user to be created. Checking again in 120 seconds ... "
+                            else:
+                                _edh_login_lines = _(
+                                    "\nSign in with an account from your existing directory.\n"
+                                    "EDH does not create a default admin when you bring your own.\n"
                                 )
-                                time.sleep(120)
                             console.print("\n")
                             console.print(
                                 Panel(
                                     f"[bold green]✅ Your EDH environment is ready![/]\n"
                                     f"\n"
                                     f"🌐 Login URL:   [bold underline #4db8ff]{_edh_endpoint_url}[/]\n"
-                                    f"\n"
-                                    f"👤 Username:    [bold white]{_get_admin_password.get('username')}[/]\n"
-                                    f"🔑 Password:    [bold white]{_get_admin_password.get('password')}[/]\n",
+                                    f"{_edh_login_lines}",
                                     title="[bold #e8eef7]🚀 EDH Deployment Complete[/]",
                                     border_style="#00cc66",
                                     padding=(1, 4),
@@ -1969,15 +2870,29 @@ if __name__ == "__main__":
                     logger.error(
                         f"Unable to retrieve {install_parameters['cluster_id']} stack outputs, probably due to a permission error (your IAM account do not have permission to run cloudformation:Describe*. Log in to AWS console to view your stack connection endpoints"
                     )
+            else:
+                # Everything above this branch is success reporting, so without
+                # the exit a failed deploy prints nothing and still returns 0.
+                # The SSM restore above has already run.
+                logger.error(f"cdk {cdk_cmd} failed")
+                sys.exit(1)
 
         elif args.cdk_cmd == "destroy":
-            # Destroy stack if known
-            cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
-            logger.info(f"Deleting stack, running {cmd_destroy}")
-            delete_stack = os.system(cmd_destroy)  # nosec
+            # cmd IS cmd_destroy here, so the teardown has already run once above.
+            # It used to run again from this branch, which is why its status could
+            # not be checked: the second invocation could fail precisely because
+            # the first one succeeded and the stack was already gone.
+            if int(launch_installer) != 0:
+                logger.error(f"cdk {cdk_cmd} failed")
+                sys.exit(1)
         else:
-            # synth, ls etc.
-            pass
+            # bootstrap, synth, ls. Nothing runs after this branch, so without a
+            # check the exit status of cmd is discarded and a failed cdk run still
+            # exits 0. deploy and destroy carry the same check in their own
+            # branches above.
+            if int(launch_installer) != 0:
+                logger.error(f"cdk {cdk_cmd} failed")
+                sys.exit(1)
             # console.print(params.model_dump_json(indent=2))
 
     except KeyboardInterrupt:

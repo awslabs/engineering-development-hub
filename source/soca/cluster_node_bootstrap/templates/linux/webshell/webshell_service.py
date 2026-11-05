@@ -156,6 +156,25 @@ _USERNAME_RE = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 # Example client values: "main", "popout-1", "popout-2".
 _SESSION_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
 
+# EC2 instance id, as sent by the client in ?instance= when it is resuming a
+# session it discovered on a specific login node. Only ever compared for
+# equality against our own IMDS-derived id -- never shelled out -- but we
+# validate the shape anyway so a junk value is ignored rather than compared.
+_INSTANCE_ID_RE = re.compile(r"^i-[0-9a-f]{8,32}$")
+
+# WebSocket close codes this service originates. 4400-4499 mirror HTTP 4xx
+# semantics; the client (static/js/webshell_tabs.js) branches on them:
+#
+#   4400  invalid session label            - client bug, do not retry
+#   4401  authentication failed            - re-prime the auth cookie
+#   4404  user not found on this host       - do not retry
+#   4408  idle or max-duration timeout      - tmux SURVIVES, resume on demand
+#   4409  wrong login node                  - retry so the ALB picks another
+#   4410  session not on this node          - the session is gone, offer a new one
+#   4500  failed to spawn shell             - node-level fault
+_CLOSE_WRONG_NODE = 4409
+_CLOSE_SESSION_GONE = 4410
+
 logging.basicConfig(
     level=LOG_LEVEL,
     format="%(asctime)s %(levelname)s [webshell] %(message)s",
@@ -416,22 +435,94 @@ def _resolve_user(user: str) -> pwd.struct_passwd:
         raise AuthError(f"user {user!r} not found on this host")
 
 
-def _spawn_tmux_pty(
-    pw_entry: pwd.struct_passwd, session_label: str = "main"
-) -> tuple[int, int]:
-    """Fork a new PTY-attached process running `tmux new-session -A -s edh_<user>_<label>`
-    as the target user. Returns (pid, master_fd).
+def _build_tmux_command(
+    session_name: str, attach_only: bool, conf_path: Optional[str] = None
+) -> str:
+    """Build the tmux command line run inside the target user's login shell.
 
-    The `-A` flag makes tmux attach to an existing session with that name if one
-    exists, or create it otherwise. This is exactly the suspend/resume semantic
-    we want: the session outlives the websocket connection.
+    Pure function - no I/O beyond the caller-supplied conf path - so the
+    attach-vs-create decision can be unit-tested without forking a PTY.
+
+    `attach_only=True` yields `attach-session -t`, which FAILS when the
+    session does not exist. `attach_only=False` yields `new-session -A`,
+    which attaches or creates. See _spawn_tmux_pty for why that difference
+    matters on a multi-login-node cluster.
+
+    The session name is safe to interpolate by construction: _SESSION_NAME_RE
+    restricts the label to [A-Za-z0-9_-]{1,32} and the username is
+    POSIX-validated upstream, so the result contains only characters safe for
+    a shell word (no spaces, quotes, $, backticks, or globs).
+    """
+    _conf_flag = f"-f {conf_path} " if conf_path else ""
+    if attach_only:
+        _verb = f"attach-session -t {session_name}"
+    else:
+        _verb = f"new-session -A -s {session_name}"
+    return f"exec tmux {_conf_flag}{_verb}"
+
+
+def _tmux_session_exists(pw_entry: pwd.struct_passwd, session_name: str) -> bool:
+    """Return True if `session_name` exists on this host's tmux server for the
+    target user.
+
+    tmux servers are per-user (socket under /tmp/tmux-<uid>), so this has to
+    run AS the user rather than as root. We use `su <user> -c` without the
+    login dash: we only need the uid switch, not a full PAM login session,
+    and skipping the login shell keeps this off the utmp/wtmp record and
+    out of the user's profile scripts.
+
+    A non-zero exit, a missing tmux server, or a timeout all mean "not
+    usable as an attach target", so they all return False. The caller
+    turns that into an explicit close code rather than silently creating
+    a new session.
+    """
+    try:
+        completed = subprocess.run(
+            ["su", pw_entry.pw_name, "-c", f"tmux has-session -t {session_name}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        logger.warning(
+            "tmux has-session check failed for %s: %s", session_name, exc
+        )
+        return False
+    return completed.returncode == 0
+
+
+def _spawn_tmux_pty(
+    pw_entry: pwd.struct_passwd,
+    session_label: str = "main",
+    attach_only: bool = False,
+) -> tuple[int, int]:
+    """Fork a new PTY-attached process running tmux as the target user.
+    Returns (pid, master_fd).
+
+    `attach_only` selects between the two intents a client can have:
+
+      * False (default, a NEW terminal tab) -> `tmux new-session -A -s <name>`.
+        The `-A` flag attaches to an existing session with that name if one
+        exists, or creates it otherwise.
+      * True (RESUMING a session the client already knows about) ->
+        `tmux attach-session -t <name>`, which fails rather than creating.
+
+    That distinction is load-bearing on a multi-login-node cluster. The ALB
+    spreads /web_terminal/endpoint across the whole login node ASG with no
+    stickiness, so a resume can land on a node that does not hold the
+    session. Under `new-session -A` that node silently creates a SECOND
+    empty session with the same name and the user gets a fresh shell
+    instead of their work, with duplicates now on two nodes. Under
+    attach-only the wrong node fails cleanly and the caller closes the
+    WebSocket with a code that tells the client to retry.
 
     `session_label` lets a single user have multiple independent tmux sessions
     (e.g. the inline terminal uses "main", pop-out windows use "popout-1",
     "popout-2", etc.). Caller MUST validate the label with _SESSION_NAME_RE
     before passing it in - we use it directly in the tmux session name.
 
-    We intentionally exec `su - <user> -c 'exec tmux new-session -A -s ...'`
+    We intentionally exec `su - <user> -c 'exec tmux ...'`
     rather than dropping privileges ourselves and exec'ing tmux directly.
     `su -` opens a full PAM session (pam_unix + pam_loginuid + pam_systemd +
     pam_limits etc.), which:
@@ -447,15 +538,11 @@ def _spawn_tmux_pty(
     """
     session_name = f"edh_{pw_entry.pw_name}_{session_label}"
 
-    # tmux invocation that runs inside the user's login shell. We quote the
-    # session name by construction: _SESSION_NAME_RE restricts the label to
-    # [A-Za-z0-9_-]{1,32} and the username is POSIX-validated upstream, so
-    # the resulting session_name contains only characters safe for a shell
-    # word (no spaces, quotes, $, backticks, or globs).
     # -f webshell.tmux.conf enables mouse-on (wheel scrolls pane scrollback, not shell history); guard so a missing conf never blocks startup
     _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webshell.tmux.conf")
-    _conf_flag = f"-f {_conf} " if os.path.exists(_conf) else ""
-    tmux_cmd = f"exec tmux {_conf_flag}new-session -A -s {session_name}"
+    tmux_cmd = _build_tmux_command(
+        session_name, attach_only, _conf if os.path.exists(_conf) else None
+    )
 
     pid, master_fd = pty.fork()
     if pid == 0:
@@ -675,6 +762,61 @@ def _extract_credentials(
         pass
 
     return "", "", "none"
+
+
+class InvalidSessionLabel(ValueError):
+    """Raised by _parse_connection_params for a label we will not shell out with."""
+
+
+def _parse_connection_params(ws_path: str) -> tuple[str, bool, str]:
+    """Extract (session_label, attach_only, want_instance) from a WebSocket
+    upgrade path.
+
+    Pure function - no I/O. Factored out of _handle_connection so it can be
+    unit-tested in isolation, same as _extract_credentials.
+
+    Recognised query params:
+
+        session=<label>   tmux session label. Defaults to "main". Must match
+                          _SESSION_NAME_RE; anything else raises
+                          InvalidSessionLabel because the value ends up in a
+                          tmux session name we build by string concatenation.
+        mode=attach       The client is RESUMING a session it already knows
+                          about, so this node must not create one. Any other
+                          value (or absent) means "create if needed".
+        instance=i-xxxx   The instance the client believes holds the session.
+                          Returned only when it is a well-formed instance id;
+                          a malformed value is dropped rather than compared.
+
+    A malformed query string yields the defaults rather than an error - the
+    terminal should still come up for a client that sends junk it does not
+    need.
+    """
+    session_label = "main"
+    attach_only = False
+    want_instance = ""
+
+    try:
+        from urllib.parse import urlparse, parse_qs
+
+        qs = parse_qs(urlparse(ws_path).query)
+    except Exception as exc:
+        logger.debug("failed to parse WS query string: %s", exc)
+        return session_label, attach_only, want_instance
+
+    raw = (qs.get("session", [""])[0] or "").strip()
+    if raw:
+        if not _SESSION_NAME_RE.match(raw):
+            raise InvalidSessionLabel(raw)
+        session_label = raw
+
+    attach_only = (qs.get("mode", [""])[0] or "").strip().lower() == "attach"
+
+    raw_instance = (qs.get("instance", [""])[0] or "").strip()
+    if raw_instance and _INSTANCE_ID_RE.match(raw_instance):
+        want_instance = raw_instance
+
+    return session_label, attach_only, want_instance
 
 
 # ---------------------------------------------------------------------------
@@ -925,30 +1067,66 @@ async def _handle_connection(ws: WebSocketServerProtocol) -> None:
         await ws.close(code=4404, reason=str(exc))
         return
 
-    # Parse session label from the WS URL query string (e.g. ?session=main
-    # or ?session=popout-1). Empty/missing defaults to "main". Invalid
-    # values are rejected so we never shell out with unsanitized strings.
-    session_label = "main"
+    # Parse the client's intent out of the WS URL query string. See
+    # _parse_connection_params for the recognised params; the two beyond
+    # `session` exist because the ALB fans /web_terminal/endpoint across the
+    # whole login node ASG with no stickiness, so a resume is not guaranteed
+    # to reach the node holding the tmux session.
     try:
-        from urllib.parse import urlparse, parse_qs
+        session_label, attach_only, want_instance = _parse_connection_params(ws.path)
+    except InvalidSessionLabel as exc:
+        logger.warning("rejected invalid session label %r from %s", str(exc), peer)
+        await ws.close(code=4400, reason="invalid session label")
+        return
 
-        qs = parse_qs(urlparse(ws.path).query)
-        raw = (qs.get("session", [""])[0] or "").strip()
-        if raw:
-            if not _SESSION_NAME_RE.match(raw):
-                logger.warning("rejected invalid session label %r from %s", raw, peer)
-                await ws.close(code=4400, reason="invalid session label")
-                return
-            session_label = raw
-    except Exception as exc:
-        logger.debug("failed to parse session label: %s", exc)
+    # Node check. Only enforced when the client named an instance AND we can
+    # determine our own id; if IMDS is unavailable we fail OPEN rather than
+    # locking the user out. That is safe because it is `attach_only` -- not
+    # this check -- that prevents a wrong node from creating a duplicate
+    # session; this check only makes the client's retry converge quickly.
+    if want_instance:
+        _own_instance = _get_instance_id()
+        if _own_instance and want_instance != _own_instance:
+            logger.info(
+                "session %s for user=%s belongs to %s, not us (%s); "
+                "closing so the client retries",
+                session_label,
+                user,
+                want_instance,
+                _own_instance,
+            )
+            await ws.close(code=_CLOSE_WRONG_NODE, reason="wrong login node")
+            return
+
+    # Resume intent: the session must already exist here. If it does not,
+    # say so explicitly instead of handing back a new empty shell that
+    # looks like the user's session but has none of their work in it.
+    if attach_only:
+        # Derive the name from pw_entry.pw_name, NOT from the raw `user`
+        # credential string, so this probe and _spawn_tmux_pty always agree.
+        # pwd.getpwnam() can normalise case or resolve an alias, and if the
+        # two names diverged the probe would test a session that is not the
+        # one attach-session would open, reporting a live session as gone.
+        _session_name = f"edh_{pw_entry.pw_name}_{session_label}"
+        if not await asyncio.get_event_loop().run_in_executor(
+            None, _tmux_session_exists, pw_entry, _session_name
+        ):
+            logger.info(
+                "attach requested for %s but no such session on this node",
+                _session_name,
+            )
+            await ws.close(code=_CLOSE_SESSION_GONE, reason="session not on this node")
+            return
 
     logger.info(
-        "auth ok for user=%s session=%s, spawning tmux pty", user, session_label
+        "auth ok for user=%s session=%s mode=%s, spawning tmux pty",
+        user,
+        session_label,
+        "attach" if attach_only else "create",
     )
 
     try:
-        pid, master_fd = _spawn_tmux_pty(pw_entry, session_label)
+        pid, master_fd = _spawn_tmux_pty(pw_entry, session_label, attach_only)
     except OSError as exc:
         logger.exception("failed to spawn pty for user=%s: %s", user, exc)
         await ws.close(code=4500, reason="failed to spawn shell")

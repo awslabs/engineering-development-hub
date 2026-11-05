@@ -23,6 +23,7 @@ import sys
 from helpers import (
     security_groups as security_groups_helper,
     secretsmanager as secretsmanager_helper,
+    ec2 as ec2_helper,
 )
 import logging
 
@@ -362,7 +363,11 @@ def _storage_build_fsx_ontap_filesystem(
         )
         for _sn in (
             scope.soca_resources["vpc"]
-            .select_subnets(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+            .select_subnets(
+                subnet_type=ec2_helper.private_subnet_type(
+                    scope.soca_resources["vpc"]
+                )
+            )
             .subnets
         ):
             if _sn.subnet_id not in _fsx_ontap_source_subnets:
@@ -537,33 +542,26 @@ def _storage_build_fsx_ontap_filesystem(
         f"Using AD/DC IP addresses: {scope.directory_service_resource_setup.get('domain_controller_ips')}"
     )
 
-    _fsx_active_directory_configuration = fsx.CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty(
-        net_bios_name=_netbios_name,
-        self_managed_active_directory_configuration=fsx.CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty(
-            dns_ips=scope.directory_service_resource_setup["domain_controller_ips"],
-            domain_name=scope.directory_service_resource_setup.get("domain_name"),
-            file_system_administrators_group=_file_system_administrators_group,
-            organizational_unit_distinguished_name=_organizational_unit_distinguished_name,
-            password=(
-                scope.directory_service_resource_setup["ds_admin_password"]
-                .secret_value_from_json("password")
-                .to_string()
-                if scope.directory_service_resource_setup["use_existing_directory"]
-                is False
-                else scope.directory_service_resource_setup["ds_admin_password"]
-            ),
-            user_name=scope.directory_service_resource_setup["ds_admin_username"],
-        ),
-    )
-
+    # The SVM is created WITHOUT its AD configuration; the controller bootstrap
+    # joins it. AWS::FSx::StorageVirtualMachine creates and joins in one atomic
+    # resource, so session-security-for-ad-ldap cannot be set first, and a
+    # domain controller requiring LDAP signing refuses ONTAP's unsigned bind.
     scope.soca_resources[f"fs_{fs_key}"] = fsx.CfnStorageVirtualMachine(
         scope,
         f"SVMFSxOntap{fs_key.capitalize()}",
         file_system_id=_ontap_filesystem.ref,
         name=f"SVMFSxOntap{fs_key.capitalize()}",
-        active_directory_configuration=_fsx_active_directory_configuration,
         root_volume_security_style="UNIX",
     )
+
+    # Join parameters the bootstrap cannot derive from the UserDirectory config.
+    if not hasattr(scope, "soca_filesystems_svm_domain_join"):
+        scope.soca_filesystems_svm_domain_join = {}
+    scope.soca_filesystems_svm_domain_join[fs_key] = {
+        "svm_netbios_name": _netbios_name,
+        "svm_organizational_unit": _organizational_unit_distinguished_name,
+        "svm_file_system_administrators_group": _file_system_administrators_group,
+    }
 
     if scope.directory_service_resource_setup.get("use_existing_directory") is False:
         scope.soca_resources[f"fs_{fs_key}"].node.add_dependency(
@@ -728,7 +726,11 @@ def _storage_build_fsx_lustre_filesystem(
         file_system_type="LUSTRE",
         subnet_ids=[
             scope.soca_resources["vpc"]
-            .select_subnets(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+            .select_subnets(
+                subnet_type=ec2_helper.private_subnet_type(
+                    scope.soca_resources["vpc"]
+                )
+            )
             .subnets[0]
             .subnet_id
         ],

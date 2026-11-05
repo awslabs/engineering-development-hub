@@ -9,6 +9,7 @@ from commands.logs.web_interface import logs_webinterface
 
 @click.group()
 def logs():
+    """Fetch and watch cluster logs."""
     pass
 
 

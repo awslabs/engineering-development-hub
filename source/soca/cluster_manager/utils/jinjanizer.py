@@ -8,6 +8,7 @@ from jinja2 import (
     TemplateSyntaxError,
 )
 from jinja2.sandbox import SandboxedEnvironment
+from markupsafe import Markup
 from utils.cast import SocaCastEngine
 from utils.error import SocaError
 from utils.response import SocaResponse
@@ -16,6 +17,7 @@ import logging
 import os
 import sys
 import pathlib
+import shlex
 from types import SimpleNamespace
 
 logger = logging.getLogger("soca_logger")
@@ -30,6 +32,16 @@ def _finalize_canonical(value):
     if value is False:
         return "false"
     return value
+
+
+# Shell/Powershell-safe output filters
+def _sh_quote(value):
+    return Markup(shlex.quote(str(_finalize_canonical(value))))
+
+
+def _ps_quote(value):
+    # PowerShell single-quoted string: no $() / $var expansion, ' is doubled.
+    return Markup("'" + str(_finalize_canonical(value)).replace("'", "''") + "'")
 
 
 class SocaJinja2Renderer:
@@ -97,6 +109,8 @@ class SocaJinja2Generator:
                 default=True,
             ),
         )
+        _jinja2_env.filters["sh_quote"] = _sh_quote
+        _jinja2_env.filters["ps_quote"] = _ps_quote
         return _jinja2_env
 
     def to_stdout(self, autocast_values: bool = False):

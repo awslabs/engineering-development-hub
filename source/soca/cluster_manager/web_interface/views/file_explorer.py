@@ -369,6 +369,92 @@ def index():
         return redirect("/file_explorer")
 
 
+@file_explorer.route("/file_explorer/browse", methods=["GET"])
+@login_required
+@feature_flag(flag_name="FILE_BROWSER", mode="api")
+def browse():
+    """
+    JSON directory listing used by the job submission file picker (static/js/edh_workflow_file_picker.js).
+    Same access rules as index(): the directory must pass check_user_permission (user ACLs +
+    PATH_TO_RESTRICT). Hidden entries are skipped. Returns paths only, never file content.
+    """
+    _user = session.get("user", "")
+    _home = f"{config.Config.USER_HOME}/{_user}"
+    try:
+        _path = pathlib.Path(request.args.get("path") or _home).resolve()
+    except Exception as err:
+        logger.error(f"Unable to resolve file picker path due to {err}")
+        return {"success": False, "message": _("Invalid path")}, 400
+
+    if (
+        check_user_permission(
+            path=str(_path),
+            permissions=Permissions.READ,
+            user=_user,
+            paths_to_restrict=config.Config.PATH_TO_RESTRICT,
+        )
+        is False
+    ):
+        return {
+            "success": False,
+            "message": _(
+                "You are not authorized to access this location and/or this path is restricted by the Administrator."
+            ),
+        }, 403
+
+    if not _path.is_dir():
+        return {"success": False, "message": _("This path is not a directory")}, 400
+
+    _entries = []
+    try:
+        for entry in os.scandir(_path):
+            if entry.name.startswith("."):
+                continue
+            try:
+                _is_dir = entry.is_dir()
+            except OSError:
+                # most likely a symbolic link pointing to a wrong location
+                continue
+            _entries.append(
+                {
+                    "name": entry.name,
+                    "path": f"{_path}/{entry.name}" if str(_path) != "/" else f"/{entry.name}",
+                    "type": "folder" if _is_dir else "file",
+                }
+            )
+    except OSError as err:
+        logger.error(f"Unable to list {_path} for file picker due to {err}")
+        return {"success": False, "message": _("Could not list this directory")}, 400
+
+    _entries.sort(key=lambda e: (e["type"] != "folder", e["name"].lower()))
+
+    # Simple pagination (folders first, then files, alphabetical) so large folders do not
+    # return thousands of entries at once. page is 1-based; out-of-range values are clamped.
+    try:
+        _page_size = min(max(int(request.args.get("page_size", 100)), 1), 500)
+        _page = max(int(request.args.get("page", 1)), 1)
+    except ValueError:
+        return {"success": False, "message": _("page and page_size must be integers")}, 400
+    _total = len(_entries)
+    _pages = max(math.ceil(_total / _page_size), 1)
+    _page = min(_page, _pages)
+    _start = (_page - 1) * _page_size
+
+    return {
+        "success": True,
+        "message": {
+            "path": str(_path),
+            "parent": str(_path.parent) if _path != _path.parent else None,
+            "home": _home,
+            "entries": _entries[_start : _start + _page_size],
+            "page": _page,
+            "pages": _pages,
+            "page_size": _page_size,
+            "total": _total,
+        },
+    }, 200
+
+
 @file_explorer.route("/file_explorer/download", methods=["GET"])
 @login_required
 @feature_flag(flag_name="FILE_BROWSER", mode="view")

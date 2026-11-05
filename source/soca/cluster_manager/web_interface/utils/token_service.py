@@ -147,16 +147,12 @@ def validate_token(
         if _path_method_matches(path, method, policy.get("global_deny", {})):
             return False, "global_deny"
 
-        # Sudo check for admin endpoints
-        if check_sudo:
-            from utils.http_client import SocaHttpClient
+    # Sudo check for admin endpoints.
+    if check_sudo:
+        from utils.group_resolver import is_sudoer
 
-            _validate_sudo = SocaHttpClient(
-                endpoint="/api/ldap/sudo",
-                headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-            ).get(params={"user": user})
-            if not _validate_sudo.get("success"):
-                return False, "not_sudoer"
+        if not is_sudoer(user):
+            return False, "not_sudoer"
 
     # Token deny
     deny_rules = permissions.get("deny", {})
@@ -220,7 +216,9 @@ def create_token(
 
 
 def create_session_token(user: str) -> Tuple[str, ApiTokens]:
-    """Create a session token for the web UI (full access, 1h lifetime)."""
+    """Create a session token for the web UI (full /api/* access, lifetime
+    SESSION_TOKEN_LIFETIME_HOURS, not renewable: rotated by
+    get_or_rotate_session_token on expiry)."""
     permissions = {"allow": {"/api/*": ["*"]}}
     return create_token(
         user=user,

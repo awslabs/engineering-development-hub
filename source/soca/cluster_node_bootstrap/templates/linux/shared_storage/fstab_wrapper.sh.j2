@@ -24,27 +24,45 @@
     local MOUNT_DUMP=${FSTAB_ENTRY[4]-"0"}
     local MOUNT_PASS=${FSTAB_ENTRY[5]-"0"}
 
-    local MOUNT_VERIFICATION
+    local MOUNTED_SOURCE
     local MOUNT_ATTEMPT
+    local MOUNT_MAX_ATTEMPTS=5
+    local FSTAB_ENTRY_EXISTS="false"
 
-    log_info "Received new fstab entry request: ${FSTAB_ENTRY}"
+    log_info "Received new fstab entry request: ${FSTAB_ENTRY[*]}"
 
     if [[ -z "${MOUNT_FILESYSTEM}" ]] || [[ -z "${MOUNT_POINT}" ]] || [[ -z "${MOUNT_TYPE}" ]] || [[ -z "${MOUNT_OPTIONS}" ]]; then
-      log_error "Invalid entry. Expected <filesystem> <mount_point> <mount_type> <options> [[<dump> <pass>]], received ${FSTAB_ENTRY}"
+      log_error "Invalid entry. Expected <filesystem> <mount_point> <mount_type> <options> [[<dump> <pass>]], received ${FSTAB_ENTRY[*]}"
       return 1
     fi
 
+    # An /etc/fstab line is NOT proof of a mount. The line is appended before
+    # the first mount attempt and is deliberately left in place when every
+    # attempt fails, so that the systemd _netdev unit can mount it once the
+    # filesystem becomes reachable. Returning 0 here reported success for a
+    # filesystem that had never mounted, and hid it on every later run: the
+    # mount-table check below was unreachable. Record the entry so it is not
+    # duplicated, then fall through and verify the mount for real.
     if grep -qF "${MOUNT_FILESYSTEM} ${MOUNT_POINT}" /etc/fstab; then
-      log_info "This entry seems to already exist on /etc/fstab"
-      return 0
+      log_info "This entry already exists on /etc/fstab, verifying it is mounted"
+      FSTAB_ENTRY_EXISTS="true"
     fi
 
-    if mount | grep -q "${MOUNT_POINT}"; then
-      if mount | grep "${MOUNT_POINT}" | grep -q ${MOUNT_FILESYSTEM} ; then
+    # Anchor the probe on the exact mount point. `mount | grep "${MOUNT_POINT}"`
+    # matched the path as a SUBSTRING of any mount table line, so a request for
+    # /apps while /apps/scratch was mounted compared the device of the wrong
+    # filesystem and refused a legitimate mount with "mounted to a different
+    # disk". findmnt --mountpoint matches the mount point and nothing else.
+    # --target must not be used here: for a path that is not itself a mount
+    # point it reports the filesystem CONTAINING the path, which reintroduces
+    # the same false mismatch. --first-only keeps the comparison to the
+    # top-most filesystem when the mount point carries an over-mount.
+    if MOUNTED_SOURCE=$(findmnt -rn -f -o SOURCE --mountpoint "${MOUNT_POINT}" 2>/dev/null); then
+      if [[ "${MOUNTED_SOURCE}" == *"${MOUNT_FILESYSTEM}"* ]]; then
         log_info "${MOUNT_POINT} is already mounted"
         return 0
       else
-        log_error "${MOUNT_POINT} is mounted to a different disk"
+        log_error "${MOUNT_POINT} is mounted to a different disk: ${MOUNTED_SOURCE}"
         return 1
       fi
     fi
@@ -75,25 +93,33 @@
     mkdir -p ${MOUNT_POINT}
 
     # Adding to /etc/fstab
-    log_info "Adding ${MOUNT_FILESYSTEM} ${MOUNT_POINT} ${MOUNT_TYPE} ${MOUNT_OPTIONS} ${MOUNT_DUMP} ${MOUNT_PASS} to /etc/fstab"
-    echo "${MOUNT_FILESYSTEM} ${MOUNT_POINT} ${MOUNT_TYPE} ${MOUNT_OPTIONS} ${MOUNT_DUMP} ${MOUNT_PASS}" >> /etc/fstab
+    if [[ "${FSTAB_ENTRY_EXISTS}" == "true" ]]; then
+      log_info "${MOUNT_FILESYSTEM} ${MOUNT_POINT} is already in /etc/fstab, not adding a duplicate"
+    else
+      log_info "Adding ${MOUNT_FILESYSTEM} ${MOUNT_POINT} ${MOUNT_TYPE} ${MOUNT_OPTIONS} ${MOUNT_DUMP} ${MOUNT_PASS} to /etc/fstab"
+      echo "${MOUNT_FILESYSTEM} ${MOUNT_POINT} ${MOUNT_TYPE} ${MOUNT_OPTIONS} ${MOUNT_DUMP} ${MOUNT_PASS}" >> /etc/fstab
+    fi
 
     # Trying to mount
-    for ((MOUNT_ATTEMPT=1; MOUNT_ATTEMPT<=10; MOUNT_ATTEMPT++)); do
-      log_info "Mounting attempt ${MOUNT_ATTEMPT}/10 ..."
+    for ((MOUNT_ATTEMPT=1; MOUNT_ATTEMPT<=MOUNT_MAX_ATTEMPTS; MOUNT_ATTEMPT++)); do
+      log_info "Mounting attempt ${MOUNT_ATTEMPT}/${MOUNT_MAX_ATTEMPTS} ..."
 
       if mount ${MOUNT_POINT}; then
         log_info "mount ${MOUNT_POINT} command completed successfully"
-        break
+        return 0
+      fi
+
+      if [[ "${MOUNT_ATTEMPT}" -eq "${MOUNT_MAX_ATTEMPTS}" ]]; then
+        log_error "Failed to mount ${MOUNT_FILESYSTEM} on ${MOUNT_POINT} after ${MOUNT_MAX_ATTEMPTS} attempts."
+        return 1
       fi
 
       local SLEEP_TIME=$(( RANDOM % 60 ))
+      log_info "mount ${MOUNT_POINT} failed, retrying in ${SLEEP_TIME} seconds"
       sleep ${SLEEP_TIME}
-      if [[ "${MOUNT_ATTEMPT}" -eq 5 ]]; then
-        log_error "Failed to mount ${MOUT_MOUNT_FILESYSTEM} after 10 attempts."
-        return 1
-      fi
     done
-    return 0
+
+    log_error "Failed to mount ${MOUNT_FILESYSTEM} on ${MOUNT_POINT} after ${MOUNT_MAX_ATTEMPTS} attempts."
+    return 1
   }
 {% endif %}

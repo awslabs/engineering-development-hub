@@ -24,7 +24,6 @@ from utils.datamodels.soca_node import (
 from utils.datamodels.hpc.pbs.node import SocaHpcNodePBS
 from utils.aws.cloudformation_client import SocaCfnClient
 
-from utils.hpc.scheduler_command_builder import SocaHpcSlurmJobCommandBuilder
 
 logger = logging.getLogger("soca_logger")
 
@@ -143,31 +142,45 @@ class SocaSchedulerSlurmNodesManager:
                             f"Associated capacity {_pbs_nodes.stack_id} deleted successfully"
                         )
 
-        _deregister_scheduler_nodes_terminate_when_idle = _sync_actions.get(
-            "deregister_scheduler_nodes_terminate_when_idle"
+        _delete_idle_capacity_per_stack = _sync_actions.get(
+            "delete_idle_capacity_per_stack"
         )
-        if _deregister_scheduler_nodes_terminate_when_idle:
+        if _delete_idle_capacity_per_stack:
             logger.info(
                 "De-registering SocaPbsNode + delete cloudformation_capacity with expired terminate_when_idle flag"
             )
-            for _pbs_nodes in _deregister_scheduler_nodes_terminate_when_idle:
-                _deregister_node = self.deregister_node(pbs_node=_pbs_nodes)
-                if _deregister_node.get("success") is False:
+            for _entry in _delete_idle_capacity_per_stack:
+                _stack_id = _entry.get("stack_id")
+                for _pbs_nodes in _entry.get("nodes", []):
+                    _deregister_node = self.deregister_node(pbs_node=_pbs_nodes)
+                    if _deregister_node.get("success") is False:
+                        # Logged and carried on rather than skipping the delete:
+                        # the stack is going either way, and a node left
+                        # registered against a terminated instance is picked up
+                        # by the no-associated-capacity path.
+                        logger.error(
+                            f"Unable to deregister node {_pbs_nodes.instance_id} due to {_deregister_node.get('message')}, "
+                            f"continuing to delete {_stack_id} anyway"
+                        )
+
+                # Once per stack, not once per node.
+                _delete_associated_capacity = self.delete_associated_capacity(
+                    stack_name=_stack_id
+                )
+                if _delete_associated_capacity.get("success") is False:
                     logger.error(
-                        f"Unable to deregister node {_pbs_nodes.instance_id} due to {_deregister_node.get('message')}"
+                        f"Unable to delete associated capacity {_stack_id} due to {_delete_associated_capacity.get('message')}"
                     )
                 else:
-                    _delete_associated_capacity = self.delete_associated_capacity(
-                        stack_name=_pbs_nodes.stack_id
+                    logger.info(
+                        f"Associated capacity {_stack_id} deleted successfully"
                     )
-                    if _delete_associated_capacity.get("success") is False:
-                        logger.error(
-                            f"Unable to delete associated capacity {_pbs_nodes.stack_id} due to {_delete_associated_capacity.get('message')}"
-                        )
-                    else:
-                        logger.info(
-                            f"Associated capacity {_pbs_nodes.stack_id} deleted successfully"
-                        )
+
+        # NOTE: reclaim_idle_scheduler_nodes (terminate ONE idle node, leaving
+        # its stack and busy siblings in place) is implemented for PBS only.
+        # Slurm therefore keeps the stricter behaviour: capacity is reclaimed
+        # only when every node in the stack is idle. Implementing it here needs
+        # a Slurm equivalent of terminate_node_capacity.
 
     def get_registered_nodes(
         self,

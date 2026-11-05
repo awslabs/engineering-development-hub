@@ -52,15 +52,14 @@
     "maxlength": 255
   },
   {
-    "type": "text",
+    "type": "edhFilePicker",
     "required": true,
-    "label": "Input location (input_file)",
-    "description": "input_file is a reserved name on SOCA. The value will automatically be replaced by the input location provided by the user. You MUST have it and parameter name MUST be input_name",
-    "placeholder": "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file.",
-    "className": "form-control",
+    "label": "Input file(s) / folder(s) (input_file)",
+    "description": "Click Browse to select one or more input files and/or folders. Pre-populated when the workflow is started from the File Explorer ('Use as Simulation Input'). Multiple paths are separated by a comma.",
+    "placeholder": "Click Browse to select your input file(s) or folder(s)",
     "name": "input_file",
-    "subtype": "text",
-    "maxlength": 255
+    "allowMultiple": true,
+    "selectType": "both"
   },
   {
     "type": "select",

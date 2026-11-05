@@ -253,6 +253,7 @@ SPDX-License-Identifier: Apache-2.0
                                 <option value="model" selected>{{ _("Model (Converse)") }}</option>
                                 <option value="agent">{{ _("Agent (Invoke Agent)") }}</option>
                                 <option value="mcp">{{ _("MCP (Tool Use)") }}</option>
+                                <option value="kb">{{ _("Knowledge Base (RAG)") }}</option>
                             </select>
                         </div>
                         <div id="model-config">
@@ -263,6 +264,10 @@ SPDX-License-Identifier: Apache-2.0
                                     <option value="{{ model }}" {% if loop.first %}selected{% endif %}>{{ model }}</option>
                                     {% endfor %}
                                 </select>
+                                <div id="global-model-warning" class="alert alert-warning small mt-2 mb-0" style="display:none">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ _("This is a global cross-Region inference profile: requests can be routed to any AWS Region. Using a regional inference profile (e.g. us., eu., apac.) is recommended to keep data within your geography.") }}<br>
+                                    {% trans doc_link='<a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/ai-assistant/" target="_blank">EDH documentation</a>'|safe, aws_link='<a href="https://docs.aws.amazon.com/bedrock/latest/userguide/models-region-compatibility.html" target="_blank">Bedrock model availability by Region</a>'|safe %}See the {{ doc_link }} to update the allowed model list, and {{ aws_link }} for supported Regions.{% endtrans %}
+                                </div>
                             </div>
                         </div>
                         <div id="agent-config" style="display:none">
@@ -276,7 +281,7 @@ SPDX-License-Identifier: Apache-2.0
                                     {% endfor %}
                                 </select>
                                 {% else %}
-                                <div class="alert alert-warning mb-0 small">
+                                <div class="alert alert-warning mb-0">
                                     {% trans link='<a href="https://aws.amazon.com/bedrock/agentcore/" target="_blank">Bedrock AgentCore</a>'|safe %}Unable to find any {{ link }} agent onboarded to this EDH environment.{% endtrans %}<br>
                                     {{ _("Add the following tag") }} <kbd>edh:visibility:{{cluster_id}} = true</kbd> {{ _("to the AgentCore runtimes you want to use.") }}
                                 </div>
@@ -298,8 +303,25 @@ SPDX-License-Identifier: Apache-2.0
                                     {% endfor %}
                                 </div>
                                 {% else %}
-                                <div class="alert alert-warning mb-0 small">
+                                <div class="alert alert-warning mb-0">
                                     {{ _("No MCP servers configured. Add MCP server definitions to SSM parameter") }} <kbd>/configuration/AIAssistant/mcp_servers</kbd>.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div id="kb-config" style="display:none">
+                            <div class="mb-3">
+                                <label><strong>{{ _("Knowledge Base") }}</strong></label>
+                                {% if knowledge_bases %}
+                                <select id="kb-select" class="form-control form-select-sm">
+                                    {% for kb_id in knowledge_bases %}
+                                    <option value="{{ kb_id }}" {% if loop.first %}selected{% endif %}>{{ kb_id }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text small">{{ _("Answers are grounded on the selected Bedrock Knowledge Base. EDH context and MCP tools are not used in this mode.") }}</div>
+                                {% else %}
+                                <div class="alert alert-warning mb-0">
+                                    {{ _("No Knowledge Base configured. Add Bedrock Knowledge Base IDs to SSM parameter") }} <kbd>/configuration/AIAssistant/allowed_knowledge_base_ids</kbd>.
                                 </div>
                                 {% endif %}
                             </div>
@@ -504,9 +526,10 @@ function goToStep(step) {
 
 function toggleAiMode() {
     var mode = document.getElementById('ai-mode').value;
-    document.getElementById('model-config').style.display = (mode === 'model' || mode === 'mcp') ? 'block' : 'none';
+    document.getElementById('model-config').style.display = (mode === 'model' || mode === 'mcp' || mode === 'kb') ? 'block' : 'none';
     document.getElementById('agent-config').style.display = mode === 'agent' ? 'block' : 'none';
     document.getElementById('mcp-config').style.display = mode === 'mcp' ? 'block' : 'none';
+    document.getElementById('kb-config').style.display = mode === 'kb' ? 'block' : 'none';
     updateBackendLabel();
 }
 
@@ -517,6 +540,16 @@ function getSelectedMcpServers() {
         names.push(checkboxes[i].value);
     }
     return names;
+}
+
+function getSelectedKnowledgeBase() {
+    var kbSelect = document.getElementById('kb-select');
+    return kbSelect ? kbSelect.value : '';
+}
+
+function toggleGlobalModelWarning() {
+    var modelId = document.getElementById('model-select').value || '';
+    document.getElementById('global-model-warning').style.display = modelId.indexOf('global.') === 0 ? 'block' : 'none';
 }
 
 function updateBackendLabel() {
@@ -531,6 +564,8 @@ function updateBackendLabel() {
         }
     } else if (mode === 'mcp') {
         label = document.getElementById('model-select').value + ' + MCP';
+    } else if (mode === 'kb') {
+        label = document.getElementById('model-select').value + ' + KB (' + (getSelectedKnowledgeBase() || '{{ _("not selected") }}') + ')';
     } else {
         label = document.getElementById('model-select').value;
     }
@@ -609,6 +644,8 @@ function sendStreaming() {
         payload.session_id = _conversationId;
     } else if (aiMode === 'mcp') {
         payload.mcp_server_names = getSelectedMcpServers();
+    } else if (aiMode === 'kb') {
+        payload.knowledge_base_id = getSelectedKnowledgeBase();
     }
 
     fetch('/api/ai_assistant/converse/stream', {
@@ -704,6 +741,8 @@ function sendSync() {
         payload.session_id = _conversationId;
     } else if (aiMode === 'mcp') {
         payload.mcp_server_names = getSelectedMcpServers();
+    } else if (aiMode === 'kb') {
+        payload.knowledge_base_id = getSelectedKnowledgeBase();
     }
 
     $.ajax({
@@ -752,6 +791,11 @@ function submitAnalysis() {
         var selectedMcp = getSelectedMcpServers();
         if (selectedMcp.length === 0) {
             showError('{{ _("No MCP servers available. Configure MCP servers in Settings before using this mode.") }}');
+            return;
+        }
+    } else if (aiMode === 'kb') {
+        if (!getSelectedKnowledgeBase()) {
+            showError('{{ _("No Knowledge Base available. Configure a Knowledge Base in Settings before using this mode.") }}');
             return;
         }
     }
@@ -833,6 +877,8 @@ function saveConversation() {
     } else if (aiMode === 'mcp') {
         var mcpNames = getSelectedMcpServers();
         backendLabel = (_modelId || 'Model') + ' + MCP (' + mcpNames.join(', ') + ')';
+    } else if (aiMode === 'kb') {
+        backendLabel = (_modelId || 'Model') + ' + KB (' + getSelectedKnowledgeBase() + ')';
     } else {
         backendLabel = _modelId || 'Model';
     }
@@ -986,8 +1032,12 @@ $(document).ready(function() {
 
     document.getElementById('ai-mode').addEventListener('change', updateBackendLabel);
     document.getElementById('model-select').addEventListener('change', updateBackendLabel);
+    document.getElementById('model-select').addEventListener('change', toggleGlobalModelWarning);
+    toggleGlobalModelWarning();
     var agentSelect = document.getElementById('agent-select');
     if (agentSelect) agentSelect.addEventListener('change', updateBackendLabel);
+    var kbSelect = document.getElementById('kb-select');
+    if (kbSelect) kbSelect.addEventListener('change', updateBackendLabel);
 });
 </script>
 

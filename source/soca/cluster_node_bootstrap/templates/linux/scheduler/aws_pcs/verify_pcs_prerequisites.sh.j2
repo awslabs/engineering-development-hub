@@ -1,0 +1,36 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Verify the AWS PCS agent + a matching Slurm major are ALREADY baked into the AMI.
+#
+# We do NOT install them at boot. AWS PCS appends its own node-registration UserData
+# (a cloud-boothook / bootcmd calling /opt/aws/pcs/bin/pcs_bootstrap_*.sh) that runs at
+# the VERY START of cloud-init -- before the EDH bootstrap -- so the agent and Slurm must
+# already exist on the image or PCS registration fails with exit 127. The custom AMI is
+# expected to carry them per:
+#   https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom.html
+#
+# This is a fail-fast guard: it surfaces a clear error in the bootstrap log instead of a
+# node that silently never joins the PCS-managed Slurm controller. Proof-of-install paths
+# match the idempotency checks the install_pcs_agent / install_pcs_slurm includes used.
+function verify_pcs_prerequisites () {
+    log_info "# Begin: Verify AWS PCS prerequisites are baked into the AMI"
+
+    local PCS_AGENT_VERSION_FILE="/opt/aws/pcs/version"
+    local PCS_SLURM_MAJOR="{{ context.get("/job/PCSClusterVersion", "26.05") }}"
+    local PCS_SLURM_VERSION_FILE="/opt/aws/pcs/scheduler/slurm-${PCS_SLURM_MAJOR}/version"
+
+    if [[ ! -f "${PCS_AGENT_VERSION_FILE}" ]]; then
+        exit_fail "AWS PCS agent is not installed on this AMI (${PCS_AGENT_VERSION_FILE} missing). The launch template AMI MUST have the PCS agent baked in; see https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom.html"
+    fi
+    log_info "AWS PCS agent present: $(cat "${PCS_AGENT_VERSION_FILE}" 2>/dev/null | tr '\n' ' ')"
+
+    if [[ ! -f "${PCS_SLURM_VERSION_FILE}" ]]; then
+        exit_fail "AWS PCS Slurm ${PCS_SLURM_MAJOR} is not installed on this AMI (${PCS_SLURM_VERSION_FILE} missing). The AMI MUST have the Slurm major series matching this PCS cluster (${PCS_SLURM_MAJOR}) baked in; see https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom.html"
+    fi
+    log_info "AWS PCS Slurm ${PCS_SLURM_MAJOR} present: $(cat "${PCS_SLURM_VERSION_FILE}" 2>/dev/null | tr '\n' ' ')"
+
+    log_info "# End: Verify AWS PCS prerequisites are baked into the AMI"
+}
+
+verify_pcs_prerequisites

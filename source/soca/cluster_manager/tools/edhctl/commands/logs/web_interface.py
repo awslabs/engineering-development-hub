@@ -41,6 +41,7 @@ def _get_log_dir(cluster_id: str) -> Path:
 
 @click.group(name="web-interface")
 def logs_webinterface() -> None:
+    """Web interface logs."""
     pass
 
 
@@ -100,6 +101,7 @@ def fetch(
     end_time: Optional[str] = None,
     ai_assistant: Optional[str] = None,
 ) -> None:
+    """Fetch recent lines from a web interface log."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -195,6 +197,7 @@ def watch(
     timeout: int,
     log_level: Optional[str] = None,
 ) -> None:
+    """Stream a web interface log until stopped or timed out."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -243,6 +246,7 @@ def watch(
 )
 @click.pass_context
 def failed(ctx: click.Context, lines: int) -> None:
+    """Scan the web interface logs for recent failures."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 

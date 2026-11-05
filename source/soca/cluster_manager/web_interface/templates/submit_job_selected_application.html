@@ -14,6 +14,9 @@
 <body id="page-top">
 {% include 'common/horizontal_menu_bar.html' %}
 {% include 'common/js_i18n.html' %}
+<script src="{{ url_for('static', filename='js/edh_workflow_file_picker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/edh_workflow_form_conditions.js') }}"></script>
+<script src="{{ url_for('static', filename='js/edh_workflow_form_steps.js') }}"></script>
 
 <div id="wrapper">
     {% include 'common/vertical_menu_bar.html' %}
@@ -31,9 +34,8 @@
                                     <form id="job-submit-form" action="/submit_job/send" method="post">
                                         <div class="form-build"></div>
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <input type="hidden" name="job_script" value="{{ profile_job }}">
-                                        <input type="hidden" name="profile_interpreter"
-                                               value="{{ profile_interpreter | safe }}">
+                                        {# Job script / interpreter are re-loaded server side from this workflow id (views/submit_job.py send_job) #}
+                                        <input type="hidden" name="app" value="{{ app_id }}">
                                         <input type="hidden" name="input_file_path"
                                                value="{{ input_file_path | safe }}">
                                         <button type="submit" class="btn btn-success"><i class="fas fa-play"></i> {{ _("Submit job") }}
@@ -119,8 +121,14 @@
     $(document).ready(function () {
         let formBuilder = $('.form-build').formRender({
             dataType: 'json',
+            templates: Object.assign({}, EDHFilePicker.templates, EDHFormSteps.templates),
             formData: {{ profile_form | safe }}
         })
+        // "Show only if" conditions (static/js/edh_workflow_form_conditions.js)
+        EDHFormConditions.apply(document.querySelector('.form-build'), {{ profile_form | safe }});
+        // Multi-step form when the workflow contains Step components (static/js/edh_workflow_form_steps.js).
+        // Must run after the conditions so steps hidden by "Show only if" are skipped.
+        EDHFormSteps.apply(document.querySelector('.form-build'));
 
         // populate input file path by default if they exist
         $("#input_file").val('{{ input_path }}');

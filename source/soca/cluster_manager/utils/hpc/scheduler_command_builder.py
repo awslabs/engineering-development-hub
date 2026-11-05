@@ -50,7 +50,9 @@ class SocaHpcBaseJobCommandBuilder(ABC):
             )
             return ""
 
-        _cmd = f"bash -c {shlex.quote(f'{self.load_scheduler_environment} && {command}')}"
+        _cmd = (
+            f"bash -c {shlex.quote(f'{self.load_scheduler_environment} && {command}')}"
+        )
 
         # For reference: SocaSubprocessClient(command=_cmd).run()
         logger.debug(f"{self.__class__.__name__} Run Command: {_cmd}")
@@ -58,8 +60,12 @@ class SocaHpcBaseJobCommandBuilder(ABC):
         return _cmd
 
     def normalize_job_name(self, job_name: str) -> str:
-        """Return the job name unchanged. Scheduler-specific builders override to sanitize."""
-        return job_name
+        """Sanitize a job name for use in a scheduler directive."""
+        if not job_name:
+            return job_name
+        # A quote, space or shell metacharacter would otherwise break out of a
+        # directive such as `#BSUB -J "name[1-10]"` and append further options.
+        return re.sub(r"[^A-Za-z0-9._-]", "_", job_name)
 
 
 class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
@@ -72,7 +78,16 @@ class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
 
     @property
     def load_scheduler_environment(self) -> str:
-        return f"export PBS_CONF_FILE={self.scheduler_info.pbs_configuration.pbs_exec}/pbs.conf && source {self.scheduler_info.pbs_configuration.pbs_exec}/pbs.conf"
+        # PATH is set explicitly: pbs.conf carries PBS_EXEC but never touches PATH, and
+        # EDH installs PBS under a per-cluster prefix that is on no default PATH. Without
+        # this, every bare command below resolves only in a shell that already happens to
+        # have PBS on PATH -- so a cron or a service unit gets "command not found".
+        _pbs_exec = self.scheduler_info.pbs_configuration.pbs_exec
+        return (
+            f"export PBS_CONF_FILE={_pbs_exec}/pbs.conf"
+            f" && source {_pbs_exec}/pbs.conf"
+            f" && export PATH={_pbs_exec}/bin:{_pbs_exec}/sbin:$PATH"
+        )
 
     def qstat(self, args: Optional[str] = None) -> str:
         return self._build_cmd("qstat", args)
@@ -86,6 +101,12 @@ class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
     def qdel(self, args: Optional[str] = None) -> str:
         return self._build_cmd("qdel", args)
 
+    def qhold(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("qhold", args)
+
+    def qrls(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("qrls", args)
+
     def pbsnodes(self, args: Optional[str] = None) -> str:
         return self._build_cmd("pbsnodes", args)
 
@@ -94,10 +115,10 @@ class SocaHpcPBSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
 
     def normalize_job_name(self, job_name: str) -> str:
         """Sanitize a job name for PBS `-N`; qsub/qalter reject chars outside PBS's set."""
-        if not job_name:
-            return job_name
-        # PBS accepts alphanumerics plus . _ - ; the first char must be alphanumeric.
-        _normalized = re.sub(r"[^A-Za-z0-9._-]", "_", job_name)
+        _normalized = super().normalize_job_name(job_name)
+        if not _normalized:
+            return _normalized
+        # PBS additionally requires the first char to be alphanumeric.
         if not _normalized[0].isalnum():
             _normalized = f"j{_normalized}"
         return _normalized[:230]  # stay within PBS Pro's job-name length ceiling
@@ -140,7 +161,55 @@ class SocaHpcSlurmJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
 
     @property
     def load_scheduler_environment(self) -> str:
-        return f"export SLURM_CONF={self.scheduler_info.slurm_configuration.install_sysconfig_path}/slurm.conf"
+        # Same reason as PBS above: exporting SLURM_CONF alone leaves sbatch/squeue/etc
+        # unresolvable, because EDH installs Slurm under a per-cluster prefix.
+        _slurm = self.scheduler_info.slurm_configuration
+        return (
+            f"export SLURM_CONF={_slurm.install_sysconfig_path}/slurm.conf"
+            f" && export PATH={_slurm.install_prefix_path}/bin:"
+            f"{_slurm.install_prefix_path}/sbin:$PATH"
+        )
+
+    def sbatch(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("sbatch", args)
+
+    def scontrol(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("scontrol", args)
+
+    def scancel(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("scancel", args)
+
+    def squeue(self, args: Optional[str] = None) -> str:
+        return self._build_cmd("squeue", args)
+
+
+class SocaHpcPCSJobCommandBuilder(SocaHpcBaseJobCommandBuilder):
+    """
+    Client must be configured with PCS Slurm
+    https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom_install-slurm.html
+    """
+
+    @property
+    def provider(self) -> str:
+        return SocaHpcSchedulerProvider.AWS_PCS
+
+    @property
+    def load_scheduler_environment(self) -> str:
+        # One sackd runs per PCS cluster (RuntimeDirectory=slurm-<pcs_cluster_id>), same model as
+        # https://docs.aws.amazon.com/pcs/latest/userguide/multi-cluster-login-script-code.html
+        # SLURM_CONF / SLURM_SACK_SOCKET point the Slurm client at this cluster's sackd. Both are
+        # optional so a PCS scheduler registered before this change keeps the host default sackd.
+        _pcs = self.scheduler_info.slurm_configuration
+        _env = (
+            f"export PATH={_pcs.install_prefix_path}/bin:"
+            f"{_pcs.install_prefix_path}/sbin:$PATH"
+        )
+        if _pcs.sack_socket_path:
+            _env += (
+                f" && export SLURM_CONF={_pcs.install_sysconfig_path}/slurm.conf"
+                f" && export SLURM_SACK_SOCKET={_pcs.sack_socket_path}"
+            )
+        return _env
 
     def sbatch(self, args: Optional[str] = None) -> str:
         return self._build_cmd("sbatch", args)

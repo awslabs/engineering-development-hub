@@ -1,28 +1,33 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC
 af-south-1:
   x86_64:
-    amazonlinux2: ami-0a2f041a7172803a3
-    amazonlinux2023: ami-01ebe90320cfc959e
-    rhel10: ami-02d5a9660d99ad2be
-    rhel7: ami-044da3d0d6afe60b8
-    rhel8: ami-03e0358422ca794ba
-    rhel9: ami-0c18d5227658a3cde
+    amazonlinux2: ami-0051a97e9f6d53454
+    amazonlinux2023: ami-0c5771c643c34cfd0
+    amazonlinux2027: ami-062b28b794fab33e9
+    rhel10: ami-09799b456448695c8
+    rhel8: ami-0c7b36418c7883445
+    rhel9: ami-019e94fce075b6e53
+    rocky10: ami-035c2a99453f005d2
     rocky8: ami-0a867a8f35ba78d6d
     rocky9: ami-067a37fb820b2a2dc
-    ubuntu2204: ami-0838f3457c0c58c34
-    ubuntu2404: ami-075d460850002adb0
+    ubuntu2204: ami-031370a35f89ca5ce
+    ubuntu2404: ami-0fc22f590833d7b74
+    ubuntu2604: ami-0a65b737945e470d9
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-04558a122a46f9298
-    amazonlinux2023: ami-02c357b439edab055
-    rhel10: ami-003011aaf2a32298e
-    rhel8: ami-04c4002d4459fb628
-    rhel9: ami-0a2ad4fb0f2855509
+    amazonlinux2: ami-09616ba221b5249c5
+    amazonlinux2023: ami-026ad57aa9b5bff2e
+    amazonlinux2027: ami-044ac55387b86ba28
+    rhel10: ami-0597714fb06e679c6
+    rhel8: ami-093a076fc44ea4080
+    rhel9: ami-0fca0d907bc236d79
+    rocky10: ami-02dc72504ee43c056
     rocky8: ami-0e8505521acb4057a
     rocky9: ami-02954483ad0e92e95
-    ubuntu2204: ami-020ce6552a2adcf08
-    ubuntu2404: ami-09c882354d20fe411
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+    ubuntu2204: ami-03938aaeecb7c6353
+    ubuntu2404: ami-00bd33d82eda7cefa
+    ubuntu2604: ami-0408af3bb8c695e0d
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC

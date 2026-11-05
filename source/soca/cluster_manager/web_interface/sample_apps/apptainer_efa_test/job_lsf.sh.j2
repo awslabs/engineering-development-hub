@@ -1,0 +1,80 @@
+#!/bin/bash
+#
+# Apptainer + EFA Benchmark wrapper (LSF)
+# =======================================
+# LSF equivalent of job_pbs.sh.j2. Dispatches to the same bundled validation
+# script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh
+#
+# span[ptile=...] only spreads ranks if the TOTAL slot count is
+# node_count x ncpus_per_node. "-n {{node_count}}" requests node_count slots in
+# total, which ptile is free to pack onto a single host -- and then the benchmark
+# measures shared memory and reports it as a fabric result, the exact false
+# success this sample exists to catch.
+#
+# The -Jd job description is NOT read by LSF. It is how EDH receives the
+# provisioning parameters, which LSF itself has no concept of -- see
+# utils/hpc/job_controller.py::lsf_update_job_description. Without efa_support
+# here the scheduler is never asked for EFA capable capacity at all.
+#
+# FORMAT IS LOAD-BEARING: utils/hpc/job_fetcher.py splits this string on SPACES
+# and then on the first "=" of each part, discarding any part with no "=". So the
+# pairs must be space separated with no spaces around "=". A comma separated list
+# or spaces around "=" parses to nothing at all.
+#
+#BSUB -J {{job_name}}
+#BSUB -q normal
+#BSUB -W {{walltime}}
+#BSUB -n {{ node_count|int * ncpus_per_node|int }}
+#BSUB -R "span[ptile={{ncpus_per_node}}]"
+#BSUB -Jd "instance_type={{instance_type}} efa_support=true base_os={{base_os}}"
+#BSUB -o {{job_name}}.%J.out
+#BSUB -e {{job_name}}.%J.err
+
+set -uo pipefail
+
+cd "${LS_SUBCWD:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  LSB_JOBID:       ${LSB_JOBID:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+APPTAINER_EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh"
+if [[ ! -x "${APPTAINER_EFA_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_EFA_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "=========================================="
+
+exit ${RESULT}

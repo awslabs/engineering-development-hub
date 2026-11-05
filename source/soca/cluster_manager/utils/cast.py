@@ -1,12 +1,13 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Type
+from typing import Any, Type, Literal, Union, get_args, get_origin
 import logging
 import ast
 from typing import Dict
 from utils.response import SocaResponse
 from utils.error import SocaError
+from utils.validators import Validators
 import os
 import sys
 import json
@@ -229,3 +230,83 @@ class SocaCastEngine:
             return SocaError.CAST_ERROR(
                 helper=f"Unable to serialize {type(self._data)} to JSON due to {err}"
             )
+
+
+def annotation_accepted_types(annotation: Any) -> set:
+    """Flatten a type annotation into the set of concrete types it accepts."""
+    _origin = get_origin(annotation)
+
+    if _origin is Literal:
+        return {type(_arg) for _arg in get_args(annotation)}
+
+    if _origin is Union:
+        _accepted = set()
+        for _arg in get_args(annotation):
+            _accepted |= annotation_accepted_types(_arg)
+        return _accepted
+
+    if _origin is not None:
+        return {_origin}
+
+    return {annotation}
+
+
+def scalar_as_str(value: Any) -> str:
+    """
+    Render a JSON/YAML scalar as the text it was written as.
+
+    bool must render lowercase: JSON spells the literals that way, so str(True)
+    would rename a value the operator typed as "true". Floats are not round-trip
+    safe (192.50 becomes "192.5").
+    """
+    if Validators.is_bool(value):
+        return "true" if value else "false"
+    return str(value)
+
+
+def coerce_scalar_fields_to_str(model_cls: Any, data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Coerce bool/int/float to str for str-only fields, mutating and returning data.
+
+    Scheduler JSON and YAML infer types from unquoted scalars, so an OpenPBS
+    project named "192" arrives as an int and one named "true" as a bool, neither
+    of which pydantic accepts for a str field. A field whose annotation also
+    accepts the incoming scalar type is left alone.
+    """
+    if not Validators.is_dict(data):
+        return data
+
+    for _field_name, _field in model_cls.model_fields.items():
+        if _field_name not in data:
+            continue
+
+        _value = data[_field_name]
+        if _value is None or Validators.is_string(_value):
+            continue
+
+        _accepted = annotation_accepted_types(_field.annotation)
+        if str not in _accepted:
+            continue
+
+        # Leave the value alone when the annotation already accepts its own scalar
+        # type. Validators.is_int excludes bool, so these branches do not overlap.
+        if Validators.is_bool(_value):
+            if bool in _accepted:
+                continue
+        elif Validators.is_int(_value):
+            if int in _accepted:
+                continue
+        elif Validators.is_float(_value):
+            if float in _accepted:
+                continue
+        else:
+            continue
+
+        _coerced = scalar_as_str(_value)
+        logger.debug(
+            f"Coercing {model_cls.__name__}.{_field_name} from "
+            f"{type(_value).__name__} {_value!r} to str {_coerced!r}"
+        )
+        data[_field_name] = _coerced
+
+    return data

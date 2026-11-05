@@ -220,16 +220,17 @@ echo "{{EDH_USER}} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
                             form.submit();
                         }
 
-                        function updateUserDataTemplateInfo() {
+                        function _se(v){return (v==null?"":String(v)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\x27/g,"&#39;");}
+        function updateUserDataTemplateInfo() {
                         var selectElement = document.getElementById("template_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
 
                         document.getElementById("UserDataTemplateInfo").innerHTML =
                             "<h3>User Data Template Details:</h3> <hr>" +
-                            "<strong>Description:</strong> " + selectedOption.getAttribute("data-soca-description") +
-                            "<br><strong>Associated <a href='/admin/target_nodes/software_stacks' target='_blank'>Target Node Software Stacks</a>:</strong> " + selectedOption.getAttribute("data-soca-associated-software-stacks") +
-                            "<br><strong>Created By:</strong> " + selectedOption.getAttribute("data-soca-created-by") +
-                            "<br><strong>Created On</strong> " + selectedOption.getAttribute("data-soca-created-on");
+                            "<strong>Description:</strong> " + _se(selectedOption.getAttribute("data-soca-description")) +
+                            "<br><strong>Associated <a href='/admin/target_nodes/software_stacks' target='_blank'>Target Node Software Stacks</a>:</strong> " + _se(selectedOption.getAttribute("data-soca-associated-software-stacks")) +
+                            "<br><strong>Created By:</strong> " + _se(selectedOption.getAttribute("data-soca-created-by")) +
+                            "<br><strong>Created On</strong> " + _se(selectedOption.getAttribute("data-soca-created-on"));
                         }
 
                         document.addEventListener("DOMContentLoaded", function() {

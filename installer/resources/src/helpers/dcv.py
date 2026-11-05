@@ -46,7 +46,9 @@ from helpers import (
     security_groups as security_groups_helper,
     user_data as user_data_helper,
     aoss as aoss_helper,
+    ec2 as ec2_helper,
 )
+from helpers.installer.install_model import base_os_role_target
 import pathlib
 import logging
 
@@ -245,27 +247,57 @@ def dcv_infrastructure(
             default=["m5.large"],  # This is very purposely something that is compatible with most regions
         )
 
+        # Resolve the base OS this DCV role actually runs, via the role registry. Usually
+        # the cluster's own; a substitute where the cluster OS cannot serve the role (DCV
+        # publishes no al2027 package family, for instance). Everything downstream in this
+        # loop must use _dcv_base_os rather than user_specified_variables.base_os, or the
+        # host gets one OS's AMI with another OS's user_data.
+        _dcv_base_os = base_os_role_target(
+            base_os=user_specified_variables.base_os, role=_dcv_node_type
+        )
+        if _dcv_base_os is None:
+            raise ValueError(
+                f"Role {_dcv_node_type} cannot be served on "
+                f"{user_specified_variables.base_os} and has no registered substitute. "
+                f"See BASE_OS_ROLE_FALLBACK in helpers/installer/install_model.py."
+            )
+        if _dcv_base_os != user_specified_variables.base_os:
+            logger.info(
+                f"{_dcv_node_type} is not supported on {user_specified_variables.base_os}: "
+                f"deploying it on {_dcv_base_os} instead"
+            )
+
         # select_best_instance probes regional availability and returns the
         # (instance_type, arch, arch-matched AMI) triple (m5.large/x86_64
-        # fallback) -- single source of truth for DCV node arch + AMI.
+        # fallback) -- single source of truth for DCV node arch + AMI. Resolved against
+        # _dcv_base_os, so a substituted role is not held to the cluster OS's AMI coverage.
         logger.debug(
             f"Query instance availability for {_dcv_desired_instance_type}"
         )
 
-        _dcv_selected_instance, _dcv_selected_arch, _dcv_instance_ami = (
+        _dcv_selected_instance, _dcv_selected_arch, _dcv_default_ami = (
             scope.select_best_instance(
                 instance_list=_dcv_desired_instance_type,
                 region=user_specified_variables.region,
                 fallback_instance="m5.large",
+                base_os=_dcv_base_os,
             )
         )
+
+        if not _dcv_default_ami:
+            # Fail here rather than booting a host whose user_data then exit_fails on an
+            # unsupported DCV OS.
+            raise ValueError(
+                f"No {_dcv_base_os} AMI found for {_dcv_selected_arch} in "
+                f"{user_specified_variables.region}, needed to deploy {_dcv_node_type}"
+            )
 
         # Allow for AMI override in the config by DCV function type
         _dcv_desired_ami: str = get_config_key(
             key_name=f"{_dcv_config}.ami.{_dcv_selected_arch}",
             expected_type=str,
             required=False,  # Fallback to default if needed
-            default=_dcv_instance_ami,
+            default=_dcv_default_ami,
         )
 
         logger.debug(
@@ -274,7 +306,7 @@ def dcv_infrastructure(
 
         # We manually replace the variable with the relevant ParameterStore as all ParamStore hierarchy is created at the very end of this CDK
         _user_data_variables = {
-            "/configuration/BaseOS": user_specified_variables.base_os,
+            "/configuration/BaseOS": _dcv_base_os,
             "/configuration/ClusterId": user_specified_variables.cluster_id,
             "/configuration/UserDirectory/provider": get_config_key(
                 key_name="Config.directoryservice.provider"
@@ -283,14 +315,14 @@ def dcv_infrastructure(
             "/configuration/Networking/EnableIPv6": scope.is_networking_af_enabled(
                 address_family="ipv6"
             ),
-            "/configuration/Version": "26.4.0",
+            "/configuration/Version": get_config_key(key_name="Config.version"),
             "/configuration/CustomAMI": _dcv_desired_ami,  # arch-matched DCV AMI
             "/configuration/S3Bucket": user_specified_variables.bucket,
             "/configuration/Cache/enabled": scope.cache_info.get("enabled"),
             "/configuration/Cache/port": scope.cache_info.get("port"),
             "/configuration/Cache/endpoint": scope.cache_info.get("endpoint"),
             "/job/NodeType": _dcv_node_type,
-            "/job/BaseOS": user_specified_variables.base_os,
+            "/job/BaseOS": _dcv_base_os,
         }
 
         # add all System hierarchy
@@ -370,7 +402,7 @@ def dcv_infrastructure(
             block_devices=[
                 ec2.BlockDevice(
                     device_name=scope.return_ebs_volume_name(
-                        base_os=user_specified_variables.base_os
+                        base_os=_dcv_base_os
                     ),
                     volume=ec2.BlockDeviceVolume(
                         ebs_device=ec2.EbsDeviceProps(
@@ -421,7 +453,7 @@ def dcv_infrastructure(
         # Both broker and gateway are backend compute; only the
         # public-facing frontend NLB lives in public subnets (see
         # _inet_facing branch below). Compute always private.
-        _subnet_type = ec2.SubnetType.PRIVATE_WITH_EGRESS
+        _subnet_type = ec2_helper.private_subnet_type(scope.soca_resources["vpc"])
 
         # Target capacity for the ASG once the cdk_completed sentinel
         # is set. Until then, the ASG stays at 0/0 and the
@@ -627,7 +659,9 @@ def dcv_infrastructure(
             f"Creating DCV NLB for {_dcv_nlb} / Inet Facing: {_inet_facing}"
         )
 
-        _nlb_subnet_type = ec2.SubnetType.PRIVATE_WITH_EGRESS
+        _nlb_subnet_type = ec2_helper.private_subnet_type(
+            scope.soca_resources["vpc"]
+        )
         if _inet_facing:
             _nlb_subnet_type = ec2.SubnetType.PUBLIC
 
@@ -681,9 +715,11 @@ def dcv_infrastructure(
                 if scope.is_networking_af_enabled(address_family="ipv6")
                 else elbv2.IpAddressType.IPV4
             ),
-            # A UDP/TCP_UDP listener on a dual-stack NLB requires IPv6 source-NAT prefixes (frontend/QUIC only)
+            # A UDP/TCP_UDP listener on a dual-stack NLB requires IPv6 source-NAT prefixes (frontend/QUIC only).
+            # Gated on the NLB role, not on internet_facing: the frontend NLB is dual-stack and carries the
+            # TCP_UDP 443 listener in private deployment mode too.
             enable_prefix_for_ipv6_source_nat=(
-                _inet_facing
+                _dcv_nlb == "frontend"
                 and scope.is_networking_af_enabled(address_family="ipv6")
             ),
         )
@@ -1185,8 +1221,8 @@ def dcv_infrastructure(
                 ),
             },
             vpc=scope.soca_resources["vpc"],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            vpc_subnets=ec2_helper.private_subnet_type_selection(
+                scope.soca_resources["vpc"]
             ),
             # Dedicated SG for the Lambda ENI -- least privilege.
             # Allow_all_outbound covers backend NLB:8443, S3, KMS,
@@ -1422,8 +1458,8 @@ def dcv_event_relay(
         # private IP on :8443. Reuses the relay Lambda SG (allow_all
         # _outbound + existing controller :8443 ingress rule).
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["dcv_event_relay_lambda_sg"]],
     )
@@ -1535,8 +1571,8 @@ def dcv_event_relay(
         # endpoint for the relay key fetch. No inbound: Lambda ENIs
         # do not accept inbound traffic.
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["dcv_event_relay_lambda_sg"]],
     )

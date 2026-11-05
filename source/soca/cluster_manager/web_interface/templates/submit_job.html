@@ -61,7 +61,7 @@
                                                 </div>
                                             </div>
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <input type="hidden" name="input_file" value="{{ input_file }}">
+                                            <input type="hidden" name="input_file" value="{{ input_file or '' }}">
                                             <input type="hidden" name="app" value="{{ app_data.id }}">
                                         </form>
 

@@ -52,8 +52,8 @@ set_environment_variable "EDH_CONTROLLER_IP" "$(get_ipv4_host_address)"
   exit_fail "UserDirectory/provider must be one of openldap, existing_openldap, existing_active_directory or aws_ds_managed_activedirectory. Detected {{ context.get("/configuration/UserDirectory/provider") }}"
 {% endif %}
 
-# Disable SELINUX
-{% include "templates/linux/disable_selinux.sh.j2" %}
+# Create default slurm user for PCS (optional and non-breaking in case of error)
+{% include "templates/linux/scheduler/aws_pcs/default_slurm_user.sh.j2" %}
 
 # Disable SSH StrictHostKey Checking
 {% include "templates/linux/disable_ssh_strict_host_key_check.sh.j2" %}
@@ -137,42 +137,6 @@ pushd /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web
 openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
     -subj "/C=US/ST=California/L=Sunnyvale/CN=internal.edh.webui.cert" \
     -keyout cert.key -out cert.crt
-
-# Append the cluster name on the SOCA HTML template.
-#
-# Historical note: an earlier version of this script tried to strip a
-# leading "soca-" prefix from the cluster id using
-#     IFS="-" read name sanitized_cluster_name <<< "echo {{ ClusterId }}"
-# which was buggy on two counts -
-#   1. `<<<` takes a string, so it was splitting the literal "echo foo"
-#      (including the word "echo").
-#   2. For cluster ids with no dash (e.g. "shell1") the split produced
-#      an empty sanitized_cluster_name, which then sed-substituted the
-{% raw %}#      placeholder with "" - leaving `{{ _('') }}` in the template and{% endraw %}  # i18n-ok
-#      producing garbage output at runtime because gettext treats empty
-#      msgid as a lookup for the catalog header entry.
-# Use the raw cluster id directly - no prefix stripping. Operators who
-# want a friendly name can re-edit the template after install.
-_SOCA_CLUSTER_NAME="{{ context.get('/configuration/ClusterId') }}"
-if [[ -z "${_SOCA_CLUSTER_NAME}" ]]; then
-    echo "ERROR: ClusterId is empty; refusing to substitute placeholder with empty string" >&2
-    exit 1
-fi
-# Escape sed special characters in the value (&, /, \).
-_SOCA_CLUSTER_NAME_ESCAPED=$(printf '%s' "${_SOCA_CLUSTER_NAME}" | sed -e 's/[\/&]/\\&/g')
-sed -i "s/__SOCA_CLUSTER__NAME__/${_SOCA_CLUSTER_NAME_ESCAPED}/g" /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web_interface/templates/common/horizontal_menu_bar.html
-
-{% raw %}# Post-substitution guardrail: if any `{{ _('') }}` slipped through here or  # i18n-ok
-# in another template (e.g. an unrelated placeholder was substituted with
-# an empty string by a later pipeline step), fail loudly so the operator
-# can diagnose before the WebUI ships broken i18n. Empty-msgid gettext
-# lookups return the catalog's header metadata block.{% endraw %}
-_EDH_TEMPLATE_DIR="/opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/web_interface/templates"
-{% raw %}if grep -Rln --include='*.html' "{{ _('') }}" "${_EDH_TEMPLATE_DIR}" >/dev/null 2>&1; then  # i18n-ok
-    echo "ERROR: templates contain empty gettext call {{ _('') }} - an installer placeholder substitution produced an empty value" >&2  # i18n-ok
-    grep -Rn --include='*.html' "{{ _('') }}" "${_EDH_TEMPLATE_DIR}" >&2 || true  # i18n-ok
-    exit 1
-fi{% endraw %}
 
 # Start Web UI
 chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/web_interface/edhwebui.sh
@@ -266,6 +230,13 @@ mkdir -p /data/home
       sleep 10
     fi
   done
+
+  # Validate that the directory holds POSIX identity in the attributes an FSx
+  # for NetApp ONTAP SVM reads. Runs here because it needs this host's machine
+  # keytab (from the realm join above) and the admin user created by the loop
+  # above. Warn-only, and a no-op when no fsx_ontap filesystem is configured.
+  {% include "templates/linux/shared_storage/fsx/ontap/validate_directory_attributes.sh.j2" %}
+  fsx_ontap_validate_directory_attributes
 {% else %}
   log_info "Using an existing Active Directory or OpenLDAP, skipping User Creation"
 {%  endif %}
@@ -279,6 +250,9 @@ mkdir -p /data/home
 
 # Configure Message Of The Day (MOTD)
 {% include "templates/linux/motd.sh.j2" %}
+
+# Install edhctl shell tab completion for admin login shells
+{% include "templates/linux/edhctl_completion.sh.j2" %}
 
 # Restart/Enable crond
 {% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
@@ -302,6 +276,102 @@ touch "/root/.edh_bootstrap_controller_{{ context.get('/configuration/ClusterId'
 
 # Stage shared sample-app payloads under /apps/edh/<cluster_id>/job_samples/
 {% include "templates/linux/edh_job_samples.sh.j2" %}
+
+{% if context.get("/configuration/services/cross_region/enabled") == True %}
+########################################
+# Cross-region overlay mesh daemon
+########################################
+# Rendered late in the bootstrap chain on purpose. An earlier template races
+# CDK's SSM parameter creation, and because every value below is read through
+# context.get, losing that race renders the whole block with empty values
+# rather than failing.
+log_info "[cross-region] installing edh-overlay-daemon"
+chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/overlay_daemon/scripts/*.sh
+
+set_environment_variable "EDH_REGION" "{{ context.get("/configuration/Region") }}"
+set_environment_variable "EDH_MESH_ID" "{{ context.get("/configuration/Overlay/mesh_id") }}"
+# Tables are named edh_<prefix>_<short_name>. The prefix is resolved at install
+# time from the mesh id plus any override, and the daemon refuses to start
+# without it rather than addressing an unprefixed table.
+set_environment_variable "EDH_MESH_TABLE_PREFIX" "{{ context.get("/configuration/Overlay/mesh_table_prefix") }}"
+set_environment_variable "EDH_WG_SECRET_ARN" "{{ context.get("/configuration/Overlay/wg_secret_arn") }}"
+set_environment_variable "EDH_LISTEN_PORT" "{{ context.get("/configuration/services/cross_region/overlay/listen_port", 51820) }}"
+set_environment_variable "EDH_MTU" "{{ context.get("/configuration/services/cross_region/overlay/mtu", 1280) }}"
+set_environment_variable "EDH_SYNC_INTERVAL_SECONDS" "{{ context.get("/configuration/services/cross_region/overlay/sync_interval_seconds", 30) }}"
+set_environment_variable "EDH_BOOTSTRAP_WAIT" "{{ context.get("/configuration/services/cross_region/bootstrap_wait_seconds", 0) }}"
+# Mesh-wide lifecycle policy, written into the mesh metadata row by whichever
+# cluster creates the mesh. Exported because that write happens ONCE and there
+# is no update path yet, so a value frozen in the daemon would permanently
+# override the operator's configuration for the life of the mesh.
+set_environment_variable "EDH_KEY_ROTATION_DAYS" "{{ context.get("/configuration/services/cross_region/overlay/key_rotation_days", 90) }}"
+set_environment_variable "EDH_AUTO_DECOMMISSION_DAYS" "{{ context.get("/configuration/services/cross_region/overlay/auto_decommission_days", 90) }}"
+set_environment_variable "EDH_DECOMMISSION_TO_TOMBSTONE_DAYS" "{{ context.get("/configuration/services/cross_region/overlay/decommission_to_tombstone_days", 30) }}"
+{% if context.get("/configuration/Overlay/mesh_role_arn") %}
+set_environment_variable "EDH_MESH_ROLE_ARN" "{{ context.get("/configuration/Overlay/mesh_role_arn") }}"
+{% endif %}
+{% if context.get("/configuration/Overlay/mesh_role_external_id") %}
+set_environment_variable "EDH_MESH_ROLE_EXTERNAL_ID" "{{ context.get("/configuration/Overlay/mesh_role_external_id") }}"
+{% endif %}
+# Sourced so the installer invoked below sees the exports just written.
+source /etc/environment
+
+if /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/overlay_daemon/scripts/install-overlay-daemon.sh \
+        >>${EDH_BOOTSTRAP_LOGS_FOLDER}/install_overlay_daemon.log 2>&1; then
+    log_info "[cross-region] edh-overlay-daemon installed"
+else
+    # $? in this branch is the installer's status, and it MUST fail the install.
+    #
+    # This was a log_info WARN, which demoted the installer's non-zero exit to a
+    # line in a log nobody reads and let the controller install report success.
+    # That defeated the one thing install-overlay-daemon.sh is built around: its
+    # header states that step 2 is the one step allowed to fail the controller
+    # install, because a cluster that cannot determine whether it is creating or
+    # joining a mesh must not proceed, since guessing produces two clusters with
+    # conflicting address plans. It exits 4 for exactly that case.
+    #
+    # exit_fail is the same helper every other failure in this template uses.
+    _edh_overlay_rc=$?
+    exit_fail "[cross-region] install-overlay-daemon.sh exited ${_edh_overlay_rc}. The overlay mesh state could not be established, so this controller must not continue: proceeding without knowing whether it created or joined the mesh risks a second cluster claiming the same address plan. See ${EDH_BOOTSTRAP_LOGS_FOLDER}/install_overlay_daemon.log for the cause. To recover WITHOUT rebuilding this controller, fix the cause and re-run that one script directly as root: /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/overlay_daemon/scripts/install-overlay-daemon.sh . It is idempotent and reads its inputs from /etc/environment, which is already populated. Do NOT re-run this bootstrap script: the completion lock written earlier at /root/.edh_bootstrap_controller_{{ context.get('/configuration/ClusterId') }}_completed makes it exit at its own guard."
+fi
+
+########################################
+# Cross-region mesh sidecar
+########################################
+# After the daemon install, because the sidecar binds an address on edh-mesh0 and
+# that interface is brought up by the daemon unit's own ExecStartPre. The unit this
+# installs is ordered After=edh-overlay-daemon.service as well, so the ordering
+# holds on every later boot and not only on this one.
+#
+# Deliberately NOT exit_fail on failure, which is the opposite of the block above.
+# A controller with no sidecar serves no peer-facing mesh routes and is otherwise
+# a working cluster, and the unit carries Restart=always, so the ordinary case of
+# an interface that is a moment late resolves without an operator. Failing the
+# whole controller install over it would trade a degraded mesh for no cluster.
+log_info "[cross-region] installing edh-mesh-sidecar"
+# Required, not defensive. 02_prerequisites.sh.j2 applies `chmod -R 600` across
+# cluster_manager/, so nothing under it is executable by the time this runs
+# whatever mode the repository records. Without this the invocation below fails
+# with permission denied and the else branch turns that into a warning, so the
+# sidecar would be installed on no cluster and the bootstrap would still report
+# success. The overlay block above chmods its own scripts for the same reason.
+#
+# The `|| log_warning` matters: an unmatched glob leaves the literal `*.sh`, chmod
+# exits non-zero, and this line sits OUTSIDE the `if` that makes a missing sidecar
+# non-fatal. This template declares `#!/bin/bash -xe` but is invoked as
+# `/bin/bash 03_setup.sh` from 02_prerequisites.sh.j2, which ignores the shebang,
+# so errexit is not in effect today and the abort does not happen - but the
+# declared intent is errexit, and this line should not be the one that decides
+# whether a cluster with no sidecar tree still finishes its bootstrap.
+chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/mesh_sidecar/*.sh \
+    || log_warning "[cross-region] could not make the mesh_sidecar scripts executable; the sidecar will not be installed"
+if /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/mesh_sidecar/install-mesh-sidecar.sh \
+        >>${EDH_BOOTSTRAP_LOGS_FOLDER}/install_mesh_sidecar.log 2>&1; then
+    log_info "[cross-region] edh-mesh-sidecar installed"
+else
+    _edh_sidecar_rc=$?
+    log_warning "[cross-region] install-mesh-sidecar.sh exited ${_edh_sidecar_rc}. This cluster's peer-facing mesh routes are not being served, so peers cannot dispatch jobs to it; nothing else about the cluster is affected. See ${EDH_BOOTSTRAP_LOGS_FOLDER}/install_mesh_sidecar.log for the cause. It is idempotent and reads its inputs from /etc/environment, so it can be re-run directly as root: /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/mesh_sidecar/install-mesh-sidecar.sh"
+fi
+{% endif %}
 
 # Install OpenMPI
 {% include "templates/linux/openmpi.sh.j2" %}

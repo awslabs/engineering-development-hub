@@ -7,8 +7,16 @@ function unset_reboot_required () {
 }
 
 function set_reboot_required () {
+{% if context.get("/job/NodeType") == "pcs_node" %}
+  # AWS PCS forbids rebooting inside a node lifecycle action: "Do not reboot the instance during a
+  # lifecycle action script. A reboot interrupts the AWS PCS bootstrap sequence, preventing slurmd
+  # from starting or causing AWS PCS to terminate the node."
+  # (https://docs.aws.amazon.com/pcs/latest/userguide/cng-node-lifecycle-actions-best-practices.html)
+  exit_fail "Reboot requested on a PCS node (reason: ${1:-unspecified}), but reboots are not allowed inside a PCS node lifecycle action. Pre-bake this into the PCS-ready AMI (current kernel, Lustre client kernel module matching that kernel, GPU/EFA drivers) so no boot-time reboot is needed. See https://docs.aws.amazon.com/pcs/latest/userguide/cng-node-lifecycle-actions-best-practices.html"
+{% else %}
   log_info "[REBOOT REQUIRED]: ${1}"
   echo -n "yes" > /root/.soca_reboot_required.txt
+{% endif %}
 }
 
 function get_reboot_required () {

@@ -1,3 +1,5 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0 -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="/">
@@ -5,8 +7,8 @@
                     alt="{{ _("SOCA Logo") }}"
                     width="30" height="30" 
                     class="d-inline-block align-text-top me-2">
-                <span style="font-weight: 600;"> {{ _("__SOCA_CLUSTER__NAME__") }}</span>
-                <small class="text-muted" style="padding-left: 0.4rem;"> {{ _("(EDH version 26.8.0)") }}</small>
+                <span style="font-weight: 600;"> {{ cluster_name }}</span>
+                <small class="text-muted" style="padding-left: 0.4rem;"> {{ _("(EDH version %(version)s)", version=edh_version) }}</small>
             </a>
 
    
@@ -90,7 +92,7 @@
           {{ _("Cancel") }}
         </button>
 
-        <a href="https://github.com/awslabs/scale-out-computing-on-aws/issues/new"
+        <a href="https://github.com/awslabs/engineering-development-hub/issues/new"
            target="_blank"
            class="btn btn-warning">
           {{ _("Continue to GitHub") }}
@@ -137,15 +139,6 @@
             <span>{{ user }}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
-             {% set login_nodes_flag = feature_flags.get("LOGIN_NODES", {}) %}
-            {% set login_allowed = login_nodes_flag.get("allowed_users", []) %}
-            {% set login_denied = login_nodes_flag.get("denied_users", []) %}
-            {% set login_show = login_nodes_flag.get("enabled", True)
-                and (login_allowed == [] or user in login_allowed)
-                and user not in login_denied %}
-            {% if login_show %}
-            <li><a class="dropdown-item" href="/ssh">{{ _("My SSH access") }}</a></li>
-            {% endif %}
 
             {% set account_flag = feature_flags.get("MY_ACCOUNT_MANAGEMENT", {}) %}
             {% set acct_allowed = account_flag.get("allowed_users", []) %}
@@ -155,6 +148,17 @@
                 and user not in acct_denied %}
             {% if acct_show %}
             <li><a class="dropdown-item" href="/my_account">{{ _("My Account") }}</a></li>
+            {% endif %}
+
+            
+             {% set login_nodes_flag = feature_flags.get("LOGIN_NODES", {}) %}
+            {% set login_allowed = login_nodes_flag.get("allowed_users", []) %}
+            {% set login_denied = login_nodes_flag.get("denied_users", []) %}
+            {% set login_show = login_nodes_flag.get("enabled", True)
+                and (login_allowed == [] or user in login_allowed)
+                and user not in login_denied %}
+            {% if login_show %}
+            <li><a class="dropdown-item" href="/ssh">{{ _("My SSH access") }}</a></li>
             {% endif %}
 
             {% set api_key_flag = feature_flags.get("MY_API_KEY_MANAGEMENT", {}) %}

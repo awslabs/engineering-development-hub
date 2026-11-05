@@ -16,7 +16,7 @@ import config
 from flask import render_template, Blueprint, request, redirect, session, flash
 from flask_babel import gettext as _
 from utils.http_client import SocaHttpClient
-from decorators import login_required, admin_only, feature_flag
+from decorators import login_required, admin_only, feature_flag, directory_writable, directory_is_externally_owned
 from utils.subprocess_client import SocaSubprocessClient
 import os
 
@@ -44,6 +44,7 @@ def index():
         "admin/users.html",
         all_shells=all_shells,
         directory=config.Config.DIRECTORY_AUTH_PROVIDER,
+        directory_read_only=directory_is_externally_owned(),
     )
 
 
@@ -51,6 +52,7 @@ def index():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def manage_sudo():
     user = request.form.get("user", None)
     action = request.form.get("action", None)
@@ -69,7 +71,12 @@ def manage_sudo():
                     },
                 ).post(data={"user": user})
                 if give_sudo.success:
-                    flash(_("Admin permissions granted"), "success")
+                    flash(
+                        _("Admin permissions granted")
+                        + ". "
+                        + _("Please note permissions may take up to 10 mn to be synchronized."),
+                        "success",
+                    )
                 else:
                     flash(_("Error: ") + str(give_sudo.get("message")), "error")
                 return redirect("/admin/users")
@@ -84,7 +91,12 @@ def manage_sudo():
                     },
                 ).delete(data={"user": user})
                 if remove_sudo.success:
-                    flash(_("Admin permissions revoked"), "success")
+                    flash(
+                        _("Admin permissions revoked")
+                        + ". "
+                        + _("Please note permissions may take up to 10 mn to be synchronized."),
+                        "success",
+                    )
                 else:
                     flash(_("Error: ") + str(remove_sudo.get("message")), "error")
 
@@ -100,10 +112,13 @@ def manage_sudo():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def create_new_account():
     user = str(request.form.get("user"))
     password = str(request.form.get("password"))
     email = str(request.form.get("email"))
+    first_name = request.form.get("first_name", "")
+    last_name = request.form.get("last_name", "")
     sudoers = request.form.get("sudo", None)
     shell = request.form.get("shell", "/bin/bash")
     uid = request.form.get(
@@ -120,6 +135,8 @@ def create_new_account():
             "user": user,
             "password": password,
             "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
             "sudoers": 0 if sudoers is None else 1,
             "shell": shell,
             "uid": 0 if not uid else uid,
@@ -128,20 +145,7 @@ def create_new_account():
     )
 
     if create_new_user.success:
-        # Create API key
-        create_user_key = SocaHttpClient(
-            endpoint="/api/user/api_key",
-            headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-        ).get(params={"user": user})
-        if create_user_key.success:
-            flash(_("User ") + user + " has been created successfully", "success")
-        else:
-            flash(_(
-                "User created but unable to generate API token: ")
-                + str(create_user_key.get("message")),
-                "error",
-            )
-
+        flash(_("User ") + user + " has been created successfully", "success")
         return redirect("/admin/users")
     else:
         flash(_(
@@ -156,6 +160,7 @@ def create_new_account():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def delete_account():
     user = str(request.form.get("user_to_delete"))
     if session["user"] == user:

@@ -1,0 +1,87 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# EDH EFA-enabled container image (libfabric + OpenMPI, ABI-matched to the host).
+#
+# Used by the "Container EFA Benchmark (Apptainer)" sample app.
+#
+# The critical design point: the EFA userland inside this image is installed from
+# the SAME installer tarball the host node used, staged to a readable location by
+# the Apptainer bootstrap template and passed in as EFA_SRC. This is not a
+# convenience. MPI over EFA from inside a container requires the container's
+# libfabric and OpenMPI to ABI-match the host launcher's, and deriving the
+# container's packages from a separately pinned EFA version reintroduces the skew
+# the match is supposed to eliminate. The live EFA version does move per cluster.
+#
+# -k / --skip-kmod is correct here: the kernel module belongs to the HOST. The
+# container reaches the device through /dev/infiniband, which Apptainer's default
+# "mount dev = yes" already exposes, so no --bind flags are needed at runtime.
+#
+# Build it by hand with:
+#     apptainer build --build-arg EFA_SRC=/apps/containers/efa-installer \
+#         edh-efa-$(uname -m).sif edh-efa.def
+#
+# Architecture-specific. Build on a node of the architecture you will run on.
+
+Bootstrap: docker
+From: public.ecr.aws/amazonlinux/amazonlinux:2023
+
+%arguments
+    EFA_SRC=/apps/containers/efa-installer
+
+%files
+    {{ EFA_SRC }} /opt/efa-src
+
+%post
+    set -e
+
+    # Build and runtime dependencies for the EFA installer and for compiling
+    # MPI programs inside the container.
+    dnf -y install gcc gcc-c++ make hostname pciutils procps-ng \
+                   findutils tar gzip which
+    dnf -y clean all
+
+    # Install the EFA userland from the host's own installer.
+    #   -y            non-interactive
+    #   -k            skip the kernel module: the host owns it
+    #   --no-verify   the verification step probes hardware that a build
+    #                 sandbox does not have
+    cd /opt/efa-src
+    if [ ! -x ./efa_installer.sh ]; then
+        echo "ERROR: no efa_installer.sh found under the staged EFA source." >&2
+        echo "       Expected the Apptainer bootstrap to stage it." >&2
+        exit 1
+    fi
+    ./efa_installer.sh -y -k --skip-limit-conf --no-verify
+
+    # Record what went in, so a mismatch is diagnosable later from the image.
+    /opt/amazon/efa/bin/fi_info --version > /opt/edh-efa-build-info.txt 2>&1 || true
+    /opt/amazon/openmpi/bin/ompi_info --version >> /opt/edh-efa-build-info.txt 2>&1 || true
+
+    rm -rf /opt/efa-src
+    rm -rf /var/cache/dnf
+
+%environment
+    export PATH=/opt/amazon/efa/bin:/opt/amazon/openmpi/bin:${PATH}
+    export LD_LIBRARY_PATH=/opt/amazon/efa/lib64:/opt/amazon/openmpi/lib64:${LD_LIBRARY_PATH}
+    export EDH_CONTAINER_KIND="edh-efa"
+
+%labels
+    Maintainer Engineering Development Hub
+    Purpose EFA and MPI validation for the Apptainer container sample
+
+%help
+    EDH EFA validation container: libfabric and OpenMPI installed from the
+    cluster's own EFA installer so they ABI-match the host launcher.
+
+    Confirm EFA is visible (no bind flags required):
+        apptainer exec edh-efa-$(uname -m).sif fi_info -p efa
+
+    Run a multi-node MPI program, launching from the HOST:
+        /opt/amazon/openmpi/bin/mpirun --prefix /opt/amazon/openmpi \
+            -x FI_PROVIDER=efa \
+            apptainer exec edh-efa-$(uname -m).sif ./your-program
+
+    --prefix is required because ranks are placed over ssh; there is no PBS tm
+    launcher in the AWS OpenMPI build. Set FI_PROVIDER=efa explicitly so an
+    unavailable provider fails loudly instead of falling back to TCP.

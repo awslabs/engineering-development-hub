@@ -281,20 +281,21 @@
                             form.submit();
                         }
 
-                        function updateSoftwareStackInfo() {
+                        function _se(v){return (v==null?"":String(v)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\x27/g,"&#39;");}
+        function updateSoftwareStackInfo() {
                         var selectElement = document.getElementById("software_stack_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
 
                         document.getElementById("stackInfo").innerHTML =
                             "<h3>Software Stack Details:</h3> <hr>" +
-                            "<br><strong>Architecture:</strong> " + selectedOption.getAttribute("data-soca-ami-arch") +
-                            "<br><strong>AMI ID:</strong> " + selectedOption.getAttribute("data-soca-ami-id") +
-                            "<br><strong>Description:</strong> " + selectedOption.getAttribute("data-soca-description") +
-                            "<br><strong><a href='/admin/target_nodes/profiles' target='_blank'>Associated Target Node Profile ID:</a></strong> " + selectedOption.getAttribute("data-soca-profile") +
-                            "<br><strong><a href='/admin/target_nodes/user_data' target='_blank'>Associated Target Node User Data:</a></strong> " + selectedOption.getAttribute("data-soca-user-data") +
-                            "<br><strong><a href='/admin/projects' target='_blank'>Associated Project IDs:</a></strong> " + selectedOption.getAttribute("data-soca-project-ids") +
-                            "<br><strong>Created By:</strong> " + selectedOption.getAttribute("data-soca-created-by") +
-                            "<br><strong>Created On</strong> " + selectedOption.getAttribute("data-soca-created-on");
+                            "<br><strong>Architecture:</strong> " + _se(selectedOption.getAttribute("data-soca-ami-arch")) +
+                            "<br><strong>AMI ID:</strong> " + _se(selectedOption.getAttribute("data-soca-ami-id")) +
+                            "<br><strong>Description:</strong> " + _se(selectedOption.getAttribute("data-soca-description")) +
+                            "<br><strong><a href='/admin/target_nodes/profiles' target='_blank'>Associated Target Node Profile ID:</a></strong> " + _se(selectedOption.getAttribute("data-soca-profile")) +
+                            "<br><strong><a href='/admin/target_nodes/user_data' target='_blank'>Associated Target Node User Data:</a></strong> " + _se(selectedOption.getAttribute("data-soca-user-data")) +
+                            "<br><strong><a href='/admin/projects' target='_blank'>Associated Project IDs:</a></strong> " + _se(selectedOption.getAttribute("data-soca-project-ids")) +
+                            "<br><strong>Created By:</strong> " + _se(selectedOption.getAttribute("data-soca-created-by")) +
+                            "<br><strong>Created On</strong> " + _se(selectedOption.getAttribute("data-soca-created-on"));
                         }
 
                         document.addEventListener("DOMContentLoaded", function() {

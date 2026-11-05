@@ -7,8 +7,9 @@ Web-tier render of the session-less VDI pool bootstrap (3c-1).
 Produces the COMPLETE launch_spec the reconciler needs to build a per-stack
 launch template:
   * per-stack AMI (alias-resolved), base_os, root_size  (via vdi_pool_resolve)
-  * cluster-wide LT inputs: instance profile, SG, volume type, IMDS tokens,
-    SSH key, subnets  (from the SocaConfig "/" dump)
+  * cluster-wide LT inputs: instance profile, SG, root volume type/IOPS/
+    throughput (helpers.vdi_root_volume), IMDS tokens, SSH key, subnets
+    (from the SocaConfig "/" dump)
   * base64 session-less user_data
 
 Reuses render_bootstrap_bundle -- which caches the BIG bootstrap per
@@ -34,7 +35,7 @@ from utils.cast import SocaCastEngine
 from utils.config import SocaConfig
 from utils.jinjanizer import SocaJinja2Generator
 
-from helpers import vdi_pool_resolve
+from helpers import vdi_pool_resolve, vdi_root_volume
 
 logger = logging.getLogger("soca_logger")
 
@@ -59,6 +60,28 @@ def build_launch_spec(stack) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     _base_os = str(_spec.get("base_os") or "").lower()
     _os_family = (getattr(stack, "os_family", None) or "").lower()
     _is_windows = _os_family == "windows" or "windows" in _base_os
+
+    # 2b. Root volume: the per-OS cluster default, raised to the stack minimum
+    # and the AMI root snapshot size, plus the cluster type/IOPS/throughput
+    # defaults. Same resolver as the on-demand launch path.
+    _ami_root_size = _spec.pop("ami_root_size", None)
+    _min_root_size = vdi_root_volume.effective_min_size(
+        base_os="windows" if _is_windows else _base_os,
+        stack_min=_spec.get("root_size"),
+        ami_min=_ami_root_size,
+        params=_params,
+    )
+    if _min_root_size.get("success") is not True:
+        return None, f"root volume minimum failed: {_min_root_size.message}"
+    _resolve_root_volume = vdi_root_volume.resolve_vdi_root_volume(
+        base_os="windows" if _is_windows else _base_os,
+        params=_params,
+        min_size=_min_root_size.get("message"),
+    )
+    if _resolve_root_volume.get("success") is not True:
+        return None, f"root volume resolution failed: {_resolve_root_volume.message}"
+    _root_volume = _resolve_root_volume.get("message")
+    _spec["root_size"] = _root_volume.size
 
     # 3. Generic, session-less DCV/pool context.
     soca_parameters = dict(_params)
@@ -199,6 +222,9 @@ def build_launch_spec(stack) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
                     "base_os": _spec.get("base_os"),
                     "root_size": _spec.get("root_size"),
                 },
+                # Cluster root volume defaults are not in the bundle cache key,
+                # so hash the resolved values to re-render when they change.
+                "root_volume": _root_volume.as_dict(),
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -221,7 +247,9 @@ def build_launch_spec(stack) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
             "security_group_id": _params.get(
                 "/configuration/VdiNodeSecurityGroup"
             ),
-            "volume_type": _params.get("/configuration/DefaultVolumeType") or "gp3",
+            "volume_type": _root_volume.volume_type,
+            "volume_iops": _root_volume.iops,
+            "volume_throughput": _root_volume.throughput,
             "metadata_http_tokens": _params.get("/configuration/MetadataHttpTokens")
             or "required",
             "ssh_key_name": _params.get("/configuration/SSHKeyPair"),

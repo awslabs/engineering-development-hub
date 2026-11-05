@@ -186,7 +186,91 @@
             "Effect": "Allow",
             "Action": [
                 "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
                 "cloudwatch:ListMetrics"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "RdsClusterReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBClusterSnapshots",
+                "rds:DescribeDBInstances"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "RdsClusterSnapshotManagement",
+            "Effect": "Allow",
+            "Action": [
+                "rds:CreateDBClusterSnapshot",
+                "rds:DeleteDBClusterSnapshot",
+                "rds:AddTagsToResource"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:rds:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster:%%CLUSTER_ID%%-*",
+                "arn:%%AWS_PARTITION%%:rds:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster-snapshot:%%CLUSTER_ID%%-*"
+            ]
+        },
+        {
+            "Sid": "RdsClusterPointInTimeRestore",
+            "Effect": "Allow",
+            "Action": [
+                "rds:RestoreDBClusterToPointInTime",
+                "rds:CreateDBInstance"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:rds:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster:%%CLUSTER_ID%%-*",
+                "arn:%%AWS_PARTITION%%:rds:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:db:%%CLUSTER_ID%%-*",
+                "arn:%%AWS_PARTITION%%:rds:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:subgrp:%%CLUSTER_ID%%-*"
+            ]
+        },
+        {
+            "Sid": "KmsViaRdsForEncryptedRestore",
+            "Effect": "Allow",
+            "Action": [
+                "kms:CreateGrant",
+                "kms:DescribeKey",
+                "kms:Decrypt"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "kms:ViaService": "rds.%%AWS_REGION%%.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Sid": "KmsViaSnsForClusterNotifications",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt",
+                "kms:GenerateDataKey*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "kms:ViaService": "sns.%%AWS_REGION%%.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Sid": "KmsDiscoverThisClustersKeysByTag",
+            "Effect": "Allow",
+            "Action": "tag:GetResources",
+            "Resource": "*"
+        },
+        {
+            "Sid": "KmsReadConfiguredAndOwnedKeys",
+            "Effect": "Allow",
+            "Action": [
+                "kms:DescribeKey",
+                "kms:GetKeyPolicy",
+                "kms:GetKeyRotationStatus",
+                "kms:ListAliases",
+                "kms:ListKeyRotations"
             ],
             "Resource": "*"
         },

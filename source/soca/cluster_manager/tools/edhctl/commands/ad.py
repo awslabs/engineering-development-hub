@@ -51,6 +51,7 @@ def get_user_groups(user: str, logger: "logging.Logger") -> list:
 
 @click.group()
 def ad():
+    """Active Directory integration commands."""
     pass
 
 
@@ -82,7 +83,7 @@ def export(ctx):
 
         if _get_provider.get("message") in [
             "aws_ds_managed_activedirectory",
-            "existing_activedirectory",
+            "existing_active_directory",
         ]:
             # do not modify these variables, they are used by template/linux/user_directory/sync_ad_users_locally.sh
             _home_location = "/data/home"

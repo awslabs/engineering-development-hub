@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Resource Mirror Executor — per-artifact Lambda invoked by SFN Inline Map.
+Resource Mirror Executor -- per-artifact Lambda invoked by SFN Inline Map.
 
 Processes ONE manifest item: walks urls[] in order, streams to S3 with
 server-side SHA256 integrity, records immutable provenance as S3 metadata and
@@ -38,6 +38,23 @@ METADATA_SCHEMA_VERSION = "1"
 _UPLOAD_EXTRA_ARGS = {"ChecksumAlgorithm": "SHA256"}
 
 
+class _PermanentError(ValueError):
+    """A failure that CANNOT clear by retrying: a checksum mismatch, a malformed
+    manifest item, an s3:// source while s3 mirroring is disabled.
+
+    Deliberately a subclass of ValueError so every existing broad handler still
+    contains it, while the two call sites that care can branch:
+
+      - the per-URL loop re-raises it instead of moving to the next URL, because
+        a mismatch is a property of the bytes, not of the source that served them;
+      - handler() converts it into a terminal `failed_permanent` RESULT rather
+        than an exception, so the state machine's States.ALL Retry (3 attempts,
+        10s then 20s) is not spent on a condition that will never succeed.
+
+    A transient failure still raises, so it still retries.
+    """
+
+
 class _HashingReader:
     """File-like wrapper that computes a SHA256 over every byte read. s3transfer reads
     a non-seekable stream sequentially (it cannot parallelize reads from a network/
@@ -66,6 +83,29 @@ ssm = boto3.client("ssm")
 
 
 def handler(event, context):
+    """Thin wrapper: converts a _PermanentError into a terminal `failed_permanent`
+    RESULT so the state machine does not retry a condition that cannot clear, and
+    guarantees the config key is left with a usable value on that path too.
+
+    A transient failure is NOT caught here -- it propagates so the Task's Retry
+    still applies, then the Map's Catch records it as `failed_caught`.
+    """
+    try:
+        return _mirror_item(event, context)
+    except _PermanentError as err:
+        _write_original_fallback(
+            event.get("config_key", ""), (event.get("urls") or [""])[0]
+        )
+        logger.error(f"PERMANENT (no retry): {err}")
+        return {
+            "status": "failed_permanent",
+            "s3_target": event.get("s3_target", "<unknown>"),
+            "config_key": event.get("config_key", ""),
+            "error": str(err),
+        }
+
+
+def _mirror_item(event, context):
     # GPU bucket-path repoint (no download). The driver scripts consume s3_bucket_path
     # via a raw `aws s3 cp --recursive` and let the CLI self-resolve the bucket region
     # (no region-probe HEAD), so this key takes a PLAIN mirror value (NOT the s3|original
@@ -87,7 +127,7 @@ def handler(event, context):
     if missing:
         msg = f"Malformed manifest item: missing/empty required field(s) {missing}"
         logger.error(msg)
-        raise ValueError(msg)
+        raise _PermanentError(msg)
 
     urls = event["urls"]
     expected_sha256 = event.get("expected_sha256")
@@ -99,8 +139,8 @@ def handler(event, context):
     s3_method = event.get("s3_method", "auto")  # D16b: auto|copy|getput
     original_url = urls[0] if urls else ""
 
-    # D4: SHA-skip — object already mirrored. Still (a) ensure the SSM repoint is
-    # in place (idempotent, D9 repair) and (b) refresh the LastVerifiedAt tag —
+    # D4: SHA-skip -- object already mirrored. Still (a) ensure the SSM repoint is
+    # in place (idempotent, D9 repair) and (b) refresh the LastVerifiedAt tag --
     # both WITHOUT re-downloading or rewriting the object.
     if expected_sha256 and _s3_sha_matches(s3_target, expected_sha256):
         logger.info(f"SKIP (SHA match): s3://{MIRROR_BUCKET}/{s3_target}")
@@ -132,7 +172,11 @@ def handler(event, context):
                     f"SHA256 MISMATCH: expected={expected_sha256} actual={actual_sha}. "
                     f"SSM repoint BLOCKED."
                 )
-                raise ValueError(
+                # Permanent: the bytes are wrong, so neither another URL nor another
+                # attempt changes the outcome. Raised as _PermanentError so it is NOT
+                # swallowed by the per-URL handler below and reported as "All URLs
+                # failed", which would conflate corruption with a network fault.
+                raise _PermanentError(
                     f"SHA256 mismatch: expected {expected_sha256}, got {actual_sha}"
                 )
 
@@ -143,7 +187,7 @@ def handler(event, context):
             )
             _write_tags(s3_target, trigger_type)
 
-            # D5: SSM repoint — only after integrity verified.
+            # D5: SSM repoint -- only after integrity verified.
             _repoint(config_key, s3_target, original_url)
 
             return {"status": "mirrored", "s3_target": s3_target, "source": url,
@@ -151,19 +195,29 @@ def handler(event, context):
                     "transfer_method": method, "attempt_count": attempt,
                     "copy_fallback": fell_back}
 
+        except _PermanentError:
+            # Not a source problem -- do not try the next URL.
+            raise
         except Exception as e:
             last_error = str(e)
             logger.warning(f"FAILED url={url}: {last_error}")
             continue
 
     msg = f"All URLs failed for {s3_target}: {last_error}"
-    # Model C: this executor is the SOLE writer of config_key (excluded from
-    # BulkSSMWriter). On a soft-mode failure we MUST still write the key — to the
-    # original URL — so the consumer keeps an internet fallback instead of an
-    # absent key. (Hard mode raises -> stack rollback, so no key is ever orphaned.)
-    if on_error in ("skip", "warn") and config_key and original_url:
-        ssm.put_parameter(Name=config_key, Value=original_url, Type="String", Overwrite=True)
-        logger.warning(f"REPOINT(original-fallback): {config_key} -> {original_url}")
+    # Model C: this executor is the SOLE writer of config_key (the installer excludes
+    # every manifest config_key from BulkSSMWriter), so it owes the key a value on
+    # EVERY terminal path -- including on_error=fail, which is what the generator
+    # emits for all items today.
+    #
+    # Previously this write was gated on `on_error in ("skip","warn")`, a branch the
+    # generator never produces, so a failed download left the parameter ABSENT rather
+    # than stale: BulkSSMWriter had already dropped it and nothing else writes it. A
+    # consumer then gets ParameterNotFound and has no URL to try at all, while the
+    # Evaluate gate's own log claimed consumers "fall back to |original".
+    #
+    # The value written is exactly what BulkSSMWriter would have written had mirroring
+    # been disabled, so the degraded state is a known-good one rather than a new shape.
+    _write_original_fallback(config_key, original_url)
     if on_error == "skip":
         logger.warning(f"SKIP (on_error=skip): {msg}")
         return {"status": "skipped_error", "s3_target": s3_target, "error": msg}
@@ -211,7 +265,9 @@ def _stream_to_s3(url: str, s3_key: str, s3_method: str = "auto"):
     """Stream URL to S3 with server-side SHA256. Returns (method, src_etag, src_last_modified, fell_back)."""
     if url.startswith("s3://"):
         if not MIRROR_S3_SOURCES:
-            raise ValueError(f"S3 source mirroring disabled, skipping {url}")
+            # Permanent: the flag is fixed for this function's lifetime, so a
+            # retry or another URL cannot change the outcome.
+            raise _PermanentError(f"S3 source mirroring disabled, skipping {url}")
         return _copy_s3_to_s3(url, s3_key, s3_method)
 
     ctx = ssl.create_default_context()
@@ -232,7 +288,7 @@ def _copy_s3_to_s3(source_uri: str, dest_key: str, s3_method: str = "auto"):
     s3_method (D16b): 'auto' (default) tries server-side CopyObject then falls back to
     streaming GET->PUT on any failure; 'copy' forces CopyObject (no fallback); 'getput'
     forces streaming GET->PUT (skips the wasted copy attempt for KNOWN copy-restricted
-    buckets — EULA-gated AWS driver buckets like ec2-linux-nvidia-drivers grant
+    buckets -- EULA-gated AWS driver buckets like ec2-linux-nvidia-drivers grant
     GetObject/download but DENY server-side copy). GET->PUT is how AWS docs fetch these
     (`aws s3 cp`). `fell_back`=True only when an auto copy was attempted and failed."""
     parts = source_uri.replace("s3://", "").split("/", 1)
@@ -288,6 +344,28 @@ def _repoint(config_key: str, s3_target: str, original_url: str):
     logger.info(f"REPOINT: {config_key} -> {pipe_value}")
 
 
+def _write_original_fallback(config_key: str, original_url: str):
+    """Last-resort SSM write for a terminal FAILURE: the ORIGINAL upstream URL with
+    no s3:// mirror prefix and no pipe.
+
+    This is the only thing standing between a failed artifact and an ABSENT config
+    key, because the installer excludes every manifest config_key from BulkSSMWriter
+    and makes this Lambda the sole writer. The value is byte-identical to what
+    BulkSSMWriter writes when mirroring is disabled, so a consumer sees a shape it
+    already handles (file_download splits on '|' and a single URL is a one-element
+    list) rather than ParameterNotFound.
+
+    No-op when there is no key to write (GPU per-object items carry config_key="")
+    or no URL to fall back to (a malformed item with no urls[]).
+    """
+    if not config_key or not original_url:
+        return
+    ssm.put_parameter(
+        Name=config_key, Value=original_url, Type="String", Overwrite=True
+    )
+    logger.warning(f"REPOINT(original-fallback): {config_key} -> {original_url}")
+
+
 def _store_provenance(key, source_url, method, duration_ms, attempt, src_etag,
                       src_lastmod, sfn_execution_id, content_sha256, fell_back=False):
     """Immutable provenance as S3 user metadata (set once at upload via self-copy).
@@ -316,7 +394,7 @@ def _store_provenance(key, source_url, method, duration_ms, attempt, src_etag,
 
 
 def _write_tags(key, trigger_type):
-    """Mutable ops state as S3 object tags — updatable via PutObjectTagging with
+    """Mutable ops state as S3 object tags -- updatable via PutObjectTagging with
     NO object rewrite. LastVerifiedAt refreshes on every mirror AND skip."""
     s3.put_object_tagging(
         Bucket=MIRROR_BUCKET, Key=key,

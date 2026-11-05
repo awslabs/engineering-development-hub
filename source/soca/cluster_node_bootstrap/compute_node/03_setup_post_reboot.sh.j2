@@ -70,6 +70,10 @@ fi
 # Install EFA if needed
 {% if context.get("/job/JobResources", {}).get("efa_support", False) %}
   {% include "templates/linux/efa.sh.j2" %}
+  # Stage the EFA installer so the Apptainer EFA sample can build a container
+  # whose libfabric and OpenMPI ABI-match this host. Must come AFTER efa.sh.j2:
+  # the installer only exists once EFA has been fetched.
+  {% include "templates/linux/containers/apptainer_efa_stage.sh.j2" %}
 {% endif %}
 
 # Configure FSx for Lustre if needed
@@ -114,6 +118,9 @@ fi
   {% include "templates/linux/snap_fix_homedirectory.sh.j2" %}
 {% endif %}
 
+# Create default slurm user for PCS (optional and non-breaking in case of error)
+{% include "templates/linux/scheduler/aws_pcs/default_slurm_user.sh.j2" %}
+
 # Check if machine is a virtual desktop, if yes install additional packages such as Gnome, DCV
 {% include "compute_node/extra/virtual_desktop.sh.j2" %}
 
@@ -133,7 +140,7 @@ REBOOT_REQUIRED=$(get_reboot_required)
 if [[ "${REBOOT_REQUIRED}" == "no" ]]; then
     # Start schedulers
     {% include "templates/linux/scheduler/start_scheduler_services.sh.j2" %}
-
+    
     # Emit deferred session-ready now that no more reboots are pending.
     if [[ -f /opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_node_bootstrap/.edh_dcv_session_ready_pending ]]; then
       edh_dcv_publish_event "session-ready" || true
@@ -142,9 +149,9 @@ if [[ "${REBOOT_REQUIRED}" == "no" ]]; then
 
     log_info "Bootstrap Sequence Completed: Node Ready"
 else
-    # One last reboot is needed, SOCA will create a run-once service
-    FINAL_SCRIPT_PATH="${EDH_BOOTSTRAP_ASSETS_FOLDER}/soca_final_reboot_setup.sh"
-    SERVICE_NAME="soca-final-reboot-run-once.service"
+    # One last reboot is needed, EDH will create a run-once service
+    FINAL_SCRIPT_PATH="${EDH_BOOTSTRAP_ASSETS_FOLDER}/edh_final_reboot_setup.sh"
+    SERVICE_NAME="edh-final-reboot-run-once.service"
     log_info "Final reboot needed, preparing ${FINAL_SCRIPT_PATH} to be executed post final reboot, this will only be executed after the next reboot via ${SERVICE_NAME} service"
     
     # import use 'EOF' and not EOF as we do not want to do shell variables expansion here 
@@ -187,13 +194,13 @@ EOF
 
     cat << EOF > /etc/systemd/system/${SERVICE_NAME}
 [Unit]
-Description=Run very final SOCA configuration after the 2nd reboot -if needed-. This is meant to be only executed one
+Description=Run very final EDH configuration after the 2nd reboot -if needed-. This is meant to be only executed one
 After=network-online.target remote-fs.target
 Wants=network-online.target remote-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash ${FINAL_SCRIPT_PATH} >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/soca_final_reboot_setup.log
+ExecStart=/bin/bash ${FINAL_SCRIPT_PATH} >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/edh_final_reboot_setup.log
 RemainAfterExit=no
 
 [Install]

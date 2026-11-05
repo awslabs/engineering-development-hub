@@ -14,11 +14,30 @@ function openpbs_configure_client_{{  SCHEDULER_VARS.get("IDENTIFIER") }} () {
     if [[ -f /etc/pbs.conf ]]; then
         mv /etc/pbs.conf /etc/pbs.conf.original.$(date +%s)
     fi
+    {#
+      Only a compute_node runs a mom, because compute_node is the only type
+      nodes_manager registers with qmgr -- a mom on any other node announces
+      itself to a server that has never heard of it, once a minute forever.
+
+      This template is reached by EVERY non-controller Linux node:
+      install_schedulers.sh.j2 branches only on "controller". The same gate is
+      in lsf/configure_client.sh.j2.
+
+      The mom_priv/config block below is deliberately NOT gated: it is read by
+      the mom that stages a job's files, which is the compute node's mom.
+    #}
+    {% if context.get("/job/NodeType") == "compute_node" %}
+    local START_MOM=1
+    log_info "NodeType is compute_node, pbs_mom will be started"
+    {% else %}
+    local START_MOM=0
+    log_info "NodeType is {{ context.get("/job/NodeType") }}, pbs_mom will NOT be started (this node is not registered with the scheduler)"
+    {% endif %}
     echo -e "PBS_SERVER=${SCHEDULER_HOSTNAME}
 PBS_START_SERVER=0
 PBS_START_SCHED=0
 PBS_START_COMM=0
-PBS_START_MOM=1
+PBS_START_MOM=${START_MOM}
 PBS_EXEC=${OPENPBS_INSTALL_DIR}
 PBS_LEAF_NAME=${CLIENT_SERVER_IP}
 PBS_HOME=${OPENPBS_PBS_HOME}

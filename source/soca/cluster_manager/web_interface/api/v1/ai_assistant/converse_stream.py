@@ -99,6 +99,14 @@ class AiAssistantConverseStream(Resource):
                     description: List of MCP server names to enable tool use during streaming
                     items:
                       type: string
+                  knowledge_base_id:
+                    type: string
+                    nullable: true
+                    description: Bedrock Knowledge Base ID for RAG. Cannot be combined with agent_runtime_id or mcp_server_names
+                  number_of_results:
+                    type: integer
+                    nullable: true
+                    description: Number of KB chunks to retrieve (only used with knowledge_base_id)
         responses:
           '200':
             description: SSE stream of text chunks
@@ -119,7 +127,6 @@ class AiAssistantConverseStream(Resource):
         username = request.headers.get("X-EDH-USER") or session.get("user")
         if not username:
             return SocaError.CLIENT_MISSING_HEADER(header="X-EDH-USER").as_flask()
-        system_prompt = SocaAiAssistant.generate_system_prompt(user_specified_system_prompt=data.get("system_prompt"))
         max_tokens = data.get("max_tokens")
         temperature = data.get("temperature")
         top_p = data.get("top_p")
@@ -129,6 +136,20 @@ class AiAssistantConverseStream(Resource):
         agent_runtime_id = data.get("agent_runtime_id")
         session_id = data.get("session_id")
         mcp_server_names = data.get("mcp_server_names")
+        knowledge_base_id = data.get("knowledge_base_id")
+        number_of_results = data.get("number_of_results") or 5
+
+        # Fail loudly rather than silently dropping retrieval: agent mode and MCP tool use
+        # do not go through the Knowledge Base, so the answer would come back ungrounded.
+        if knowledge_base_id and (agent_runtime_id or mcp_server_names):
+            return SocaError.GENERIC_ERROR(
+                helper="knowledge_base_id cannot be combined with agent_runtime_id or mcp_server_names"
+            ).as_flask()
+
+        system_prompt = SocaAiAssistant.generate_system_prompt(
+            user_specified_system_prompt=data.get("system_prompt"),
+            include_edh_context=not knowledge_base_id,
+        )
 
         assistant = SocaAiAssistant(
             username=username,
@@ -137,7 +158,7 @@ class AiAssistantConverseStream(Resource):
             agent_runtime_id=agent_runtime_id,
         )
         logger.info(
-            f"Invoking AI Assistant Stream with prompt from {username} with model_id={model_id}, agent_runtime_id={agent_runtime_id}, mcp_servers={mcp_server_names}"
+            f"Invoking AI Assistant Stream with prompt from {username} with model_id={model_id}, agent_runtime_id={agent_runtime_id}, mcp_servers={mcp_server_names}, knowledge_base_id={knowledge_base_id}"
         )
 
         def generate():
@@ -148,16 +169,6 @@ class AiAssistantConverseStream(Resource):
                         prompt=prompt,
                         session_id=_session_id,
                     )
-                elif mcp_server_names:
-                    stream = assistant.converse_stream_with_tools(
-                        prompt=prompt,
-                        system_prompt=system_prompt,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        top_p=top_p,
-                        messages=messages,
-                        mcp_server_names=mcp_server_names,
-                    )
                 else:
                     stream = assistant.converse_stream(
                         prompt=prompt,
@@ -166,6 +177,9 @@ class AiAssistantConverseStream(Resource):
                         temperature=temperature,
                         top_p=top_p,
                         messages=messages,
+                        mcp_server_names=mcp_server_names,
+                        knowledge_base_id=knowledge_base_id,
+                        number_of_results=number_of_results,
                     )
 
                 if isinstance(stream, SocaResponse) and stream.success is False:

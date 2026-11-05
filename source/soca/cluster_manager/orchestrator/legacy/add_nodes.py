@@ -28,7 +28,8 @@ sys.path.append(
 )
 import cloudformation_builder
 from utils.config import SocaConfig
-from utils.aws.boto3_wrapper import get_boto
+from utils.aws.boto3_wrapper import BOTO3_ACCESS_DENIED_ERROR_CODES, get_boto
+from utils.aws.cfn_tag_helper import build_dry_run_tag_specifications
 import logging
 
 logger = logging.getLogger("soca_logger")
@@ -282,17 +283,22 @@ def can_launch_capacity(
         .get("message")
     )
 
-    _custom_tags = []
-    if custom_tags:
-        for tag in custom_tags.values():
-            if tag.get("Enabled", ""):
-                _custom_tags.append({"Key": tag["Key"], "Value": tag["Value"]})
-            else:
-                print(f"{tag} does not have Enabled key or Enabled is False.")
-
     if skip_dryrun and enforce_quota is False:
         # No need to even send the API calls if we have both knobs set to Skip
         return True
+
+    # Built after the skip guard on purpose: with both knobs disabled this
+    # function must stay a no-op, so a tag-build failure cannot fail a launch
+    # the operator has explicitly opted out of validating.
+    _build_tags = build_dry_run_tag_specifications(
+        custom_tags=custom_tags, node_type="compute_node"
+    )
+    if _build_tags.get("success") is False:
+        logger.error(
+            f"Unable to build DryRun TagSpecifications: {_build_tags.get('message')}"
+        )
+        return str(f"Unable to build DryRun TagSpecifications: {_build_tags.get('message')}")
+    _tag_specifications = _build_tags.get("message")
 
     for instance in instance_type:
         try:
@@ -309,11 +315,7 @@ def can_launch_capacity(
                     .get("message")
                 },
                 DryRun=True,
-                TagSpecifications=(
-                    [{"ResourceType": "instance", "Tags": _custom_tags}]
-                    if _custom_tags
-                    else []
-                ),
+                TagSpecifications=_tag_specifications,
             )
 
         except ClientError as e:
@@ -336,12 +338,20 @@ def can_launch_capacity(
                     else:
                         return vcpus_check["message"]
             else:
-                print(
-                    "Dry Run Failed, capacity "
-                    + instance
-                    + " can not be added: "
-                    + str(e),
-                    "error",
+                if (
+                    e.response["Error"].get("Code")
+                    in BOTO3_ACCESS_DENIED_ERROR_CODES
+                ):
+                    # Not a capacity problem: IAM or a tag-policy SCP denied the probe.
+                    logger.error(
+                        f"DryRun denied by IAM or an SCP for {instance}, this is NOT a capacity "
+                        f"shortage. Tags submitted: {_tag_specifications}. Original error: {e}"
+                    )
+                    return str(
+                        f"{instance} DryRun denied by IAM or an SCP (not a capacity shortage): {e}"
+                    )
+                logger.error(
+                    f"Dry Run Failed, capacity {instance} can not be added: {e}"
                 )
                 return str(instance + " can not be added: " + str(e))
 

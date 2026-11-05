@@ -25,6 +25,7 @@ from troposphere.autoscaling import (
     LaunchTemplate as asg_LaunchTemplate,
     LaunchTemplateSpecification as asg_LaunchTemplateSpecification,
     LaunchTemplateOverrides as asg_LaunchTemplateOverrides,
+    Tags as asg_Tags,
 )
 
 from troposphere.ec2 import (
@@ -49,9 +50,7 @@ from troposphere.ec2 import (
     Placement,
     SpotOptions,
     SpotOptionsRequest,
-    Tag,
     Tags,
-    TagSpecifications,
     TargetCapacitySpecificationRequest,
 )
 
@@ -59,6 +58,7 @@ from troposphere.fsx import FileSystem, LustreConfiguration
 
 from utils.validators import Validators
 from utils.config import SocaConfig
+from utils.hpc.job_identity import capacity_key
 from utils.jinjanizer import SocaJinja2Generator
 from utils.cast import SocaCastEngine
 from utils.aws.ec2_helper import (
@@ -67,6 +67,10 @@ from utils.aws.ec2_helper import (
     describe_images,
 )
 from utils.aws.boto3_wrapper import get_boto
+from utils.aws.cfn_tag_helper import (
+    build_launch_template_tag_specifications,
+    build_tag_specifications,
+)
 from utils.response import SocaResponse
 from utils.error import SocaError
 from utils.subprocess_client import SocaSubprocessClient
@@ -220,7 +224,9 @@ class SocaCloudFormationBuilderHpc:
             _soca_parameters["/job/JobId"] = _job.job_id
             _soca_parameters["/job/JobOwner"] = _job.job_owner
             _soca_parameters["/job/JobName"] = _job.job_name
-            _soca_parameters["/job/JobProject"] = _job.job_project
+            # Empty, not a placeholder: ebs.sh.j2 and eni.sh.j2 gate the
+            # edh:JobProject tag on [[ -n ]], matching this path's omission.
+            _soca_parameters["/job/JobProject"] = _job.job_project or ""
             _soca_parameters["/job/JobQueue"] = _job.job_queue
             _soca_parameters["/job/StackId"] = (
                 self.stack_name
@@ -235,9 +241,16 @@ class SocaCloudFormationBuilderHpc:
             # Location of Boostrap scripts on S3
             _bootstrap_s3_location_folder = f"{_cluster_id}/config/do_not_delete/bootstrap/compute_node/{self.bootstrap_uuid}"
 
+            # One safe spelling of the job id, used for the bootstrap path here and
+            # for the tags below. provision_capacity's failure cleanup removes this
+            # same folder by capacity_key, so the two must agree or the cleanup
+            # silently misses it. It also keeps brackets out of a path that is
+            # expanded by the node's bootstrap shell, where "4[]" is a glob.
+            _job_capacity_key = capacity_key(_job.job_id).get("message")
+
             # Add custom bootstrap path specific to current job id
             _soca_parameters["/job/BootstrapPath"] = (
-                f"/apps/edh/{_cluster_id}/shared/logs/bootstrap/compute_node/{_job.job_id}/{self.bootstrap_uuid}"
+                f"/apps/edh/{_cluster_id}/shared/logs/bootstrap/compute_node/{_job_capacity_key}/{self.bootstrap_uuid}"
             )
 
             # add custom NodeType
@@ -266,33 +279,93 @@ class SocaCloudFormationBuilderHpc:
                 parents=True, exist_ok=True
             )
 
+            # Whether THIS node joins AD. Resolved here rather than in the Jinja
+            # template so the queue-dependent rule lives in one place, and exported
+            # as /job/JoinNodeToAD for the bootstrap to branch on.
+            #
+            # Always-on nodes get their own flag, defaulting to True. The local-user
+            # dump that JoinEphemeralNodesToAD=False selects is append-only
+            # (useradd plus usermod -aG, no userdel, no group removal), so a user
+            # removed from AD or from a group is never removed from the node. An
+            # ephemeral node dies with its job so that cannot accumulate; an
+            # always-on node is long-lived by definition and would keep stale
+            # accounts and un-revoked group membership for its whole life.
+            # Always-on is detected from EITHER signal, because --job-queue is a CLI
+            # argument and an operator can name the queue anything: create_alwayson
+            # always sets job_scheduler_state to "alwayson", while the rest of the
+            # bootstrap (00_session_env.sh.j2) keys off the queue name.
+            _queue_cast = SocaCastEngine(
+                data=_soca_parameters.get("/job/JobQueue")
+            ).cast_as(expected_type=str)
+            _state_cast = SocaCastEngine(
+                data=getattr(_job, "job_scheduler_state", "")
+            ).cast_as(expected_type=str)
+            _queue_name = (
+                _queue_cast.get("message") if _queue_cast.get("success") else ""
+            )
+            _scheduler_state = (
+                _state_cast.get("message") if _state_cast.get("success") else ""
+            )
+            _is_alwayson = (
+                _queue_name.lower() == "alwayson"
+                or _scheduler_state.lower() == "alwayson"
+            )
+            _join_ad_flag = (
+                "/configuration/FeatureFlags/Hpc/JoinAlwaysOnNodesToAD"
+                if _is_alwayson
+                else "/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD"
+            )
+            _join_ad_default = True if _is_alwayson else False
+            _check_join_ad = SocaCastEngine(
+                data=_soca_parameters.get(_join_ad_flag)
+            ).cast_as(expected_type=bool)
+            if _check_join_ad.get("success") is True:
+                _join_node_to_ad = _check_join_ad.get("message")
+            else:
+                logger.warning(
+                    f"Unable to determine {_join_ad_flag}: {_check_join_ad.get('message')}, "
+                    f"defaulting to {_join_ad_default}"
+                )
+                _join_node_to_ad = _join_ad_default
+            _soca_parameters["/job/JoinNodeToAD"] = _join_node_to_ad
+            logger.info(
+                f"{_join_ad_flag} resolves to {_join_node_to_ad} for queue "
+                f"{_soca_parameters.get('/job/JobQueue')}"
+            )
+
+            # Which OU this node's computer object goes in. Ephemeral and
+            # alwayson nodes share NodeType compute_node, so the bootstrap
+            # cannot derive the class; it reads /job/ComputerOU instead.
+            _ou_class = "alwayson" if _is_alwayson else "ephemeral"
+            _computer_ou = (
+                _soca_parameters.get(
+                    f"/configuration/UserDirectory/computer_ou/hpc/{_ou_class}"
+                )
+                or _soca_parameters.get(
+                    "/configuration/UserDirectory/computer_ou/hpc/default"
+                )
+                or _soca_parameters.get(
+                    "/configuration/UserDirectory/computer_ou/default"
+                )
+            )
+            if _computer_ou:
+                _soca_parameters["/job/ComputerOU"] = _computer_ou
+                logger.info(
+                    f"computer_ou/hpc/{_ou_class} resolves to {_computer_ou} for queue "
+                    f"{_soca_parameters.get('/job/JobQueue')}"
+                )
+
             # Check if using AD, if yes check if we need to auto join the HPC nodes
             if _soca_parameters.get("/configuration/UserDirectory/provider") in [
                 "aws_ds_managed_activedirectory",
-                "existing_activedirectory",
+                "existing_active_directory",
             ]:
-                _check_ephemeral_nodes_domain_join = SocaCastEngine(
-                    data=_soca_parameters.get(
-                        "/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD"
-                    )
-                ).cast_as(expected_type=bool)
-                if _check_ephemeral_nodes_domain_join.get("success") is True:
-                    _join_ephemeral_nodes_to_ad = (
-                        _check_ephemeral_nodes_domain_join.get("message")
-                    )
-                else:
-                    logger.warning(
-                        f"Unable to determine if JoinEphemeralNodesToAD is true or false: {_check_ephemeral_nodes_domain_join.get('message')}, node will NOT join AD by default"
-                    )
-                    _join_ephemeral_nodes_to_ad = False
-
-                logger.info(
-                    f"/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD is set to {_join_ephemeral_nodes_to_ad}"
-                )
-
-                if _join_ephemeral_nodes_to_ad is False:
+                # Decision already resolved above, per queue, into
+                # /job/JoinNodeToAD. Only the users_info.json preparation for the
+                # local-dump path is queue-independent and belongs here.
+                if _join_node_to_ad is False:
                     logger.info(
-                        "AD is enabled and JoinEphemeralNodesToAD is False will attempt to sync AD users"
+                        f"AD is enabled and {_join_ad_flag} is False, will attempt to sync AD users locally"
                     )
                     _json_output_file = f"/apps/edh/{_cluster_id}/shared/active_directory/sync/users_info.json"
                     if not pathlib.Path(_json_output_file).exists():
@@ -342,7 +415,8 @@ class SocaCloudFormationBuilderHpc:
 
                 else:
                     logger.info(
-                        "AD is enabled and JoinEphemeralNodesToAD is true will not attempt to sync AD users."
+                        f"AD is enabled and {_join_ad_flag} is True, the node will join the domain "
+                        f"and no local user sync is needed."
                     )
 
             # Bootstrap Sequence: Generate templates and upload them to S3.
@@ -434,15 +508,19 @@ class SocaCloudFormationBuilderHpc:
                 )
 
             # Base tags
+            # edh:JobId carries the capacity_key (computed above) rather than the
+            # raw job id: an array parent is "4[]" and AWS rejects the brackets in
+            # a tag value. It must be the SAME spelling provision_capacity tags the
+            # stack with, because the nodes manager reads this tag back and
+            # registers it as resources_available.compute_node.
             _base_tags = {
-                "Name": f"{_cluster_id}-compute-job-{_job.job_id}",
-                "edh:JobId": str(_job.job_id),
+                "Name": f"{_cluster_id}-compute-job-{_job_capacity_key}",
+                "edh:JobId": _job_capacity_key,
                 "edh:JobName": str(_job.job_name),
                 "edh:JobQueue": str(_job.job_queue),
                 "edh:StackId": Ref("AWS::StackName"),
                 "edh:JobOwner": str(_job.job_owner),
                 "edh:NodeType": "compute_node",
-                "edh:JobProject": str(_job.job_project),
                 "edh:ClusterId": str(_cluster_id),
                 "edh:TerminateWhenIdle": str(self.terminate_when_idle),
                 "edh:KeepForever": str(self.keep_forever),
@@ -450,6 +528,14 @@ class SocaCloudFormationBuilderHpc:
                 "edh:SchedulerEndpoint": _job.job_scheduler_info.endpoint,
                 "edh:SchedulerIdentifier": _job.job_scheduler_info.identifier,
             }
+
+            # Only tag a project when the job actually has one. str(None) would write
+            # the literal string "None" into cost allocation, which is worse than an
+            # absent tag because it reads as a real project name. Set before the
+            # custom-tag merge below so an explicit project still wins over a
+            # cluster custom tag of the same key.
+            if _job.job_project:
+                _base_tags["edh:JobProject"] = str(_job.job_project)
 
             # Get custom tags if specified
             _tags_allowed = SocaConfig(
@@ -662,13 +748,11 @@ class SocaCloudFormationBuilderHpc:
                     )
                 )
 
-            # Tags
-            ltd.TagSpecifications = [
-                TagSpecifications(
-                    ResourceType="instance",
-                    Tags=[Tag(Key=k, Value=v) for k, v in _base_tags.items()],
-                )
-            ]
+            # Tags. Covers instance, volume and network-interface at launch.
+            _ltd_tag_specifications = build_tag_specifications(base_tags=_base_tags)
+            if _ltd_tag_specifications.get("success") is False:
+                return _ltd_tag_specifications
+            ltd.TagSpecifications = _ltd_tag_specifications.get("message")
 
             ltd.MetadataOptions = MetadataOptions(
                 HttpEndpoint="enabled",
@@ -684,8 +768,19 @@ class SocaCloudFormationBuilderHpc:
 
             # Configure LaunchTemplate
             lt = LaunchTemplate("NodeLaunchTemplate")
-            lt.LaunchTemplateName = f"{_cluster_id}-{_job.job_id}"
+            # capacity_key, not the raw job id: an EC2 launch template name accepts
+            # only letters, numbers and - ( ) . / _ , so an array parent's "4[]"
+            # is rejected with InvalidLaunchTemplateName.MalformedException and
+            # fails the whole stack.
+            lt.LaunchTemplateName = f"{_cluster_id}-{_job_capacity_key}"
             lt.LaunchTemplateData = ltd
+            # Tag the LaunchTemplate resource itself.
+            _lt_tag_specifications = build_launch_template_tag_specifications(
+                base_tags=_base_tags
+            )
+            if _lt_tag_specifications.get("success") is False:
+                return _lt_tag_specifications
+            lt.TagSpecifications = _lt_tag_specifications.get("message")
             t.add_resource(lt)
             logger.debug(f"LaunchTemplate completed for {_job.job_id}: {lt}")
 
@@ -793,6 +888,8 @@ class SocaCloudFormationBuilderHpc:
                 _asg.DesiredCapacity = str(_job.nodes)
                 _asg.VPCZoneIdentifier = _job.subnet_ids
                 _asg.CapacityRebalance = False
+                # Tag the ASG itself; PropagateAtLaunch carries them to instances.
+                _asg.Tags = asg_Tags(**_base_tags)
 
                 logger.info(f"ASG completed for {_job.job_id}: {_asg}")
 
@@ -941,7 +1038,10 @@ class SocaCloudFormationBuilderHpc:
                         fsx_lustre_configuration.ExportPath = (
                             _export_path
                             if _export_path is not False
-                            else f"{_s3_bucket_backend}/{_cluster_id}-fsx_lustre_output/job-{_job.job_id}/"
+                            # capacity_key: this becomes an S3 prefix, and "[" / "]"
+                            # are characters S3 requires URL-encoding for, which a
+                            # consumer of this path will not expect.
+                            else f"{_s3_bucket_backend}/{_cluster_id}-fsx_lustre_output/job-{_job_capacity_key}/"
                         )
 
                     fsx_lustre.LustreConfiguration = fsx_lustre_configuration

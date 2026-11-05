@@ -124,18 +124,15 @@ class SocaHpcHooksValidator:
 
     def validate_project_budget(
         self,
-        user_must_belong_to_project: bool = True,
         allow_job_no_project: bool = False,
         allow_user_multiple_projects: bool = True,
     ) -> SocaResponse | SocaError:
         """
-        user_must_belong_to_project: Change if you don't want to restrict project to a list of users
         allow_job_no_project: Change if you do not want to enforce project at job submission
         allow_user_multiple_projects:  Change if you want to restrict a user to one project
         """
         return hook_validate_budget(
             obj=self,
-            user_must_belong_to_project=user_must_belong_to_project,
             allow_job_no_project=allow_job_no_project,
             allow_user_multiple_projects=allow_user_multiple_projects,
         )

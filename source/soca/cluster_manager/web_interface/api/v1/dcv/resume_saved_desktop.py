@@ -39,6 +39,7 @@ from utils.jinjanizer import SocaJinja2Generator
 from utils.async_placement import enqueue_placement
 from utils.resume_orchestration import acquire_resume_lease, revert_resume_lease, saved_desktops_enabled
 from api.v1.dcv.instance_type_search import compatible_resume_types, catalog_spec
+from helpers.vdi_root_volume import ami_root_snapshot_size, resolve_vdi_root_volume
 from utils.response import SocaResponse
 from utils.error import SocaError
 
@@ -157,22 +158,33 @@ class ResumeSavedDesktop(Resource):
             _cfn_stack_name = re.sub(r"[^a-zA-Z0-9\-]", "", _stack_name)
 
             # Root disk size + platform from the AMI itself (never shrink below the captured root).
-            _disk_size = 50
+            _disk_size = None
             _instance_platform = ""
             try:
                 _img = client_ec2.describe_images(ImageIds=[_row.image_id])
                 for _i in _img.get("Images", []):
                     if not _instance_platform:
                         _instance_platform = _i.get("PlatformDetails", "")
-                    for _bdm in _i.get("BlockDeviceMappings", []):
-                        _ebs = _bdm.get("Ebs") or {}
-                        if _ebs.get("VolumeSize"):
-                            _disk_size = int(_ebs["VolumeSize"])
-                            break
+                    # Size from the AMI's root device, not the first mapping
+                    # with a size, which can be a data volume.
+                    if _disk_size is None:
+                        _disk_size = ami_root_snapshot_size(_i).get("message")
             except Exception as _derr:
                 raise RuntimeError(f"Unable to describe saved AMI {_row.image_id}: {_derr}")
             if not _instance_platform:
                 raise RuntimeError(f"Unable to determine InstancePlatform for AMI {_row.image_id}")
+
+            # Type/IOPS/throughput from the cluster root volume defaults; size is
+            # the captured root, or the per-OS default when the AMI reports none.
+            _resolve_root_volume = resolve_vdi_root_volume(
+                base_os=_row.base_os, requested_size=_disk_size, params=_soca
+            )
+            if _resolve_root_volume.get("success") is not True:
+                raise RuntimeError(
+                    f"Unable to resolve root volume for AMI {_row.image_id}: "
+                    f"{_resolve_root_volume.message}"
+                )
+            _root_volume = _resolve_root_volume.get("message")
 
             # Render the warm-resume user_data (skips provisioning; heals AD; re-registers DCV).
             _soca["/dcv/SessionOwner"] = _user
@@ -231,8 +243,7 @@ class ResumeSavedDesktop(Resource):
                 "session_name": _session_name,
                 "session_uuid": _session_uuid,
                 "base_os": _row.base_os,
-                "disk_size": _disk_size,
-                "volume_type": _soca.get("/configuration/DefaultVolumeType"),
+                **_root_volume.as_launch_parameters(),
                 "volume_acceleration": _stack_accel,
                 "cluster_id": _cluster_id,
                 "metadata_http_tokens": _soca.get("/configuration/MetadataHttpTokens"),

@@ -7,7 +7,7 @@
                         "logs:CreateLogStream",
                         "logs:PutLogEvents"
                     ],
-            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/CapacityReservationCleanerLambda/*",
+            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/CapacityReservationCleanerLambda*",
             "Effect": "Allow",
             "Sid": "CloudWatchLogsPermissions"
         },

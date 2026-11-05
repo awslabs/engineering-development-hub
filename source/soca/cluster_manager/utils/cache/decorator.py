@@ -1,16 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 from utils.response import SocaResponse
+from utils.cast import SocaCastEngine
+from utils.validators import Validators
 from utils.cache.client import SocaCacheClient
-import hashlib
+from utils.cache.keys import build_cache_key
 import functools
 import inspect
 import pickle
 
 logger = logging.getLogger("soca_logger")
-
 
 def _check_response_filter(data, path, expected_value=None):
     """
@@ -82,10 +84,62 @@ def _check_response_filter(data, path, expected_value=None):
         return False
 
 
-def soca_cache(
-    prefix: str, ttl: int = None, is_admin: bool = True, cache_if: callable = None
-):
+def _encode_json(result: SocaResponse) -> bytes:
     """
+    Serialize a SocaResponse as JSON. Raises TypeError when the payload is not
+    JSON-safe, which the caller turns into "do not cache" rather than a silent
+    fall back to pickle.
+
+    json.dumps directly rather than through SocaCastEngine: as_json() is
+    json.loads and cannot serialize, and serialize_json() emits indent=2, which
+    would change every stored byte for no gain. The strictness below is the point
+    of this function and serialize_json does not offer it.
+
+    Deliberately strict: json.dumps with a default= that stringifies unknown
+    objects would round-trip a datetime into a str and hand callers a different
+    type than the uncached path returns.
+    """
+    return json.dumps(
+        {
+            "success": result.success,
+            "message": result.message,
+            "status_code": result.status_code,
+            "request": result.request,
+            "trace": result.trace,
+        },
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _decode_json(payload) -> SocaResponse:
+    if Validators.is_bytes(payload):
+        payload = payload.decode("utf-8")
+    # Through SocaCastEngine per the repo's cast guideline. It returns a
+    # SocaError rather than raising, and the caller's contract is that an entry
+    # which will not parse is treated as a MISS -- so an unparseable payload is
+    # turned back into an exception here rather than being returned as if it were
+    # a cached value.
+    _parsed = SocaCastEngine(data=payload).as_json()
+    if _parsed.get("success") is not True:
+        raise ValueError(f"cached entry is not valid JSON: {_parsed.get('message')}")
+    _fields = _parsed.get("message")
+    return SocaResponse(
+        success=_fields["success"],
+        message=_fields["message"],
+        status_code=_fields.get("status_code"),
+        request=_fields.get("request"),
+        trace=_fields.get("trace"),
+    )
+
+
+def soca_cache(
+    prefix: str,
+    ttl: int = None,
+    is_admin: bool = True,
+    cache_if: callable = None,
+    serializer: str = "pickle",
+):
+    r"""
     Decorator to cache function results in SocaCacheClient using pickle.
 
     Args:
@@ -93,6 +147,21 @@ def soca_cache(
         ttl: override TTL (defaults to SocaCacheClient.ttl_long if not set)
         is_admin: whether to use admin credentials for cache client (change to False is not using the SocaController)
         cache_if: optional callable that receives the result and returns True if it should be cached
+        serializer: "pickle" (default) or "json".
+
+            Prefer "json" for any new cached function. A pickled entry couples the
+            cache to the interpreter and to the class layout at write time, so an
+            EDH upgrade can leave entries that either fail to load or load into a
+            changed class, and anything able to write the cache gets code execution
+            on read. JSON has neither property.
+
+            "pickle" remains the default because it is not a free swap: JSON
+            rewrites datetime and other non-JSON types, and several cached AWS
+            responses carry them (describe_capacity_reservations returns EndDate as
+            a datetime). Converting one of those to "json" would silently hand
+            callers a str where they had a datetime, so each conversion needs its
+            payload checked first. With "json", a payload that is not JSON-safe is
+            NOT cached and is logged, rather than falling back to pickle.
 
     /!\ Only cache/return successful SocaResponse /!\
 
@@ -129,50 +198,86 @@ def soca_cache(
         # Invalidate all cached entries for this prefix
         get_user.invalidate_all()
     """
-    cache_client = SocaCacheClient(is_admin=is_admin)
+    # Built on first use, not here. This factory body runs at import time of
+    # every module carrying a @soca_cache, and SocaCacheClient.__init__ pages
+    # SSM, so building it here puts a live AWS call in those import paths.
+    _client_holder: list = []
+
+    def _cache_client() -> SocaCacheClient:
+        if not _client_holder:
+            _client_holder.append(SocaCacheClient(is_admin=is_admin))
+        return _client_holder[0]
+
+    def _resolve_ttl():
+        """
+        Resolve the TTL at CALL time rather than at import time.
+
+        A plain int is returned as-is. A callable is invoked on every write, which
+        is what lets an operator retune a window through cluster configuration
+        without restarting the controller: the decorator runs once at import, so a
+        config value read there would be frozen for the life of the process.
+
+        A callable that raises must not stop the write - fall back to the client
+        default rather than losing the cache entry.
+        """
+        if not callable(ttl):
+            return ttl
+        try:
+            return ttl()
+        except Exception as err:  # noqa: BLE001
+            logger.warning(f"Callable ttl for {prefix} raised {err}, using default")
+            return None
 
     def decorator(func):
         sig = inspect.signature(func)
 
         def make_cache_key(*args, **kwargs):
-            """Generate a unique key based on func name + args"""
+            """Readable key based on the prefix plus the bound arguments."""
             bound = sig.bind_partial(*args, **kwargs)
             bound.apply_defaults()
-            key_bytes = pickle.dumps(
-                (func.__module__, func.__qualname__, bound.arguments)
+            return build_cache_key(
+                prefix=prefix,
+                module=func.__module__,
+                qualname=func.__qualname__,
+                arguments=bound.arguments,
             )
-            key_hash = hashlib.sha256(key_bytes).hexdigest()
-            return f"{prefix}:{key_hash}"
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> SocaResponse:
             cache_key = make_cache_key(*args, **kwargs)
-            logger.info(f"Trying to fetch {cache_key}")
-            _cache_enabled = cache_client.is_enabled().success
+            # Cache hits are logged at DEBUG (they happen on every request); misses,
+            # writes and errors stay at INFO / WARNING.
+            logger.debug("Trying to fetch %s", cache_key)
+            _cache_enabled = _cache_client().is_enabled().success
             if _cache_enabled:
-                cached_resp = cache_client.get(cache_key)
+                cached_resp = _cache_client().get(cache_key)
                 if (
                     cached_resp.get("success")
                     and cached_resp.get("message") != "CACHE_MISS"
                 ):
-                    logger.info(
-                        f"{cache_key} found on Cache, trying to unpickle payload"
-                    )
+                    logger.debug("%s found on Cache, trying to deserialize payload", cache_key)
                     try:
                         payload = cached_resp.message
-                        if isinstance(payload, (bytes, bytearray)):
+                        if serializer == "json":
+                            # Never fall back to pickle here: a json-serialized
+                            # entry that will not parse is treated as a miss, so a
+                            # crafted payload cannot reach pickle.loads.
+                            data = _decode_json(payload)
+                        elif Validators.is_bytes(payload):
                             data = pickle.loads(payload)
                         else:
                             data = payload
-                        logger.debug(f"Cached value: {data}")
-                        logger.info("Successfully retrieved data from cache")
+                        # Lazy: formatting the whole cached object on every hit is costly
+                        logger.debug("Cached value: %s", data)
+                        logger.debug("Successfully retrieved %s from cache", cache_key)
                         return data  # return the entire SocaResponse
                     except Exception as err:
                         logger.warning(
                             f"Failed to deserialize cache for {cache_key}: {err}"
                         )
 
-            logger.info("Key not available on cache, calling actual function")
+            logger.info("%s not available on cache, calling actual function", cache_key)
+
             result = func(*args, **kwargs)
 
             # Only cache successful and trusted SocaResponse
@@ -196,13 +301,23 @@ def soca_cache(
                 if should_cache:
                     try:
                         logger.debug(f"Caching {cache_key}")
-                        _ttl = ttl or cache_client.ttl_long
-                        cache_client.set(
+                        _ttl = _resolve_ttl() or _cache_client().ttl_long
+                        if serializer == "json":
+                            _value = _encode_json(result)
+                        else:
+                            _value = pickle.dumps(result)
+                        _cache_client().set(
                             key=cache_key,
-                            value=pickle.dumps(result),
+                            value=_value,
                             ex=_ttl,
                         )
                         logger.info(f"Successfully cached {cache_key}")
+                    except (TypeError, ValueError) as err:
+                        # json serializer and a payload that is not JSON-safe. Do
+                        # not cache, and do not quietly pickle it instead.
+                        logger.warning(
+                            f"{cache_key} not cached: payload is not JSON-serializable ({err})"
+                        )
                     except Exception as err:
                         logger.warning(f"Failed to cache {cache_key}: {err}")
                 else:
@@ -215,16 +330,19 @@ def soca_cache(
         def invalidate_cache(*args, **kwargs):
             cache_key = make_cache_key(*args, **kwargs)
             logger.info(f"Invalidating cache key {cache_key}")
-            return cache_client.delete(cache_key)
+            return _cache_client().delete(cache_key)
 
         def invalidate_all():
             logger.info(f"Invalidating ALL cache keys for prefix {prefix}")
-            # Scan matching keys and delete them
-            scan_resp = cache_client.scan(match_pattern=f"{prefix}:*")
+            # scan() passes the pattern straight to the engine and does NOT apply
+            # key_fqdn(), while set() and delete() do. An unscoped pattern therefore
+            # matches nothing at all, which is what made this a no-op.
+            _pattern = _cache_client().key_fqdn(f"{prefix}:*")
+            scan_resp = _cache_client().scan(match_pattern=_pattern)
             if scan_resp.success:
                 deleted = 0
                 for k in scan_resp.message:
-                    cache_client.delete(k)
+                    _cache_client().delete(k)
                     deleted += 1
                 return SocaResponse(success=True, message=f"Deleted {deleted} keys")
             else:

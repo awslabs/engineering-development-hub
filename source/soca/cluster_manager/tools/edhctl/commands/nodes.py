@@ -24,6 +24,7 @@ from commands.config import get as config_get
 
 @click.group()
 def nodes():
+    """Inspect cluster nodes and manage AlwaysOn capacity."""
     pass
 
 
@@ -70,6 +71,7 @@ def list(
     node_lifecycles,
     node_types,
 ):
+    """List running cluster nodes by scheduler, lifecycle or node type."""
 
     _filters = [
         {"Name": "instance-state-name", "Values": ["pending", "running"]},
@@ -252,6 +254,15 @@ def list(
     default=False,
     help="Enable or disable Hyper-Threading",
 )
+@click.option(
+    "--terminate-when-idle",
+    type=int,
+    default=0,
+    help=(
+        "Minutes the node may sit with no jobs on it before it is terminated. "
+        "0 keeps it until its stack is deleted"
+    ),
+)
 @click.pass_context
 def create_alwayson(
     ctx,
@@ -283,7 +294,40 @@ def create_alwayson(
     efa_support,
     force_ri,
     ht_support,
+    terminate_when_idle,
 ):
+    """
+    Provision AlwaysOn capacity.
+
+    Runs until its stack is deleted, or until it has been idle for
+    --terminate-when-idle minutes. Idle termination only applies to AlwaysOn
+    capacity: capacity provisioned for a single job is removed when that job
+    leaves the queue, so it has nothing to be idle for.
+    """
+    if terminate_when_idle < 0:
+        print_output(
+            message="--terminate-when-idle must be 0 or a positive number of minutes",
+            error=True,
+        )
+
+    # An idle node is reclaimed by terminating its instance, which only sticks
+    # on an EC2 Fleet of Type="instant". Spot capacity is built Type="maintain"
+    # and would relaunch the instance, so the reaper would churn capacity every
+    # few minutes without ever reducing the bill. Refused here rather than
+    # silently ignored, so the operator does not believe idle reclaim is armed.
+    # Lifting this needs a fleet capacity-reduction path (see the idle reclaim
+    # strategy ticket).
+    if terminate_when_idle > 0 and spot_price:
+        print_output(
+            message=(
+                "--terminate-when-idle cannot be combined with --spot-price: spot "
+                "capacity is provisioned as a maintain fleet, which would replace "
+                "each instance the idle reaper terminates. Drop --spot-price, or "
+                "drop --terminate-when-idle and delete the stack when you are done"
+            ),
+            error=True,
+        )
+
     if not is_controller_instance():
         print_output(
             "This command can only be executed from the SOCA controller host",
@@ -362,6 +406,28 @@ def create_alwayson(
         if capacity_reservation_id is not None
         else None
     )
+    # Same reason as the --spot-price refusal above, for the other orchestration
+    # method that backfills: a capacity-block reservation forces an ASG built
+    # MinSize = MaxSize = DesiredCapacity, which replaces any instance the idle
+    # reaper terminates. Checked here rather than beside the other guard because
+    # the reservation type is only known once it has been described.
+    if (
+        terminate_when_idle > 0
+        and _job.capacity_reservation_id is not None
+        and getattr(_job.capacity_reservation_id, "reservation_type", None)
+        == "capacity-block"
+    ):
+        print_output(
+            message=(
+                "--terminate-when-idle cannot be combined with a capacity-block "
+                "reservation: capacity blocks are provisioned through an Auto "
+                "Scaling group, which would replace each instance the idle reaper "
+                "terminates. Delete the stack when you are done with the block "
+                "instead"
+            ),
+            error=True,
+        )
+
     _job.anonymous_metrics = anonymous_metrics
     _job.fsx_lustre = fsx_lustre
     _job.fsx_lustre_size = fsx_lustre_size
@@ -437,13 +503,21 @@ def create_alwayson(
         cluster_id=_cluster_id,
         stack_name=f"{_cluster_id}-{_alwayson_uuid}-{_scheduler_info.identifier}",
         keep_forever=True,
-        terminate_when_idle=0,
+        terminate_when_idle=terminate_when_idle,
     )
 
     if _launch_capacity.get("success") is False:
         print_output(
             message=f"Unable to provision capacity due to {_launch_capacity.get('message')}",
             error=True,
+        )
+    elif terminate_when_idle > 0:
+        print_output(
+            message=(
+                f"Capacity tagged {_alwayson_uuid} has been created. It will be terminated "
+                f"automatically after {terminate_when_idle} minute(s) with no jobs running on it, "
+                f"or when you delete the associated Cloudformation stack."
+            )
         )
     else:
         print_output(
@@ -459,6 +533,7 @@ def create_alwayson(
     type=str,
 )
 def list_alwayson(alwayson_identifier):
+    """List running AlwaysOn capacity."""
     filters = [
         {"Name": "instance-state-name", "Values": ["pending", "running"]},
         {"Name": "tag:edh:ClusterId", "Values": [get_cluster_id()]},
@@ -509,6 +584,7 @@ def list_alwayson(alwayson_identifier):
     help="Force delete, ignore confirmation message",
 )
 def delete_alwayson(alwayson_stack_identifier, force):
+    """Delete an AlwaysOn capacity stack."""
 
     if force is False:
         if (

@@ -86,6 +86,12 @@ chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/
 # Install SOCA Python
 {% include "templates/linux/soca_python.sh.j2" %}
 
+# Verify the extracted tree against the shipped integrity manifest (Phase 5b).
+# Placed AFTER the cluster Python is installed so the gate runs on the same
+# interpreter as edhctl, and BEFORE j2generator.sh -- the first thing that
+# actually executes out of the shipped tree.
+{% include "templates/linux/integrity_check.sh.j2" %}
+
 # Install SOCA Cache
 {% include "templates/linux/cache_client.sh.j2" %}
 
@@ -100,7 +106,13 @@ chmod +x /opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/
 wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
 
 # Mount Filesystems - Reboot may be needed for Lustre Client
-/bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh" >> "${EDH_BOOTSTRAP_LOGS_FOLDER}/filesystems_mount.log" 2>&1
+# The exit status must be checked: filesystems_automount.sh runs in a child shell
+# and exit_fail there cannot stop this script. Without this guard a filesystem
+# configured with on_mount_failure=exit fails, bootstrap continues, and the node
+# comes up "healthy" with the mount point silently resolving to the root volume.
+if ! /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh" >> "${EDH_BOOTSTRAP_LOGS_FOLDER}/filesystems_mount.log" 2>&1; then
+    exit_fail "filesystems_automount.sh failed, see ${EDH_BOOTSTRAP_LOGS_FOLDER}/filesystems_mount.log for the failing mount"
+fi
 if [[ "$(get_reboot_required)" == "yes" ]]; then
     cp /var/log/cloud-init-output.log "${EDH_BOOTSTRAP_LOGS_FOLDER}/cloud-init-output-post-filesystems-mount-$(date +%s).log" || echo "/cloud-init-output not found"
     log_info "Rebooting and re-running user data post filesystems_automount"

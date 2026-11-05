@@ -20,8 +20,7 @@ function install_gpu_drivers () {
 
   # refer to: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html
 
-  local NVIDIA_TESLA_PUBLIC_DRIVER_PRODUCTION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/production_version") }}"
-  local NVIDIA_TESLA_PUBLIC_DRIVER_LTSB="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/ltsb_version") }}" # Long Term Servicing Branch, for older instance type
+  local NVIDIA_TESLA_PUBLIC_DRIVER_VERSION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/production_version") }}"
   {% if context.get("/job/BaseOS") in ("amazonlinux2") %}
         # 18.1+ will not work on ALI2, driver does not support kernel 4.14
         local NVIDIA_GRID_DRIVER_VERSION="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/grid_drivers/version_amazonlinux2") }}"
@@ -43,19 +42,37 @@ function install_gpu_drivers () {
   # NVIDIA GPU Driver Matrix: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-driver-instance-type
   ##################################
   local INSTANCE_SUPPORT_TESLA_DRIVERS_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers_only") }}"
-  local INSTANCE_SUPPORT_TESLA_DRIVERS_LTSB_ONLY="{{ context.get("/system/gpu/gpu_settings/nvidia/linux/tesla_drivers_ltsb_only") }}"
+
+  # tesla_drivers/version_pins overrides production_version for families whose GPU the
+  # production branch does not carry. tesla_drivers_only above chooses the driver TYPE;
+  # this table chooses the VERSION, which is why a family appears in both.
+  #
+  # `instance_families` is authored as a YAML list, which the installer's config
+  # flattener space-joins into a single value (flatten_parameterstore_config), so
+  # it normally arrives here as "p2 g2". The in-process render path can still hand
+  # over a real list, hence the is-not-string guard. Either shape is normalized to
+  # the "|" separator a shell case pattern needs, and split() collapses runs of
+  # whitespace so a stray double space cannot produce an empty alternative.
+  {%- set _pin_prefix = "/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/version_pins/" %}
+  {%- set _pin_suffix = "/instance_families" %}
+  case "${INSTANCE_FAMILY}" in
+  {%- for _pin_key in context if _pin_key.startswith(_pin_prefix) and _pin_key.endswith(_pin_suffix) %}
+  {%- set _pin_group_key = _pin_key.removesuffix(_pin_suffix) %}
+  {%- set _families = context.get(_pin_key) %}
+  {%- if _families is not string %}{% set _families = _families | join(" ") %}{% endif %}
+    {{ _families.split() | join("|") }}) NVIDIA_TESLA_PUBLIC_DRIVER_VERSION="{{ context.get(_pin_group_key ~ "/version") }}" ;; # {{ _pin_group_key.removeprefix(_pin_prefix) }}
+  {%- endfor %}
+  esac
+  log_info "Public Tesla driver version for ${INSTANCE_FAMILY}: ${NVIDIA_TESLA_PUBLIC_DRIVER_VERSION}"
+
   if [[ ${GPU_MANUFACTURER} == "NVIDIA" ]]; then
     log_info "Detected NVIDIA GPU"
 
      {% include "templates/linux/gpu/disable_nouveau_driver.sh.j2" %}
 
-    if [[ "${INSTANCE_FAMILY}" =~ ^${INSTANCE_SUPPORT_TESLA_DRIVERS_LTSB_ONLY}$  ]]; then
-      log_info "This instance family ${INSTANCE_FAMILY} use an old NVIDIA GPU, using LTSB drivers ..."
-      install_nvidia_public_tesla_drivers ${NVIDIA_TESLA_PUBLIC_DRIVER_LTSB}
-
-    elif [[ "${INSTANCE_FAMILY}" =~ ^${INSTANCE_SUPPORT_TESLA_DRIVERS_ONLY}$  ]]; then
+    if [[ "${INSTANCE_FAMILY}" =~ ^${INSTANCE_SUPPORT_TESLA_DRIVERS_ONLY}$  ]]; then
       log_info "This instance family ${INSTANCE_FAMILY} only supports Tesla public driver"
-      install_nvidia_public_tesla_drivers ${NVIDIA_TESLA_PUBLIC_DRIVER_PRODUCTION}
+      install_nvidia_public_tesla_drivers ${NVIDIA_TESLA_PUBLIC_DRIVER_VERSION}
 
     else
 
@@ -66,7 +83,7 @@ function install_gpu_drivers () {
         install_nvidia_grid_drivers ${NVIDIA_GRID_DRIVER_VERSION}
       {% else %}
         log_info "FALLBACK - This Instance ${INSTANCE_FAMILY} does support Tesla and Grid. DCV session not detected, so we fallback to Tesla driver. Edit install_drivers.sh.j2 if you are using a new EC2 instance which is not already there"
-        install_nvidia_public_tesla_drivers ${NVIDIA_TESLA_PUBLIC_DRIVER_PRODUCTION}
+        install_nvidia_public_tesla_drivers ${NVIDIA_TESLA_PUBLIC_DRIVER_VERSION}
       {% endif %}
     fi
 

@@ -1,0 +1,170 @@
+[
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Container Runtime Test"
+  },
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "Validates that the Apptainer container runtime on a compute node works as expected. Checks that apptainer is installed and reports the version EDH pinned, that the architecture-scoped image store resolved correctly, that the image cache is on node-local disk rather than shared storage, and that an image can be built and executed. It also verifies that squashfuse is mounting the image rather than unpacking it, which is the one failure here that degrades silently instead of erroring. Single node, no EFA required. Run this before the Apptainer EFA Benchmark."
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Compute Node"
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Instance type (instance_type)",
+    "description": "Any instance type will do; this sample is not performance sensitive. The physical core count is shown for each, because the vCPUs field below MUST equal it.",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "m7i.2xlarge - 4 cores (Intel)",
+        "value": "m7i.2xlarge",
+        "selected": true
+      },
+      {
+        "label": "m7i.4xlarge - 8 cores (Intel)",
+        "value": "m7i.4xlarge",
+        "selected": false
+      },
+      {
+        "label": "m7a.xlarge - 4 cores (AMD)",
+        "value": "m7a.xlarge",
+        "selected": false
+      },
+      {
+        "label": "m7g.xlarge - 4 cores (Graviton, arm64)",
+        "value": "m7g.xlarge",
+        "selected": false
+      },
+      {
+        "label": "c7g.2xlarge - 8 cores (Graviton, arm64)",
+        "value": "c7g.2xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "vCPUs to request (ncpus)",
+    "description": "MUST equal the physical core count of the instance type chosen above. The scheduler derives the node count from this, so a mismatch is rejected before the job is provisioned. 4 for m7i.2xlarge, m7a.xlarge or m7g.xlarge; 8 for m7i.4xlarge or c7g.2xlarge.",
+    "className": "form-control",
+    "name": "ncpus",
+    "values": [
+      {
+        "label": "4",
+        "value": "4",
+        "selected": true
+      },
+      {
+        "label": "8",
+        "value": "8",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Operating system (base_os)",
+    "description": "Apptainer is validated on all of these for x86_64. Every option here is one the runtime actually installs on: a base OS listed in Config.containers.apptainer.unsupported_platforms is not offered, because the node would skip the install and this job would then fail at 'apptainer is not on PATH'. That is why Amazon Linux 2 is absent (el7-family, EOL 2026-06-30). On Graviton, Amazon Linux 2023 is excluded for the same reason and the job reports that it skipped installation.",
+    "className": "form-control",
+    "name": "base_os",
+    "values": [
+      {
+        "label": "Amazon Linux 2023",
+        "value": "amazonlinux2023",
+        "selected": true
+      },
+      {
+        "label": "Rocky Linux 9",
+        "value": "rocky9",
+        "selected": false
+      },
+      {
+        "label": "RHEL 9",
+        "value": "rhel9",
+        "selected": false
+      },
+      {
+        "label": "Rocky Linux 8",
+        "value": "rocky8",
+        "selected": false
+      },
+      {
+        "label": "RHEL 8",
+        "value": "rhel8",
+        "selected": false
+      },
+      {
+        "label": "Ubuntu 22.04",
+        "value": "ubuntu2204",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Job Naming"
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job name (job_name)",
+    "description": "Used as the scheduler job name and prefixed onto the output file. No spaces or special characters.",
+    "placeholder": "apptainer_test",
+    "value": "apptainer_test",
+    "className": "form-control",
+    "name": "job_name",
+    "subtype": "text",
+    "maxlength": 64
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Advanced (optional)"
+  },
+  {
+    "type": "select",
+    "required": false,
+    "label": "Walltime",
+    "description": "The first run builds a container image and needs more time than later runs, which reuse it.",
+    "className": "form-control",
+    "name": "walltime",
+    "values": [
+      {
+        "label": "30 minutes",
+        "value": "00:30:00",
+        "selected": true
+      },
+      {
+        "label": "1 hour",
+        "value": "01:00:00",
+        "selected": false
+      },
+      {
+        "label": "2 hours",
+        "value": "02:00:00",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "Additional pre-exec commands (user_pre_exec)",
+    "description": "Optional shell commands to run before the validation script. Useful for setting environment variables or loading module files.",
+    "placeholder": "e.g. export APPTAINER_DEBUG=1",
+    "className": "form-control",
+    "name": "user_pre_exec",
+    "subtype": "textarea",
+    "rows": 3
+  }
+]

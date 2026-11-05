@@ -10,6 +10,7 @@ from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
 import utils.aws.boto3_wrapper as utils_boto3
+from utils.aws.ec2_helper import ec2_quota_headroom
 import time
 from datetime import datetime, timedelta, timezone
 import pytz
@@ -28,8 +29,157 @@ client_ec2 = utils_boto3.get_boto(service_name="ec2").message
 client_ssm = utils_boto3.get_boto(service_name="ssm").message
 
 
+def new_quota_budget() -> dict:
+    """
+    A per-PASS quota budget, threaded through every start decision in one run of
+    target_nodes_schedule_management().
+
+    This exists because plan_starts_within_quota() alone is not enough. It reads
+    headroom and decrements locally, but a scheduler pass calls start_instances()
+    several times: process_chunk() calls it once for the all-day sessions and again
+    for the scheduled-start sessions, and the pass iterates 50-session chunks. If
+    each call re-read headroom and threw its decrement away, every call would be
+    admitted against the same allowance and the batch could over-admit by a multiple
+    of the quota -- the exact failure the planner exists to prevent, moved up one
+    level from the session boundary to the call boundary.
+
+    Re-reading would not save it either. An instance started earlier in the same
+    pass takes time to appear in describe_instances, so a fresh read mid-pass can
+    still report the pre-start usage. The measurement taken once at the start of the
+    pass, minus what this pass has admitted since, is the only figure that stays
+    correct for the whole pass.
+
+    Two maps:
+      headroom  quota_name    -> vcpus still available in this pass
+      per_type  instance_type -> (quota_name, vcpus_per_instance), or None to skip
+    """
+    return {"headroom": {}, "per_type": {}}
+
+
+def plan_starts_within_quota(
+    sessions_info: list[TargetNodeSessions],
+    quota_budget: dict = None,
+) -> tuple[list[TargetNodeSessions], list[TargetNodeSessions]]:
+    """
+    Split a start batch into (admitted, deferred) on remaining vCPU headroom.
+
+    A STOPPED instance does not consume the running-vCPU quota, so starting one
+    consumes quota again. This task starts up to 50 in a single call, on a schedule,
+    with nobody watching -- so an exhausted quota otherwise shows up as instances
+    that silently fail to come up.
+
+    Two things make a naive check wrong here:
+
+      - Calling validate_ec2_quota_for_instance() per session re-measures account
+        usage every time (a describe_instances paginate plus a reservation list),
+        paying that cost 50 times to learn one number.
+      - Worse, every one of those calls sees the SAME usage, because nothing has
+        started yet. All 50 are admitted when only 10 fit. That is worse than no
+        check, because it looks like one.
+
+    So headroom is read ONCE per distinct instance type and then decremented locally
+    as instances are admitted. Sessions that do not fit are deferred, not failed:
+    they stay stopped and the next scheduler pass reconsiders them, by which time
+    capacity may have been freed.
+
+    Pass `quota_budget` from new_quota_budget() to carry that accounting across
+    every start decision in one scheduler pass; see new_quota_budget() for why a
+    per-call budget is not sufficient. Omitting it scopes the budget to this call
+    alone, which is correct only when the call is the whole pass.
+
+    Ordering is preserved, so the batch fills deterministically rather than by
+    whichever session happens to be cheapest.
+    """
+    if not sessions_info:
+        return [], []
+
+    if quota_budget is None:
+        quota_budget = new_quota_budget()
+
+    _admitted, _deferred = [], []
+    _headroom = quota_budget["headroom"]  # quota_name -> vcpus still available
+    _per_type = quota_budget["per_type"]  # instance_type -> resolved, or None to skip
+
+    for _session in sessions_info:
+        _instance_type = getattr(_session, "instance_type", None)
+        if not _instance_type:
+            # Nothing to check against; let the start proceed as it did before.
+            logger.warning(
+                f"{_session} has no instance_type recorded, starting without a quota check"
+            )
+            _admitted.append(_session)
+            continue
+
+        if _instance_type not in _per_type:
+            _quota = ec2_quota_headroom(instance_type=_instance_type)
+            if _quota.get("success") is False:
+                # Could not read the quota. Do NOT hold the fleet down over it: this
+                # runs unattended, and a schedule that stops starting nodes because
+                # an API call failed is a worse outcome than a start that fails.
+                logger.warning(
+                    f"Unable to read quota headroom for {_instance_type} "
+                    f"({_quota.get('message')}), starting without a quota check"
+                )
+                _per_type[_instance_type] = None
+            elif (_quota.get("message") or {}).get("skipped"):
+                logger.info(
+                    f"Quota check skipped for {_instance_type}: "
+                    f"{(_quota.get('message') or {}).get('skipped')}"
+                )
+                _per_type[_instance_type] = None
+            else:
+                _info = _quota.get("message")
+                _per_type[_instance_type] = (
+                    _info["quota_name"],
+                    _info["vcpus_per_instance"],
+                )
+                # First type to reach this quota seeds its headroom. A second type
+                # sharing the same quota must NOT reseed it, or the two would each
+                # spend the full allowance.
+                _headroom.setdefault(_info["quota_name"], _info["available"])
+                logger.info(
+                    f"Quota {_info['quota_name']}: {_info['in_use']} of "
+                    f"{_info['limit']} vcpus in use, {_info['available']} available"
+                )
+
+        _resolved = _per_type[_instance_type]
+        if _resolved is None:
+            _admitted.append(_session)
+            continue
+
+        _quota_name, _vcpus = _resolved
+        if _headroom.get(_quota_name, 0) >= _vcpus:
+            _headroom[_quota_name] -= _vcpus
+            _admitted.append(_session)
+        else:
+            _deferred.append(_session)
+            # Debug, not warning: a large batch against a full quota would otherwise
+            # emit one warning per instance on every scheduler pass. The summary
+            # below is the operator-facing line.
+            logger.debug(
+                f"Deferring start of {_session.instance_id} ({_instance_type}, "
+                f"{_vcpus} vcpus): only {_headroom.get(_quota_name, 0)} vcpus left "
+                f"against {_quota_name}"
+            )
+
+    if _deferred:
+        _by_type = {}
+        for _session in _deferred:
+            _by_type[getattr(_session, "instance_type", "unknown")] = (
+                _by_type.get(getattr(_session, "instance_type", "unknown"), 0) + 1
+            )
+        logger.warning(
+            f"Quota deferred {len(_deferred)} of {len(sessions_info)} scheduled "
+            f"starts ({_by_type}). They stay stopped and are reconsidered next pass. "
+            f"Raise the relevant quota or reduce scheduled capacity."
+        )
+
+    return _admitted, _deferred
+
+
 def start_instances(
     sessions_info: list[TargetNodeSessions],
+    quota_budget: dict = None,
 ) -> None:
     """
     Start EC2 instances
@@ -38,6 +188,18 @@ def start_instances(
     if not isinstance(sessions_info, list):
         logger.critical(
             f"Unable to start instances, sessions_info must be a list of TargetNodeSessions objects"
+        )
+        return
+
+    # Quota gate for the batch. See plan_starts_within_quota() for why this cannot
+    # be a per-instance call to validate_ec2_quota_for_instance().
+    sessions_info, _deferred_by_quota = plan_starts_within_quota(
+        sessions_info, quota_budget=quota_budget
+    )
+    if not sessions_info:
+        logger.warning(
+            f"Every scheduled start in this chunk was deferred by the quota check "
+            f"({len(_deferred_by_quota)} sessions), nothing to start"
         )
         return
 
@@ -119,7 +281,9 @@ def stop_instances(
                 )
 
 
-def process_chunk(target_nodes_sessions: list[TargetNodeSessions]):
+def process_chunk(
+    target_nodes_sessions: list[TargetNodeSessions], quota_budget: dict = None
+):
     logger.info(f"Processing chunk: {target_nodes_sessions}")
     # Grace Period
     # - Will not stop a desktop if it was started within the grace period
@@ -167,7 +331,9 @@ def process_chunk(target_nodes_sessions: list[TargetNodeSessions]):
         ]
         if _sessions_running_all_day:
             logger.info(f"List of Sessions: {_sessions_running_all_day=}")
-            start_instances(sessions_info=_sessions_running_all_day)
+            start_instances(
+                sessions_info=_sessions_running_all_day, quota_budget=quota_budget
+            )
         else:
             logger.info("No Sessions found")
 
@@ -185,7 +351,9 @@ def process_chunk(target_nodes_sessions: list[TargetNodeSessions]):
 
         if _sessions_schedule_start:
             logger.info(f"List of Sessions: {_sessions_schedule_start=}")
-            start_instances(sessions_info=_sessions_schedule_start)
+            start_instances(
+                sessions_info=_sessions_schedule_start, quota_budget=quota_budget
+            )
         else:
             logger.info("No Sessions found")
 
@@ -255,8 +423,14 @@ def target_nodes_schedule_management(app: Flask):
 
             _chunks_of_sessions = chunked_iterable(_all_dcv_sessions, _chunk_size)
 
+            # ONE budget for the whole pass. Every chunk, and both start calls
+            # within a chunk, draw from and decrement the same headroom -- see
+            # new_quota_budget(). A budget per chunk would let each chunk spend
+            # the full quota over again.
+            _quota_budget = new_quota_budget()
+
             for _chunk in _chunks_of_sessions:
-                process_chunk(_chunk)
+                process_chunk(_chunk, quota_budget=_quota_budget)
 
         else:
             logger.info("No active target nodes  found")

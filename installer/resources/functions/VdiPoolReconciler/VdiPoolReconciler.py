@@ -88,6 +88,28 @@ def _pool_id(stack_id, instance_type):
     return f"POOL#{stack_id}#{instance_type}"
 
 
+def _positive_int_or_none(*candidates):
+    """First candidate that casts to a positive int, else None.
+
+    Pool timeout overrides are optional and may be stored on either the
+    per-entry TYPE# item or the stack-level META item, as DDB Decimal, str
+    or int. A missing, empty, unparseable or non-positive value falls
+    through to the next candidate so a malformed override degrades to the
+    reconciler default instead of raising inside the reconcile loop or
+    setting a nonsense timeout.
+    """
+    for _c in candidates:
+        if _c is None or _c == "":
+            continue
+        try:
+            _v = int(_c)
+        except (TypeError, ValueError):
+            continue
+        if _v > 0:
+            return _v
+    return None
+
+
 def _read_desired(stack_id=None):
     """Read desired pool state from the config table.
 
@@ -139,12 +161,25 @@ def _read_desired(stack_id=None):
                 "active": _active,
                 "hot_count": int(_entry.get("hot_count", 0)),
                 "warm_count": int(_entry.get("warm_count", 0)),
-                # Optional per-pool launch hook timeout override (seconds). None
-                # -> reconciler default (_PROVISIONING_HOOK_TIMEOUT_SECONDS).
-                "provisioning_timeout_seconds": (
-                    int(_entry["provisioning_timeout_seconds"])
-                    if _entry.get("provisioning_timeout_seconds") not in (None, "")
-                    else None
+                # Optional per-pool launch hook timeout override (seconds).
+                # The admin API stores this on the META item (it is a
+                # pool-level field in validate_pool_config, and
+                # validate_pool_type_config never emits it), so read the
+                # entry first for forward compatibility and fall back to
+                # META. Reading only the entry made the override
+                # unreachable and silently pinned every pool to
+                # _PROVISIONING_HOOK_TIMEOUT_SECONDS. None -> that default.
+                "provisioning_timeout_seconds": _positive_int_or_none(
+                    _entry.get("provisioning_timeout_seconds"),
+                    grp["meta"].get("provisioning_timeout_seconds"),
+                ),
+                # Optional per-pool connect-abandon override (seconds): how
+                # long a CLAIMED/RESERVED ledger row may sit before the
+                # reaper releases it. Same META-level storage as above.
+                # None -> _REAP_ABANDON_SECONDS.
+                "connect_abandon_timeout_seconds": _positive_int_or_none(
+                    _entry.get("connect_abandon_timeout_seconds"),
+                    grp["meta"].get("connect_abandon_timeout_seconds"),
                 ),
                 "on_demand_base_count": 0,
                 "on_demand_percentage_above_base": 100,
@@ -258,6 +293,8 @@ def _build_lt_data(launch_spec):
         "MetadataOptions": {
             "HttpEndpoint": "enabled",
             "HttpTokens": launch_spec.get("metadata_http_tokens", "required"),
+            # Lets the claim-personalization agent read edh:JobOwner credential-free.
+            "InstanceMetadataTags": "enabled",
         },
         "BlockDeviceMappings": [
             {
@@ -273,6 +310,12 @@ def _build_lt_data(launch_spec):
     }
     if launch_spec.get("ssh_key_name"):
         _data["KeyName"] = launch_spec["ssh_key_name"]
+    # Resolved by the web tier (helpers.vdi_root_volume); absent for gp2.
+    _root_ebs = _data["BlockDeviceMappings"][0]["Ebs"]
+    if launch_spec.get("volume_iops"):
+        _root_ebs["Iops"] = int(launch_spec["volume_iops"])
+    if launch_spec.get("volume_throughput"):
+        _root_ebs["Throughput"] = int(launch_spec["volume_throughput"])
     return _data, None
 
 
@@ -484,8 +527,15 @@ def _apply_warm_pool(asg_name, hot, warm, pool_state):
 def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
     """Create/update the single-type ASG for a (stack, instance_type) pool.
 
-    MinSize/DesiredCapacity = hot_count; MaxSize = hot + buffer for
-    detach-backfill transients. Warm pool sized to warm_count.
+    MinSize = hot_count; DesiredCapacity = hot_count + outstanding warm-claim
+    reservations; MaxSize = that plus a buffer for detach-backfill transients.
+    Warm pool sized to warm_count.
+
+    Desired includes reservations because a warm claim raises desired to
+    promote a member out of the warm pool, and this function is the
+    declarative authority on desired -- without the addend the next sweep
+    would undo every warm promotion within 5 minutes. MinSize deliberately
+    stays at hot_count so the group scales back down once reservations clear.
     """
     _name = _asg_name(d["stack_id"], d["instance_type"])
     # PARKED (configured but not active) -> 0/0/0, no warm pool. ACTIVE ->
@@ -493,7 +543,12 @@ def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
     _active = bool(d.get("active", True))
     _hot = int(d["hot_count"]) if _active else 0
     _warm = int(d["warm_count"]) if _active else 0
-    _max = (_hot + 2) if _active else 0
+    # A PARKED pool serves nobody, so an in-flight reservation against it is
+    # not honoured -- it expires via the reaper and the session falls back to
+    # a cold launch.
+    _reserved = int(d.get("reserved_count") or 0) if _active else 0
+    _desired = _hot + _reserved
+    _max = (_desired + 2) if _active else 0
     _status = "ACTIVE" if _active else "PARKED"
     _subnets = (d.get("launch_spec") or {}).get("subnet_ids") or []
     _vpc_zone = ",".join(_subnets)
@@ -505,7 +560,7 @@ def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
             AutoScalingGroupName=_name,
             MinSize=_hot,
             MaxSize=_max,
-            DesiredCapacity=_hot,
+            DesiredCapacity=_desired,
             MixedInstancesPolicy=_mip,
             VPCZoneIdentifier=_vpc_zone,
         )
@@ -525,7 +580,8 @@ def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
             ]
         )
         logger.info(
-            "ASG %s updated (status=%s hot=%d warm=%d)", _name, _status, _hot, _warm
+            "ASG %s updated (status=%s hot=%d warm=%d reserved=%d desired=%d)",
+            _name, _status, _hot, _warm, _reserved, _desired,
         )
     else:
         _create_kwargs = dict(
@@ -533,7 +589,7 @@ def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
             MixedInstancesPolicy=_mip,
             MinSize=_hot,
             MaxSize=_max,
-            DesiredCapacity=_hot,
+            DesiredCapacity=_desired,
             VPCZoneIdentifier=_vpc_zone,
             HealthCheckType="EC2",
             NewInstancesProtectedFromScaleIn=False,
@@ -543,7 +599,8 @@ def _ensure_pool_asg(pool_id, d, lt_id, pool_state, exists):
             _create_kwargs["CapacityReservationSpecification"] = _cr_spec
         _asg.create_auto_scaling_group(**_create_kwargs)
         logger.info(
-            "ASG %s created (status=%s hot=%d warm=%d)", _name, _status, _hot, _warm
+            "ASG %s created (status=%s hot=%d warm=%d reserved=%d desired=%d)",
+            _name, _status, _hot, _warm, _reserved, _desired,
         )
 
     # Stamp pool_status; ACTIVE/PARKED also clears any prior DRAINING tombstone
@@ -806,6 +863,30 @@ def _recycle_stack(stack_id=None):
     return _started
 
 
+def _stamp_apply_status(stack_id, status):
+    """Write apply_status onto a stack's META item. Best-effort.
+
+    The reconciler is the only component that knows whether a desired pool
+    actually reached AWS, so it is the only honest writer of this field. A
+    failure here must not fail the reconcile: the ASGs are already correct and
+    the next sweep re-stamps.
+    """
+    try:
+        _ddb.Table(CONFIG_TABLE).update_item(
+            Key={"pk": f"STACK#{stack_id}", "sk": "META"},
+            UpdateExpression="SET apply_status = :s, applied_at = :t",
+            ExpressionAttributeValues={
+                ":s": status,
+                ":t": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+            ConditionExpression="attribute_exists(pk)",
+        )
+    except Exception as err:
+        logger.warning(
+            "could not stamp apply_status=%s on stack %s: %s", status, stack_id, err
+        )
+
+
 def _reconcile(stack_id=None):
     """Compute the desired vs actual diff and ensure per-stack launch
     templates (3c-2). ASG/warm-pool CRUD (3b) and deletes (3d) are still
@@ -847,6 +928,12 @@ def _reconcile(stack_id=None):
     # 3b: create/update per-type ASGs (+ warm pool); delete removed pools.
     _asg_results = {}
     _deferred = []
+    # Pools whose ensure did not land, split by cause so apply_status can be
+    # stamped truthfully: _gated = launch template not rendered yet,
+    # _failed = a real error (already logged with a traceback). _deferred is
+    # separate because it is a benign retry-next-cycle condition.
+    _gated = []
+    _failed = []
     # Transient create/update faults that just mean "an old same-named ASG is
     # still deleting" (e.g. a tombstone was reaped moments ago, or a fast
     # remove->re-add). These are NOT errors -- the create succeeds on a later
@@ -855,14 +942,21 @@ def _reconcile(stack_id=None):
         _asg.exceptions.AlreadyExistsFault,
         _asg.exceptions.ResourceInUseFault,
     )
+    # Outstanding warm-claim reservations, read ONCE per reconcile. Folded into
+    # each pool's desired capacity by _ensure_pool_asg so this declarative pass
+    # sustains an in-flight warm promotion instead of setting desired back to
+    # hot_count and destroying the member a user is waiting for.
+    _reserved_by_pool = _reserved_counts()
     for _pid in to_create + to_update:
         _d = desired[_pid]
+        _d["reserved_count"] = _reserved_by_pool.get(_pid, 0)
         _lt = _lt_by_stack.get(_d["stack_id"])
         if not _lt:
             logger.info(
                 "ASG ensure %s skipped: launch template gated (awaiting render)",
                 _pid,
             )
+            _gated.append(_pid)
             continue
         _pstate = (_d.get("stack_meta") or {}).get("pool_state") or "Stopped"
         try:
@@ -881,12 +975,35 @@ def _reconcile(stack_id=None):
             _deferred.append(_pid)
         except Exception as exc:
             logger.exception("ASG ensure failed for %s: %s", _pid, exc)
+            _failed.append(_pid)
 
     for _pid in to_delete:
         try:
             _delete_pool_asg(_pid, actual[_pid])
         except Exception as exc:
             logger.exception("ASG delete failed for %s: %s", _pid, exc)
+            _failed.append(_pid)
+
+    # Stamp the per-stack apply outcome onto the META item. put_pool_config and
+    # cas_update_launch_spec both write apply_status=PENDING_APPLY and nothing
+    # ever wrote anything else, so the field could never leave PENDING_APPLY and
+    # an admin had no way to tell a finished apply from a stuck one.
+    #
+    # APPLIED means every desired pool of that stack had its ASG ensured on this
+    # pass. Anything outstanding -- gated on an unrendered launch template,
+    # deferred behind a still-deleting ASG, or failed -- leaves the stack
+    # PENDING_APPLY, and is written back even if the stack was previously
+    # APPLIED so a later regression is visible rather than sticky.
+    _incomplete = set(_gated) | set(_deferred) | set(_failed)
+    _pools_by_stack = {}
+    for _pid, _d in desired.items():
+        _pools_by_stack.setdefault(_d["stack_id"], []).append(_pid)
+    _apply_status = {}
+    for _sid, _pids in _pools_by_stack.items():
+        _ok = not any(_p in _incomplete for _p in _pids)
+        _status = "APPLIED" if _ok else "PENDING_APPLY"
+        _apply_status[str(_sid)] = _status
+        _stamp_apply_status(_sid, _status)
 
     # Auto-recycle: when a stack's LT actually changed AND recycle_on_lt_change
     # is on, burn down + relaunch its members onto the new LT (uniform fleet).
@@ -906,9 +1023,32 @@ def _reconcile(stack_id=None):
         )
         _recycled.extend(_recycle_stack(_sid))
 
+    # Re-discover after the ensure pass so the stamped summary and the depth
+    # gauges describe the post-apply state rather than the pre-apply one. Kept
+    # in a separate name: `actual` is what the diff above was computed from, and
+    # the returned "actual" count must keep meaning that. A failure here falls
+    # back to the pre-apply view, which is stale but not wrong.
+    _observed = actual
+    try:
+        _observed = _discover_actual()
+        if stack_id is not None:
+            _observed = {
+                p: g
+                for p, g in _observed.items()
+                if p.startswith(f"POOL#{stack_id}#")
+            }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "post-apply re-discovery failed, stamping pre-apply view: %s", exc
+        )
+
+    # Stamp measured per-pool depth so the launch modal can report real warm
+    # capacity instead of the admin's configured warm_count.
+    _stamp_pool_summary(_observed)
+
     # Phase 3: emit per-pool depth gauges (best-effort) for the Pools dashboard
     # depth sparklines. Never breaks a reconcile.
-    _emit_pool_gauges(actual)
+    _emit_pool_gauges(_observed)
 
     return {
         "desired": len(desired),
@@ -917,12 +1057,103 @@ def _reconcile(stack_id=None):
         "update": to_update,
         "delete": to_delete,
         "deferred": _deferred,
+        "gated": _gated,
+        "failed": _failed,
+        "apply_status": _apply_status,
         "recycled": _recycled,
         "launch_templates": {
             str(k): (v or {}).get("id") for k, v in _lt_by_stack.items()
         },
         "asgs": _asg_results,
     }
+
+
+def _warm_state_counts(asg_name):
+    """Per-lifecycle-state warm pool counts for one ASG.
+
+    describe_auto_scaling_groups returns only the aggregate WarmPoolSize, which
+    counts members still in Warmed:Pending (booting, not yet promotable).
+    describe_warm_pool returns per-instance LifecycleState, so this separates
+    "parked and promotable in ~30s" from "still coming up". Affordable here
+    because the reconciler runs on a schedule; the end-user availability API
+    must never make this call per request, which is why the result is stamped
+    into the summary table instead.
+
+    Returns {"promotable": int, "warming_up": int, "total": int} and never
+    raises -- a describe failure yields zeros, which the caller records as
+    "unmeasured" rather than as "empty".
+    """
+    _promotable = 0
+    _warming_up = 0
+    _total = 0
+    try:
+        _paginator = _asg.get_paginator("describe_warm_pool")
+        for _page in _paginator.paginate(AutoScalingGroupName=asg_name):
+            for _i in _page.get("Instances", []):
+                _state = _i.get("LifecycleState") or ""
+                _total += 1
+                # Terminal parked states: the member is stopped/hibernated and
+                # a desired-capacity bump promotes it. Anything else under
+                # Warmed: is still transitioning.
+                if _state in ("Warmed:Stopped", "Warmed:Hibernated", "Warmed:Running"):
+                    _promotable += 1
+                elif _state.startswith("Warmed:"):
+                    _warming_up += 1
+    except Exception as exc:  # noqa: BLE001 - measurement must not break reconcile
+        logger.warning("warm pool describe failed for %s: %s", asg_name, exc)
+        return {"promotable": 0, "warming_up": 0, "total": 0, "measured": False}
+    return {
+        "promotable": _promotable,
+        "warming_up": _warming_up,
+        "total": _total,
+        "measured": True,
+    }
+
+
+def _stamp_pool_summary(actual):
+    """Stamp measured per-pool depth into the summary table.
+
+    The table is declared in CDK as "reconciler-stamped per-pool status +
+    stats" (pk=POOL#<stack>#<type>, sk="SUMMARY") and the reconciler role
+    already has write access to it, but nothing ever wrote a row. The launch
+    modal consequently reported the admin's CONFIGURED warm_count as live
+    warm capacity, which never moves and does not drop to zero when a warm
+    pool fails to fill.
+
+    This writes what the reconciler actually observed, so the end-user API can
+    report a measurement with one cheap DDB read and no AWS calls per request.
+    Best-effort per pool: a failure on one row must not break the reconcile.
+    """
+    _table = _ddb.Table(SUMMARY_TABLE)
+    _now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for _pid, _g in (actual or {}).items():
+        _name = _g.get("AutoScalingGroupName")
+        if not _name:
+            continue
+        _insvc = len([
+            i for i in (_g.get("Instances") or [])
+            if i.get("LifecycleState") == "InService"
+        ])
+        _warm = _warm_state_counts(_name)
+        try:
+            _table.put_item(
+                Item={
+                    "pk": _pid,
+                    "sk": "SUMMARY",
+                    "asg_name": _name,
+                    "hot_in_service": _insvc,
+                    "warm_promotable": _warm["promotable"],
+                    "warm_warming_up": _warm["warming_up"],
+                    "warm_total": _warm["total"],
+                    "warm_measured": _warm["measured"],
+                    "desired_capacity": int(_g.get("DesiredCapacity") or 0),
+                    "min_size": int(_g.get("MinSize") or 0),
+                    "max_size": int(_g.get("MaxSize") or 0),
+                    "updated_at": _now,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pool summary stamp failed for %s: %s", _pid, exc)
 
 
 def _emit_pool_gauges(actual):
@@ -1010,13 +1241,150 @@ def _reap_tombstoned_asgs(desired_pids=None):
             )
 
 
+def _reserved_counts():
+    """Outstanding warm-claim reservations per pool, from the ledger.
+
+    A RESERVED row is a user waiting on a warm member that is being promoted.
+    Folding it into the reconcile's desired capacity is what makes the
+    promotion SURVIVE: the reconcile is declarative and sets
+    DesiredCapacity=hot_count, so on its own it would set desired straight back
+    down within one 5-minute sweep and undo the kick -- terminating the very
+    member a user is waiting for, and on a warm pool with no
+    InstanceReusePolicy that member is destroyed rather than re-parked.
+
+    Treating a reservation as desired state rather than special-casing the
+    reconcile also means the convergence is self-healing: when the claim binds
+    or the reaper expires the reservation past
+    connect_abandon_timeout_seconds, the count drops and the next sweep
+    returns the pool to its configured size with no extra bookkeeping.
+
+    Returns {pool_id: count}; {} on any error, which degrades to the prior
+    behaviour (desired == hot_count) rather than inflating a pool on bad data.
+    """
+    _counts = {}
+    try:
+        _rows = (
+            _ddb.Table(f"{CLUSTER_ID}-vdi-pool-ledger").scan().get("Items", [])
+        )
+    except Exception as err:
+        logger.warning("reserved count scan failed: %s", err)
+        return {}
+    for _r in _rows:
+        if _r.get("status") != "RESERVED":
+            continue
+        _pk = _r.get("pk")
+        if _pk:
+            _counts[_pk] = _counts.get(_pk, 0) + 1
+    if _counts:
+        logger.info("outstanding warm reservations: %s", _counts)
+    return _counts
+
+
+def _promote_warm(stack_id, instance_type):
+    """Promote ONE warm member of a pool into service by raising desired capacity.
+
+    This is the "kick" half of the warm claim. Raising DesiredCapacity is the
+    documented primitive for taking a member out of a warm pool: the ASG starts
+    a Warmed:Stopped instance, runs it through Pending:Wait (where the launch
+    hook pauses it until the on-host agent announces pool-ready), and lands it
+    InService. The claim path then detaches it like any hot member.
+
+    Deliberately does NOT pick a member and StartInstances it. A
+    Warmed:Stopped instance is lifecycle state the ASG owns, so starting it
+    out of band is drift the ASG converges back to stopped, and DetachInstances
+    is documented to require InService / Standby / a retained state, which
+    Warmed:Stopped is not. The cost is that the caller cannot choose WHICH
+    member it gets, which is free: members of one POOL#stack#type are fungible.
+
+    Lives in the reconciler rather than the web tier because of IAM. The
+    controller role holds no autoscaling:SetDesiredCapacity (verified with
+    simulate-principal-policy: implicitDeny), while this role already holds
+    autoscaling:UpdateAutoScalingGroup gated to the cluster tag -- and
+    UpdateAutoScalingGroup sets DesiredCapacity. The controller already has
+    lambda:InvokeFunction on this function for the apply path. So the kick
+    needs no new grant and therefore no stack update, which matters because
+    EDH never does stack updates: a design needing new IAM would be dead on
+    every installed cluster.
+
+    Returns a plain dict the web tier can branch on; never raises.
+    """
+    _pid = _pool_id(stack_id, instance_type)
+    _name = _asg_name(stack_id, instance_type)
+    _result = {"pool_id": _pid, "asg_name": _name, "promoted": False}
+    try:
+        _groups = _asg.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[_name]
+        ).get("AutoScalingGroups", [])
+    except Exception as err:
+        _result["reason"] = f"describe_auto_scaling_groups failed: {err}"
+        logger.warning("promote_warm %s: %s", _pid, _result["reason"])
+        return _result
+    if not _groups:
+        _result["reason"] = "asg_not_found"
+        return _result
+    _g = _groups[0]
+    _desired = int(_g.get("DesiredCapacity") or 0)
+    _max = int(_g.get("MaxSize") or 0)
+    _result["desired_before"] = _desired
+    _result["max_size"] = _max
+
+    # At MaxSize there is nowhere to put the promoted member. Report it rather
+    # than calling and letting AWS clamp silently.
+    if _desired >= _max:
+        _result["reason"] = "at_max_size"
+        return _result
+
+    _warm = _warm_state_counts(_name)
+    _result["warm_promotable"] = _warm.get("promotable", 0)
+    _result["warm_measured"] = bool(_warm.get("measured"))
+    if not _warm.get("measured"):
+        # Unmeasured is not empty, but it is also not a basis for starting an
+        # instance. Refuse and let the caller fall through to a cold launch.
+        _result["reason"] = "warm_depth_unmeasured"
+        return _result
+    if _warm.get("promotable", 0) < 1:
+        _result["reason"] = "no_promotable_warm_member"
+        return _result
+
+    try:
+        _asg.update_auto_scaling_group(
+            AutoScalingGroupName=_name, DesiredCapacity=_desired + 1
+        )
+    except Exception as err:
+        _result["reason"] = f"update_auto_scaling_group failed: {err}"
+        logger.warning("promote_warm %s: %s", _pid, _result["reason"])
+        return _result
+
+    _result["promoted"] = True
+    _result["desired_after"] = _desired + 1
+    _result["reason"] = "promoted"
+    logger.info(
+        "promote_warm %s: desired %d -> %d on %s (promotable warm was %d)",
+        _pid,
+        _desired,
+        _desired + 1,
+        _name,
+        _warm.get("promotable", 0),
+    )
+    return _result
+
+
 def _reap_ledger():
     """Ledger-hygiene sweep (scheduled only). Removes:
       * AVAILABLE rows whose EC2 instance no longer exists/running (stale --
-        would otherwise be claimed and fail), and
+        would otherwise be claimed and fail),
+      * WARMED rows whose EC2 instance no longer exists at all (a parked warm
+        reserve is SUPPOSED to be stopped, so "not running" is not stale here),
+        and
       * stale CLAIMED/RESERVED rows older than the abandon window (the member
         left the pool at claim; the detached desktop is a normal VDI reaped by
         the standard lifecycle).
+
+    The abandon window is per-pool: connect_abandon_timeout_seconds from the
+    pool config when set, else _REAP_ABANDON_SECONDS. Before this read the
+    setting was validated, stored and rendered back into the admin form while
+    no consumer existed, so it did nothing.
+
     Pure DDB + EC2 (Filters, so missing IDs don't error); no DB access."""
     _name = f"{CLUSTER_ID}-vdi-pool-ledger"
     try:
@@ -1027,22 +1395,49 @@ def _reap_ledger():
     if not _rows:
         return
 
-    _avail_ids = [r["sk"] for r in _rows if r.get("status") == "AVAILABLE"]
+    # Per-pool abandon windows. Best-effort: a config read failure falls the
+    # whole sweep back to the default window rather than skipping hygiene.
+    _windows = {}
+    try:
+        for _pid, _d in _read_desired().items():
+            _w = _d.get("connect_abandon_timeout_seconds")
+            if _w:
+                _windows[_pid] = _w
+    except Exception as err:
+        logger.warning(
+            "ledger reap could not read per-pool abandon windows, "
+            "using default %ds: %s",
+            _REAP_ABANDON_SECONDS,
+            err,
+        )
+
+    # Describe every row whose instance identity matters. AVAILABLE rows are
+    # pruned when the instance is not pending/running (a stopped member is not
+    # claimable). WARMED rows are the opposite case: the member is SUPPOSED to
+    # be stopped, so they are pruned only when the instance no longer exists at
+    # all -- hence two sets from one describe rather than one.
+    _describe_ids = [
+        r["sk"] for r in _rows if r.get("status") in ("AVAILABLE", "WARMED")
+    ]
     _running = set()
+    _exists = set()
     _describe_ok = True
-    for _i in range(0, len(_avail_ids), 100):
-        _batch = _avail_ids[_i : _i + 100]
+    for _i in range(0, len(_describe_ids), 100):
+        _batch = _describe_ids[_i : _i + 100]
         try:
             _resp = _ec2.describe_instances(
                 Filters=[{"Name": "instance-id", "Values": _batch}]
             )
             for _res in _resp.get("Reservations", []):
                 for _inst in _res.get("Instances", []):
-                    if _inst.get("State", {}).get("Name") in ("pending", "running"):
+                    _state = _inst.get("State", {}).get("Name")
+                    if _state != "terminated":
+                        _exists.add(_inst["InstanceId"])
+                    if _state in ("pending", "running"):
                         _running.add(_inst["InstanceId"])
         except Exception as err:
             logger.warning("ledger reap describe failed: %s", err)
-            _describe_ok = False  # skip AVAILABLE pruning to avoid false deletes
+            _describe_ok = False  # skip state-based pruning to avoid false deletes
 
     _now = datetime.now(timezone.utc)
     _table = _ddb.Table(_name)
@@ -1053,9 +1448,19 @@ def _reap_ledger():
         if _st == "AVAILABLE":
             if _describe_ok and _r["sk"] not in _running:
                 _stale = True
+        elif _st == "WARMED":
+            # A parked warm reserve: stopped is its NORMAL state, so only a
+            # vanished (terminated) instance makes the row stale. Pruning on
+            # "not running" here would delete every healthy warm member's row
+            # on the first sweep.
+            if _describe_ok and _r["sk"] not in _exists:
+                _stale = True
         elif _st in ("CLAIMED", "RESERVED"):
-            _ts = _parse_ts(_r.get("claimed_at") or _r.get("registered_at"))
-            if _ts and (_now - _ts).total_seconds() > _REAP_ABANDON_SECONDS:
+            _ts = _parse_ts(
+                _r.get("reserved_at") or _r.get("claimed_at") or _r.get("registered_at")
+            )
+            _window = _windows.get(_r.get("pk"), _REAP_ABANDON_SECONDS)
+            if _ts and (_now - _ts).total_seconds() > _window:
                 _stale = True
         if _stale:
             try:
@@ -1226,6 +1631,20 @@ def lambda_handler(event, context):
         # Manual burn-down + relaunch of a stack's pool members onto the current
         # LT (admin "Recycle pool" button). No stack_id -> recycle ALL pools.
         return {"ok": True, "recycled": _recycle_stack(event.get("stack_id"))}
+
+    if action == "promote_warm":
+        # Warm-claim kick, invoked by the web tier's PoolAllocator. Does NOT
+        # run a reconcile: raising desired is the whole operation, and running
+        # the declarative reconcile here would immediately set desired back to
+        # the configured hot_count and undo it.
+        _sid = event.get("stack_id")
+        _itype = event.get("instance_type")
+        if _sid is None or not _itype:
+            return {
+                "ok": False,
+                "error": "promote_warm requires stack_id and instance_type",
+            }
+        return {"ok": True, **_promote_warm(_sid, _itype)}
 
     _stack_id = event.get("stack_id")
     _result = _reconcile(stack_id=_stack_id)

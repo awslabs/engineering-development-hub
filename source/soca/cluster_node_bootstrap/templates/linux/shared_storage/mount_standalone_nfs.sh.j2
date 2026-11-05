@@ -19,6 +19,8 @@
       local MOUNT_PATH
       local MOUNT_OPTIONS
       local ON_MOUNT_FAILURE
+      local ENABLED
+      local ENDPOINT
       for arg in "$@"; do
           case $arg in
               --mount-target=*) MOUNT_TARGET="${arg#*=}" ;;
@@ -46,6 +48,16 @@
 
       if [[ -z "${MOUNT_TARGET}" ]]; then
         exit_fail "--mount-target not set for mount_nfs"
+      fi
+
+      # Unlike the managed providers there is no API to resolve, so the endpoint
+      # IS the admin-supplied target. fstab's nfs4 device field requires
+      # host:/path, so a bare host gets the root export appended -- matching what
+      # mount_efs does with the mount target IP it resolves.
+      if [[ "${MOUNT_TARGET}" == *:* ]]; then
+        ENDPOINT="${MOUNT_TARGET}"
+      else
+        ENDPOINT="${MOUNT_TARGET}:/"
       fi
 
       if [[ -z ${MOUNT_OPTIONS} ]]; then

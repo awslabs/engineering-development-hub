@@ -1,0 +1,33 @@
+#!/bin/bash
+
+#SBATCH --job-name={{job_name}}
+#SBATCH --partition={{queue}}
+# A job ARRAY: one submission, {{array_indices}} independent subjobs.
+# Slurm spells the index specification the same way PBS does for simple ranges
+# ("1-100"), but a step is "1-100:2" on PBS and "1-100:2" here too, while a
+# concurrency cap is "1-100%10" on Slurm and a server/queue setting on PBS.
+#SBATCH --array={{array_indices}}
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task={{ncpus_per_subjob}}
+# Requested explicitly because subjobs PACK: several can run on one instance,
+# and without a memory request they are scheduled on CPU alone.
+#SBATCH --mem={{mem_per_subjob}}
+
+cd $SLURM_SUBMIT_DIR
+
+# SLURM_ARRAY_TASK_ID is this subjob's index (PBS calls it PBS_ARRAY_INDEX).
+echo "Subjob ${SLURM_ARRAY_TASK_ID} of array ${SLURM_ARRAY_JOB_ID} running on $(hostname)"
+
+{{user_pre_exec}}
+
+# Example: one input file per subjob
+# INPUT_FILE="input_${SLURM_ARRAY_TASK_ID}.dat"
+# ./my_solver --input "${INPUT_FILE}" --output "result_${SLURM_ARRAY_TASK_ID}.dat"
+
+echo "Job array subjob ${SLURM_ARRAY_TASK_ID} submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]

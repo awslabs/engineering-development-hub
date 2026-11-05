@@ -7,20 +7,72 @@ from functools import wraps
 import config
 from flask import request, redirect, session, flash, abort, g
 from flask_babel import gettext as _
-from requests import get, post
 import logging
 from typing import Optional
 from utils.http_client import SocaHttpClient
+from utils.response import SocaResponse
 import feature_flags
-from utils.token_service import validate_token as _validate_token_v2, get_or_rotate_session_token
+from utils.token_service import (
+    validate_token as _validate_token_v2,
+    get_or_rotate_session_token,
+)
 
 logger = logging.getLogger("soca_logger")
+
+# Directory providers EDH connects to but does not own. EDH reads identities
+# from them and must never create, modify or delete them: the customer's own
+# tooling is the source of truth. The bootstrap already skips admin group and
+# default admin creation for these (controller/03_setup.sh.j2); this is the
+# matching runtime guard, so the rule holds for the API and the web interface
+# rather than only at install time.
+EXTERNAL_DIRECTORY_PROVIDERS = frozenset(
+    {"existing_active_directory", "existing_openldap"}
+)
+
+
+def directory_is_externally_owned() -> bool:
+    return config.Config.DIRECTORY_AUTH_PROVIDER in EXTERNAL_DIRECTORY_PROVIDERS
+
+
+def directory_writable(mode: str):
+    """
+    Refuse any directory WRITE when the cluster is connected to a directory it
+    does not own. mode="api" returns 403, mode="view" flashes and redirects.
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if not directory_is_externally_owned():
+                return f(*args, **kwargs)
+
+            _message = _(
+                "This EDH cluster is connected to an existing directory that it does not manage. "
+                "Users and groups must be administered in that directory. "
+                "Detected provider: %(provider)s"
+            ) % {"provider": config.Config.DIRECTORY_AUTH_PROVIDER}
+            logger.info(
+                f"Refusing directory write: provider "
+                f"{config.Config.DIRECTORY_AUTH_PROVIDER} is externally owned"
+            )
+            if mode == "view":
+                flash(_message, "error")
+                return redirect("/")
+            return SocaResponse(
+                success=False, message=_message, status_code=403
+            ).as_flask()
+
+        return wrapped
+
+    return decorator
 
 
 def validate_api_key(
     user: Optional[str] = None, token: Optional[str] = None, check_sudo: bool = False
 ) -> bool:
-    """Validate a legacy API key (plain hex token from the ApiKeys table)."""
+    """Validate a legacy API key (plain hex token from the ApiKeys table).
+    This will be removed in a future release; new code should use validate_api_token instead.
+    """
     logger.debug(
         "Validate if token supplied is used by Flask or if the pair of username/api_key is valid"
     )
@@ -32,15 +84,14 @@ def validate_api_key(
         return False
 
     from models import ApiKeys
+
     record = ApiKeys.query.filter_by(user=user, token=token, is_active=True).first()
     if not record:
         return False
     if check_sudo:
-        _sudo_check = SocaHttpClient(
-            endpoint="/api/ldap/sudo",
-            headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-        ).get(params={"user": user})
-        if not _sudo_check.get("success"):
+        from utils.group_resolver import is_sudoer
+
+        if not is_sudoer(user):
             return False
     return True
 
@@ -49,9 +100,7 @@ def validate_api_token(
     user: Optional[str] = None, token: Optional[str] = None, check_sudo: bool = False
 ) -> bool:
     """Validate a scoped API token (edh_ prefix, stored as hash in ApiTokens table)."""
-    logger.debug(
-        "Validate if pair of username/api_token is valid"
-    )
+    logger.debug("Validate if pair of username/api_token is valid")
     if token == config.Config.API_ROOT_KEY:
         return True
 
@@ -79,10 +128,15 @@ def validate_token(
     """Dispatch to validate_api_token or validate_api_key based on the token prefix."""
     if token == config.Config.API_ROOT_KEY:
         return True
+
     if user is None or token is None:
         return False
+
     if token.startswith("edh_"):
         return validate_api_token(user=user, token=token, check_sudo=check_sudo)
+
+    # Legacy API key validation (plain hex token from the ApiKeys table). 
+    # This will be removed in a future release.
     return validate_api_key(user=user, token=token, check_sudo=check_sudo)
 
 
@@ -153,7 +207,11 @@ def feature_flag(flag_name, mode):
 
             # Global flag
             if not _feature.get("enabled", False):
-                return _deny_access(_("Feature not available on this EDH cluster. Please contact your Administrator to enable it."))
+                return _deny_access(
+                    _(
+                        "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+                    )
+                )
 
             # Dependency chain. A feature may declare `depends_on` in
             # FEATURE_FLAGS as either:
@@ -173,8 +231,7 @@ def feature_flag(flag_name, mode):
 
             _visited = {flag_name}
             _deps_to_check = [
-                d for d in _as_dep_list(_feature.get("depends_on"))
-                if d not in _visited
+                d for d in _as_dep_list(_feature.get("depends_on")) if d not in _visited
             ]
             while _deps_to_check:
                 _parent_name = _deps_to_check.pop(0)
@@ -184,18 +241,31 @@ def feature_flag(flag_name, mode):
                 _pff = feature_flags.get_flag(_parent_name)
                 _parent = _pff.get("message") if _pff.get("success") is True else None
                 if not Validators.is_dict(_parent):
-                    logger.warning(f"feature_flag: parent flag {_parent_name} is not a dict; denying {flag_name}")
-                    return _deny_access(_("Feature not available on this EDH cluster. Please contact your Administrator to enable it."))
+                    logger.warning(
+                        f"feature_flag: parent flag {_parent_name} is not a dict; denying {flag_name}"
+                    )
+                    return _deny_access(
+                        _(
+                            "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+                        )
+                    )
                 if not _parent.get("enabled", False):
-                    logger.debug(f"feature_flag: {flag_name} denied because parent flag {_parent_name} is disabled")
-                    return _deny_access(_("Feature not available on this EDH cluster. Please contact your Administrator to enable it."))
+                    logger.debug(
+                        f"feature_flag: {flag_name} denied because parent flag {_parent_name} is disabled"
+                    )
+                    return _deny_access(
+                        _(
+                            "Feature not available on this EDH cluster. Please contact your Administrator to enable it."
+                        )
+                    )
                 # Enqueue any transitive deps this parent has, eagerly
                 # filtering out anything we've already visited. This
                 # bounds queue growth for repeated references (e.g. a
                 # large depends_on list that names the same parent many
                 # times, or a diamond where two branches meet).
                 _deps_to_check.extend(
-                    d for d in _as_dep_list(_parent.get("depends_on"))
+                    d
+                    for d in _as_dep_list(_parent.get("depends_on"))
                     if d not in _visited
                 )
 
@@ -207,13 +277,17 @@ def feature_flag(flag_name, mode):
             # Explicit deny by user (deny always wins over any allow)
             if _current_user in _denied_users:
                 return _deny_access(
-                    _("Feature not available for you on this EDH cluster. Please contact your Administrator to enable it.")
+                    _(
+                        "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+                    )
                 )
 
             # Explicit deny by group membership (fail-closed resolver)
             if _feature_flag_member_of_any(_current_user, _denied_groups):
                 return _deny_access(
-                    _("Feature not available for you on this EDH cluster. Please contact your Administrator to enable it.")
+                    _(
+                        "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+                    )
                 )
 
             # Allow-list gate. Open to everyone ONLY when BOTH allow lists are
@@ -226,7 +300,9 @@ def feature_flag(flag_name, mode):
                 )
                 if not _permitted:
                     return _deny_access(
-                        _("Feature not available for you on this EDH cluster. Please contact your Administrator to enable it.")
+                        _(
+                            "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
+                        )
                     )
 
             # All other use cases, return True
@@ -235,6 +311,20 @@ def feature_flag(flag_name, mode):
         return wrapped
 
     return decorator
+
+
+# Session-cookie auth path only: handlers read X-EDH-USER after auth, so a
+# header naming another user would let a logged-in user act as someone else.
+# Absent header is fine (browser AJAX never sends it).
+def _header_user_matches_session(header_user: Optional[str], session_user: str) -> bool:
+    if header_user is not None and header_user != session_user:
+        logger.warning(
+            "Rejected request: X-EDH-USER %s does not match session user %s",
+            header_user,
+            session_user,
+        )
+        return False
+    return True
 
 
 # Restricted API can only be accessed using Flask Root API key
@@ -280,10 +370,7 @@ def admin_api(f):
                 return f(*args, **kwargs)
             return {"success": False, "message": _("Not authorized")}, 401
 
-        # Path 2: Flask session cookie (browser AJAX, same-origin). The session
-        # is server-signed (itsdangerous/SECRET_KEY), so the "sudoers" flag set
-        # at login is cryptographically verified -- same trust model as
-        # private_api's api_key path, just additionally gated on sudo.
+        # Path 2: Flask session cookie (browser AJAX, same-origin).
         if (
             session.get("user")
             and session.get("api_key")
@@ -291,6 +378,8 @@ def admin_api(f):
         ):
             _sess_user = session["user"]
             _sess_token = session["api_key"]
+            if not _header_user_matches_session(_user, _sess_user):
+                return {"success": False, "message": _("Not authorized")}, 401
             if validate_token(user=_sess_user, token=_sess_token, check_sudo=True):
                 g.authenticated_user = _sess_user
                 return f(*args, **kwargs)
@@ -316,7 +405,9 @@ def retrieve_api_key(f):
         # Ensure requester can only retrieve her/his own key
         get_key_for_user = request.args.get("user", None)
         if get_key_for_user != user:
-            logger.error(f"{user=} is not authorized to retrieve {get_key_for_user=} key")
+            logger.error(
+                f"{user=} is not authorized to retrieve {get_key_for_user=} key"
+            )
             return {"success": False, "message": _("Not authorized")}, 401
         else:
             if validate_password(user, password):
@@ -347,11 +438,11 @@ def private_api(f):
             return {"success": False, "message": _("Not authorized")}, 401
 
         # Path 2: Flask session cookie (browser AJAX with credentials: 'same-origin').
-        # The session is server-signed (itsdangerous/SECRET_KEY) so the values
-        # are cryptographically verified — not blindly trusted.
         if session.get("user") and session.get("api_key"):
             _sess_user = session["user"]
             _sess_token = session["api_key"]
+            if not _header_user_matches_session(_user, _sess_user):
+                return {"success": False, "message": _("Not authorized")}, 401
             if validate_token(user=_sess_user, token=_sess_token, check_sudo=False):
                 g.authenticated_user = _sess_user
                 return f(*args, **kwargs)
@@ -371,17 +462,11 @@ def login_required(f):
             # Use the new session token system: get or rotate on expiry
             get_or_rotate_session_token(session, session["user"])
 
-            # Sync sudoers status from LDAP
-            if "sudoers" not in session:
-                session["sudoers"] = False
-            _sudo_check = SocaHttpClient(
-                endpoint="/api/ldap/sudo",
-                headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-            ).get(params={"user": session["user"]})
-            if _sudo_check.get("success") is True:
-                session["sudoers"] = True
-            else:
-                session["sudoers"] = False
+            # Sync sudoers status from LDAP. Cached 60s (utils.group_resolver.is_sudoer):
+            # calling /api/ldap/sudo on every page view hammered the directory.
+            from utils.group_resolver import is_sudoer
+
+            session["sudoers"] = is_sudoer(session["user"])
 
             return f(*args, **kwargs)
         else:
@@ -413,7 +498,7 @@ def admin_only(f):
     @wraps(f)
     def check_admin(*args, **kwargs):
         if "sudoers" in session:
-            if session["sudoers"] is True:
+            if session.get("sudoers", False) is True:
                 return f(*args, **kwargs)
             else:
                 flash(_("Sorry this page requires admin privileges."), "error")
@@ -422,19 +507,3 @@ def admin_only(f):
             return redirect("/login")
 
     return check_admin
-
-
-# To be removed, used feature_flag instead https://awslabs.github.io/engineering-development-hub-documentation/documentation/web-interface/feature-flags/ 
-def disabled(f):
-    @wraps(f)
-    def disable_feature(*args, **kwargs):
-        if "api" in request.path:
-            return {
-                "success": False,
-                "message": _("This API has been disabled by your Administrator"),
-            }, 401
-        else:
-            flash(_("Sorry this feature has been disabled by your Administrator."), "error")
-            return redirect("/")
-
-    return disable_feature

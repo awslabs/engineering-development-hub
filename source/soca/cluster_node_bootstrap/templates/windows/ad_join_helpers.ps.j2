@@ -37,11 +37,24 @@ function Invoke-SocaCleanDomainJoin {
     # the -NewName rename did not stick -- a best-effort Rename-Computer repair so the host can
     # never end up joined under the wrong name. The retry is the primary mitigation (the transient
     # cleared on retry in live testing); the Rename-Computer branch is defense-in-depth.
+    #
+    # $ComputerOU places the new object in a specific OU. Empty means use the
+    # directory default container, which is the pre-existing behavior.
     param(
         [Parameter(Mandatory=$true)][string]$DomainName,
         [Parameter(Mandatory=$true)][System.Management.Automation.PSCredential]$Credential,
-        [Parameter(Mandatory=$true)][string]$UniqueName
+        [Parameter(Mandatory=$true)][string]$UniqueName,
+        [Parameter(Mandatory=$false)][string]$ComputerOU = ""
     )
+    # Splatted so the parameter is absent rather than empty when no OU applies:
+    # Add-Computer rejects -OUPath "".
+    $ouArgs = @{}
+    if (-not [string]::IsNullOrWhiteSpace($ComputerOU)) {
+        $ouArgs['OUPath'] = $ComputerOU
+        Log-Info -Message "Computer object will be created in $ComputerOU"
+    } else {
+        Log-Info -Message "No computer_ou configured for Windows VDI; the directory default container will be used"
+    }
     $nameKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName'
     for ($attempt = 1; $attempt -le 5; $attempt++) {
         try {
@@ -56,7 +69,7 @@ function Invoke-SocaCleanDomainJoin {
                 Log-Info -Message "Rename-Computer to $UniqueName succeeded"
                 return $true
             }
-            Add-Computer -NewName $UniqueName -DomainName $DomainName -Credential $Credential -Options JoinWithNewName,AccountCreate -Force -ErrorAction Stop
+            Add-Computer -NewName $UniqueName -DomainName $DomainName -Credential $Credential -Options JoinWithNewName,AccountCreate -Force -ErrorAction Stop @ouArgs
             $staged = (Get-ItemProperty $nameKey).ComputerName
             if ($staged -ieq $UniqueName) {
                 Log-Info -Message "AD join staged as unique object $UniqueName (attempt $attempt)"

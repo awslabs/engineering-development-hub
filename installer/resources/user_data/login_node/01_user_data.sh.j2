@@ -46,7 +46,9 @@ unset_reboot_required
 # Note: Log generated prior to filesystems mount will be automatically copied over the POST_FILESYSTEM_MOUNT_LOGS_FOLDER post filesystems mount for simple troubleshooting
 EDH_BOOTSTRAP_ASSETS_FOLDER="/root/edh_bootstrap_$(instance_id)"
 PRE_FILESYSTEM_MOUNT_LOGS_FOLDER="${EDH_BOOTSTRAP_ASSETS_FOLDER}/logs"
-POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)"
+# <hostname>/<instance_id>: a hostname can be reused by a replacement instance. Must match
+# EDH_BOOTSTRAP_LOGS_FOLDER set for login nodes in 02_setup.sh, which 03_setup_post_reboot logs to.
+POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)/$(instance_id)"
 
 if [[ ! -d "${EDH_BOOTSTRAP_ASSETS_FOLDER}" ]]; then
     log_info "First user data execution, downloading bootstrap sequence"
@@ -101,7 +103,11 @@ fi
 wait_for_ssm_sentinel "/edh/{{ context.get("/configuration/ClusterId") }}/cdk_completed"
 
 # Mount Filesystems
-/bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh >> ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log 2>&1
+# Exit status must be checked: exit_fail inside the child shell cannot stop this
+# script, so an on_mount_failure=exit filesystem would otherwise fail silently.
+if ! /bin/bash "${EDH_BOOTSTRAP_ASSETS_FOLDER}/filesystems_automount.sh" >> "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log" 2>&1; then
+    exit_fail "filesystems_automount.sh failed, see ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log for the failing mount"
+fi
 
 # Create new log path in shared partition
 mkdir -p ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}

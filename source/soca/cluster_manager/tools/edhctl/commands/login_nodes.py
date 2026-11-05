@@ -16,6 +16,7 @@ from utils.datamodels.constants import SocaLinuxBaseOS
 
 @click.group()
 def login_nodes():
+    """Manage login node provisioning."""
     pass
 
 
@@ -35,6 +36,7 @@ def login_nodes():
     help="Force delete, ignore confirmation message",
 )
 def rebuild_bootstrap(base_os, force):
+    """Re-render the login node bootstrap scripts and upload them to S3."""
 
     if not is_controller_instance():
         print_output(

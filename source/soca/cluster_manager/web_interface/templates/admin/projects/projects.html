@@ -218,13 +218,13 @@
 
                                           <!-- Application Profiles -->
                                           <div class="form-group row">
-                                            <label for="application_profile_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of authorized Application Profiles") }}">
-                                              {{ _("Authorized") }} <a target="_blank" href="/admin/applications">{{ _("Application Profiles") }}</a>
+                                            <label for="application_profile_ids" class="col-md-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("List of authorized Workflow Profiles") }}">
+                                              {{ _("Authorized") }} <a target="_blank" href="/admin/applications">{{ _("Workflow Profiles") }}</a>
                                             </label>
                                             <div class="col-md-10">
                                               <div class="alert alert-warning" id="numberOfSelectedApplicationProfiles"></div>
                                               <button class="btn btn-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#ApplicationProfileSelect">
-                                                {{ _("View/Manage Authorized Application Profiles") }}
+                                                {{ _("View/Manage Authorized Workflow Profiles") }}
                                               </button>
                                               <div class="collapse" id="ApplicationProfileSelect">
                                                 <select class="form-control" style="height: 500px;" id="application_profile_ids" name="application_profile_ids" multiple>
@@ -348,7 +348,7 @@
 
                         function updateSelectedApplicationProfileCount() {
                             const selectedCount = selectApplicationProfileElement.selectedOptions.length;
-                            countApplicationProfileDiv.innerHTML = `You have selected: <strong>${selectedCount}</strong> Applications for this project. (Use <kbd>Command+Click</kbd> or <kbd>Windows+Click</kbd> to select/unselect stacks)`;
+                            countApplicationProfileDiv.innerHTML = `You have selected: <strong>${selectedCount}</strong> Workflows for this project. (Use <kbd>Command+Click</kbd> or <kbd>Windows+Click</kbd> to select/unselect stacks)`;
                         }
 
                         updateSelectedApplicationProfileCount();

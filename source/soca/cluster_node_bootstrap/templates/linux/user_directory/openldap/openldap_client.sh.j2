@@ -79,12 +79,12 @@ homedir_substring = /data/home
       log_info "Fetching OpenLDAP self-signed certificate because ldap protocol is ldaps"
       # note: what if CA chain?
       openssl s_client -showcerts -connect "${SOCA_LDAP_HOST}:${SOCA_LDAP_PORT}" <<< "" 2>/dev/null | openssl x509 -out ${OPENLDAP_PATH_PREFIX}/cacerts/openldap-server.pem
-      {% if context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2","centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9", "ubuntu2204", "ubuntu2404")  %}
+      {% if context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2027", "amazonlinux2","centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9", "ubuntu2204", "ubuntu2404")  %}
         log_info "Adding OpenLDAP self-signed certificate to system CA trust store"
         cp ${OPENLDAP_PATH_PREFIX}/cacerts/openldap-server.pem /etc/pki/ca-trust/source/anchors/
         log_info "Updating system CA Trust Store"
         update-ca-trust
-        {% if context.get("/job/BaseOS") == "amazonlinux2023" %}
+        {% if context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2027") %}
           log_info "Rebuilding ${OPENLDAP_PATH_PREFIX}/cacerts directory"
           openssl rehash ${OPENLDAP_PATH_PREFIX}/cacerts
         {% endif %}

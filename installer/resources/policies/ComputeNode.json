@@ -106,6 +106,16 @@
                     "ec2:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
                 }
             }
+        },
+        {
+            "Sid": "EDHReadClusterSSMParameters",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:GetParametersByPath"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:parameter/edh/%%CLUSTER_ID%%/*"
         }
     ]
 }

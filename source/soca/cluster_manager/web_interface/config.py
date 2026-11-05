@@ -121,7 +121,7 @@ def _resolve_sqlalchemy_uri():
     # ----- Credentials: IAM database authentication (BSC5-preferred) -----
     _app_user = (
         SocaConfig(key="/configuration/Database/app_user").get_value().get("message")
-        or "edh_app"
+        or "edh_app"  # legacy default: pre-dates the cluster-derived app user
     )
     _iam_auth_raw = (
         SocaConfig(key="/configuration/Database/iam_auth").get_value().get("message")
@@ -392,6 +392,10 @@ class Config(object):
     USER_REGEX_PATTERN = (
         r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}$"  # Username must be alphanumeric and - _ .
     )
+    # givenName / sn. Permissive about letters (accents, non-Latin scripts),
+    # excluding what is unsafe in an LDAP DN or filter. 64 chars matches AD's
+    # single-valued name attribute limit.
+    DIRECTORY_PERSON_NAME_REGEX = r"^[^,+\"\\<>;=*()\x00\r\n]{1,64}$"
     # WEB
     APPS_LOCATION = "/apps/"
     USER_HOME = "/data/home"
@@ -589,6 +593,15 @@ class Config(object):
             "friendly_name": "Amazon Linux 2023",
             "visible": True,
         },
+        # Public preview, HPC / compute only. visible is False on purpose: Amazon DCV
+        # publishes no al2027 package family, so a VDI desktop on AL2027 cannot be
+        # built. Flip to True only once DCV ships an al2027 package AND
+        # dcv_server.sh.j2 has a DCV_VERSION_FAMILY mapping for it.
+        "amazonlinux2027": {
+            "family": "linux",
+            "friendly_name": "Amazon Linux 2027 (preview)",
+            "visible": False,
+        },
         "rocky9": {
             "family": "linux",
             "friendly_name": "Rocky Linux 9",
@@ -690,6 +703,24 @@ class Config(object):
         .get_value()
         .get("message")
     )
+    # Drive letter mapped to the user's home by Windows at logon, via the AD
+    # homeDirectory/homeDrive pair. Unset means neither attribute is written.
+    # get_value returns success=False with the literal "Key does not exist" for
+    # an absent key, so .message must not be taken unconditionally.
+    _windows_home_drive = SocaConfig(
+        key="/configuration/UserDirectory/windows_home_drive"
+    ).get_value(allow_unknown_key=True)
+    DIRECTORY_WINDOWS_HOME_DRIVE = (
+        _windows_home_drive.message if _windows_home_drive.success else None
+    )
+    # UNC for the Windows home, with {username} substituted at user creation.
+    # Unset means derive it from the fsx_ontap filesystem backing USER_HOME.
+    _windows_home_unc = SocaConfig(
+        key="/configuration/UserDirectory/windows_home_unc_template"
+    ).get_value(allow_unknown_key=True)
+    DIRECTORY_WINDOWS_HOME_UNC_TEMPLATE = (
+        _windows_home_unc.message if _windows_home_unc.success else None
+    )
     DIRECTORY_GROUP_SEARCH_BASE = (
         SocaConfig(key="/configuration/UserDirectory/group_search_base")
         .get_value()
@@ -700,6 +731,12 @@ class Config(object):
         .get_value()
         .get("message")
     )
+    # Users must be a member (direct or nested) of at least one of these group DNs to log in. Empty = no restriction
+    DIRECTORY_AD_AUTHENTICATION_GROUPS = (
+        SocaConfig(key="/configuration/UserDirectory/ad_authentication_groups")
+        .get_value(default=[], return_as=list, allow_unknown_key=True)
+        .get("message")
+    ) or []
     DIRECTORY_ADMIN_SEARCH_BASE = (
         SocaConfig(key="/configuration/UserDirectory/admins_search_base")
         .get_value()
@@ -732,7 +769,7 @@ class Config(object):
     )
 
     # To identify group/user, group associated to "user" will be named "user<GROUP_NAME_SUFFIX>"
-    DIRECTORY_GROUP_NAME_SUFFIX = "socagroup"
+    DIRECTORY_GROUP_NAME_SUFFIX = "edhgroup"
     # Fetch Directory service account
     _soca_ds_service_account_secret = (
         SocaConfig(key="/configuration/UserDirectory/service_account_secret_arn")

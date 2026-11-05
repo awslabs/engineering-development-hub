@@ -24,6 +24,7 @@ from utils.http_client import SocaHttpClient
 from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.validators import Validators
+from helpers.vdi_root_volume import root_size_defaults
 from utils.identity_provider_client import SocaIdentityProviderClient
 from utils.aws.boto3_wrapper import get_boto
 from models import SoftwareStacks, VirtualDesktopProfiles
@@ -54,7 +55,7 @@ def index():
         headers={"X-EDH-USER": session["user"], "X-EDH-TOKEN": session["api_key"]},
     ).get(params={"user": session["user"], "is_active": "true"})
 
-    logger.debug(f"get_all_desktops {_get_all_sessions}")
+    logger.debug("get_all_desktops %s", _get_all_sessions)
     if _get_all_sessions.get("success") is False:
         return SocaError.GENERIC_ERROR(
             helper=f"Unable to list desktops because of {_get_all_sessions.get('message')}"
@@ -311,6 +312,15 @@ def index():
     except Exception:
         pass
 
+    # Per-OS cluster default (what the form offers) and minimum (used by
+    # stacks whose own minimum is 0).
+    _vdi_root_defaults = {"linux": 100, "windows": 100, "min_linux": 100, "min_windows": 100}
+    _root_size_defaults = root_size_defaults()
+    if _root_size_defaults.get("success") is True:
+        _vdi_root_defaults = _root_size_defaults.get("message")
+    else:
+        logger.warning(f"Unable to read VDI root volume defaults: {_root_size_defaults.message}")
+
     return render_template(
         "virtual_desktops.html",
         allow_spot=_allow_spot,
@@ -322,6 +332,7 @@ def index():
         quota=_quota,
         allowed_dcv_session_types=config.Config.DCV_ALLOWED_SESSION_TYPES,
         software_stacks=_software_stacks,
+        vdi_root_defaults=_vdi_root_defaults,
         subnet_info=_subnet_info,
         base_os_labels=config.Config.DCV_BASE_OS,
         user_sessions=_get_all_sessions.get("message"),
@@ -847,17 +858,18 @@ def build_dcv_session_file(owner: str, session_uuid: str) -> dict:
         )
     else:
         _body = (
-            "\n[version]\nformat=1.0\n[connect]\n"
+            "[version]\nformat=1.0\n[connect]\n"
             f"host={SocaConfig(key='/configuration/DCVEntryPointDNSName').get_value().get('message')}\n"
             "port=443\n"
             f"sessionid={_check_session.session_id}\n"
             f"user={_user}\n"
+            "certificatevalidationpolicy=accept-untrusted\n"
             + (
-                f"authToken={_check_session.authentication_token}\n"
+                f"authtoken={_check_session.authentication_token}\n"
                 if _session_type == "virtual"
                 else ""
             )
-            + f"weburlpath=/{_check_session.instance_private_dns}"
+            + f"weburlpath=/{_check_session.instance_private_dns}\n"
         )
 
     return {

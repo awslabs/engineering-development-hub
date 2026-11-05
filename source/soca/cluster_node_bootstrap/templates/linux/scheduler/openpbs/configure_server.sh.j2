@@ -101,10 +101,11 @@ EOF
     declare -A qmgr_configs
     qmgr_configs["flatuid"]="true"
     qmgr_configs["job_history_enable"]="1"
-    qmgr_configs["job_history_duration"]="72:00:00"
+    qmgr_configs["job_history_duration"]="{{ SCHEDULER_VARS.get("PBS_CONFIGURATION").get("job_history_duration", "336:00:00") }}"
     qmgr_configs["scheduler_iteration"]="30"
     qmgr_configs["max_concurrent_provision"]="5000"
     qmgr_configs["python_restart_max_hooks"]="9999999"
+    qmgr_configs["max_array_size"]="{{ SCHEDULER_VARS.get("PBS_CONFIGURATION").get("max_array_size", 500) }}"
 
     for config_key in "${!qmgr_configs[@]}"
     do

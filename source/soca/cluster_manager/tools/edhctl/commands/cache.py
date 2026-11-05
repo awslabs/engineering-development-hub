@@ -35,6 +35,7 @@ def check_protected_keys(key: str):
 
 @click.group()
 def cache():
+    """Inspect and modify the controller's configuration cache."""
     pass
 
 
@@ -52,6 +53,7 @@ def cache():
     help="Output result as: text, json, yaml",
 )
 def get(key, output):
+    """Read a key from the cache."""
     _q = cache_client().get(key=key).get("message")
     if _q == "CACHE_MISS":
         print_output("Key not found in cache", error=True)
@@ -83,6 +85,7 @@ def get(key, output):
     help="Optional: Set Expiration",
 )
 def set(key, value, expire, called_from="config"):
+    """Write a key to the cache with an optional expiry."""
     if called_from == "config":
         _q = cache_client(is_admin=True).set(key=key, value=value, ex=expire)
     else:
@@ -100,6 +103,7 @@ def set(key, value, expire, called_from="config"):
     help="Specify a SOCA configuration key or configuration tree",
 )
 def delete(key):
+    """Remove a key from the cache."""
     _q = cache_client(is_admin=True).delete(key=key)
     print_output("Key deleted from cache")
 
@@ -112,5 +116,6 @@ def delete(key):
     help="Filter specific keys, for example: soca*",
 )
 def scan(pattern):
+    """List cache keys matching a pattern."""
     _q = cache_client(is_admin=True).scan(match_pattern=pattern)
     print_output(_q.get("message"))

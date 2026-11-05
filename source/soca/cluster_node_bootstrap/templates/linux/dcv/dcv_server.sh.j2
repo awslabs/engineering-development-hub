@@ -222,9 +222,50 @@ EndSection""" > /etc/X11/xorg.conf.d/99-disable-dpms.conf
   log_info "Automatic start Gnome upon reboot"
   systemctl set-default graphical.target
 
-  log_info "Start X"
-  systemctl isolate multi-user.target
-  systemctl isolate graphical.target
+  # Start X by restarting the display manager, NOT with `systemctl isolate`:
+  # without a reboot this script runs inside cloud-final.service, and isolate waits
+  # for multi-user.target, which itself waits for cloud-final to finish -> deadlock
+  local DISPLAY_MANAGER=""
+  local _dm _dm_state
+  # this exist only if it is enabled, so it is the first choice
+  if [[ -L /etc/systemd/system/display-manager.service ]]; then
+    DISPLAY_MANAGER=$(basename "$(readlink -f /etc/systemd/system/display-manager.service)" .service)
+    log_info "display-manager.service points to ${DISPLAY_MANAGER}"
+  fi
+  # display-manager is just a gate in case  /etc/systemd/system/display-manager.service redirects to /usr/lib/systemd/system/display-manager.service. No distro ship it like that but we are extra safe
+  if [[ -z "${DISPLAY_MANAGER}" || "${DISPLAY_MANAGER}" == "display-manager" ]]; then
+    # check if the display manager is either gdm or gdm3, and pick the first one that is installed and not an alias
+    DISPLAY_MANAGER=""
+    for _dm in gdm3 gdm; do
+      _dm_state=$(systemctl list-unit-files --no-legend "${_dm}.service" 2>/dev/null | awk '{print $2}')
+      if [[ -n "${_dm_state}" && "${_dm_state}" != "alias" ]]; then
+        DISPLAY_MANAGER="${_dm}"
+        break
+      fi
+    done
+  fi
+
+  if [[ -z "${DISPLAY_MANAGER}" ]]; then
+    # Console sessions attach to the X server on :0 that the display manager
+    # starts, so they cannot work without one. Virtual sessions run their own
+    # Xdcv and only need a host X server for GPU sharing (nice-dcv-gl).
+    if [[ "${DCV_SESSION_TYPE}" == "console" ]]; then
+      exit_fail "Neither gdm3.service nor gdm.service is installed: a DCV console session needs a display manager. Check the desktop install (install_dcv_prerequisites)."
+    elif [[ -n "${GPU_DETECTED}" ]]; then
+      log_warning "Neither gdm3.service nor gdm.service is installed: virtual sessions will start but without GPU sharing (no host X server)."
+    else
+      log_info "No display manager installed; not needed for DCV virtual sessions without GPU sharing"
+    fi
+  else
+    # graphical.target only pulls the display manager in at boot if it is enabled.
+    log_info "Enable ${DISPLAY_MANAGER} at boot"
+    systemctl enable "${DISPLAY_MANAGER}" || log_warning "systemctl enable ${DISPLAY_MANAGER} failed"
+
+    log_info "Start X (restart ${DISPLAY_MANAGER})"
+    if ! timeout 180 systemctl restart "${DISPLAY_MANAGER}"; then
+      log_warning "${DISPLAY_MANAGER} restart did not complete within 180s; continuing. Check: systemctl status ${DISPLAY_MANAGER}; systemctl list-jobs"
+    fi
+  fi
 
   {% include "templates/linux/dcv/default_permissions.sh.j2" %}
 
@@ -294,7 +335,7 @@ Description=SOCA DCV Setup Service
 [Service]
 User=root
 Type=oneshot
-ExecStart=/bin/bash -c 'if systemctl is-active --quiet gdm; then systemctl stop gdm; fi; systemctl start gdm; for i in {1..10}; do if [[ -e /tmp/.X11-unix/X0 ]]; then break; else sleep 1; fi; done; if systemctl is-active --quiet dcvserver; then systemctl stop dcvserver; fi; systemctl start dcvserver;'
+ExecStart=/bin/bash -c 'if systemctl is-active --quiet ${DISPLAY_MANAGER:-gdm}; then systemctl stop ${DISPLAY_MANAGER:-gdm}; fi; systemctl start ${DISPLAY_MANAGER:-gdm}; for i in {1..10}; do if [[ -e /tmp/.X11-unix/X0 ]]; then break; else sleep 1; fi; done; if systemctl is-active --quiet dcvserver; then systemctl stop dcvserver; fi; systemctl start dcvserver;'
 ExecStartPost=${DCV_START_COMMAND}
 ExecStop=/bin/bash -c '/usr/bin/dcv close-session ${DCV_SESSION_ID}'
 

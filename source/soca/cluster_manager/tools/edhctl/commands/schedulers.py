@@ -3,15 +3,41 @@
 
 import click
 import ast
-from commands.common import print_output, is_controller_instance
+from commands.common import print_output, is_controller_instance, confirm
 from commands.config import set as config_set
 from commands.config import get as config_get
 from commands.config import key_exists as config_key_exists
+from utils.validators import Validators
 
 
 @click.group()
 def schedulers():
+    """Manage HPC scheduler definitions."""
     pass
+
+
+def _as_bool(value, field: str) -> bool:
+    """Normalize a boolean field that can arrive as either a string or a bool.
+
+    Arriving from the CLI these fields are click.Choice(["true", "false"]) and
+    are always strings. Arriving from `update` they are Python bools, because a
+    scheduler is stored as one composite str(dict) and ast.literal_eval gives
+    the bool back -- so `True == "true"` was False and updating any field
+    silently disabled the scheduler and turned off its capacity orchestration.
+
+    Anything else is refused rather than coerced. Under the old comparison
+    `--key enabled --value yes` also read as false, which is the same silent
+    misconfiguration by a different route.
+    """
+    if Validators.is_bool(value):
+        return value
+    if Validators.is_string(value) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+    # print_output exits 1 when error=True, so nothing below this runs.
+    print_output(
+        message=f"{field} must be true or false, received {value!r}",
+        error=True,
+    )
 
 
 @schedulers.command()
@@ -33,6 +59,7 @@ def schedulers():
 )
 @click.pass_context
 def get(ctx, scheduler_identifier, output, flatten, return_output=False):
+    """Show the configuration of one or all schedulers."""
     if scheduler_identifier is not None:
         if "/configuration/HPC/schedulers/" in scheduler_identifier:
             _ssm_key = scheduler_identifier
@@ -91,6 +118,7 @@ def get(ctx, scheduler_identifier, output, flatten, return_output=False):
     type=click.Choice(
         [
             "slurm",
+            "aws_pcs",
             "openpbs",
             "lsf",
         ]
@@ -99,7 +127,10 @@ def get(ctx, scheduler_identifier, output, flatten, return_output=False):
     help="Specify a provider for the scheduler",
 )
 @click.option(
-    "-e",
+    # No short form. "-e" is taken by --enabled below, matching
+    # `filesystems set`, and click resolved the duplicate in --enabled's favour
+    # anyway -- so `-e https://host:1234` was rejected as not one of
+    # "true"/"false" while the help still advertised it here.
     "--endpoint",
     type=str,
     required=True,
@@ -163,6 +194,7 @@ def set(
     enabled,
     force,
 ):
+    """Define a new scheduler."""
     if not is_controller_instance():
         print_output(
             "This command can only be executed from the SOCA controller host",
@@ -170,12 +202,12 @@ def set(
         )
 
     _scheduler_configuration = {
-        "enabled": True if enabled == "true" else False,
+        "enabled": _as_bool(enabled, "enabled"),
         "provider": provider,
         "endpoint": endpoint,
         "binary_folder_paths": binary_folder_paths if binary_folder_paths else "",
-        "soca_managed_nodes_provisioning": (
-            True if manage_host_provisioning == "true" else False
+        "soca_managed_nodes_provisioning": _as_bool(
+            manage_host_provisioning, "manage_host_provisioning"
         ),
         "identifier": scheduler_identifier,
     }
@@ -188,6 +220,8 @@ def set(
         "openpbs": ["pbs_exec", "pbs_home"],
         "pbspro": ["pbs_exec", "pbs_home"],
         "slurm": ["install_prefix_path", "install_sysconfig_path"],
+        # AWS PCS uses the same Slurm client configuration as a self-managed Slurm scheduler
+        "aws_pcs": ["install_prefix_path", "install_sysconfig_path"],
     }
 
     if provider == "lsf":
@@ -217,10 +251,10 @@ def set(
 
             _scheduler_configuration["lsf_configuration"] = lsf_configuration
 
-    if provider == "slurm":
+    if provider in ["slurm", "aws_pcs"]:
         if slurm_configuration is None:
             print_output(
-                message="You must specify --slurm-configuration when using Slurm as a provider.",
+                message="You must specify --slurm-configuration when using Slurm or AWS PCS as a provider.",
                 error=True,
             )
         else:
@@ -235,7 +269,7 @@ def set(
             else:
                 _config_as_dict = slurm_configuration
 
-            for _key in _required_scheduler_specific["slurm"]:
+            for _key in _required_scheduler_specific[provider]:
                 if _key not in _config_as_dict.keys():
                     print_output(
                         message=f"Missing {_key} in slurm_configuration",
@@ -273,19 +307,14 @@ def set(
 
     if force is False:
         print_output(_scheduler_configuration, output="json")
-        while input(
-            "Do you want to create this new scheduler (add --force to skip this confirmation)? (yes/no)"
-        ) not in ["yes", "no"]:
-            if (
-                input(
-                    "Do you want to create this new scheduler (add --force to skip this confirmation? (yes/no)"
-                )
-                == "no"
-            ):
-                print_output(message="Exiting", error=True)
-            else:
-                break
-    
+        if (
+            confirm(
+                prompt="Do you want to create this new scheduler (add --force to skip this confirmation) ?"
+            )
+            is False
+        ):
+            print_output(message="Exiting", error=True)
+
     if ctx.meta.get("ignore_key_already_exist", False) is False:
         if ctx.invoke(
             config_key_exists, key=f"/configuration/HPC/schedulers/{scheduler_identifier}"
@@ -331,6 +360,7 @@ def set(
 @click.option("-v", "--value", help="New value", required=True)
 @click.pass_context
 def update(ctx, scheduler_identifier, key, value):
+    """Change one field of an existing scheduler."""
     if not is_controller_instance():
         print_output(
             "This command can only be executed from the SOCA controller host",

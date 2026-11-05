@@ -23,7 +23,7 @@ from utils.http_client import SocaHttpClient
 import pathlib
 import config
 import re
-from api.v1.ldap.user import create_home
+from api.v1.ldap.user import create_home, check_ad_authentication_groups
 from flask import request
 import pwd
 
@@ -188,6 +188,15 @@ class Authenticate(Resource):
                     )
                     return SocaError.IDENTITY_PROVIDER_ERROR(
                         helper="User could not be found in the directory OU. See logs for more details."
+                    ).as_flask()
+
+                _check_groups = check_ad_authentication_groups(username=user)
+                if not _check_groups.get("success"):
+                    logger.error(
+                        f"Valid credentials but {user} is not allowed to log in: {_check_groups.get('message')}. Verify group membership or update /configuration/UserDirectory/ad_authentication_groups if needed."
+                    )
+                    return SocaError.IDENTITY_PROVIDER_ERROR(
+                        helper="Authentication successful, but your account does not belong to any of the groups allowed to access SOCA. Contact your administrator to be added to an authorized group."
                     ).as_flask()
 
                 logger.info(

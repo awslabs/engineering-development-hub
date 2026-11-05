@@ -3,6 +3,7 @@
 
 import subprocess
 import shlex
+import ast
 import pwd
 import logging
 import grp
@@ -11,6 +12,40 @@ from typing import Optional, Callable
 import base64
 from utils.error import SocaError
 from utils.response import SocaResponse
+from utils.validators import Validators
+from utils.cast import SocaCastEngine
+
+
+def subprocess_message_as_dict(message) -> dict:
+    """
+    Return a SocaSubprocessClient response message as a dict, whatever shape it arrives in.
+
+    This class returns a real dict in `message` on success, but a FAILURE goes through
+    SocaError.return_error, which interpolates that dict into an f-string and re-serialises
+    it with str(). So a caller reading message.get("stderr") works on the paths that
+    succeeded and raises AttributeError on exactly the paths that failed. Anything that
+    will not parse back is wrapped as stderr, so the text still reaches the operator.
+    """
+    if Validators.is_dict(message):
+        return message
+    if Validators.is_string(message):
+        try:
+            _parsed = ast.literal_eval(message)
+        except (ValueError, SyntaxError):
+            return {"stderr": message}
+        return _parsed if Validators.is_dict(_parsed) else {"stderr": message}
+    if message is None:
+        return {"stderr": ""}
+    # An unexpected shape. Name the type when it will not cast, so the branch whose job is
+    # to preserve the text never returns an empty one.
+    _cast = SocaCastEngine(data=message).cast_as(str)
+    return {
+        "stderr": (
+            _cast.message
+            if _cast.success
+            else f"unreadable {type(message).__name__} subprocess response"
+        )
+    }
 
 
 logger = logging.getLogger("soca_logger")

@@ -14,13 +14,68 @@ function install_openmpi () {
   if [[ ! -d "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}" ]]; then
     log_info "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION} does not exist, installing OpenMPI ..."
     mkdir -p "${EDH_BOOTSTRAP_ASSETS_FOLDER}/openmpi/installer"
-    mkdir -p "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}"
+    # The prefix directory is deliberately NOT created here: it is what the skip check
+    # above tests, so creating it before `make install` populates it would make a failed
+    # build look like a finished one on every later run. `make install` creates it.
     pushd "${EDH_BOOTSTRAP_ASSETS_FOLDER}/openmpi/installer"
     file_download --download-url="${OPENMPI_URL}" --save-as="openmpi_installer_${OPENMPI_VERSION}.tgz" --sha256-checksum="${OPENMPI_SHA256}"
     tar xzf "openmpi_installer_${OPENMPI_VERSION}.tgz" --strip-components=1 -C .
-    ./configure --prefix="/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}"
-    make -j $(nproc)
-    make install
+
+{% if context.get("/job/BaseOS") in ["amazonlinux2027"] %}
+    # gcc 16 devirtualises the req_start pointer back to mca_part_persist_start and inlines
+    # it into itself past max-inline-insns-single, which always_inline forbids declining.
+    # Raising that param does not help and excluding part-persist breaks MPI_Init, since it
+    # is the only component in the part framework. Dropping the hint is the only working fix.
+    # Non-fatal and idempotent so this no-ops once upstream fixes it. Add any future base OS
+    # shipping gcc 15+ to the gate above.
+    local OPENMPI_PART_PERSIST_HEADER="ompi/mca/part/persist/part_persist.h"
+    if [[ ! -f "${OPENMPI_PART_PERSIST_HEADER}" ]]; then
+      log_info "${OPENMPI_PART_PERSIST_HEADER} not present in this OpenMPI release, no always_inline patch needed"
+    elif ! grep -q '^__opal_attribute_always_inline__ static inline int$' "${OPENMPI_PART_PERSIST_HEADER}"; then
+      log_info "${OPENMPI_PART_PERSIST_HEADER} carries no always_inline attribute lines, skipping patch"
+    else
+      # awk not sed: the construct spans two lines and nine siblings share the attribute
+      # line, so the match is anchored on the next line
+      if awk '
+          /^__opal_attribute_always_inline__ static inline int$/ {
+            _attr = $0
+            if ((getline _next) > 0) {
+              if (_next ~ /^mca_part_persist_start\(/) { print "static inline int"; _hit = 1 }
+              else { print _attr }
+              print _next
+            } else {
+              print _attr
+            }
+            next
+          }
+          { print }
+          END { exit (_hit ? 0 : 3) }
+        ' "${OPENMPI_PART_PERSIST_HEADER}" > "${OPENMPI_PART_PERSIST_HEADER}.edh-patched"
+      then
+        mv "${OPENMPI_PART_PERSIST_HEADER}.edh-patched" "${OPENMPI_PART_PERSIST_HEADER}"
+        if grep -A1 '^static inline int$' "${OPENMPI_PART_PERSIST_HEADER}" | grep -q '^mca_part_persist_start('; then
+          log_info "Patched ${OPENMPI_PART_PERSIST_HEADER}: dropped always_inline from mca_part_persist_start"
+        else
+          log_warning "Patched ${OPENMPI_PART_PERSIST_HEADER} but could not confirm mca_part_persist_start lost the attribute; the build may fail"
+        fi
+      else
+        rm -f "${OPENMPI_PART_PERSIST_HEADER}.edh-patched"
+        log_info "mca_part_persist_start does not carry always_inline in this OpenMPI release, no patch applied"
+      fi
+    fi
+{% endif %}
+
+    if ! ./configure --prefix="/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION}"; then
+      exit_fail "Unable to run ./configure for OpenMPI. See log for additional details ..."
+    fi
+
+    if ! make -j $(nproc); then
+      exit_fail "Unable to run make for OpenMPI. See log for additional details ..."
+    fi
+
+    if ! make install; then
+      exit_fail "Unable to run make install for OpenMPI. See log for additional details ..."
+    fi
     popd
   else
     log_info "/apps/edh/${EDH_CLUSTER_ID}/openmpi/${OPENMPI_VERSION} already exist, skipping OpenMPI install"

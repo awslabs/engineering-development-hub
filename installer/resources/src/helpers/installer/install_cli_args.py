@@ -5,7 +5,11 @@
 import argparse
 import os
 
-from helpers.installer.install_model import BaseOS, FilesystemProvider
+from helpers.installer.install_model import (
+    BASE_OS_PREVIEW,
+    FilesystemProvider,
+    installable_base_os_values,
+)
 from helpers.installer.i18n import _
 
 
@@ -16,12 +20,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
         )
     )
 
+    # Repeatable, and layered on top of default_config.yml rather than replacing
+    # it. default stays None so argparse never appends to a shared list object.
     parser.add_argument(
         "--config",
         "-c",
         type=str,
+        action="append",
+        default=None,
+        help=_(
+            "Path of custom config file(s), applied over default_config.yml and "
+            "local_config_*.yml in the order given. Repeatable."
+        ),
+    )
+
+    parser.add_argument(
+        "--default-config",
+        type=str,
         default=f"{os.path.dirname(os.path.realpath(__file__))}/../../../../default_config.yml",
-        help=_("Path of custom config file(s). Defaults to default_config.yml ."),
+        help=_("Path of the base config file. Defaults to default_config.yml ."),
     )
 
     parser.add_argument(
@@ -101,9 +118,27 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--cdk-termination-protection",
-        type=bool,
-        help=_("AWS CDK Termination Protection setting"),
+        "--cdk-no-termination-protection",
+        action="store_const",
+        const=True,
+        default=False,
+        help=_(
+            "Do not pass --termination-protection to 'cdk bootstrap'. Bootstrapping an "
+            "already-bootstrapped environment is an UpdateStack on CDKToolkit, so the "
+            "flag changes that setting on a toolkit stack EDH does not own."
+        ),
+    )
+
+    parser.add_argument(
+        "--cdk-skip-bootstrap",
+        action="store_const",
+        const=True,
+        default=False,
+        help=_(
+            "Do not run 'cdk bootstrap' even when the environment version cannot be "
+            "confirmed. Use when the deploy identity cannot read "
+            "/cdk-bootstrap/<qualifier>/version but the environment is known good."
+        ),
     )
 
     parser.add_argument(
@@ -164,8 +199,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-os",
         type=str,
-        choices=[e.value for e in BaseOS],
-        help=_("Base OS for EDH controller and login nodes"),
+        # Installable values only: an OS that cannot host a controller (a DCV-only OS
+        # such as macOS) is registered for its runtime roles but is not a cluster base
+        # OS, and must be rejected here as well as hidden from the prompt.
+        choices=installable_base_os_values(),
+        help=_(
+            "Base OS for EDH controller and login nodes. Values in {preview} are "
+            "preview releases, not for production use."
+        ).format(preview=", ".join(sorted(BASE_OS_PREVIEW)) or "none"),
+    )
+
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help=_(
+            "Show preview base OS releases in the interactive selection list. "
+            "--base-os accepts a preview value with or without this flag; it only "
+            "controls whether the interactive list offers one."
+        ),
     )
 
     parser.add_argument(
@@ -214,7 +265,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         action="append",
         help=_(
-            "Client IP/CIDR authorized to access EDH (can be specified multiple times)"
+            "Client IPv4 IP/CIDR authorized to access EDH (can be specified multiple times, or as one comma-separated value)"
+        ),
+    )
+
+    parser.add_argument(
+        "--client-ipv6",
+        type=str,
+        action="append",
+        help=_(
+            "Client IPv6 CIDR authorized to access EDH (can be specified multiple times, or as one comma-separated value). Requires --ipv6"
         ),
     )
 

@@ -14,7 +14,6 @@ import json
 
 import logging
 
-
 # Note: cdk_construct.py is called via `cdk` CLI and not via install_soca.py, so we can't inherit the default logger and must create a new one
 
 # IAM roles for the cluster
@@ -172,6 +171,26 @@ def iam_roles(
             ),
         )
 
+        # Dedicated AWS PCS compute-node role. PCS only accepts an instance
+        # profile whose role is clearly PCS-scoped: per the CreateComputeNodeGroup
+        # docs the role name must start with "AWSPCS" OR the role must sit at the
+        # IAM path "/aws-pcs/". We use the path so CDK can auto-name the role while
+        # still satisfying the guardrail, which lets the controller's iam:PassRole
+        # be scoped to this one exact role ARN (%%PCS_NODE_ROLE_ARN%%) instead of a
+        # broad role/AWSPCS* wildcard (BSC6 least-privilege). This role is separate
+        # from the generic compute-node role because PCS nodes need the extra
+        # pcs:RegisterComputeNodeGroupInstance permission (see PCSNode.json).
+        scope.soca_resources["pcs_node_role"] = iam.Role(
+            scope,
+            "PcsNodeRole",
+            description="IAM role assigned to the AWS PCS compute nodes",
+            path="/aws-pcs/",
+            assumed_by=iam.CompositePrincipal(
+                iam.ServicePrincipal(principals_suffix["ssm"]),
+                iam.ServicePrincipal(principals_suffix["ec2"]),
+            ),
+        )
+
         scope.soca_resources["spot_fleet_role"] = iam.Role(
             scope,
             "SpotFleetRole",
@@ -205,9 +224,7 @@ def iam_roles(
         ):
             logger.debug("Creating DCV High Scale roles...")
             for _dcv_host_type in ("broker", "gateway"):
-                logger.debug(
-                    f"Creating IAM role for DCV host type: {_dcv_host_type}"
-                )
+                logger.debug(f"Creating IAM role for DCV host type: {_dcv_host_type}")
                 scope.soca_resources[f"dcv_{_dcv_host_type}_role"] = iam.Role(
                     scope,
                     f"Dcv{_dcv_host_type.capitalize()}Role",
@@ -218,52 +235,46 @@ def iam_roles(
                     ),
                 )
                 # Make sure the Admin can SSM to the DCV Infrastructure
-                scope.soca_resources[
-                    f"dcv_{_dcv_host_type}_role"
-                ].add_managed_policy(
+                scope.soca_resources[f"dcv_{_dcv_host_type}_role"].add_managed_policy(
                     iam.ManagedPolicy.from_aws_managed_policy_name(
                         "AmazonSSMManagedInstanceCore"
                     )
                 )
                 # DCV High-scale instance profiles
-                logger.debug(
-                    f"Creating Instance profile for DCV host {_dcv_host_type}"
-                )
+                logger.debug(f"Creating Instance profile for DCV host {_dcv_host_type}")
                 scope.soca_resources[f"dcv_{_dcv_host_type}_instance_profile"] = (
                     iam.CfnInstanceProfile(
                         scope,
                         f"Dcv{_dcv_host_type.capitalize()}InstanceProfile",
                         roles=[
-                            scope.soca_resources[
-                                f"dcv_{_dcv_host_type}_role"
-                            ].role_name
+                            scope.soca_resources[f"dcv_{_dcv_host_type}_role"].role_name
                         ],
                     )
                 )
 
         # Instance Profiles
-        scope.soca_resources["compute_node_instance_profile"] = (
-            iam.CfnInstanceProfile(
-                scope,
-                "ComputeNodeInstanceProfile",
-                roles=[scope.soca_resources["compute_node_role"].role_name],
-            )
+        scope.soca_resources["compute_node_instance_profile"] = iam.CfnInstanceProfile(
+            scope,
+            "ComputeNodeInstanceProfile",
+            roles=[scope.soca_resources["compute_node_role"].role_name],
         )
 
-        scope.soca_resources["vdi_node_instance_profile"] = (
-            iam.CfnInstanceProfile(
-                scope,
-                "VdiNodeInstanceProfile",
-                roles=[scope.soca_resources["vdi_node_role"].role_name],
-            )
+        scope.soca_resources["vdi_node_instance_profile"] = iam.CfnInstanceProfile(
+            scope,
+            "VdiNodeInstanceProfile",
+            roles=[scope.soca_resources["vdi_node_role"].role_name],
         )
 
-        scope.soca_resources["target_node_instance_profile"] = (
-            iam.CfnInstanceProfile(
-                scope,
-                "TargetNodeInstanceProfile",
-                roles=[scope.soca_resources["target_node_role"].role_name],
-            )
+        scope.soca_resources["target_node_instance_profile"] = iam.CfnInstanceProfile(
+            scope,
+            "TargetNodeInstanceProfile",
+            roles=[scope.soca_resources["target_node_role"].role_name],
+        )
+
+        scope.soca_resources["pcs_node_instance_profile"] = iam.CfnInstanceProfile(
+            scope,
+            "PcsNodeInstanceProfile",
+            roles=[scope.soca_resources["pcs_node_role"].role_name],
         )
 
     else:
@@ -283,12 +294,10 @@ def iam_roles(
             "SpotFleetRole",
             role_arn=user_specified_variables.spotfleet_role_arn,
         )
-        scope.soca_resources["compute_node_instance_profile"] = (
-            iam.CfnInstanceProfile(
-                scope,
-                "ComputeNodeInstanceProfile",
-                roles=[user_specified_variables.compute_node_role_name],
-            )
+        scope.soca_resources["compute_node_instance_profile"] = iam.CfnInstanceProfile(
+            scope,
+            "ComputeNodeInstanceProfile",
+            roles=[user_specified_variables.compute_node_role_name],
         )
 
         # BYO-role path: we do not fabricate a separate managed VDI role when
@@ -310,6 +319,7 @@ def iam_roles(
         "vdi_node_role",
         "login_node_role",
         "target_node_role",
+        "pcs_node_role",
     ]:
         if _role not in scope.soca_resources:
             logger.debug(f"Skipping SSM Managed Policy for {_role} (not created)")
@@ -327,9 +337,7 @@ def iam_roles(
         "%%AWS_PARTITION%%": Aws.PARTITION,
         "%%AWS_URL_SUFFIX%%": get_service_principal_url_suffix(),
         "%%AWS_REGION%%": (
-            "*"
-            if user_specified_variables.region.startswith("eusc-")
-            else Aws.REGION
+            "*" if user_specified_variables.region.startswith("eusc-") else Aws.REGION
         ),
         "%%BUCKET%%": user_specified_variables.bucket,
         "%%COMPUTE_NODE_ROLE_ARN%%": (
@@ -337,6 +345,7 @@ def iam_roles(
             if not user_specified_variables.compute_node_role_arn
             else user_specified_variables.compute_node_role_arn
         ),
+        "%%VDI_NODE_ROLE_ARN%%": (scope.soca_resources["vdi_node_role"].role_arn),
         "%%SCHEDULER_ROLE_ARN%%": (
             scope.soca_resources["controller_role"].role_arn
             if not user_specified_variables.controller_role_arn
@@ -350,6 +359,13 @@ def iam_roles(
         "%%TARGET_NODE_ROLE_ARN%%": (
             scope.soca_resources["target_node_role"].role_arn
             if "target_node_role" in scope.soca_resources
+            else ""
+        ),
+        # Set on both role paths, so unconditional unlike its neighbors.
+        "%%VDI_NODE_ROLE_ARN%%": scope.soca_resources["vdi_node_role"].role_arn,
+        "%%PCS_NODE_ROLE_ARN%%": (
+            scope.soca_resources["pcs_node_role"].role_arn
+            if "pcs_node_role" in scope.soca_resources
             else ""
         ),
         "%%VPC_ID%%": scope.soca_resources["vpc"].vpc_id,
@@ -392,6 +408,10 @@ def iam_roles(
         policy_templates["TargetNodePolicy"] = {
             "template": "../policies/TargetNode.json",
             "attach_to_role": "target_node_role",
+        }
+        policy_templates["PCSNodePolicy"] = {
+            "template": "../policies/PCSNode.json",
+            "attach_to_role": "pcs_node_role",
         }
 
         # Controller permissions split across 4 managed policies (each
@@ -472,17 +492,13 @@ def iam_roles(
                 "policy_type": "managed",
             }
 
-        if (
-            not user_specified_variables.compute_node_role_from_previous_soca_deployment
-        ):
+        if not user_specified_variables.compute_node_role_from_previous_soca_deployment:
             policy_templates["ComputeNodePolicy"] = {
                 "template": "../policies/ComputeNode.json",
                 "attach_to_role": "compute_node_role",
             }
 
-        if (
-            not user_specified_variables.spotfleet_role_from_previous_soca_deployment
-        ):
+        if not user_specified_variables.spotfleet_role_from_previous_soca_deployment:
             policy_templates["SpotFleetPolicy"] = {
                 "template": "../policies/SpotFleet.json",
                 "attach_to_role": "spot_fleet_role",

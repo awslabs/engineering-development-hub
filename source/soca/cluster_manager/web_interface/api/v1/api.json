@@ -3625,7 +3625,19 @@
                             },
                             "warming": {
                               "type": "integer",
-                              "description": "Warm capacity starting up"
+                              "description": "Measured warm members parked and promotable"
+                            },
+                            "warming_up": {
+                              "type": "integer",
+                              "description": "Measured warm members still booting into the warm pool"
+                            },
+                            "warm_measured": {
+                              "type": "boolean",
+                              "description": "False when warm depth is unknown (unstamped pool or describe failure)"
+                            },
+                            "warm_configured": {
+                              "type": "integer",
+                              "description": "Admin-configured warm_count, for comparison only"
                             },
                             "label": {
                               "type": "string",
@@ -4693,6 +4705,27 @@
         }
       }
     },
+    "/api/dcv/base_image_acceleration/status": {
+      "get": {
+        "operationId": "getBaseImageAccelerationStatus",
+        "tags": [
+          "Virtual Desktops"
+        ],
+        "summary": "Local Acceleration Mirror status",
+        "description": "Feature state + per-base owned-copy registry rows for the cluster region (admin access required).",
+        "security": [
+          {
+            "socaAuth": [],
+            "socaToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status payload"
+          }
+        }
+      }
+    },
     "/api/dcv/virtual_desktops/list_all": {
       "get": {
         "operationId": "listAllVirtualDesktops",
@@ -5628,8 +5661,8 @@
                   "disk_size": {
                     "type": "string",
                     "pattern": "^[0-9]+$",
-                    "description": "EBS root volume size in GB",
-                    "example": "50"
+                    "description": "EBS root volume size in GB. Defaults to /configuration/dcv/root_volume/default_size_linux or default_size_windows for the stack's OS",
+                    "example": "100"
                   },
                   "session_name": {
                     "type": "string",
@@ -8693,7 +8726,7 @@
                       },
                       "example": [
                         [
-                          "cn=john.doe,ou=people,dc=soca,dc=local",
+                          "cn=john.doe,ou=people,dc=edh-test,dc=internal",
                           {
                             "uid": [
                               "john.doe"
@@ -9115,8 +9148,8 @@
                         "description": "LDAP Distinguished Name"
                       },
                       "example": {
-                        "john.doe": "cn=john.doe,ou=people,dc=soca,dc=local",
-                        "jane.smith": "cn=jane.smith,ou=people,dc=soca,dc=local"
+                        "john.doe": "cn=john.doe,ou=people,dc=edh-test,dc=internal",
+                        "jane.smith": "cn=jane.smith,ou=people,dc=edh-test,dc=internal"
                       }
                     }
                   }
@@ -9559,7 +9592,7 @@
                           "group_dn": {
                             "type": "string",
                             "description": "LDAP Distinguished Name of the group",
-                            "example": "cn=developers,ou=group,dc=soca,dc=local"
+                            "example": "cn=developers,ou=group,dc=edh-test,dc=internal"
                           },
                           "members": {
                             "type": "array",
@@ -9576,14 +9609,14 @@
                       },
                       "example": {
                         "developers": {
-                          "group_dn": "cn=developers,ou=group,dc=soca,dc=local",
+                          "group_dn": "cn=developers,ou=group,dc=edh-test,dc=internal",
                           "members": [
                             "john.doe",
                             "jane.smith"
                           ]
                         },
                         "admins": {
-                          "group_dn": "cn=admins,ou=group,dc=soca,dc=local",
+                          "group_dn": "cn=admins,ou=group,dc=edh-test,dc=internal",
                           "members": [
                             "admin"
                           ]
@@ -9685,7 +9718,7 @@
                         "group_dn": {
                           "type": "string",
                           "description": "LDAP Distinguished Name of the group",
-                          "example": "cn=developers,ou=group,dc=soca,dc=local"
+                          "example": "cn=developers,ou=group,dc=edh-test,dc=internal"
                         },
                         "members": {
                           "type": "array",
@@ -11853,6 +11886,130 @@
           },
           "500": {
             "description": "SOCA scheduler error or JSON parsing failure"
+          }
+        }
+      }
+    },
+    "/api/scheduler/job/chain": {
+      "post": {
+        "operationId": "submitJobChain",
+        "tags": [
+          "Scheduler"
+        ],
+        "summary": "POST /api/scheduler/job/chain",
+        "description": "POST operation for /api/scheduler/job/chain",
+        "security": [
+          {
+            "socaAuth": [],
+            "socaToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-EDH-USER",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "description": "SOCA username for authentication",
+            "example": "admin"
+          },
+          {
+            "name": "X-EDH-TOKEN",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "description": "SOCA authentication token",
+            "example": "abc123token"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "interpreter",
+                  "stages"
+                ],
+                "properties": {
+                  "interpreter": {
+                    "type": "string",
+                    "description": "Scheduler identifier to submit against",
+                    "example": "openpbs-default"
+                  },
+                  "dependency_type": {
+                    "type": "string",
+                    "enum": [
+                      "afterok",
+                      "afternotok",
+                      "afterany",
+                      "after"
+                    ],
+                    "default": "afterok",
+                    "description": "Default edge type for every stage in the chain"
+                  },
+                  "stages": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Ordered stages. A stage with no depends_on is a root.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "payload"
+                      ],
+                      "properties": {
+                        "payload": {
+                          "type": "string",
+                          "description": "Base64 encoded job script"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Label echoed back in the response"
+                        },
+                        "depends_on": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          },
+                          "description": "Indexes of earlier stages in this chain"
+                        },
+                        "dependency_type": {
+                          "type": "string",
+                          "enum": [
+                            "afterok",
+                            "afternotok",
+                            "afterany",
+                            "after"
+                          ],
+                          "description": "Overrides dependency_type for this stage"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every stage submitted and wired"
+          },
+          "400": {
+            "description": "Invalid chain, for example a circular dependency"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Chain submission failed and was rolled back"
           }
         }
       }
@@ -15683,6 +15840,16 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "knowledge_base_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Bedrock Knowledge Base ID for RAG. Cannot be combined with agent_runtime_id or mcp_server_names"
+                  },
+                  "number_of_results": {
+                    "type": "integer",
+                    "nullable": true,
+                    "description": "Number of KB chunks to retrieve (only used with knowledge_base_id)"
                   }
                 }
               }

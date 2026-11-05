@@ -13,7 +13,14 @@ function tags_eni () {
   {% elif context.get("/job/NodeType") == "dcv_node" %}
     local TAGS="Key=Name,Value=\"EBS_SOCA_DCV_${EDH_DCV_SESSION_OWNER}\" Key=edh:JobOwner,Value=\"${EDH_DCV_SESSION_OWNER}\" Key=edh:JobProject,Value=\"dcv\" Key=Name,Value=\"edh-job-${EDH_DCV_SESSION_ID}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
    {% else %}
-    local TAGS="Key=Name,Value=\"EBS_SOCA_JobId_${EDH_JOB_ID}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=Name,Value=\"edh-job-${EDH_JOB_ID}\"  Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
+    # EDH_JOB_PROJECT is empty when the job was submitted without -P. Leave the tag
+    # off entirely rather than creating it with an empty value, so this path agrees
+    # with the CloudFormation one, which omits the key.
+    local PROJECT_TAG=""
+    if [[ -n "${EDH_JOB_PROJECT:-}" ]]; then
+      PROJECT_TAG="Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\""
+    fi
+    local TAGS="Key=Name,Value=\"EBS_SOCA_JobId_${EDH_JOB_ID}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" ${PROJECT_TAG} Key=Name,Value=\"edh-job-${EDH_JOB_ID}\"  Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"{{ context.get("/configuration/ClusterId") }}\""
   {% endif %}
 
 

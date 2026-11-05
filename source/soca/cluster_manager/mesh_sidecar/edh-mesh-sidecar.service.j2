@@ -1,0 +1,115 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0   
+
+# EDH mesh sidecar: the peer-facing mesh API surface, bound to the overlay.
+#
+# Rendered from this template by install-mesh-sidecar.sh during controller
+# bootstrap, when Config.services.cross_region.enabled is true, and written to
+# /etc/systemd/system/edh-mesh-sidecar.service. The cluster id is baked in at
+# render time rather than looked up at start, so the unit does not depend on a
+# configuration read succeeding before it can run.
+#
+# No Documentation= line. The sibling overlay-daemon unit points at
+# docs/cross_region/README.md, which does not exist in the tree yet; a second
+# dangling pointer is worse than none.
+
+[Unit]
+Description=EDH cross-region mesh sidecar ({{ EDH_CLUSTER_ID }})
+# Ordered after the overlay daemon rather than merely after the network, because
+# the launcher binds an address on edh-mesh0 and refuses to start without one.
+# ensure-interface.sh is that unit's ExecStartPre and it is what assigns this
+# cluster's own addresses, so once the daemon's start job has completed the
+# interface exists WITH its addresses.
+#
+# Deliberately Wants= and not Requires=. Requires= would stop the sidecar
+# whenever the daemon stops or fails, and a daemon restart does not invalidate an
+# already-bound socket: the address survives it. The launcher's own refusal plus
+# Restart= below is what covers an interface that is not ready, and it recovers
+# without the sidecar being torn down for a dependency that came back.
+After=network-online.target edh-overlay-daemon.service
+Wants=network-online.target edh-overlay-daemon.service
+# These two belong to the Unit, not the Service. StartLimitIntervalSec is the
+# only spelling with an entry in the [Unit] section's parse table, so moving
+# either one under [Service] makes it an unknown directive and silently drops the
+# interval back to the 10 second default. The sibling overlay-daemon unit carries
+# the same pair for the same reason. Without them a launcher that refuses on every
+# attempt restarts every RestartSec forever with no burst cap.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# The `foreground` verb, NOT `start`. This is load-bearing rather than stylistic:
+# `start` hands uwsgi --daemonize, so the script returns as soon as uwsgi forks
+# into the background. Under Type=simple systemd reads that as the main process
+# exiting, restarts it, and meets the script's own already-running check, which
+# reports the running instance and exits 0 - which systemd reads as another clean
+# exit. The result is a restart loop against a healthy sidecar, capped only by the
+# burst limit above. `foreground` execs uwsgi in place so systemd supervises the
+# uwsgi process itself.
+ExecStart=/opt/edh/{{ EDH_CLUSTER_ID }}/cluster_manager/mesh_sidecar/edhmeshsidecar.sh foreground
+
+# No ExecStop. uwsgi is exec'd in the foreground and carries --die-on-term, so
+# systemd's own SIGTERM shuts it down and the control group takes the workers with
+# it. Running the script's `stop` verb here would additionally kill -9 by a
+# process-table match, which would also take down a second instance an operator
+# had started by hand.
+
+# Baked in for the same reason the overlay-daemon unit bakes it: the launcher uses
+# it to build every path it touches. It sources /etc/environment itself, under
+# `set -a`, which overwrites this with the file's value when the file carries one
+# and leaves this in place when it does not.
+Environment=EDH_CLUSTER_ID={{ EDH_CLUSTER_ID }}
+
+Restart=always
+RestartSec=10
+
+# Hardening. THREE of these are off deliberately and each would break job
+# submission if turned on, because this process is the one that lands a peer's
+# job on the local scheduler: the dispatch endpoint reaches OpenPBSDriver.submit,
+# which goes through SocaHpcJobSubmit and SocaSubprocessClient.
+#
+#   NoNewPrivileges - pbs_iff is setuid-root and is how the PBS client tools
+#       authenticate to the server. NoNewPrivileges makes the setuid bit
+#       ineffective for this process and everything it execs, so qsub fails to
+#       reach the scheduler at all.
+#   RestrictSUIDSGID - same family, same consequence.
+#   ProtectHome - SocaHpcJobSubmit resolves the submitting user's home with
+#       pwd.getpwnam(user).pw_dir and writes the job script into
+#       <home>/soca_job_output when no submit directory is configured. Under
+#       ProtectHome the home trees are inaccessible and every submission fails.
+#
+# No CapabilityBoundingSet, for the same reason. The submit path drops privilege
+# to the submitting user with setgid/setuid in a preexec_fn and chowns the script
+# to that user, so bounding the set to the daemon's CAP_NET_ADMIN and CAP_IPC_LOCK
+# would remove exactly the capabilities submission needs.
+#
+# ProtectSystem=true rather than full or strict: /opt must stay writable, because
+# the launcher creates state/ for the TLS certificate and logs/ beside itself.
+# ReadWritePaths is deliberately NOT set - the sibling unit records that naming a
+# path there enters a mount namespace and a listed path that does not yet exist
+# fails the unit outright with a namespacing error.
+NoNewPrivileges=false
+RestrictSUIDSGID=false
+ProtectHome=false
+ProtectSystem=true
+PrivateTmp=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+# AF_NETLINK is required: the launcher resolves the bind address with
+# `ip -o addr show`, which is netlink. Without it the address comes back empty and
+# the launcher refuses to start, which looks exactly like an overlay that is down.
+# AF_INET and AF_INET6 carry the listener and the AWS calls, AF_UNIX the uwsgi
+# stats socket and the resolver.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=edh-mesh-sidecar
+
+[Install]
+WantedBy=multi-user.target

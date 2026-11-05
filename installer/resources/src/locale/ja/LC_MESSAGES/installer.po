@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-04-30 15:55-0500\n"
+"POT-Creation-Date: 2026-10-05 11:36-0500\n"
 "PO-Revision-Date: 2026-04-30 16:05-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -18,6 +18,40 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid VPCs in region {region}. Please "
+"see the VPC Table for specific errors."
+msgstr "致命的なエラー:リージョン {region} に有効な VPC が見つかりません。特定のエラーについては VPC 表を参照してください。"
+
+msgid "Choose the VPC you want to use?"
+msgstr "使用したい VPC を選択しますか?"
+
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid Analytics engines in region "
+"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
+"select 'new' to create a new one."
+msgstr ""
+"致命的なエラー:リージョン {region}-VPC {vpc_id} "
+"に有効なアナリティクスエンジンが見つかりません。確認してもう一度試すか、再実行して「新規」を選択して新しいものを作成してください。"
+
+msgid "Choose the OpenSearch Cluster you want to use?"
+msgstr "使用したい OpenSearch クラスターを選択しますか?"
+
+msgid "Choose the directory you want to use?"
+msgstr "使用したいディレクトリを選択しますか?"
+
+msgid "How many of these subnets do you want to use?"
+msgstr "これらのサブネットのうち、使用したいサブネットはいくつですか?"
+
+msgid ""
+"Your security groups may not be configured correctly. Verify them and "
+"determine if the warnings listed above are false-positive.\n"
+" Do you still want to continue with the installation?"
+msgstr ""
+"セキュリティグループが正しく設定されていない可能性があります。これらを確認して、上記の警告が誤検出であるかどうかを判断してください。\\n "
+"それでもインストールを続行しますか?"
 
 msgid "[italic #8a9bb8]Press Ctrl+C to exit at any time[/]"
 msgstr "[italic #8a9bb8]Ctrl+C を押すといつでも終了できます[/]"
@@ -26,11 +60,30 @@ msgid "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
 msgstr "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
 
 #, python-brace-format
+msgid "Select an S3 bucket ({count} found; type to filter):"
+msgstr "S3 バケットを選択してください ({count} が見つかりました。タイプしてフィルタリングしてください):"
+
+msgid "Enter a row number from the table above"
+msgstr "上の表の行番号を入力してください"
+
+#, python-brace-format
+msgid "Enter a row number between 1 and {row_count}"
+msgstr "1 から {row_count} までの行番号を入力してください"
+
+#, python-brace-format
 msgid ""
-"EDH will create AWS resources using the default parameters specified "
-"in {config_file}.\nMake sure you have read, reviewed and updated them "
-"(if needed). Continue?"
-msgstr "EDH は {config_file} で指定されたデフォルトパラメータを使用して AWS リソースを作成します。\\n 必ず、それらを読み、確認し、更新してください (必要な場合)。続けますか?"
+"EDH will create AWS resources using the default parameters specified in "
+"{config_file}.\n"
+"Make sure you have read, reviewed and updated them (if needed). Continue?"
+msgstr ""
+"EDH は {config_file} で指定されたデフォルトパラメータを使用して AWS リソースを作成します。\\n "
+"必ず、それらを読み、確認し、更新してください (必要な場合)。続けますか?"
+
+msgid "Continue"
+msgstr "続行"
+
+msgid "Abort"
+msgstr "中止"
 
 msgid "[yellow]Aborted by user.[/yellow]"
 msgstr "[yellow]ユーザーによって中止されました。[/yellow]"
@@ -38,37 +91,98 @@ msgstr "[yellow]ユーザーによって中止されました。[/yellow]"
 msgid "Select the region where you want to deploy your EDH cluster:"
 msgstr "EDH クラスターをデプロイするリージョンを選択します。"
 
+msgid ""
+"(Your data will reside in the region you select. Country code [CC] is "
+"shown to help with data-residency.)"
+msgstr "(データは選択した地域に保存されます。データ保存に役立つように、国コード [CC] が表示されています。)"
+
 msgid "Validating EC2 Prefix List ID ... "
 msgstr "EC2 プレフィックスリスト ID を検証中... "
 
 msgid ""
-"Please provide your EDH environment name (edh- is automatically added "
-"as a prefix):"
+"Please provide your EDH environment name (edh- is automatically added as "
+"a prefix):"
 msgstr "EDH 環境名を入力してください (edh-はプレフィックスとして自動的に追加されます):"
 
 msgid "Checking if name is available on Cloudformation"
 msgstr "クラウドフォーメーションで名前が使用可能かどうかを確認する"
+
+msgid "Email address for cluster notifications:"
+msgstr "クラスター通知のメールアドレス:"
+
+msgid "How would you like to configure the HTTPS certificate?"
+msgstr "HTTPS 証明書をどのように設定しますか?"
+
+msgid "Let EDH create a self-signed certificate"
+msgstr "EDH に自己署名証明書の作成を任せる"
+
+msgid "Use an existing ACM certificate"
+msgstr "既存の ACM 証明書を使用する"
+
+msgid "Select the ACM certificate to use:"
+msgstr "使用する ACM 証明書を選択してください:"
+
+msgid "PREVIEW"
+msgstr "プレビュー"
+
+msgid "Preview release. Not for production use."
+msgstr "プレビューリリース。本番環境では使用できません。"
+
+#, python-brace-format
+msgid "Unsupported roles run on another OS: {substitutions}."
+msgstr "サポートされていないロールは別のOSで実行されています:{substitutions}。"
 
 msgid ""
 "Select the default operating system for your EDH cluster (this can be "
 "changed post deployment):"
 msgstr "EDH クラスターのデフォルトオペレーティングシステムを選択します (これはデプロイ後に変更できます)。"
 
-msgid "Email address for cluster notifications:"
-msgstr "クラスター通知のメールアドレス:"
+msgid ""
+"Client IPv4 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
+msgstr ""
+"TCP ポート 443/22 上の EDH へのアクセスが許可されているクライアント IPv4 または CIDR 範囲 "
+"(これはインストール後に変更できます):"
 
 msgid ""
-"Client IPv4/IPv6 or CIDR range authorized to access EDH on TCP ports "
-"443/22:"
-msgstr "TCP ポート 443/22 の EDH へのアクセスが許可されたクライアント IPv4/IPv6 または CIDR 範囲:"
+"Client IPv6 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
+msgstr ""
+"TCP ポート 443/22 上の EDH へのアクセスが許可されているクライアント IPv6 または CIDR 範囲 "
+"(これはインストール後に変更できます):"
+
+msgid ""
+"How should EDH be deployed?\n"
+"  Public: Load balancers are placed in public subnets, with ingress "
+"restricted to the authorized sources listed above (this can be changed "
+"post-install).\n"
+"  Private: Load balancers are placed in private subnets. Requires a VPN "
+"or Direct Connect for access."
+msgstr ""
+"EDHはどのように導入すべきか？\n"
+" パブリック:ロードバランサーはパブリックサブネットに配置され、入口は上記の許可されたソースに制限されます "
+"(これはインストール後に変更できます)。\n"
+" プライベート:ロードバランサーはプライベートサブネットに配置されます。アクセスには VPN またはダイレクトコネクトが必要です。"
+
+msgid ""
+"Public (Recommended) - Internet-facing load balancers, access restricted "
+"by firewall rules"
+msgstr "パブリック (推奨)-インターネット向けロードバランサー、ファイアウォールルールによりアクセスが制限されています"
+
+msgid ""
+"Private - Internal load balancers, requires VPN/Direct Connect. Not "
+"internet routable."
+msgstr "プライベート-内部ロードバランサー。VPN/ダイレクトコネクトが必要です。インターネットでのルーティングはできません。"
 
 msgid "Choose the SSH keypair to use: "
 msgstr "使用する SSH キーペアを選択してください: "
 
 msgid ""
-"Enter the name of an S3 bucket you own in the target region to be used "
-"for cluster state storage:"
-msgstr "クラスターステートストレージに使用する、ターゲットリージョンで所有している S3 バケットの名前を入力します。"
+"Enter the name of an S3 bucket that the application will use to store "
+"cluster data (or type '?' to list buckets you own):"
+msgstr ""
+"アプリケーションがクラスターデータを保存するために使用する S3 バケットの名前を入力します "
+"(または「?」と入力します)。所有しているバケットを一覧表示するには:"
 
 msgid "VPC configuration:"
 msgstr "VPC コンフィギュレーション:"
@@ -91,15 +205,102 @@ msgstr "少なくとも 2 つのパブリックサブネットを選択してく
 msgid "Select at least 2 private subnets:"
 msgstr "少なくとも 2 つのプライベートサブネットを選択してください:"
 
+msgid "where applications will be installed"
+msgstr "アプリケーションがインストールされる場所"
+
+msgid "where user data will be stored"
+msgstr "ユーザーデータの保存場所"
+
+#, python-brace-format
+msgid "Filesystem for /{mount_point} ({purpose}):"
+msgstr "/{mount_point} ({purpose}) のファイルシステム:"
+
+msgid "Create a new filesystem"
+msgstr "新しいファイルシステムの作成"
+
+msgid "Re-use an existing filesystem in this VPC"
+msgstr "この VPC 内の既存のファイルシステムを再利用する"
+
+#, python-brace-format
+msgid "Row number of the filesystem to mount as /{mount_point}:"
+msgstr "/{mount_point} としてマウントするファイルシステムの行番号:"
+
+#, python-brace-format
+msgid "Mount {fs_id} as /{mount_point} as well?"
+msgstr "{fs_id} も/{mount_point} としてマウントしますか?"
+
+msgid "Pick a different filesystem"
+msgstr "別のファイルシステムを選択してください"
+
+msgid "Yes, share this filesystem"
+msgstr "はい、このファイルシステムを共有してください"
+
+#, python-brace-format
+msgid "NFS access for /{mount_point}:"
+msgstr "/{mount_point} の NFS アクセス:"
+
+msgid "Re-check now"
+msgstr "今すぐ再確認"
+
+msgid "Continue anyway, deployment may fail"
+msgstr "とにかく続けてください。デプロイが失敗する可能性があります"
+
+#, python-brace-format
+msgid "Select the filesystem provider for /{mount_point} ({purpose}):"
+msgstr "/{mount_point} ({purpose}) のファイルシステムプロバイダーを選択してください:"
+
+msgid "Analytics back-end (OpenSearch):"
+msgstr "アナリティクスのバックエンド (OpenSearch):"
+
+msgid "Create a new OpenSearch domain"
+msgstr "OpenSearch ドメインを新規作成する"
+
+msgid "Re-use an existing OpenSearch domain in this VPC"
+msgstr "この VPC 内の既存の OpenSearch ドメインを再利用してください"
+
+msgid "Row number of the OpenSearch domain to re-use:"
+msgstr "再利用する OpenSearch ドメインの行番号:"
+
+#, python-brace-format
 msgid ""
-"Select the filesystem provider for /apps (where applications will be "
-"installed):"
-msgstr "/apps (アプリケーションのインストール先) のファイルシステムプロバイダーを選択してください:"
+"EDH download required external resources (Python, DCV, EFA, GPU drivers, "
+"etc.) from trusted sources such as python.org, github.com, nodejs.org, "
+"efa-installer.amazonaws.com.\n"
+"  You can mirror these resources to your own in-account S3 bucket so EDH "
+"nodes download from S3 instead of the internet.\n"
+"  This is recommended for reliability and faster provisioning.\n"
+"  All external resources can be found on {config_file}, section "
+"'Parameters'.\n"
+"  How would you like to handle external resources (~5GB)?"
+msgstr ""
+"EDH は、python.org、github.com、nodejs.org、efa-installer.amazonaws.com "
+"などの信頼できるソースから必要な外部リソース (Python、DCV、EFA、GPU ドライバーなど) をダウンロードします。\n"
+" これらのリソースをアカウント内の独自の S3 バケットにミラーリングして、EDH ノードがインターネットではなく S3 "
+"からダウンロードできるようにすることができます。\n"
+" 信頼性と迅速なプロビジョニングの観点から、この方法が推奨されます。\n"
+" 外部リソースはすべて {config_file} の「パラメーター」セクションにあります。\n"
+" 外部リソース (最大 5 GB) をどのように扱いたいですか?"
 
 msgid ""
-"Select the filesystem provider for /data (where user data will be "
-"stored):"
-msgstr "/data (ユーザーデータが保存される) のファイルシステムプロバイダーを選択してください:"
+"Mirror resources to S3 automatically via Lambda (running in EDH VPC) at "
+"install time (Recommended)"
+msgstr "インストール時に自動的に Lambda (EDH VPC で実行) 経由でリソースを S3 にミラーリング (推奨)"
+
+msgid ""
+"Mirror resources to S3 automatically via Lambda (not running in VPC) at "
+"install time"
+msgstr "インストール時に Lambda (VPC で実行されていない) 経由でリソースを S3 に自動的にミラーリングする"
+
+msgid ""
+"Mirror resources to S3 via this host (download+upload) before deploying "
+"EDH"
+msgstr "EDH をデプロイする前に、このホスト経由でリソースを S3 にミラーリング (ダウンロード+アップロード) します"
+
+msgid "No S3 Mirroring (EDH nodes will download from the internet directly)"
+msgstr "S3 ミラーリングなし (EDH ノードはインターネットから直接ダウンロードされます)"
+
+msgid "Generating resource mirror manifest ..."
+msgstr "リソースミラーマニフェストを生成中..."
 
 msgid "Bootstrapping CDK environment ..."
 msgstr "CDK 環境をブートストラップ中..."
@@ -110,9 +311,7 @@ msgstr "SSM ハイスループットモードを有効にしています..."
 msgid "Retrieving EDH Admin credentials from AWS Secrets Manager ..."
 msgstr "AWS シークレットマネージャーから EDH 管理者の認証情報を取得中..."
 
-msgid ""
-"Waiting for EDH to be fully configured, this can take up to 30 minutes "
-"..."
+msgid "Waiting for EDH to be fully configured, this can take up to 30 minutes ..."
 msgstr "EDHが完全に構成されるのを待っていると、最大30分かかることがあります..."
 
 msgid "Waiting for EDH Admin user to be created ..."
@@ -123,9 +322,6 @@ msgstr "[red]インストールはキャンセルされました。[/red]"
 
 msgid "What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16"
 msgstr "VPC にはどの CIDR を使用したいですか?10.0.0.0/16 をお勧めします"
-
-msgid "Select the AWS PCS cluster to link to"
-msgstr "リンクする AWS PCS クラスターを選択してください"
 
 msgid "Username of a domain user with  admin permissions?"
 msgstr "管理者権限を持つドメインユーザーのユーザー名?"
@@ -140,16 +336,21 @@ msgstr "このロールは以前の SOCA 導入によって生み出されたも
 
 msgid ""
 "[IMPORTANT] Make sure this role is assumed by 'ec2.amazon.com' and "
-"'ssm.amazonaws.com'\n Type ok to continue ..."
-msgstr "[重要] このロールが 'ec2.amazon.com' と 'ssm.amazonaws.com' に引き継がれていることを確認してください\\n 続行するには「ok」と入力してください..."
+"'ssm.amazonaws.com'\n"
+" Type ok to continue ..."
+msgstr ""
+"[重要] このロールが 'ec2.amazon.com' と 'ssm.amazonaws.com' "
+"に引き継がれていることを確認してください\\n 続行するには「ok」と入力してください..."
 
 msgid "Was this role generated by a previous SOCA deployment?"
 msgstr "このロールは以前の SOCA 導入によって生み出されたものですか?"
 
 msgid ""
-"[IMPORTANT] Make sure this role is assumed by "
-"'spotfleet.amazonaws.com'\n Type ok to continue ..."
-msgstr "[重要] このロールが 'spotfleet.amazonaws.com' に引き継がれていることを確認してください\\n 続行するには「OK」と入力してください..."
+"[IMPORTANT] Make sure this role is assumed by 'spotfleet.amazonaws.com'\n"
+" Type ok to continue ..."
+msgstr ""
+"[重要] このロールが 'spotfleet.amazonaws.com' に引き継がれていることを確認してください\\n "
+"続行するには「OK」と入力してください..."
 
 msgid "Disable CDK --strict setting (Failure on CDK stack warnings)"
 msgstr "CDK--strict 設定を無効にする (CDK スタックの警告で障害が発生しました)"
@@ -166,13 +367,29 @@ msgstr "AWS CDK ブートストラップ KMS キー ID"
 msgid "AWS CDK Custom Permissions Boundary"
 msgstr "AWS CDK カスタム権限境界"
 
-msgid "AWS CDK Termination Protection setting"
-msgstr "AWS CDK ターミネーションプロテクション設定"
+msgid ""
+"Do not pass --termination-protection to 'cdk bootstrap'. Bootstrapping an"
+" already-bootstrapped environment is an UpdateStack on CDKToolkit, so the"
+" flag changes that setting on a toolkit stack EDH does not own."
+msgstr ""
+"--終了保護を 'cdk ブートストラップ' に渡さないでください。すでにブートストラップされている環境をブートストラップするのは "
+"CDKToolkit の UpdateStack なので、EDH が所有していないツールキットスタックの設定を変更すると、フラグが変更されます。"
+
+msgid ""
+"Do not run 'cdk bootstrap' even when the environment version cannot be "
+"confirmed. Use when the deploy identity cannot read /cdk-"
+"bootstrap/<qualifier>/version but the environment is known good."
+msgstr ""
+"環境のバージョンを確認できない場合でも、「cdk bootstrap」を実行しないでください。デプロイ ID が /cdk-"
+"bootstrap/<qualifier>/version を読み取れないが、環境が正常であることがわかっている場合に使用します。"
 
 msgid ""
 "AWS CLI profile to use. See "
-"https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html"
-msgstr "使用する AWS CLI プロファイル。https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html を参照してください"
+"https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-"
+"profiles.html"
+msgstr ""
+"使用する AWS CLI プロファイル。https://docs.aws.amazon.com/cli/latest/userguide/cli-"
+"configure-profiles.html を参照してください"
 
 msgid "AWS region where you want to deploy your SOCA environment."
 msgstr "SOCA 環境をデプロイしたい AWS リージョン。"
@@ -183,7 +400,9 @@ msgstr "カスタム設定ファイルのパス。デフォルトは default_con
 msgid ""
 "(Deprecated) Path of AMI region mapping files. Defaults to various "
 "region_map files. Use --region-map-dir instead!"
-msgstr "(非推奨) AMI リージョンマッピングファイルのパス。デフォルトはさまざまな region_map ファイルになります。代わりに--region-map-dir を使用してください!"
+msgstr ""
+"(非推奨) AMI リージョンマッピングファイルのパス。デフォルトはさまざまな region_map ファイルになります。代わりに"
+"--region-map-dir を使用してください!"
 
 msgid "Path of AMI region_map.d directory structure"
 msgstr "AMI region_map.d ディレクトリ構造のパス"
@@ -199,9 +418,11 @@ msgstr "カスタムイメージを指定"
 
 msgid ""
 "Administrator email address(es) that will be registered for cluster "
-"notifications and alerts. Supports multiple values --email email1 "
-"--email email2 etc."
-msgstr "クラスターの通知とアラートに登録される管理者のメールアドレス。複数の値--email email1--email email2 などをサポートします。"
+"notifications and alerts. Supports multiple values --email email1 --email"
+" email2 etc."
+msgstr ""
+"クラスターの通知とアラートに登録される管理者のメールアドレス。複数の値--email email1--email email2 "
+"などをサポートします。"
 
 msgid "What IPv4 CIDR do you want to use for your VPC (eg: 10.0.0.0/16)"
 msgstr "お客様の VPC にはどの IPv4 CIDR を使用したいですか (例:10.0.0.0/16)"
@@ -222,19 +443,18 @@ msgid "Prefix list ID with IPv6 authorized to access SOCA on port 22/443"
 msgstr "ポート 22/443 で SOCA へのアクセスが許可された IPv6 のプレフィックスリスト ID"
 
 msgid ""
-"Friendly name for your SOCA cluster. Must be unique in the region. "
-"SOCA will be added as prefix"
+"Friendly name for your SOCA cluster. Must be unique in the region. SOCA "
+"will be added as prefix"
 msgstr "SOCA クラスターのわかりやすい名前。地域内で一意である必要があります。SOCA がプレフィックスとして追加されます。"
 
 msgid ""
-"Configuration key(s) to override. Syntax is "
-"'<key_name>,<type>,<value>'. You can use multiple --override if "
-"needed."
-msgstr "オーバーライドする設定キー。構文は '<key_name><type>,<value>' です。必要に応じて--override を複数使用できます。"
+"Configuration key(s) to override. Syntax is '<key_name>,<type>,<value>'. "
+"You can use multiple --override if needed."
+msgstr ""
+"オーバーライドする設定キー。構文は '<key_name><type>,<value>' です。必要に応じて--override "
+"を複数使用できます。"
 
-msgid ""
-"The preferred Linux distribution for the controller and compute "
-"instances"
+msgid "The preferred Linux distribution for the controller and compute instances"
 msgstr "コントローラーとコンピュートインスタンスに推奨される Linux ディストリビューション"
 
 msgid "Storage Provider to specify for /apps"
@@ -243,9 +463,7 @@ msgstr "/apps に指定するストレージプロバイダー"
 msgid "Storage Provider to specify for /data"
 msgstr "/data に指定するストレージプロバイダー"
 
-msgid ""
-"Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: "
-"False)"
+msgid "Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: False)"
 msgstr "クライアントIPv6プローブでIPv6を有効にする（すべてのIPv6に必要）（デフォルト：False）"
 
 msgid "Enable CDK debug mode"
@@ -258,53 +476,47 @@ msgid "Output CfnOutputs via a text file"
 msgstr "テキストファイルによる CFN 出力の出力"
 
 msgid ""
-"SOCA will create AWS resources using the default parameters specified "
-"in installer/default_config.yml.\n Make sure you have read, reviewed "
-"and updated them (if needed). Enter 'yes' to continue ..."
-msgstr "SOCA は、インストーラー/default_config.yml で指定されたデフォルトパラメータを使用して AWS リソースを作成します。\\n 必ず、それらを読み、確認し、更新してください (必要な場合)。続行するには 'yes' と入力してください..."
+"SOCA will create AWS resources using the default parameters specified in "
+"installer/default_config.yml.\n"
+" Make sure you have read, reviewed and updated them (if needed). Enter "
+"'yes' to continue ..."
+msgstr ""
+"SOCA は、インストーラー/default_config.yml で指定されたデフォルトパラメータを使用して AWS "
+"リソースを作成します。\\n 必ず、それらを読み、確認し、更新してください (必要な場合)。続行するには 'yes' と入力してください..."
 
 msgid "Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22"
 msgstr "クライアント IPv4 /CIDR が TCP ポート 443/22 で SOCA にアクセスすることを承認されました"
 
-#, python-brace-format
 msgid ""
-"FATAL ERROR: Unable to locate any valid VPCs in region {region}. "
-"Please see the VPC Table for specific errors."
-msgstr "致命的なエラー:リージョン {region} に有効な VPC が見つかりません。特定のエラーについては VPC 表を参照してください。"
-
-msgid "Choose the VPC you want to use?"
-msgstr "使用したい VPC を選択しますか?"
-
-#, python-brace-format
-msgid ""
-"FATAL ERROR: Unable to locate any valid Analytics engines in region "
-"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
-"select 'new' to create a new one."
-msgstr "致命的なエラー:リージョン {region}-VPC {vpc_id} に有効なアナリティクスエンジンが見つかりません。確認してもう一度試すか、再実行して「新規」を選択して新しいものを作成してください。"
-
-msgid "Choose the OpenSearch Cluster you want to use?"
-msgstr "使用したい OpenSearch クラスターを選択しますか?"
-
-msgid "Choose the directory you want to use?"
-msgstr "使用したいディレクトリを選択しますか?"
-
-msgid "How many of these subnets do you want to use?"
-msgstr "これらのサブネットのうち、使用したいサブネットはいくつですか?"
-
-msgid ""
-"Your security groups may not be configured correctly. Verify them and "
-"determine if the warnings listed above are false-positive.\n Do you "
-"still want to continue with the installation?"
-msgstr "セキュリティグループが正しく設定されていない可能性があります。これらを確認して、上記の警告が誤検出であるかどうかを判断してください。\\n それでもインストールを続行しますか?"
-
-msgid ""
-"Create EDH installer. Visit "
-"https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ "
-"if you need help"
-msgstr "EDH インストーラーを作成します。ヘルプが必要な場合は https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ をご覧ください。"
+"Create EDH installer. Visit https://awslabs.github.io/engineering-"
+"development-hub-documentation/documentation/01-install-edh-cluster/ if "
+"you need help"
+msgstr ""
+"EDH インストーラーを作成します。ヘルプが必要な場合は https://awslabs.github.io/engineering-"
+"development-hub-documentation/documentation/01-install-edh-cluster/ "
+"をご覧ください。"
 
 msgid "AWS CDK Bootstrap Profile"
 msgstr "AWS CDK ブートストラッププロファイル"
+
+msgid ""
+"CDK deployment method (only used when --cdk-cmd is deploy/create/update)."
+" 'direct' (default) calls CreateStack/UpdateStack directly; faster, "
+"simpler progress display, recommended for SOCA which is install-only. "
+"SOCA references existing AWS resources (VPC, subnets, certificates, key "
+"pairs) via synth-time lookups, which are unaffected by deploy method. "
+"'change-set' creates and executes a CFN change set; use this if you need "
+"a CloudFormation change set audit record for compliance, want to preview "
+"replacement risk on incremental updates, or are forking the installer to "
+"use 'cdk deploy --import-existing-resources' (which requires change-set)."
+msgstr ""
+"CDK デプロイ方法 (--cdk-cmd がデプロイ/作成/更新の場合にのみ使用)。'direct' (デフォルト) は "
+"CreateStack/UpdateStack を直接呼び出すため、進行状況をより速く、よりシンプルに表示できます。インストールのみの SOCA "
+"に推奨されます。SOCA はシンセタイムルックアップを介して既存の AWS リソース (VPC、サブネット、証明書、キーペア) "
+"を参照しますが、これらはデプロイメソッドの影響を受けません。「change-set」は CFN "
+"変更セットを作成して実行します。CloudFormation "
+"変更セット監査レコードのコンプライアンスが必要な場合、インクリメンタルアップデートで置き換えられるリスクをプレビューしたい場合、またはインストーラを「cdk"
+" deploy--import-existing-resources」（変更セットが必要）を使用するようにフォークする場合に使用します。"
 
 msgid "Skip the configuration review prompt"
 msgstr "設定レビュープロンプトをスキップする"
@@ -312,15 +524,24 @@ msgstr "設定レビュープロンプトをスキップする"
 msgid "AWS region to deploy EDH in"
 msgstr "EDH をデプロイする AWS リージョン"
 
-msgid "Base OS for EDH controller and login nodes"
-msgstr "EDH コントローラーとログインノード用のベース OS"
+#, python-brace-format
+msgid ""
+"Base OS for EDH controller and login nodes. Values in {preview} are "
+"preview releases, not for production use."
+msgstr "EDH コントローラーとログインノード用のベース OS。{preview} の値はプレビューリリースであり、本番環境では使用できません。"
+
+msgid ""
+"Show preview base OS releases in the interactive selection list. --base-"
+"os accepts a preview value with or without this flag; it only controls "
+"whether the interactive list offers one."
+msgstr ""
+"インタラクティブセレクションリストにベースOSリリースのプレビューを表示します。--base-os "
+"は、このフラグの有無にかかわらずプレビュー値を受け入れます。インタラクティブリストにプレビュー値があるかどうかのみを制御します。"
 
 msgid "EDH cluster name (e.g. edh-mycluster)"
 msgstr "EDH クラスター名 (例:edh-mycluster)"
 
-msgid ""
-"Email address for cluster notifications (can be specified multiple "
-"times)"
+msgid "Email address for cluster notifications (can be specified multiple times)"
 msgstr "クラスター通知用のメールアドレス (複数回指定可能)"
 
 msgid "S3 bucket for EDH state storage"
@@ -335,35 +556,29 @@ msgstr "新しい VPC の VPC CIDR ブロック (例:10.0.0.0/16)"
 msgid "Existing VPC ID to deploy into"
 msgstr "デプロイ先の既存の VPC ID"
 
-msgid ""
-"Client IP/CIDR authorized to access EDH (can be specified multiple "
-"times)"
+msgid "Client IP/CIDR authorized to access EDH (can be specified multiple times)"
 msgstr "EDH へのアクセスが許可されたクライアント IP/CIDR (複数回指定可能)"
 
 msgid ""
-"Public subnet IDs when using an existing VPC. Use + to specify more "
-"than 1 subnet."
+"Public subnet IDs when using an existing VPC. Use + to specify more than "
+"1 subnet."
 msgstr "既存の VPC を使用する場合のパブリックサブネット ID。+ を使用して複数のサブネットを指定します。"
 
 msgid ""
-"Private subnet IDs when using an existing VPC. Use + to specify more "
-"than 1 subnet."
+"Private subnet IDs when using an existing VPC. Use + to specify more than"
+" 1 subnet."
 msgstr "既存の VPC を使用する場合のプライベートサブネット ID。+ を使用して複数のサブネットを指定します。"
 
 msgid "Select if you want to add Prefix List to your security groups."
 msgstr "セキュリティグループにプレフィックスリストを追加するかどうかを選択します。"
 
-msgid ""
-"Filesystem provider for /apps (efs, fsx_lustre, fsx_ontap, "
-"fsx_openzfs)"
+msgid "Filesystem provider for /apps (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 msgstr "/apps のファイルシステムプロバイダー (efs、fsx_lustre、fsx_ontap、fsx_openzfs)"
 
 msgid "Existing filesystem DNS/IP for /apps"
 msgstr "/apps 用の既存のファイルシステム DNS/IP"
 
-msgid ""
-"Filesystem provider for /data (efs, fsx_lustre, fsx_ontap, "
-"fsx_openzfs)"
+msgid "Filesystem provider for /data (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 msgstr "/data のファイルシステムプロバイダー (efs、fsx_lustre、fsx_ontap、fsx_openzfs)"
 
 msgid "Existing filesystem DNS/IP for /data"
@@ -371,3 +586,55 @@ msgstr "/data 用の既存のファイルシステム DNS/IP"
 
 msgid "Existing OpenSearch domain endpoint URL"
 msgstr "既存の OpenSearch ドメインエンドポイント URL"
+
+msgid ""
+"TLS certificate for the cluster ALB. Pass 'auto' to reuse the EDH default"
+" ACM cert (creating a self-signed one if absent -- not for production), "
+"or an ACM certificate ARN. Omit to use the interactive prompt."
+msgstr ""
+"クラスター ALB の TLS 証明書。EDH デフォルト ACM 証明書 (存在しない場合は自己署名証明書を作成し、本番環境には使用しない) "
+"または ACM 証明書 ARN を再利用するには 'auto' を渡します。インタラクティブプロンプトの使用は省略してください。"
+
+msgid ""
+"Decide where to deploy the Elastic and Network Load Balancer (public "
+"-recommended- or private subnets). If private, ensure you have a VPN or "
+"Direct Connect set up to access the cluster from your client machines."
+msgstr ""
+"ElasticとNetwork Load "
+"Balancerをデプロイする場所（パブリックサブネット（推奨）またはプライベートサブネット）を決定します。プライベートの場合は、クライアントマシンからクラスターにアクセスできるように"
+" VPN または Direct Connect が設定されていることを確認してください。"
+
+msgid "Skip Customer Managed KMS Key policy validation checks"
+msgstr "カスタマーマネージド KMS キーポリシー検証チェックを省略"
+
+#~ msgid ""
+#~ "Client IPv4/IPv6 or CIDR range "
+#~ "authorized to access EDH on TCP "
+#~ "ports 443/22:"
+#~ msgstr "TCP ポート 443/22 の EDH へのアクセスが許可されたクライアント IPv4/IPv6 または CIDR 範囲:"
+
+#~ msgid ""
+#~ "Enter the name of an S3 bucket "
+#~ "you own in the target region to"
+#~ " be used for cluster state storage:"
+#~ msgstr "クラスターステートストレージに使用する、ターゲットリージョンで所有している S3 バケットの名前を入力します。"
+
+#~ msgid ""
+#~ "Select the filesystem provider for /apps"
+#~ " (where applications will be installed):"
+#~ msgstr "/apps (アプリケーションのインストール先) のファイルシステムプロバイダーを選択してください:"
+
+#~ msgid ""
+#~ "Select the filesystem provider for /data"
+#~ " (where user data will be stored):"
+#~ msgstr "/data (ユーザーデータが保存される) のファイルシステムプロバイダーを選択してください:"
+
+#~ msgid "Select the AWS PCS cluster to link to"
+#~ msgstr "リンクする AWS PCS クラスターを選択してください"
+
+#~ msgid "AWS CDK Termination Protection setting"
+#~ msgstr "AWS CDK ターミネーションプロテクション設定"
+
+#~ msgid "Base OS for EDH controller and login nodes"
+#~ msgstr "EDH コントローラーとログインノード用のベース OS"
+

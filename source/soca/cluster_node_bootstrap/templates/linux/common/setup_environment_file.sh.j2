@@ -3,15 +3,26 @@
 
 # Begin - Setup /etc/environment
 function set_environment_variable () {
-  local VARIABLE_NAME=${1}
-  local VARIABLE_VALUE=${2}
+  local VARIABLE_NAME=${1:-}
+  local VARIABLE_VALUE=${2:-}
   local SOCA_IDENTIFIER="# SOCA Environment Variable, [SOCA_DO_NOT_DELETE]" # added to each entry
 
-  if [[ -z ${VARIABLE_NAME} ]]; then
+  if [[ $# -lt 1 || -z ${VARIABLE_NAME} ]]; then
     exit_fail "set_environment_variable. VARIABLE_NAME (first argument) not found"
   fi
-  if [[ -z ${VARIABLE_VALUE} ]]; then
+  if [[ $# -lt 2 ]]; then
     exit_fail "set_environment_variable. VARIABLE_VALUE (second argument) not found"
+  fi
+
+  # An empty value is a legitimate "this is not set" -- e.g. EDH_JOB_PROJECT for a
+  # job submitted without -P. Remove any stale line and leave the variable absent,
+  # which is what every consumer's [[ -n ]] test already means. Writing it would
+  # store printf %q's '' (two literal apostrophes) and read back as set.
+  if [[ -z ${VARIABLE_VALUE} ]]; then
+    log_info "${VARIABLE_NAME} has no value, leaving it unset in /etc/environment"
+    sed -i "/^[^#]*${VARIABLE_NAME}=/d" /etc/environment
+    unset "${VARIABLE_NAME}"
+    return 0
   fi
 
   # Quote the value properly

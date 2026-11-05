@@ -11,14 +11,84 @@ function disable_selinux () {
       systemctl disable apparmor
     fi
 
+  {% elif context.get("/job/BaseOS") == "amazonlinux2027" %}
+    # AL2027 has no CONFIG_SECURITY_SELINUX_DISABLE, so SELINUX=disabled loads no policy and
+    # systemd panics at early boot. selinux=0 on the kernel command line is the supported way.
+    log_info "Disable SELinux via the kernel command line"
+    local _selinux_reboot_needed="false"
+    local _grub_source_file
+
+    # the AMI ships selinux=1 security=selinux enforcing=1, so those are removed, not appended to
+    if command -v grubby > /dev/null 2>&1; then
+      if grubby --info=DEFAULT 2>/dev/null | grep -qE '^args=.*selinux=0'; then
+        log_info "Kernel command line already has selinux=0"
+      elif grubby --update-kernel=ALL --remove-args="selinux enforcing security" --args="selinux=0" > /dev/null 2>&1; then
+        log_info "Set selinux=0 via grubby"
+        _selinux_reboot_needed="true"
+      else
+        log_warning "grubby could not set selinux=0, SELinux stays enabled after reboot"
+      fi
+    else
+      log_warning "grubby not found, SELinux stays enabled after reboot"
+    fi
+
+    # a kernel install regenerates the boot entry from these
+    for _grub_source_file in /etc/default/grub /etc/kernel/cmdline; do
+      if [[ -f "${_grub_source_file}" ]] && grep -qE '(selinux=1|enforcing=[01]|security=selinux)' "${_grub_source_file}"; then
+        sed -i -E 's/ *\bsecurity=selinux\b//g; s/ *\benforcing=[01]\b//g; s/\bselinux=1\b/selinux=0/g' "${_grub_source_file}"
+        log_info "Set selinux=0 in ${_grub_source_file}"
+      fi
+    done
+
+    # permissive, not disabled: a safe fallback if selinux=0 is ever absent
+    if grep -qE '^SELINUX=(enforcing|disabled)$' /etc/selinux/config 2>/dev/null; then
+      sed -i -E 's/^SELINUX=(enforcing|disabled)$/SELINUX=permissive/' /etc/selinux/config
+      _selinux_reboot_needed="true"
+    fi
+
+    if [[ "$(getenforce 2>/dev/null)" == "Enforcing" ]]; then
+      setenforce 0 2>/dev/null || log_warning "setenforce 0 failed, SELinux enforcing until reboot"
+    fi
+
+    if [[ "${_selinux_reboot_needed}" == "true" ]]; then
+      {% if context.get("/job/NodeType") == "pcs_node" %}
+        log_warning "SELinux disable needs a reboot to fully apply, skipped on PCS node. Pre-bake selinux=0 into the PCS AMI."
+      {% else %}
+        set_reboot_required "Disable SE Linux"
+      {% endif %}
+    fi
+
   {% else %}
     log_info "Disable SELinux RedHat based distributions"
-    if ! sestatus | grep -q "disabled"; then
-      # disables selinux for current session
-      sestatus 0
+
+    # Take the RUNNING session out of enforcing straight away. The old code called
+    # `sestatus 0` here, which is a status reporter that ignores the argument and
+    # exits 0, so the running session was never changed.
+    if [[ "$(getenforce 2>/dev/null)" == "Enforcing" ]]; then
+      setenforce 0 2>/dev/null || log_warning "setenforce 0 failed, SELinux stays enforcing until reboot"
+    fi
+
+    # Gate the reboot on the CONFIG FILE, because that is what a reboot applies.
+    # Only an enforcing config needs changing: AL2 ships SELINUX=disabled and
+    # AL2023 ships SELINUX=permissive (enabled but not enforcing), so neither
+    # needs a reboot.
+    #
+    # The old guard asked `sestatus` for the string "disabled" instead. That was an
+    # AL2-era assumption -- AL2 shipped SELinux disabled -- and a permissive system
+    # never prints it, while the sed only matched SELINUX=enforcing and so changed
+    # nothing. On AL2023 the guard was therefore true on every pass, and since
+    # 01_user_data reboots whenever this sets the flag, the controller rebooted
+    # every ~22 seconds forever and bootstrap never reached the filesystem mounts.
+    if grep -qE '^SELINUX=enforcing$' /etc/selinux/config 2>/dev/null; then
+      sed -i -E 's/^SELINUX=enforcing$/SELINUX=disabled/' /etc/selinux/config
       # reboot is required to apply this change permanently. ensure reboot is the last line called from userdata.
       sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
-      set_reboot_required "Disable SE Linux"
+      {% if context.get("/job/NodeType") == "pcs_node" %}
+        log_warning "SELinux disable needs a reboot to fully apply, skipped on PCS node. Pre-bake SELINUX=disabled into the PCS AMI."
+        setenforce 0 2>/dev/null || log_warning "setenforce 0 failed, SELinux enforcing until reboot"
+      {% else %}
+        set_reboot_required "Disable SE Linux"
+      {% endif %}
     fi
   {% endif %}
 }

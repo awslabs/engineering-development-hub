@@ -43,6 +43,15 @@
 .edh-tab.connecting  .edh-tab-state { background: #fbbf24; }
 .edh-tab.disconnected .edh-tab-state { background: #f87171; }
 .edh-tab.detached    .edh-tab-state { background: #9ca3af; }
+/* Paused: idle timeout closed the socket but the remote tmux session is
+   still there, so it reads as amber-warning rather than failure. */
+.edh-tab.paused      .edh-tab-state { background: #f59e0b; }
+/* Ended: the remote session is gone. Hollow dot - there is nothing behind
+   this tab until the user starts a new session in it. */
+.edh-tab.ended       .edh-tab-state {
+    background: transparent;
+    box-shadow: inset 0 0 0 2px #f87171;
+}
 
 .edh-tab-label {
     flex: 1;
@@ -104,6 +113,27 @@
     font-size: 13px;
     text-align: center;
 }
+/* Shown while init() discovers existing sessions on the login nodes */
+.edh-loading-state {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #9ca3af;
+    font-family: "Fira Code", "Cascadia Code", "Menlo", monospace;
+    font-size: 13px;
+}
+.edh-loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #4ade80;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: edh-spin 0.75s linear infinite;
+}
+@keyframes edh-spin { to { transform: rotate(360deg); } }
 .edh-empty-state button {
     margin-top: 12px;
     padding: 8px 16px;

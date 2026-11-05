@@ -89,7 +89,7 @@ function install_munge {
         log_info "Installing MUNGE ${MUNGE_VERSION}"
 
         log_info "Removing any potential system-installed MUNGE"
-        {% if context.get("/job/BaseOS") in ["amazonlinux2", "amazonlinux2023", "rhel8", "rhel9", "rocky8", "rocky9"] %}
+        {% if context.get("/job/BaseOS") in ["amazonlinux2", "amazonlinux2023", "amazonlinux2027", "rhel8", "rhel9", "rocky8", "rocky9"] %}
           packages_generic_command  remove -y munge munge-devel munge-libs
         {% elif context.get("/job/BaseOS") in ["ubuntu2204", "ubuntu2404"] %}
           packages_generic_command remove --purge -y munge

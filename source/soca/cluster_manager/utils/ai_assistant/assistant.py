@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from flask import session
+from flask import request, session
 from typing import Optional
 from utils.error import SocaError
 from utils.config import SocaConfig
@@ -56,7 +56,6 @@ class SocaAiAssistant:
         self._guardrail_id = guardrail_id
         self._guardrail_version = guardrail_version
         self._token_usage = SocaAiAssistantTokenUsage(username=username)
-        self._client = None
         self._last_usage = None
 
     @property
@@ -66,12 +65,17 @@ class SocaAiAssistant:
     @staticmethod
     def generate_system_prompt(
         user_specified_system_prompt: Optional[str] = None,
+        include_edh_context: bool = True,
     ) -> str:
         """Generate the final system prompt by appending enforced context to the admin-configured prompt.
 
         The enforced suffix ensures the model always has access to EDH documentation
         and source code references, regardless of what the admin/user provides.
         Links already present in the user prompt are not duplicated.
+
+        Set include_edh_context=False when a Knowledge Base grounds the answer: the EDH
+        block scopes the model to EDH/CAE topics and tells it to consult EDH documentation
+        first, which makes it deflect questions the retrieved documents answer.
         """
 
         _EDH_DOC_URL = (
@@ -82,6 +86,9 @@ class SocaAiAssistant:
         base = (
             user_specified_system_prompt.strip() if user_specified_system_prompt else ""
         )
+
+        if not include_edh_context:
+            return base
 
         _user = session.get("user") or request.headers.get("X-EDH-USER")
 
@@ -110,7 +117,7 @@ class SocaAiAssistant:
             "- **Backup**: Automatic native backups via AWS Backups: https://awslabs.github.io/engineering-development-hub-documentation/documentation/security/backup-restore-your-cluster/\n"
             "- **Analytics and Business Inteligence**: Create Dashboards via https://awslabs.github.io/engineering-development-hub-documentation/documentation/analytics/\n\n "
             "## Troubleshooting\n"
-            f"- You are logged as user: {_user}"
+            f"- You are logged as user: {_user}\n"
             "- Bootstrap sequence: https://awslabs.github.io/engineering-development-hub-documentation/documentation/architecture/node-bootstrap/\n"
             "- DCV node logs: /apps/edh/<cluster_id>/shared/logs/dcv_node/<username>/<session_name>\n"
             "- HPC compute node logs: /apps/edh/<cluster_id>/shared/logs/compute_node/<job_id>/<host>\n"
@@ -122,7 +129,7 @@ class SocaAiAssistant:
         )
 
         _full_system_prompt = base + _enforced_context
-        logger.debug(f"Full system prompt: {_full_system_prompt}")
+        logger.debug("Full system prompt: %s", _full_system_prompt)
         return _full_system_prompt
 
     @staticmethod
@@ -134,6 +141,33 @@ class SocaAiAssistant:
         if resp.get("success") is False:
             return SocaResponse(success=True, message=[])
         return SocaResponse(success=True, message=resp.get("message") or [])
+
+    @staticmethod
+    def list_knowledge_bases() -> SocaResponse:
+        """List allowed Bedrock Knowledge Base IDs from configuration."""
+        resp = SocaConfig(
+            key="/configuration/AIAssistant/allowed_knowledge_base_ids"
+        ).get_value(return_as=list)
+        if resp.get("success") is False:
+            return SocaResponse(success=True, message=[])
+        return SocaResponse(success=True, message=resp.get("message") or [])
+
+    @staticmethod
+    def _validate_knowledge_base(knowledge_base_id: str) -> SocaResponse:
+        """Reject Knowledge Base IDs that are not in the configured allowlist. Called before each KB request."""
+        _allowed_kbs = SocaAiAssistant.list_knowledge_bases().get("message")
+        if not _allowed_kbs:
+            return SocaError.GENERIC_ERROR(
+                helper="No knowledge bases configured. Add IDs to /configuration/AIAssistant/allowed_knowledge_base_ids"
+            )
+        if knowledge_base_id not in _allowed_kbs:
+            logger.warning(
+                "Rejected knowledge_base_id=%s, not in allowed list", knowledge_base_id
+            )
+            return SocaError.GENERIC_ERROR(
+                helper=f"Knowledge base '{knowledge_base_id}' is not allowed."
+            )
+        return SocaResponse(success=True, message=knowledge_base_id)
 
     @staticmethod
     def _get_bedrock_model_inference_profile_arn(model_id: str) -> str:
@@ -183,23 +217,12 @@ class SocaAiAssistant:
         logger.info(f"Resolved model inference ARN: {self._model_inference_arn}")
         return SocaResponse(success=True, message=self._model_inference_arn)
 
-    def _get_client(self, service_name: str = "bedrock-runtime") -> SocaResponse:
-        if service_name == "bedrock-runtime":
-            if self._client is None:
-                _region = SocaConfig(key="/configuration/Region").get_value().message
-                response = utils_boto3.get_boto(
-                    service_name="bedrock-runtime", region_name=_region
-                )
-                if response.get("success") is False:
-                    return response
-                self._client = response.message
-            return SocaResponse(success=True, message=self._client)
-
+    @staticmethod
+    def _get_client(service_name: str = "bedrock-runtime") -> SocaResponse:
+        """Return a boto3 client for a Bedrock service (bedrock-runtime, bedrock-agent-runtime, bedrock-agentcore).
+        Clients are cached by get_boto."""
         _region = SocaConfig(key="/configuration/Region").get_value().message
-        response = utils_boto3.get_boto(service_name=service_name, region_name=_region)
-        if response.get("success") is False:
-            return response
-        return SocaResponse(success=True, message=response.message)
+        return utils_boto3.get_boto(service_name=service_name, region_name=_region)
 
     @property
     def last_usage(self) -> Optional[dict]:
@@ -313,8 +336,18 @@ class SocaAiAssistant:
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         messages: Optional[list] = None,
+        mcp_server_names: Optional[list[str]] = None,
+        max_tool_rounds: int = 10,
+        knowledge_base_id: Optional[str] = None,
+        number_of_results: int = 5,
     ):
-        """Stream a conversation response from Bedrock.
+        """Stream a conversation response from Bedrock, with optional MCP tool-use support.
+
+        When mcp_server_names is set, the model can call MCP tools and the conversation loops
+        (up to max_tool_rounds) until the model stops requesting tools.
+
+        When knowledge_base_id is set, the response is grounded on that Bedrock Knowledge
+        Base via retrieve_and_generate_stream. It cannot be combined with mcp_server_names.
 
         Returns a SocaResponse on error, or a generator that yields text chunks on success.
         Caller must check isinstance(result, SocaResponse) before iterating.
@@ -327,10 +360,42 @@ class SocaAiAssistant:
         if _token_check.get("success") is False:
             return SocaError.GENERIC_ERROR(helper=_token_check.get("message"))
 
+        if knowledge_base_id:
+            if mcp_server_names:
+                return SocaError.GENERIC_ERROR(
+                    helper="knowledge_base_id cannot be combined with mcp_server_names"
+                )
+            return self.converse_with_kb_stream(
+                prompt=prompt,
+                knowledge_base_id=knowledge_base_id,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                number_of_results=number_of_results,
+            )
+
+        tools_mgr = None
+        tool_config = None
+        if mcp_server_names:
+            from utils.ai_assistant.mcp_tools import SocaAiAssistantMcpTools
+
+            tools_mgr = SocaAiAssistantMcpTools()
+            _connect_resp = tools_mgr.connect_servers(server_names=mcp_server_names)
+            if _connect_resp.get("success") is False:
+                return SocaError.GENERIC_ERROR(helper=_connect_resp.get("message"))
+
+            if not tools_mgr.has_tools:
+                return SocaError.GENERIC_ERROR(
+                    helper="No MCP tools available from the configured servers"
+                )
+
+            tool_config = tools_mgr.get_bedrock_tool_config()
+        else:
+            max_tool_rounds = 1
+
         _max_tokens = max_tokens or self._max_tokens
         _temperature = temperature if temperature is not None else self._temperature
         _top_p = top_p if top_p is not None else self._top_p
-        _model = self._model_inference_arn
 
         inference_config = {"maxTokens": _max_tokens}
         if _temperature is not None:
@@ -347,14 +412,14 @@ class SocaAiAssistant:
             _bedrock_messages = [{"role": "user", "content": [{"text": prompt}]}]
 
         kwargs = {
-            "modelId": _model,
+            "modelId": self._model_inference_arn,
             "messages": _bedrock_messages,
             "inferenceConfig": inference_config,
         }
-
         if system_prompt:
             kwargs["system"] = [{"text": system_prompt}]
-
+        if tool_config:
+            kwargs["toolConfig"] = tool_config
         if self._guardrail_id and self._guardrail_version:
             kwargs["guardrailConfig"] = {
                 "guardrailIdentifier": self._guardrail_id,
@@ -363,6 +428,8 @@ class SocaAiAssistant:
 
         _client_response = self._get_client()
         if _client_response.get("success") is False:
+            if tools_mgr:
+                tools_mgr.cleanup()
             return SocaError.GENERIC_ERROR(helper=_client_response.get("message"))
 
         _bedrock_client = _client_response.message
@@ -372,121 +439,17 @@ class SocaAiAssistant:
         else:
             _estimated_input = len(prompt) // 4
         _pre_charged = _estimated_input + _max_tokens
-        self._token_usage.increment(_pre_charged)
 
         def _stream():
-            response = _bedrock_client.converse_stream(**kwargs)
-
-            for event in response.get("stream", []):
-                if "contentBlockDelta" in event:
-                    delta = event["contentBlockDelta"].get("delta", {})
-                    text = delta.get("text", "")
-                    if text:
-                        yield text
-                elif "metadata" in event:
-                    self._last_usage = event["metadata"].get("usage")
-                    if self._last_usage:
-                        actual_total = self._last_usage.get("totalTokens") or (
-                            self._last_usage.get("inputTokens", 0)
-                            + self._last_usage.get("outputTokens", 0)
-                        )
-                        correction = actual_total - _pre_charged
-                        if correction != 0:
-                            self._token_usage.increment(correction)
-
-        return _stream()
-
-    def converse_stream_with_tools(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        messages: Optional[list] = None,
-        mcp_server_names: Optional[list[str]] = None,
-        max_tool_rounds: int = 10,
-    ):
-        """Stream a conversation with MCP tool-use support.
-
-        Returns a SocaResponse on error, or a generator that yields text chunks on success.
-        Caller must check isinstance(result, SocaResponse) before iterating.
-        """
-        from utils.ai_assistant.mcp_tools import SocaAiAssistantMcpTools
-
-        _model_check = self._resolve_and_validate_model()
-        if _model_check.get("success") is False:
-            return SocaError.GENERIC_ERROR(helper=_model_check.get("message"))
-
-        _token_check = self._token_usage.verify_quota_available()
-        if _token_check.get("success") is False:
-            return SocaError.GENERIC_ERROR(helper=_token_check.get("message"))
-
-        tools_mgr = SocaAiAssistantMcpTools()
-        _connect_resp = tools_mgr.connect_servers(server_names=mcp_server_names)
-        if _connect_resp.get("success") is False:
-            return SocaError.GENERIC_ERROR(helper=_connect_resp.get("message"))
-
-        if not tools_mgr.has_tools:
-            return SocaError.GENERIC_ERROR(
-                helper="No MCP tools available from the configured servers"
-            )
-
-        tool_config = tools_mgr.get_bedrock_tool_config()
-
-        _max_tokens = max_tokens or self._max_tokens
-        _temperature = temperature if temperature is not None else self._temperature
-        _top_p = top_p if top_p is not None else self._top_p
-        _model = self._model_inference_arn
-
-        inference_config = {"maxTokens": _max_tokens}
-        if _temperature is not None:
-            inference_config["temperature"] = _temperature
-        if _top_p is not None:
-            inference_config["topP"] = _top_p
-
-        if messages:
-            _bedrock_messages = [
-                {"role": m["role"], "content": [{"text": m["content"]}]}
-                for m in messages
-            ]
-        else:
-            _bedrock_messages = [{"role": "user", "content": [{"text": prompt}]}]
-
-        _client_response = self._get_client()
-        if _client_response.get("success") is False:
-            tools_mgr.cleanup()
-            return SocaError.GENERIC_ERROR(helper=_client_response.get("message"))
-
-        _bedrock_client = _client_response.message
-
-        if messages:
-            _estimated_input = sum(len(m["content"]) for m in messages) // 4
-        else:
-            _estimated_input = len(prompt) // 4
-        _pre_charged = _estimated_input + _max_tokens
-        self._token_usage.increment(_pre_charged)
-
-        def _stream():
-            nonlocal _pre_charged
             try:
                 for _round in range(max_tool_rounds):
-                    kwargs = {
-                        "modelId": _model,
-                        "messages": _bedrock_messages,
-                        "inferenceConfig": inference_config,
-                    }
-                    if system_prompt:
-                        kwargs["system"] = [{"text": system_prompt}]
-                    if tool_config:
-                        kwargs["toolConfig"] = tool_config
-                    if self._guardrail_id and self._guardrail_version:
-                        kwargs["guardrailConfig"] = {
-                            "guardrailIdentifier": self._guardrail_id,
-                            "guardrailVersion": self._guardrail_version,
-                        }
-
                     response = _bedrock_client.converse_stream(**kwargs)
+                    # Only charge once Bedrock accepted the request. The first round is
+                    # pre-charged with an estimate, then corrected with the actual usage.
+                    _charged = 0
+                    if _round == 0:
+                        self._token_usage.increment(_pre_charged)
+                        _charged = _pre_charged
 
                     _assistant_content = []
                     _tool_use_block = None
@@ -538,12 +501,11 @@ class SocaAiAssistant:
                                     self._last_usage.get("inputTokens", 0)
                                     + self._last_usage.get("outputTokens", 0)
                                 )
-                                correction = actual_total - _pre_charged
+                                correction = actual_total - _charged
                                 if correction != 0:
                                     self._token_usage.increment(correction)
-                                _pre_charged = actual_total
 
-                    if _stop_reason != "tool_use":
+                    if tools_mgr is None or _stop_reason != "tool_use":
                         break
 
                     _bedrock_messages.append(
@@ -578,9 +540,73 @@ class SocaAiAssistant:
                         break
 
             finally:
-                tools_mgr.cleanup()
+                if tools_mgr:
+                    tools_mgr.cleanup()
 
         return _stream()
+
+    def _build_kb_request(
+        self,
+        prompt: str,
+        knowledge_base_id: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        number_of_results: int = 5,
+    ) -> dict:
+        """Build the kwargs shared by retrieve_and_generate and retrieve_and_generate_stream."""
+        _max_tokens = max_tokens or self._max_tokens
+        _temperature = temperature if temperature is not None else self._temperature
+
+        _text_inference_config = {"maxTokens": _max_tokens}
+        if _temperature is not None:
+            _text_inference_config["temperature"] = _temperature
+
+        _generation_config = {
+            "inferenceConfig": {
+                "textInferenceConfig": _text_inference_config,
+            }
+        }
+
+        if system_prompt:
+            # retrieve_and_generate owns the model's "system" field (it renders the RAG
+            # template into it), so passing "system" via additionalModelRequestFields is
+            # rejected with a ValidationException. Inject the system prompt through the
+            # prompt template instead. $search_results$ is mandatory, and
+            # $output_format_instructions$ keeps citations in the response.
+            _generation_config["promptTemplate"] = {
+                "textPromptTemplate": (
+                    f"{system_prompt}\n\n"
+                    "Answer the user's question using the search results below. "
+                    "If the search results do not contain the answer, say so.\n\n"
+                    "Here are the search results in numbered order:\n"
+                    "$search_results$\n\n"
+                    "$output_format_instructions$"
+                )
+            }
+
+        if self._guardrail_id and self._guardrail_version:
+            _generation_config["guardrailConfiguration"] = {
+                "guardrailId": self._guardrail_id,
+                "guardrailVersion": self._guardrail_version,
+            }
+
+        return {
+            "input": {"text": prompt},
+            "retrieveAndGenerateConfiguration": {
+                "type": "KNOWLEDGE_BASE",
+                "knowledgeBaseConfiguration": {
+                    "knowledgeBaseId": knowledge_base_id,
+                    "modelArn": self._model_inference_arn,
+                    "retrievalConfiguration": {
+                        "vectorSearchConfiguration": {
+                            "numberOfResults": number_of_results,
+                        }
+                    },
+                    "generationConfiguration": _generation_config,
+                },
+            },
+        }
 
     def converse_with_kb(
         self,
@@ -601,9 +627,9 @@ class SocaAiAssistant:
             temperature: Override temperature for the generation.
             number_of_results: Number of KB chunks to retrieve (default: 5).
         """
-        _max_tokens = max_tokens or self._max_tokens
-        _temperature = temperature if temperature is not None else self._temperature
-        _model = self._model_inference_arn
+        _kb_check = self._validate_knowledge_base(knowledge_base_id)
+        if _kb_check.get("success") is False:
+            return _kb_check
 
         _client_response = self._get_client("bedrock-agent-runtime")
         if _client_response.get("success") is False:
@@ -611,48 +637,19 @@ class SocaAiAssistant:
         else:
             _bedrock_client = _client_response.get("message")
 
-        _text_inference_config = {"maxTokens": _max_tokens}
-        if _temperature is not None:
-            _text_inference_config["temperature"] = _temperature
-
-        kwargs = {
-            "input": {"text": prompt},
-            "retrieveAndGenerateConfiguration": {
-                "type": "KNOWLEDGE_BASE",
-                "knowledgeBaseConfiguration": {
-                    "knowledgeBaseId": knowledge_base_id,
-                    "modelArn": _model,
-                    "retrievalConfiguration": {
-                        "vectorSearchConfiguration": {
-                            "numberOfResults": number_of_results,
-                        }
-                    },
-                    "generationConfiguration": {
-                        "inferenceConfig": {
-                            "textInferenceConfig": _text_inference_config,
-                        }
-                    },
-                },
-            },
-        }
-
-        if system_prompt:
-            kwargs["retrieveAndGenerateConfiguration"]["knowledgeBaseConfiguration"][
-                "generationConfiguration"
-            ]["additionalModelRequestFields"] = {"system": system_prompt}
-
-        if self._guardrail_id and self._guardrail_version:
-            kwargs["retrieveAndGenerateConfiguration"]["knowledgeBaseConfiguration"][
-                "generationConfiguration"
-            ]["guardrailConfiguration"] = {
-                "guardrailId": self._guardrail_id,
-                "guardrailVersion": self._guardrail_version,
-            }
+        kwargs = self._build_kb_request(
+            prompt=prompt,
+            knowledge_base_id=knowledge_base_id,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            number_of_results=number_of_results,
+        )
 
         try:
-            logger.debug(f"Calling Bedrock retrieve_and_generate with kwargs: {kwargs}")
+            logger.debug("Calling Bedrock retrieve_and_generate with kwargs: %s", kwargs)
             response = _bedrock_client.retrieve_and_generate(**kwargs)
-            logger.debug(f"Bedrock response: {response}")
+            logger.debug("Bedrock response: %s", response)
             return SocaResponse(
                 success=True,
                 message=response.get("output", {}).get("text", ""),
@@ -663,6 +660,61 @@ class SocaAiAssistant:
             return SocaError.GENERIC_ERROR(
                 helper=f"Bedrock Knowledge Base query failed: {e}"
             )
+
+    def converse_with_kb_stream(
+        self,
+        prompt: str,
+        knowledge_base_id: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        number_of_results: int = 5,
+    ):
+        """Stream a RAG response from a Bedrock Knowledge Base.
+
+        The request is sent eagerly so validation/access errors surface as a SocaResponse
+        instead of failing mid-stream.
+
+        Returns a SocaResponse on error, or a generator that yields text chunks on success.
+        Caller must check isinstance(result, SocaResponse) before iterating.
+        """
+        _kb_check = self._validate_knowledge_base(knowledge_base_id)
+        if _kb_check.get("success") is False:
+            return _kb_check
+
+        _client_response = self._get_client("bedrock-agent-runtime")
+        if _client_response.get("success") is False:
+            return SocaError.GENERIC_ERROR(helper=_client_response.get("message"))
+        _bedrock_client = _client_response.get("message")
+
+        kwargs = self._build_kb_request(
+            prompt=prompt,
+            knowledge_base_id=knowledge_base_id,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            number_of_results=number_of_results,
+        )
+
+        try:
+            logger.debug(
+                "Calling Bedrock retrieve_and_generate_stream with kwargs: %s", kwargs
+            )
+            response = _bedrock_client.retrieve_and_generate_stream(**kwargs)
+        except Exception as e:
+            logger.error(f"Bedrock Knowledge Base stream query failed: {e}")
+            return SocaError.GENERIC_ERROR(
+                helper=f"Bedrock Knowledge Base query failed: {e}"
+            )
+
+        def _stream():
+            for event in response["stream"]:
+                if "output" in event:
+                    text = event["output"].get("text")
+                    if text:
+                        yield text
+
+        return _stream()
 
     def invoke_agent_stream(
         self,
@@ -695,7 +747,6 @@ class SocaAiAssistant:
 
         _estimated_input = len(prompt) // 4
         _pre_charged = _estimated_input + self._max_tokens
-        self._token_usage.increment(_pre_charged)
 
         logger.info(
             f"Invoking AgentCore runtime {self._agent_runtime_id} with session {session_id}"
@@ -716,6 +767,8 @@ class SocaAiAssistant:
                     runtimeSessionId=session_id,
                     payload=_payload,
                 )
+                # Only charge once AgentCore accepted the request
+                self._token_usage.increment(_pre_charged)
 
                 _streaming_body = response.get("response") or response.get("body")
                 if _streaming_body is None:

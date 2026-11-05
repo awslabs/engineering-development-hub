@@ -45,6 +45,34 @@ class SocaHpcJobPBS(SocaHpcJob):
     pbs_etime: Optional[str] = None  # Job elapsed time
     pbs_submit_arguments: Optional[str] = None  # Job submit arguments
     pbs_executable: Optional[str] = None  # Job executable
+    # Job depend. Carries BOTH directions: a dependent shows afterok:<parent>
+    # and the parent shows beforeok:<dependent>. A satisfied edge is cleared
+    # by the scheduler, so pbs_submit_arguments is the durable record of what
+    # a job was submitted to wait on.
+    pbs_depend: Optional[str] = None
+    # Job Exit_status. Absent until the job has actually run, which is what
+    # separates a job the scheduler removed for an unsatisfiable dependency
+    # from one that ran and failed.
+    pbs_exit_status: Optional[int] = None
     pbs_argument_list: Optional[str] = None  # Job argument list
     pbs_submit_host: Optional[str] = None  # Submission Host
     pbs_project: Optional[str] = None  # Job project
+
+    # Job array attributes, verbatim from qstat -f -F json.
+    #
+    # EDH's own logic reads the normalized, scheduler-neutral fields on
+    # SocaHpcJob (is_array, array_subjob_count, array_indices_remaining,
+    # array_state_count) -- Slurm spells the same concepts differently, so
+    # nothing in the provisioning path should branch on a pbs_ field.
+    #
+    # These keep the RAW strings for the customization hook this file documents,
+    # including PBS's literal "-" sentinel in array_indices_remaining, which the
+    # normalized field deliberately turns into None.
+    pbs_array: Optional[str] = None  # "True" on an array parent
+    pbs_array_id: Optional[str] = None  # parent id, present on a subjob
+    pbs_array_index: Optional[int] = None  # this subjob's index
+    pbs_array_state_count: Optional[str] = (
+        None  # "Queued:4 Running:12 Exiting:0 Expired:0"
+    )
+    pbs_array_indices_submitted: Optional[str] = None  # "1-100", "0-999:10"
+    pbs_array_indices_remaining: Optional[str] = None  # "13-16", or "-" when none

@@ -1,0 +1,38 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Provision the default "slurm" account used by AWS PCS 
+#
+# The AWS PCS Slurm installer creates slurm with UID/GID 401 (its default), but we ideally need the user to already exist to 
+# correctly configure the sackd permissions for the PCS Slurm authkey
+#
+# This step is optional as EDH may never use PCS, so it won't break the bootstrap if the command fails
+
+function pcs_default_slurm_user () {
+    local SLURM_ID=401
+
+    if [[ "$(id -u slurm 2>/dev/null)" == "${SLURM_ID}" ]]; then
+        log_info "[AWS PCS] slurm user already present: $(id slurm)"
+        return 0
+    fi
+
+    if ! getent group slurm &>/dev/null; then
+        if ! groupadd --system slurm --gid "${SLURM_ID}"; then
+            log_warning "[AWS PCS] unable to create group slurm with GID ${SLURM_ID} (is GID ${SLURM_ID} already used? $(getent group ${SLURM_ID}))"
+        fi
+    fi
+
+    if ! id slurm &>/dev/null; then
+        if ! useradd --system  slurm --uid "${SLURM_ID}" -g slurm; then
+            log_warning "[AWS PCS] unable to create user slurm with UID ${SLURM_ID} (is UID ${SLURM_ID} already used? $(getent passwd ${SLURM_ID}))"
+        fi
+    fi
+
+    if [[ "$(id -u slurm 2>/dev/null)" != "${SLURM_ID}" ]]; then
+        log_warning "[AWS PCS] user slurm exists with UID $(id -u slurm) but AWS PCS requires UID ${SLURM_ID}"
+    fi
+
+    log_info "[AWS PCS] slurm user ready: $(id slurm)"
+    return 0
+}
+pcs_default_slurm_user

@@ -4,10 +4,13 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
 msgid ""
-msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-06-02 14:33+0200\nPO-Revision-Date: 2026-03-26 16:41-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: ko\nLanguage-Team: ko <LL@li.org>\nPlural-Forms: nplurals=1; plural=0;\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.16.0\n"
+msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-08-26 12:22-0500\nPO-Revision-Date: 2026-03-26 16:41-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: ko\nLanguage-Team: ko <LL@li.org>\nPlural-Forms: nplurals=1; plural=0;\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.18.0\n"
 
 msgid " Download file is disabled. Please contact your SOCA cluster administrator"
 msgstr " 파일 다운로드가 비활성화되었습니다.SOCA 클러스터 관리자에게 문의하십시오."
+
+msgid " Virtual Desktops Shared With Me"
+msgstr " 나와 공유한 가상 데스크톱"
 
 #, python-format
 msgid "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
@@ -30,11 +33,12 @@ msgstr "(기본 셸) /빈/배시"
 msgid "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file."
 msgstr "(삭제하지 마십시오) 이 항목은 입력 파일의 절대 경로로 자동으로 미리 채워집니다."
 
-msgid "(EDH version 26.8.0)"
-msgstr "(EDH 버전 __버전__)"
+#, python-format
+msgid "(EDH version %(version)s)"
+msgstr "(EDH 버전 %(version)s)"
 
 msgid "(EDH)"
-msgstr "(에드)"
+msgstr ""
 
 msgid "(Next Day)"
 msgstr "(익일)"
@@ -63,9 +67,6 @@ msgstr "(선택 사항) 소프트웨어 스택에 대한 설명 (최대 500자)"
 msgid "(Optional) Description for your software stack, maximum 500 characters."
 msgstr "(선택 사항) 소프트웨어 스택에 대한 설명, 최대 500자"
 
-msgid "(Optional) Description for your template, maximum 500 characters."
-msgstr "(선택 사항) 템플릿에 대한 설명, 최대 500자"
-
 msgid "(Optional) User GID"
 msgstr "(선택 사항) 사용자 GID"
 
@@ -75,12 +76,51 @@ msgstr "(선택 사항) 사용자 UID"
 msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
 msgstr "(선택 사항) myvar1=myvalue1, myvar2=myvalue2"
 
+msgid "(all available)"
+msgstr "(모두 사용 가능)"
+
+msgid "(already in pool)"
+msgstr "(이미 수영장에 있음)"
+
 #, python-format
 msgid "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
 msgstr "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
 
-msgid ", "
-msgstr ", "
+msgid "(disabled)"
+msgstr "(사용 안 함)"
+
+msgid "(inactive profile)"
+msgstr "(비활성 프로필)"
+
+msgid "(internal note)"
+msgstr "(내부 메모)"
+
+msgid "(no NLBs reported)"
+msgstr "(NLB는 보고되지 않음)"
+
+msgid "(no USB allowlist)"
+msgstr "(USB 허용 목록 없음)"
+
+msgid "(no broker instances reported)"
+msgstr "(보고된 브로커 인스턴스 없음)"
+
+msgid "(no cluster lambdas)"
+msgstr "(클러스터 람다 없음)"
+
+msgid "(no gateway instances reported)"
+msgstr "(게이트웨이 인스턴스가 보고되지 않음)"
+
+msgid "(no servers)"
+msgstr "(서버 없음)"
+
+msgid "+ Add instance type"
+msgstr "+ 인스턴스 유형 추가"
+
+msgid "+ Add window"
+msgstr "+ 창 추가"
+
+msgid "-- Select a template or customize below --"
+msgstr "-- 템플릿을 선택하거나 아래에서 사용자 지정 --"
 
 msgid "/root size in GB (default: 10)"
 msgstr "/루트 크기 (GB) (기본값: 10)"
@@ -91,14 +131,42 @@ msgstr "/스크래치 크기 (GB) (기본값: 0)"
 msgid "0-9999"
 msgstr "0-9999"
 
+msgid "1 hour"
+msgstr "1시간"
+
 msgid "1-10"
 msgstr "1-10"
 
-msgid "100 Customizable"
-msgstr "100 사용자 지정 가능"
+#, python-format
+msgid "%(percent)s Customizable"
+msgstr "%(percent)s 사용자 지정 가능"
+
+msgid "100 MiB/s (balanced)"
+msgstr "100 밀리비트/초 (밸런스드)"
+
+msgid "200 MiB/s"
+msgstr "200 밀리미터/초"
+
+msgid "24 hours"
+msgstr "24시간"
 
 msgid "24H"
 msgstr "24시간"
+
+msgid "30 days"
+msgstr "삼십 일"
+
+msgid "300 MiB/s (fastest)"
+msgstr "300 밀리초/초 (가장 빠름)"
+
+msgid "7 days"
+msgstr "세븐 데이즈"
+
+msgid "8 hours"
+msgstr "8시간"
+
+msgid "90 days"
+msgstr "90일"
 
 msgid "A Target Node Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
 msgstr "대상 노드 프로파일은 EC2 인스턴스 유형, 최대 스토리지 크기 및 승인된 서브넷 ID 목록을 제어합니다."
@@ -109,17 +177,29 @@ msgstr "가상 데스크톱 프로필은 EC2 인스턴스 유형, 최대 스토�
 msgid "A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows."
 msgstr "클라우드 워크스테이션, 클라우드 시뮬레이션, AI 지원 엔지니어링 워크플로우를 위한 통합 플랫폼입니다."
 
+msgid "A unique name to help you identify this token (e.g. CI/CD, monitoring script)"
+msgstr "이 토큰을 식별하는 데 도움이 되는 고유한 이름 (예: CI/CD, 모니터링 스크립트)"
+
 msgid "ADD"
 msgstr "추가"
 
+msgid "AI Assistant"
+msgstr "AI 어시스턴트"
+
 msgid "AM/PM"
 msgstr "오전/오후"
+
+msgid "AMI"
+msgstr ""
 
 msgid "AMI ID"
 msgstr "에이미 아이디"
 
 msgid "API Documentation"
 msgstr "API 설명서"
+
+msgid "API Tokens Audit"
+msgstr "API 토큰 감사"
 
 msgid "AWS Batch Containers"
 msgstr "AWS 배치 컨테이너"
@@ -130,8 +210,26 @@ msgstr "AWS 데이터싱크"
 msgid "AWS Region of the target node"
 msgstr "대상 노드의 AWS 리전"
 
+msgid "AWS Spot capacity - may be reclaimed at any time; cannot be stopped or resumed"
+msgstr "AWS 스팟 용량 — 언제든지 회수할 수 있으며 중지하거나 재개할 수 없습니다."
+
 msgid "AWS Transfer"
 msgstr "AWS 전송"
+
+msgid "AZ"
+msgstr "AZ"
+
+msgid "AZ-ID"
+msgstr "AZ-ID"
+
+msgid "Acceleration DISABLED (fallback to AWS base AMIs)"
+msgstr "가속화 비활성화 (AWS 기본 AMI로 대체)"
+
+msgid "Acceleration ENABLED"
+msgstr "가속화 활성화"
+
+msgid "Access"
+msgstr "액세스"
 
 msgid "Access denied"
 msgstr "액세스 거부됨"
@@ -148,14 +246,35 @@ msgstr "웹 터미널을 통해 클러스터에 액세스"
 msgid "Access your cluster via SSH"
 msgstr "SSH를 통해 클러스터에 액세스"
 
+msgid "Across all reporting sessions"
+msgstr "모든 보고 세션에서"
+
 msgid "Action"
 msgstr "액션"
 
 msgid "Actions"
 msgstr "액션"
 
-msgid "Add"
-msgstr "추가"
+msgid "Active"
+msgstr "액티브"
+
+msgid "Active Connections by Transport"
+msgstr "전송별 활성 연결"
+
+msgid "Active Sessions"
+msgstr "활성 세션"
+
+msgid "Active Shares"
+msgstr "액티브 쉐어"
+
+msgid "Active Tokens"
+msgstr "액티브 토큰"
+
+msgid "Active-hours windows (outside these, hot drains to 0; warm unchanged)"
+msgstr "활동 시간 창 (이 창을 벗어나면 온수 배수가 0까지, 보온은 변함 없음)"
+
+msgid "Actor"
+msgstr "배우"
 
 msgid "Add Argument"
 msgstr "인수 추가"
@@ -172,11 +291,17 @@ msgstr "변수 추가"
 msgid "Add a user to your group"
 msgstr "그룹에 사용자 추가"
 
+msgid "Add device (staged)"
+msgstr "디바이스 추가 (스테이징)"
+
 msgid "Add environment variables for your job"
 msgstr "작업을 위한 환경 변수 추가"
 
 msgid "Add new user"
 msgstr "새 사용자 추가"
+
+msgid "Add the following tag"
+msgstr "다음 태그를 추가합니다."
 
 #, python-format
 msgid "Add the following tag %(tag)s to the AWS Batch job definition(s) you want to onboard."
@@ -196,6 +321,9 @@ msgstr "다음 태그를 추가하여 %(link)s 을 EDH에 온보딩하십시오.
 
 msgid "Add to group"
 msgstr "그룹에 추가"
+
+msgid "Add to staging"
+msgstr "스테이징에 추가"
 
 msgid "Add user"
 msgstr "사용자 추가"
@@ -222,11 +350,20 @@ msgstr "또한 작업 큐 상태는 ENABLED 상태여야 하고 상태는 VALID 
 msgid "Admin Section"
 msgstr "관리자 섹션"
 
+msgid "Admin comment"
+msgstr "관리자 의견"
+
+msgid "Admin override: creates a share on behalf of the session owner. The grant is recorded as created by you (administrator)."
+msgstr "관리자 재정의: 세션 소유자를 대신하여 공유를 생성합니다.부여는 사용자 (관리자) 가 생성한 것으로 기록됩니다."
+
 msgid "Admin permissions granted"
 msgstr "관리자 권한 부여"
 
 msgid "Admin permissions revoked"
 msgstr "관리자 권한 취소됨"
+
+msgid "Please note permissions may take up to 10 mn to be synchronized."
+msgstr "권한이 동기화되는 데 최대 10분이 걸릴 수 있습니다."
 
 #, python-format
 msgid "Admin username and password can be found on %(u)s and %(pw)s."
@@ -235,20 +372,60 @@ msgstr "관리자 사용자 이름과 암호는 %(u)s 및 %(pw)s 에서 찾을 �
 msgid "Advanced Settings"
 msgstr "고급 설정"
 
+msgid "Advanced filters"
+msgstr "고급 필터"
+
+msgid "Advanced options"
+msgstr "고급 옵션"
+
+msgid "Agent"
+msgstr "대리인"
+
+msgid "Agent (Invoke Agent)"
+msgstr "에이전트 (에이전트 호출)"
+
+msgid "Agent (not selected)"
+msgstr "에이전트 (선택 안 됨)"
+
+#, python-format
+msgid "Alarm fires above 10%%"
+msgstr "10%% 이상 알람 발사"
+
 msgid "All"
 msgstr "모두"
+
+msgid "All (history)"
+msgstr "전체 (기록)"
 
 msgid "All operations have completed. Page will reload automatically in 5 seconds"
 msgstr "모든 작업이 완료되었습니다.5초 후에 페이지가 자동으로 다시 로드됩니다."
 
-msgid "All users"
-msgstr "전체 사용자"
+msgid "Allow extending this token's expiration before it expires."
+msgstr "만료되기 전에 이 토큰의 만료 연장을 허용하세요."
+
+msgid "Allow guest to connect without the owner present (unsupervised)"
+msgstr "소유자 없이 게스트가 연결하도록 허용 (감독되지 않음)"
+
+msgid "Allow owners to grant unsupervised access (guest may connect without the owner present). When OFF, every share is forced supervised cluster-wide, overriding the per-share toggle and Full Control."
+msgstr "소유자가 감독되지 않은 액세스 권한을 부여할 수 있도록 허용합니다 (게스트는 소유자 없이 연결할 수 있음).OFF인 경우 모든 공유가 클러스터 전체에서 강제로 감독되며, 공유별 토글 및 전체 제어가 무시됩니다."
+
+msgid "Allow recycle (return sanitized desktops to the pool — admin risk acceptance)"
+msgstr "재활용 허용 (소독된 데스크톱을 풀에 반환 — 관리자 위험 수용)"
 
 msgid "Allowed Groups"
 msgstr "허용된 그룹"
 
+msgid "Allowed Sharing Modes"
+msgstr "허용된 공유 모드"
+
 msgid "Allowed Users"
 msgstr "허용된 사용자"
+
+msgid "Allowlist name"
+msgstr "허용 목록 이름"
+
+msgid "Already added — one card per instance type"
+msgstr "이미 추가됨 — 인스턴스 유형당 카드 1장"
 
 msgid "Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname."
 msgstr "또는 WinSCP/파일질라를 사용할 수 있습니다.이 웹 사이트에서 제공되는 지침을 참조하고 AWS Transfer 엔드포인트를 호스트 이름으로 사용하십시오."
@@ -256,11 +433,20 @@ msgstr "또는 WinSCP/파일질라를 사용할 수 있습니다.이 웹 사이�
 msgid "Always On"
 msgstr "올웨이즈 온"
 
+msgid "Always-on instances kept ready for instant assignment"
+msgstr "즉시 할당할 수 있는 상시 가동 인스턴스"
+
 msgid "AlwaysOn"
 msgstr "올웨이즈 온"
 
 msgid "Amazon DCV"
 msgstr "아마존 DCV"
+
+msgid "Amazon DCV Administrator Guide: Enabling USB remotization (filter string format)"
+msgstr "Amazon DCV 관리자 가이드: USB 원격 조정 활성화 (필터 문자열 형식)"
+
+msgid "Amazon DCV User Guide: Using USB remotization"
+msgstr "아마존 DCV 사용 설명서: USB 리모트화 사용"
 
 msgid "Amazon EKS Containers"
 msgstr "아마존 EKS 컨테이너"
@@ -271,8 +457,20 @@ msgstr "Amazon Elastic 파일 시스템 클라이언트 읽기/쓰기 액세스"
 msgid "Analytics / Budget"
 msgstr "분석/예산"
 
+msgid "Analyze"
+msgstr "분석"
+
+msgid "Analyze with AI Assistant"
+msgstr "AI 어시스턴트를 사용한 분석"
+
+msgid "Any"
+msgstr "임의"
+
 msgid "Any script authenticating to SOCA using this key will return"
 msgstr "이 키를 사용하여 SOCA에 인증하는 모든 스크립트가 반환됩니다."
+
+msgid "Any user (type to search)"
+msgstr "모든 사용자 (검색할 유형)"
 
 msgid "Application Imported successfully"
 msgstr "응용 프로그램을 성공적으로 가져왔습니다."
@@ -295,14 +493,62 @@ msgstr "애플리케이션이 성공적으로 업데이트됨"
 msgid "Applications are loaded in memory and will restart automatically"
 msgstr "응용 프로그램이 메모리에 로드되고 자동으로 다시 시작됩니다."
 
+msgid "Applied"
+msgstr "적용됨"
+
+msgid "Apply"
+msgstr "신청하기"
+
+msgid "Apply Filters"
+msgstr "필터 적용"
+
+msgid "Apply failed"
+msgstr "적용 실패"
+
+msgid "Apply range"
+msgstr "적용 범위"
+
+msgid "Apply to list"
+msgstr "목록에 적용"
+
+msgid "Apply updates"
+msgstr "업데이트 적용"
+
+msgid "Apply writes immediately; run the restart from the controller shell. Do NOT restart the web interface from within the web interface."
+msgstr "쓰기 작업을 즉시 적용하고 컨트롤러 셸에서 재시작을 실행합니다.웹 인터페이스 내에서 웹 인터페이스를 다시 시작하지 마십시오."
+
+msgid "Approve"
+msgstr "승인"
+
+msgid "Approve & Publish"
+msgstr "승인 및 게시"
+
+msgid "Approve this nomination and publish the AMI to a software stack."
+msgstr "이 지명을 승인하고 AMI를 소프트웨어 스택에 게시합니다."
+
+msgid "Approved"
+msgstr "승인됨"
+
+msgid "Arch"
+msgstr "아치"
+
+msgid "Architecture"
+msgstr "아키텍처"
+
 msgid "Architecture (x86_64/ aarch64) of the target node"
 msgstr "대상 노드의 아키텍처 (x86_64/ aarch64)"
+
+msgid "Are you sure you want to revoke"
+msgstr "정말로 취소하시겠습니까?"
 
 msgid "Array Size"
 msgstr "어레이 크기"
 
 msgid "As hostname, enter the following for the Login Node load balancer endpoint:"
 msgstr "호스트 이름으로 로그인 노드 로드 밸런서 엔드포인트에 다음을 입력합니다."
+
+msgid "Ask a follow-up question..."
+msgstr "후속 질문을 하세요..."
 
 msgid "Assign this desktop to an existing capacity reservation id"
 msgstr "이 데스크톱을 기존 용량 예약 ID에 할당"
@@ -334,8 +580,24 @@ msgstr "인증에 실패했습니다.이 창을 닫고 기본 SSH 페이지에�
 msgid "Authorized"
 msgstr "승인됨"
 
+msgid "Auto"
+msgstr "자동"
+
+msgid "Auto 60s"
+msgstr "자동차 60년대"
+
+msgid "Auto-captured on interruption"
+msgstr "중단 시 자동 캡처"
+
 msgid "Auto-filled with the input file path"
 msgstr "입력 파일 경로로 자동 채워짐"
+
+#, python-format
+msgid "Auto-pause after %(n)s hour of inactivity"
+msgstr "%(n)s 시간 동안 활동이 없으면 자동 일시 중지"
+
+msgid "Auto-recycle pool on launch template change (uniform fleet — brief cold launches during refresh)"
+msgstr "시작 템플릿 변경 시 풀 자동 재활용 (유니폼 플릿 — 업데이트 중 짧은 콜드 런칭)"
 
 msgid "Auto-scroll"
 msgstr "자동 스크롤"
@@ -349,8 +611,44 @@ msgstr "자동 프로비저닝 (기본값)"
 msgid "Automatically start/stop this session based on schedule."
 msgstr "일정에 따라 이 세션을 자동으로 시작/중지합니다."
 
+msgid "Availability"
+msgstr "이용 가능 여부"
+
+msgid "Available API Paths:"
+msgstr "사용 가능한 API 경로:"
+
+msgid "Avg over last cycle"
+msgstr "지난 주기의 평균"
+
+msgid "Back to Virtual Desktops"
+msgstr "가상 데스크톱으로 돌아가기"
+
+msgid "Backfill on claim (keep pool at depth)"
+msgstr "청구 시 채우기 (수영장 깊이 유지)"
+
+msgid "Base AMIs copied into this account so snapshot capture is incremental and image ids survive AWS retiring the public bases. Copies run in the background; rows show the current state per base OS and architecture."
+msgstr "기본 AMI가 이 계정에 복사되었으므로 AWS에서 퍼블릭 베이스를 폐기해도 스냅샷 캡처는 점진적으로 수행되고 이미지 ID는 그대로 유지됩니다.복사본은 백그라운드에서 실행되고 행은 기본 OS 및 아키텍처별 현재 상태를 보여줍니다."
+
+msgid "Base OS"
+msgstr "기본 OS"
+
+msgid "Based on"
+msgstr "기준"
+
+msgid "Below 1KB threshold"
+msgstr "임계값 1KB 미만"
+
 msgid "Benefits and Features"
 msgstr "이점 및 특징"
+
+msgid "Best Performance"
+msgstr "최고의 성능"
+
+msgid "Blank Suppressed"
+msgstr "블랭크 억제됨"
+
+msgid "Bootstrap template cache"
+msgstr "부트스트랩 템플릿 캐시"
 
 msgid "Both commands will return a JSON object with all information regarding your job."
 msgstr "두 명령 모두 작업과 관련된 모든 정보가 포함된 JSON 객체를 반환합니다."
@@ -358,11 +656,38 @@ msgstr "두 명령 모두 작업과 관련된 모든 정보가 포함된 JSON �
 msgid "Both commands will return the ID associated to the job you just submitted"
 msgstr "두 명령 모두 방금 제출한 작업과 관련된 ID를 반환합니다."
 
+msgid "Broker CloudWatch Metrics"
+msgstr "브로커 클라우드워치 지표"
+
+msgid "Broker query failed:"
+msgstr "브로커 쿼리 실패:"
+
+msgid "Broker reachability issues:"
+msgstr "브로커 접근성 문제:"
+
 msgid "Browse Software Stacks"
 msgstr "소프트웨어 스택 찾아보기"
 
+msgid "Browse and search this cluster's configuration parameters (SSM Parameter Store). Navigate the tree on the left or use the search box. This is the read-only browse view; editing arrives in a later step. Secrets are never shown."
+msgstr "이 클러스터의 구성 파라미터 (SSM 파라미터 스토어) 를 찾아보고 검색합니다.왼쪽의 트리를 탐색하거나 검색 상자를 사용하세요.이 뷰는 읽기 전용 브라우즈 뷰로, 편집은 이후 단계에서 진행됩니다.비밀은 절대 표시되지 않습니다."
+
+msgid "Bucket Objects"
+msgstr "버킷 오브젝트"
+
+msgid "Bucket Size"
+msgstr "버킷 크기"
+
 msgid "Budgets and Cost Management"
 msgstr "예산 및 비용 관리"
+
+msgid "Bulk edit / copy…"
+msgstr "대량 편집/복사..."
+
+msgid "By"
+msgstr "에 의해"
+
+msgid "CIDR"
+msgstr "사과주"
 
 msgid "CPUs"
 msgstr "CPU"
@@ -376,11 +701,26 @@ msgstr "자동으로 프로비저닝할 노드 수 계산"
 msgid "Cancel"
 msgstr "취소"
 
-msgid "Capacity being provisioned"
-msgstr "용량 프로비저닝 중"
+msgid "Capacity"
+msgstr "용량"
 
-msgid "Capacity provisioning blocked"
-msgstr "용량 프로비저닝이 차단됨"
+msgid "Capacity Reservation group ARN"
+msgstr "용량 예약 그룹 ARN"
+
+msgid "Capacity Reservation id (cr-..., optional)"
+msgstr "용량 예약 ID (카드-..., 선택 사항)"
+
+msgid "Capacity is currently available in the EDH VDI Pool. Select one of the available capacity options above, and your desktop will be provisioned immediately."
+msgstr "현재 EDH VDI 풀에서 용량을 사용할 수 있습니다.위의 사용 가능한 용량 옵션 중 하나를 선택하면 데스크톱이 즉시 프로비저닝됩니다."
+
+msgid "Capture a resumable image, then terminate this desktop"
+msgstr "재개 가능한 이미지를 캡처한 다음 이 데스크톱을 종료합니다."
+
+msgid "Captured"
+msgstr "캡처됨"
+
+msgid "Capturing..."
+msgstr "캡처 중..."
 
 msgid "Change group membership"
 msgstr "그룹 구성원 변경"
@@ -402,6 +742,12 @@ msgstr "그룹 멤버십 확인"
 
 msgid "Check project membership for a given user"
 msgstr "특정 사용자의 프로젝트 멤버십 확인"
+
+msgid "Check the subnets this profile may launch into. Sorted by Availability Zone ID."
+msgstr "이 프로필이 시작될 수 있는 서브넷을 확인하세요.가용 영역 ID를 기준으로 정렬됩니다."
+
+msgid "Checkpoint"
+msgstr "체크포인트"
 
 #, python-format
 msgid "Choose %(ep_type)s depending on your setup. It's recommended to use %(vpc)s for IP restrictions via your security groups. %(pub)s means your AWS Transfer endpoint won't be protected by IP safelist."
@@ -431,6 +777,18 @@ msgstr "운영 체제 선택"
 msgid "Choose your Software Stack"
 msgstr "소프트웨어 스택 선택"
 
+msgid "Claims"
+msgstr "클레임"
+
+msgid "Class"
+msgstr "클래스"
+
+msgid "Clear / Browse"
+msgstr "지우기/찾아보기"
+
+msgid "Clear all"
+msgstr "모두 지우기"
+
 msgid "Clear the buffer (Ctrl+L)"
 msgstr "버퍼 지우기 (Ctrl+L)"
 
@@ -441,17 +799,35 @@ msgstr "Click %(start_a)shere%(end_a)s to download it"
 msgid "Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it."
 msgstr "새 터미널 탭을 추가하려면 +를 클릭합니다.탭에서 ⏸ 를 사용하여 분리 (세션 실행 유지) 하거나 X를 사용하여 종료합니다."
 
+msgid "Click a card to expand: members, full event log, metrics."
+msgstr "카드를 클릭하여 확장하세요: 회원, 전체 이벤트 로그, 지표."
+
+msgid "Click a line number to set the start. Shift+click another line number to set the end. Or use the From/To inputs on the right."
+msgstr "줄 번호를 클릭하여 시작을 설정합니다.Shift 키를 누른 채 다른 줄 번호를 클릭하여 끝을 설정합니다.또는 오른쪽의 From/To 입력을 사용하세요."
+
+msgid "Click again to confirm removal"
+msgstr "제거를 확인하려면 다시 클릭하십시오."
+
 msgid "Click connect/open to access the cluster"
 msgstr "연결/열기를 클릭하여 클러스터에 액세스합니다."
 
 msgid "Click here to Open Terminal in a separate window"
 msgstr "별도의 창에서 터미널을 열려면 여기를 클릭하십시오."
 
+msgid "Click here to control your sharing settings"
+msgstr "공유 설정을 제어하려면 여기를 클릭하십시오."
+
 msgid "Click here to learn how to Import/Export your Workflow Profiles"
 msgstr "워크플로 프로필을 가져오거나 내보내는 방법을 알아보려면 여기를 클릭하십시오."
 
 msgid "Click here to learn how to create custom images"
 msgstr "맞춤 이미지를 만드는 방법을 알아보려면 여기를 클릭하십시오."
+
+msgid "Click the route icon next to a session to see its end-to-end path."
+msgstr "세션 옆에 있는 라우트 아이콘을 클릭하면 전체 경로를 볼 수 있습니다."
+
+msgid "Click to copy"
+msgstr "복사하려면 클릭"
 
 msgid "Close"
 msgstr "닫기"
@@ -462,14 +838,32 @@ msgstr "탭이나 이 창을 닫으면 실행 상태로 유지되므로 나중�
 msgid "Cluster"
 msgstr "클러스터"
 
+msgid "Cluster -- shareable with any user"
+msgstr "클러스터 -- 모든 사용자와 공유 가능"
+
+msgid "Cluster Configuration"
+msgstr "클러스터 구성"
+
+msgid "Cluster Lambdas"
+msgstr "클러스터 람다"
+
 msgid "Cluster Metrics"
 msgstr "클러스터 메트릭"
 
-msgid "Code Editor"
-msgstr "코드 에디터"
+msgid "Cluster Status"
+msgstr "클러스터 상태"
 
-msgid "Code Editor is taking longer than expected to load."
-msgstr "코드 편집기를 로드하는 데 예상보다 오래 걸립니다."
+msgid "Cluster-Level Sharing Settings"
+msgstr "클러스터 수준 공유 설정"
+
+msgid "Cluster:"
+msgstr "클러스터:"
+
+msgid "Collapse / expand"
+msgstr "축소/ 확장"
+
+msgid "Collisions"
+msgstr "충돌"
 
 msgid "Comma separated value of key=value variable that will be replaced in the user data if present."
 msgstr "key=value 변수의 쉼표로 구분된 값이며, 있는 경우 사용자 데이터에서 대체됩니다."
@@ -489,8 +883,20 @@ msgstr "컴퓨팅 리소스"
 msgid "Compute rate are retrieved for your running region"
 msgstr "실행 중인 지역의 계산 속도가 검색됩니다."
 
+msgid "Configuration Parameters"
+msgstr "구성 매개변수"
+
+msgid "Configuration tree"
+msgstr "구성 트리"
+
 msgid "Configure Job Cost Estimate automatically"
 msgstr "작업 비용 추정 자동 구성"
+
+msgid "Configured Pools"
+msgstr "구성된 풀"
+
+msgid "Confirm"
+msgstr "확인"
 
 msgid "Confirm Delete"
 msgstr "삭제 확인"
@@ -507,6 +913,12 @@ msgstr "종료 확인"
 msgid "Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:"
 msgstr "다음과 같은 명령줄을 통해 자주 사용하는 FTP 애플리케이션을 사용하여 AWS Transfer 엔드포인트에 연결합니다."
 
+msgid "Connect via Native Client"
+msgstr "네이티브 클라이언트를 통한 연결"
+
+msgid "Connect-abandon timeout (seconds, blank = cluster default)"
+msgstr "연결 중단 제한 시간 (초, 공백 = 클러스터 기본값)"
+
 msgid "Connected"
 msgstr "연결됨"
 
@@ -515,6 +927,9 @@ msgstr "연결 중..."
 
 msgid "Connection String"
 msgstr "연결 문자열"
+
+msgid "Connections"
+msgstr "커넥션"
 
 msgid "Consumable Resource Override"
 msgstr "소모품 리소스 오버라이드"
@@ -525,11 +940,56 @@ msgstr "클러스터에 Analytics 기능을 추가하려면 EDH 관리자에게 
 msgid "Container Overrides"
 msgstr "컨테이너 오버라이드"
 
+msgid "Content-addressable cache of rendered SOCA bootstrap templates. Hits eliminate the per-create Jinja render + S3 upload (~1.0-1.5s savings per VDI/HPC node create)."
+msgstr "렌더링된 SOCA 부트스트랩 템플릿의 콘텐츠 주소 지정 가능 캐시입니다.히트를 사용하면 생성당 Jinja 렌더+S3 업로드가 제거됩니다 (VDI/HPC 노드 생성당 최대 1.0~1.5초 절약)."
+
+msgid "Context"
+msgstr "컨텍스트"
+
+msgid "Context info"
+msgstr "컨텍스트 정보"
+
 msgid "Continue to GitHub"
 msgstr "깃허브로 계속"
 
 msgid "Control AWS resource deployment authorization via AWS Budget"
 msgstr "AWS 예산을 통한 AWS 리소스 배포 권한 제어"
+
+msgid "Control plane health"
+msgstr "컨트롤 플레인 헬스"
+
+msgid "Control-plane metrics unavailable."
+msgstr "컨트롤 플레인 메트릭을 사용할 수 없습니다."
+
+msgid "Controls who a virtual desktop built from this stack may be shared with via DCV session sharing"
+msgstr "이 스택으로 구축된 가상 데스크톱을 DCV 세션 공유를 통해 공유할 수 있는 사용자를 제어합니다."
+
+msgid "Conversation"
+msgstr "대화"
+
+msgid "Conversations are stored locally in your browser and automatically deleted after 30 days."
+msgstr "대화는 브라우저에 로컬로 저장되며 30일 후에 자동으로 삭제됩니다."
+
+msgid "Copied At"
+msgstr "복사 위치"
+
+msgid "Copy AMI ID"
+msgstr "AMI ID 복사"
+
+msgid "Copy all"
+msgstr "전체 복사"
+
+msgid "Copy full key"
+msgstr "전체 키 복사"
+
+msgid "Copy to Clipboard"
+msgstr "클립보드로 복사"
+
+msgid "Copy value"
+msgstr "값 복사"
+
+msgid "Copy your token now. It will not be shown again."
+msgstr "지금 토큰을 복사하세요.다시 표시되지 않습니다."
 
 msgid "Cost Control and Budgets"
 msgstr "비용 관리 및 예산"
@@ -542,6 +1002,9 @@ msgstr "작업에 대한 예상 비용"
 
 msgid "Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file."
 msgstr "이 워크플로우는 qsub 파일이 아닌 Linux 명령을 생성하므로 예상 비용을 확인할 수 없습니다."
+
+msgid "Cost estimation is not available in the GovCloud partition (the AWS Pricing API is not offered in aws-us-gov)."
+msgstr "GovCloud 파티션에서는 비용 추정을 사용할 수 없습니다 (aws-us-gov에서는 AWS 요금 API가 제공되지 않음)."
 
 msgid "Could not check group membership: "
 msgstr "그룹 멤버십을 확인할 수 없음: "
@@ -558,6 +1021,9 @@ msgstr "디렉터리를 찾을 수 없습니다.삭제하셨나요?"
 msgid "Could not locate the directory: "
 msgstr "디렉터리를 찾을 수 없습니다. "
 
+msgid "Create"
+msgstr "작성"
+
 msgid "Create Account"
 msgstr "계정 생성"
 
@@ -569,6 +1035,24 @@ msgstr "폴더 생성"
 
 msgid "Create Group"
 msgstr "그룹 생성"
+
+msgid "Create Permission Profile"
+msgstr "권한 프로필 생성"
+
+msgid "Create Profile"
+msgstr "프로필 생성"
+
+msgid "Create Scoped Token"
+msgstr "범위가 지정된 토큰 생성"
+
+msgid "Create Share"
+msgstr "공유 생성"
+
+msgid "Create Share (Admin)"
+msgstr "공유 생성 (관리자)"
+
+msgid "Create Token"
+msgstr "토큰 생성"
 
 msgid "Create User Data template"
 msgstr "사용자 데이터 템플릿 생성"
@@ -627,29 +1111,86 @@ msgstr "이 워크플로우 프로필 만들기"
 msgid "Created"
 msgstr "생성됨"
 
+msgid "Created By"
+msgstr "만든 사람"
+
 msgid "Created On"
 msgstr "만든 날짜"
 
 msgid "Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account."
 msgstr "Active Directory에서 사용자를 생성하는 데 최대 1분이 걸릴 수 있습니다.EDH에서 새 계정을 만드는 동안에는 페이지를 새로 고치지 마십시오."
 
+msgid "Current bindings"
+msgstr "현재 바인딩"
+
 msgid "Custom"
 msgstr "사용자 지정"
+
+msgid "Custom (edit JSON below)"
+msgstr "사용자 지정 (아래에서 JSON 편집)"
 
 msgid "Custom Consumable Resources"
 msgstr "맞춤형 소모품 리소스"
 
+msgid "Cycle Duration"
+msgstr "사이클 지속 시간"
+
+msgid "D+"
+msgstr "D+"
+
 msgid "DANGER ZONE - Reset my API key"
 msgstr "위험 구역 - 내 API 키 재설정"
 
+msgid "DCV / VDI Overview"
+msgstr "DCV/VDI 개요"
+
+msgid "DCV Broker fleet"
+msgstr "DCV 브로커 플릿"
+
+msgid "DCV Gateway fleet"
+msgstr "DCV 게이트웨이 플릿"
+
+msgid "DCV Permissions"
+msgstr "DCV 권한"
+
+msgid "DCV Servers (live from broker)"
+msgstr "DCV 서버 (브로커에서 라이브)"
+
+msgid "DCV Servers Registered"
+msgstr "DCV 서버 등록"
+
+msgid "DCV Session Sharing"
+msgstr "DCV 세션 공유"
+
+msgid "DCV Session Timeline"
+msgstr "DCV 세션 타임라인"
+
 msgid "DCV Session Type."
 msgstr "DCV 세션 유형"
+
+msgid "DCV Sessions (live from broker)"
+msgstr "DCV 세션 (브로커에서 실시간)"
+
+msgid "DCV USB remotization"
+msgstr "DCV USB 리모타이제이션"
+
+msgid "DCV high-scale mode is disabled. This dashboard is only meaningful when DCV is deployed with broker + gateway. Enable via"
+msgstr "DCV 대용량 모드가 비활성화되었습니다.이 대시보드는 브로커+ 게이트웨이와 함께 DCV를 배포한 경우에만 의미가 있습니다.를 통해 활성화하세요"
+
+msgid "DCV streaming metrics not available yet. Collector needs at least 2 cycles (~2 min) after VDI bootstrap."
+msgstr "DCV 스트리밍 지표는 아직 사용할 수 없습니다.Collector는 VDI 부트스트랩 후 최소 2주기 (~2분) 가 필요합니다."
+
+msgid "Daily usage"
+msgstr "일일 사용량"
 
 msgid "Data Transfer to/from EDH"
 msgstr "EDH와의 데이터 전송"
 
 msgid "Date"
 msgstr "날짜"
+
+msgid "Days"
+msgstr "데이즈"
 
 msgid "Dedicated Host Tenancy"
 msgstr "전용 호스트 테넌시"
@@ -663,17 +1204,32 @@ msgstr "전용 인스턴스 테넌시"
 msgid "Dedicated Instance Tenancy (instance)"
 msgstr "전용 인스턴스 테넌시 (인스턴스)"
 
+msgid "Default"
+msgstr "디폴트"
+
 msgid "Default Tenancy"
 msgstr "기본 테넌시"
 
 msgid "Default Tenancy (default)"
 msgstr "기본 테넌시 (기본값)"
 
+msgid "Default profiles cannot be edited or deleted. Use the Enabled toggle to control whether a profile (including defaults) is offered to users in the share dropdowns -- disabling hides it without removing it."
+msgstr "기본 프로파일은 편집하거나 삭제할 수 없습니다.활성화 토글을 사용하여 공유 드롭다운에서 프로필 (기본값 포함) 을 사용자에게 제공할지 여부를 제어할 수 있습니다. 비활성화하면 프로필이 제거되지 않고 숨겨집니다."
+
+msgid "Define allowed API paths and HTTP methods."
+msgstr "허용된 API 경로 및 HTTP 메서드를 정의합니다."
+
 msgid "Define custom consumable resources beyond vCPU and Memory."
 msgstr "vCPU 및 메모리 이외의 사용자 지정 사용 가능 리소스를 정의합니다."
 
 msgid "Define environment variables as key-value pairs."
 msgstr "환경 변수를 키-값 쌍으로 정의합니다."
+
+msgid "Degraded Ratio"
+msgstr "저하된 비율"
+
+msgid "Degraded Sessions"
+msgstr "성능이 저하된 세션"
 
 msgid "Delete"
 msgstr "삭제"
@@ -692,6 +1248,9 @@ msgstr "프로젝트 삭제"
 
 msgid "Delete Queue"
 msgstr "대기열 삭제"
+
+msgid "Delete Saved Desktop"
+msgstr "저장된 데스크톱 삭제"
 
 msgid "Delete Target Node"
 msgstr "대상 노드 삭제"
@@ -720,8 +1279,14 @@ msgstr "작업 삭제"
 msgid "Delete a queue"
 msgstr "대기열 삭제"
 
+msgid "Delete all saved conversations?"
+msgstr "저장된 대화를 모두 삭제하시겠습니까?"
+
 msgid "Delete an existing Workflow Profile"
 msgstr "기존 워크플로 프로필 삭제"
+
+msgid "Delete every cached bootstrap entry (including pool launch-template renders); the next VDI/HPC create per stack will re-render fresh."
+msgstr "캐시된 모든 부트스트랩 항목 (풀 시작 템플릿 렌더링 포함) 을 삭제합니다. 스택당 다음 VDI/HPC 생성 시 새로 렌더링됩니다."
 
 msgid "Delete file"
 msgstr "파일 삭제"
@@ -737,6 +1302,9 @@ msgstr "이 파일 삭제"
 
 msgid "Delete user"
 msgstr "사용자 삭제"
+
+msgid "Deleted"
+msgstr "삭제됨"
 
 msgid "Deleted user"
 msgstr "삭제된 사용자"
@@ -754,6 +1322,9 @@ msgstr "그룹을 삭제하면 액세스에 문제가 발생할 수 있습니다
 msgid "Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data"
 msgstr "사용자를 삭제하면 사용자가 클러스터에 액세스할 수 없게 되지만 관련 $HOME 디렉터리 및 데이터는 제거되지 않습니다."
 
+msgid "Denied"
+msgstr "거부됨"
+
 msgid "Denied Groups"
 msgstr "거부된 그룹"
 
@@ -763,8 +1334,14 @@ msgstr "거부된 사용자"
 msgid "Deny takes precedence over allow"
 msgstr "거부가 허용보다 우선합니다."
 
+msgid "Describe the software and configuration in this image (e.g. Win2025 + MATLAB R2025a + Abaqus 2024)"
+msgstr "이 이미지에 있는 소프트웨어와 구성을 설명하세요 (예: Win2025+ MATLAB R2025a+아바쿠스 2024)."
+
 msgid "Description"
 msgstr "설명"
+
+msgid "Description for your template, maximum 500 characters."
+msgstr "템플릿에 대한 설명, 최대 500자"
 
 msgid "Description of your Project"
 msgstr "프로젝트에 대한 설명"
@@ -787,8 +1364,38 @@ msgstr "분리 (세션은 계속 실행)"
 msgid "Detached"
 msgstr "분리형"
 
+msgid "DeviceHunt USB vendor / product ID lookup"
+msgstr "디바이스헌트 USB 벤더/제품 ID 조회"
+
+msgid "Devices"
+msgstr "디바이스"
+
+msgid "Devices in"
+msgstr "디바이스 인"
+
+msgid "Disable & revoke"
+msgstr "비활성화 및 해지"
+
 msgid "Disable Auto-Refresh"
 msgstr "자동 새로고침 비활성화"
+
+msgid "Disable Permission Profile"
+msgstr "권한 프로필 비활성화"
+
+msgid "Disable only"
+msgstr "비활성화만"
+
+msgid "Disable sharing (always available as a profile option)"
+msgstr "공유 비활성화 (항상 프로필 옵션으로 사용 가능)"
+
+msgid "Disabled"
+msgstr "장애인"
+
+msgid "Disabling hides this profile from new shares. Existing shares keep working unless you also revoke them. Revoking disconnects those guests immediately."
+msgstr "비활성화하면 새 공유에서 이 프로필이 숨겨집니다.기존 주식은 취소하지 않는 한 계속 사용할 수 있습니다.취소하면 해당 게스트의 연결이 즉시 끊깁니다."
+
+msgid "Discard changes"
+msgstr "변경 내용 취소"
 
 msgid "Disclaimer: Baseline numbers"
 msgstr "고지 사항: 기준 수치"
@@ -817,6 +1424,12 @@ msgstr "문서화"
 msgid "Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)"
 msgstr "네트워크 또는 스토리지 전송 또는 io2 볼륨 사용 (기본값: gp3) 과 같은 추가 요금은 반영되지 않습니다."
 
+msgid "Done"
+msgstr "완료"
+
+msgid "Download"
+msgstr "다운로드"
+
 msgid "Download FileZilla"
 msgstr "파일질라 다운로드"
 
@@ -827,14 +1440,14 @@ msgstr "퍼티 다운로드"
 msgid "Download PuttyGEN from %(puttygen_link)s, then convert the key you have downloaded on step1 to %(fmt)s format"
 msgstr "PuttyGen을 %(puttygen_link)s 파일에서 다운로드한 다음 1단계에서 다운로드한 키를 %(fmt)s 형식으로 변환합니다."
 
-msgid "Download Session File"
-msgstr "세션 파일 다운로드"
-
 msgid "Download all"
 msgstr "모두 다운로드"
 
 msgid "Download file is disabled. Please contact your cluster administrator"
 msgstr "파일 다운로드가 비활성화되었습니다.클러스터 관리자에게 문의하세요."
+
+msgid "Download it here."
+msgstr "여기에서 다운로드하세요."
 
 msgid "Download my private key"
 msgstr "내 개인 키 다운로드"
@@ -852,17 +1465,23 @@ msgstr "이 파일 다운로드"
 msgid "Download your %(kind)s SSH key"
 msgstr "%(kind)s SSH 키를 다운로드하세요"
 
-msgid "Download your client here."
-msgstr "여기에서 클라이언트를 다운로드하세요."
-
 msgid "Drag & Drop form components based on your own requirements."
 msgstr "자체 요구 사항에 따라 양식 구성 요소를 드래그 앤 드롭합니다."
 
 msgid "Drag and Drop files to upload or click"
 msgstr "파일을 드래그 앤 드롭하여 업로드하거나 클릭"
 
+msgid "Duration"
+msgstr "지속"
+
+msgid "EBS fast-restore acceleration for desktops built from this stack. Inherit = use the cluster default; Off = lazy load; 100-300 MiB/s = pre-fetch the root volume on launch (faster first boot/resume, higher for larger stacks)."
+msgstr "이 스택으로 구축된 데스크톱을 위한 EBS 빠른 복원 가속화상속 = 클러스터 기본값 사용, 끄기 = 지연 로드, 100-300MiB/s = 시작 시 루트 볼륨 사전 가져오기 (첫 부팅/재개 속도가 빠름, 스택이 클수록 높음)"
+
 msgid "EBS/FSx rates as of January 2025 based on us-east-1"
 msgstr "미국-동부-1을 기준으로 2025년 1월 기준 EBS/FSx 요율"
+
+msgid "EC2 Instance"
+msgstr "EC2 인스턴스"
 
 msgid "EC2 Instance Types you are authorized to deploy for this software stack. Manage list via"
 msgstr "이 소프트웨어 스택에 배포할 권한이 있는 EC2 인스턴스 유형를 통해 목록을 관리할 수 있습니다."
@@ -949,7 +1568,7 @@ msgstr "작업을 시작할 EKS 네임스페이스"
 msgid "Each line is one argument."
 msgstr "각 줄은 하나의 인수입니다."
 
-msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations"
+msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessly customize compute, storage and operating systems requirements for your HPC simulations"
 msgstr "LSF, OpenPBS, PBSPro, Slurm에 대한 작업을 쉽게 제출하고 HPC 시뮬레이션을 위한 컴퓨팅, 스토리지 및 운영 체제 요구 사항을 원활하게 사용자 지정할 수 있습니다."
 
 msgid "Edit"
@@ -992,14 +1611,32 @@ msgstr "양식에서 만든 변수와 일치하도록 아래 테스트 템플릿
 msgid "Edit this file (text file only)"
 msgstr "이 파일 편집 (텍스트 파일만 해당)"
 
+msgid "Editable here:"
+msgstr "여기에서 편집 가능:"
+
+msgid "Editing devices changes the shared allowlist itself — it affects every Hardware Profile that links it."
+msgstr "디바이스를 편집하면 공유 허용 목록 자체가 변경되며, 이는 해당 공유 허용 목록을 연결하는 모든 하드웨어 프로필에 영향을 줍니다."
+
+msgid "Edits are staged and highlighted. Bool/number/text fields are typed to the parameter; use 'raw' for freeform. Apply writes each change to SSM (durable + versioned); Valkey updates via the config sync. Read-only params show no editor."
+msgstr "편집 내용은 스테이징되고 강조 표시됩니다.부울/숫자/텍스트 필드는 매개 변수에 입력됩니다. 자유 형식을 사용하려면 'raw'를 사용하십시오.적용하면 각 변경 사항이 SSM에 기록됩니다 (지속 가능+버전 관리). Valkey는 구성 동기화를 통해 업데이트됩니다.읽기 전용 매개변수에는 편집기가 표시되지 않습니다."
+
+msgid "Edits are staged locally. Toggle On/Off, edit the admin comment, add or remove rows, then click Apply updates to commit everything at once. Disabled rows are retained for reference but are NOT delivered to VDIs. Admin comments are internal only and never sent to a VDI or shown to end users."
+msgstr "편집은 로컬에서 스테이징됩니다.켜기/끄기로 전환하고 관리자 댓글을 편집하고 행을 추가 또는 제거한 다음 업데이트 적용을 클릭하여 모든 것을 한 번에 커밋할 수 있습니다.비활성화된 행은 참조용으로 보관되지만 VDI에 전달되지는 않습니다.관리자 의견은 내부용이며 VDI로 전송되거나 최종 사용자에게 표시되지 않습니다."
+
 msgid "Email"
 msgstr "이메일"
 
-msgid "Embeeded Development"
+msgid "Embedded Development"
 msgstr "임베디드 개발"
+
+msgid "Enable / disable this instance type"
+msgstr "이 인스턴스 유형 활성화/비활성화"
 
 msgid "Enable Auto-Refresh"
 msgstr "자동 새로고침 활성화"
+
+msgid "Enable Hibernation"
+msgstr "하이버네이션 활성화"
 
 msgid "Enable Hibernation Support."
 msgstr "하이버네이션 지원을 활성화합니다."
@@ -1010,14 +1647,35 @@ msgstr "중첩된 가상화를 활성화합니다.8세대 AWS 인스턴스 유�
 msgid "Enable Sudo Access"
 msgstr "Sudo 액세스 활성화"
 
+msgid "Enable pooling for this software stack"
+msgstr "이 소프트웨어 스택에 대한 풀링 활성화"
+
+msgid "Enable via edhctl config set /edh/&lt;cluster&gt;/configuration/BaseImageAcceleration/Enabled true"
+msgstr "<cluster>edhctl 구성 세트를 통해 활성화/edh/ /Configuration/BaseImageAcceleration/Enabled true를 통해 활성화"
+
+msgid "Enabled"
+msgstr "활성화됨"
+
+msgid "Encode the payload using Base64:"
+msgstr "Base64를 사용하여 페이로드를 인코딩합니다."
+
+msgid "End"
+msgstr "종료"
+
 msgid "End session (terminates tmux)"
 msgstr "세션 종료 (tmux 종료)"
 
 msgid "End this terminal session? The remote tmux will be terminated."
 msgstr "이 터미널 세션을 종료하시겠습니까?원격 tmux가 종료됩니다."
 
+msgid "Ended"
+msgstr "종료"
+
 msgid "Engineering Development Hub"
 msgstr "엔지니어링 개발 허브"
+
+msgid "Enter a username above to view and manage their tokens."
+msgstr "토큰을 보고 관리하려면 위에 사용자 이름을 입력하세요."
 
 msgid "Enter friendly AMI Name"
 msgstr "친숙한 AMI 이름 입력"
@@ -1028,17 +1686,23 @@ msgstr "KEY=VALUE 형식으로 행당 하나의 환경 변수를 입력합니다
 msgid "Enter shell code here"
 msgstr "여기에 셸 코드를 입력하세요"
 
+msgid "Enter username..."
+msgstr "사용자 이름 입력..."
+
 msgid "Enter value"
 msgstr "값 입력"
-
-msgid "Entering the Danger Zone"
-msgstr "위험 지대 진입"
 
 msgid "Entering the danger zone"
 msgstr "위험 구역 진입"
 
+msgid "Entries"
+msgstr "출품작"
+
 msgid "Environment Variables"
 msgstr "환경 변수"
+
+msgid "Error"
+msgstr "오류"
 
 msgid "Error during"
 msgstr "중 오류"
@@ -1073,6 +1737,18 @@ msgstr "예상 저장량:"
 msgid "Estimated compute price with RI"
 msgstr "RI 사용 시 예상 컴퓨팅 요금"
 
+msgid "Estimated cost:"
+msgstr "예상 비용:"
+
+msgid "Event Log"
+msgstr "이벤트 로그"
+
+msgid "Event Type"
+msgstr "이벤트 유형"
+
+msgid "Event log (this pool)"
+msgstr "이벤트 로그 (이 풀)"
+
 msgid "Example:"
 msgstr "예시:"
 
@@ -1091,11 +1767,26 @@ msgstr "예: 수정 작업"
 msgid "Execution timeout"
 msgstr "실행 타임아웃"
 
+msgid "Expected"
+msgstr "예상"
+
+msgid "Expired"
+msgstr "만료"
+
+msgid "Expires"
+msgstr "만료"
+
+msgid "Expires in"
+msgstr "만료 기간"
+
 msgid "Explore your Filesystem"
 msgstr "파일 시스템 살펴보기"
 
 msgid "Export"
 msgstr "익스포트"
+
+msgid "Export CSV"
+msgstr "CSV 내보내기"
 
 msgid "Export existing Workflow Profile"
 msgstr "기존 워크플로 프로필 내보내기"
@@ -1115,11 +1806,20 @@ msgstr "FSx: 러스터 크기 (GB) (기본값: 0)"
 msgid "FSx for Lustre:"
 msgstr "광택을 위한 FSx:"
 
+msgid "Failed to load acceleration status."
+msgstr "가속 상태를 로드하지 못했습니다."
+
 msgid "Failed to load earlier content"
 msgstr "이전 콘텐츠를 로드하지 못했습니다."
 
 msgid "Failure to do so will result in your profile remaining hidden from users."
 msgstr "그렇지 않으면 프로필이 사용자에게 보이지 않게 됩니다."
+
+msgid "Fall back to On-Demand when the reservation is full (unchecked = hard-fail, enforces the reservation as a cap)"
+msgstr "예약이 꽉 차면 온디맨드로 대체 (선택 취소 = 하드 페일, 예약 제한 적용)"
+
+msgid "Fall back to On-Demand when this reservation is full"
+msgstr "예약이 꽉 차면 온디맨드로 돌아가세요"
 
 msgid "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
 msgstr "이 EDH 클러스터에서는 기능을 사용할 수 없습니다.이 기능을 활성화하려면 관리자에게 문의하십시오."
@@ -1130,11 +1830,17 @@ msgstr "이 EDH 클러스터에서는 기능을 사용할 수 없습니다.활�
 msgid "File Explorer"
 msgstr "파일 탐색기"
 
+msgid "File Manager"
+msgstr "파일 매니저"
+
 msgid "File Updated."
 msgstr "파일이 업데이트되었습니다."
 
 msgid "File appears to be binary and cannot be tailed"
 msgstr "파일이 바이너리인 것 같아서 테일링 할 수 없습니다"
+
+msgid "File content"
+msgstr "파일 콘텐츠"
 
 msgid "File does not exist or is not a regular file"
 msgstr "파일이 존재하지 않거나 일반 파일이 아닙니다."
@@ -1158,11 +1864,27 @@ msgstr "파일이 잘림"
 msgid "File(s) will be uploaded under"
 msgstr "파일은 아래에 업로드됩니다."
 
-msgid "Filter"
+msgid "File:"
+msgstr "파일:"
+
+msgid "Filters"
 msgstr "필터"
 
 msgid "Finally valid your group has been created correctly using"
 msgstr "드디어 유효합니다. 귀하의 그룹은 다음을 사용하여 올바르게 생성되었습니다."
+
+msgid "First time? Get the client app"
+msgstr "처음이세요?클라이언트 앱 받기"
+
+msgid "Fleet Overview"
+msgstr "플릿 개요"
+
+#, python-format
+msgid "Fleet spread (max-min)/avg. >30%% suggests one broker diverging."
+msgstr "플릿 스프레드 (최대 최소) /평균 > 30%% 는 한 브로커가 분산되어 있음을 나타냅니다."
+
+msgid "Flush cache"
+msgstr "플러시 캐시"
 
 msgid "Folder Name"
 msgstr "폴더 이름"
@@ -1175,6 +1897,9 @@ msgstr "Linux 사용자 데이터의 경우 다음과 같이 스크립트를 시
 
 msgid "For Windows user data, we recommend starting the script with:"
 msgstr "Windows 사용자 데이터의 경우 다음과 같이 스크립트를 시작하는 것이 좋습니다."
+
+msgid "For a single instance type backed by exactly one Capacity Reservation, set its Capacity Reservation id directly on that instance-type card above instead."
+msgstr "정확히 하나의 용량 예약으로 지원되는 단일 인스턴스 유형의 경우, 대신 위의 해당 인스턴스 유형 카드에 용량 예약 ID를 직접 설정하십시오."
 
 #, python-format
 msgid "For example, %(ex_var)s on your user data will automatically be replaced with \"test123\" if you configure %(ex_assign)s on the Software Stack associated to this User Data."
@@ -1189,6 +1914,12 @@ msgstr "최상의 성능을 위해 전용 클라이언트 애플리케이션을 
 msgid "Force your job to run on a specific instance type"
 msgstr "특정 인스턴스 유형에서 강제로 작업 실행"
 
+msgid "Format:"
+msgstr "형식:"
+
+msgid "Free IPs"
+msgstr "무료 IP"
+
 msgid "Friendly Name for your project"
 msgstr "프로젝트의 친숙한 이름"
 
@@ -1197,6 +1928,24 @@ msgstr "템플릿의 친숙한 이름"
 
 msgid "Friendly name for your User Data template"
 msgstr "사용자 데이터 템플릿의 친숙한 이름"
+
+msgid "From"
+msgstr "에서"
+
+msgid "From / To"
+msgstr "출발/도착지"
+
+msgid "From custom CW namespace"
+msgstr "사용자 지정 CW 네임스페이스에서"
+
+msgid "Full API (all methods)"
+msgstr "전체 API (모든 메서드)"
+
+msgid "Full API (read-only)"
+msgstr "전체 API (읽기 전용)"
+
+msgid "Full timeline"
+msgstr "전체 타임라인"
 
 msgid "GPUs"
 msgstr "GPU"
@@ -1213,6 +1962,12 @@ msgstr "새 API 키를 생성하면 이전 키 (%(token)s %(show_btn)s) 가 무�
 
 msgid "Get Started"
 msgstr "시작하기"
+
+msgid "Globally denied paths"
+msgstr "전 세계적으로 거부된 경로"
+
+msgid "Golden Images"
+msgstr "골든 이미지"
 
 msgid "Grant Admin permission"
 msgstr "관리자 권한 부여"
@@ -1256,8 +2011,36 @@ msgstr "그룹 권한"
 msgid "Groups: OU=Group,DC=soca,DC=local"
 msgstr "그룹: OU=그룹, DC=SoCA, DC=로컬"
 
+msgid "Guest"
+msgstr "게스트"
+
+msgid "Guest Desktop Thumbnail"
+msgstr "게스트 데스크톱 썸네일"
+
+msgid "Guest username(s)"
+msgstr "게스트 사용자 이름"
+
 msgid "HTTP 401/Unauthorized"
 msgstr "HTTP 401/승인되지 않음"
+
+msgid "HTTP Methods:"
+msgstr "HTTP 메서드:"
+
+msgid "Hardware Profile"
+msgstr "하드웨어 프로필"
+
+#, python-format
+msgid "Hardware Profile (%(link)s)"
+msgstr "하드웨어 프로필 (%(link)s)"
+
+msgid "Hardware Profile updated"
+msgstr "하드웨어 프로필이 업데이트됨"
+
+msgid "Hardware Profiles"
+msgstr "하드웨어 프로필"
+
+msgid "Hardware Profiles currently bound to Software Stacks and Projects. Set or change a binding on the Software Stack or Project edit page. When both a Stack and its Project bind a profile, the Project binding wins at launch."
+msgstr "하드웨어 프로필은 현재 소프트웨어 스택 및 프로젝트에 바인딩되어 있습니다.소프트웨어 스택 또는 프로젝트 편집 페이지에서 바인딩을 설정하거나 변경합니다.스택과 해당 프로젝트가 모두 프로필을 바인딩하면 시작 시 프로젝트 바인딩이 우선합니다."
 
 msgid "Hello"
 msgstr "여보세요"
@@ -1265,11 +2048,23 @@ msgstr "여보세요"
 msgid "Here are some documentation to help you transfer files from/to Engineering Development Hub:"
 msgstr "다음은 엔지니어링 개발 허브에서 또는 엔지니어링 개발 허브로 파일을 전송하는 데 도움이 되는 몇 가지 문서입니다."
 
+msgid "Hibernated (faster resume, larger EBS)"
+msgstr "최대 절전 모드 (빠른 재시작, 대규모 EBS)"
+
 msgid "Hibernation will not cause any data loss"
 msgstr "최대 절전 모드로 전환해도 데이터가 손실되지 않습니다."
 
+msgid "Hide bulk edit"
+msgstr "일괄 편집 숨기기"
+
 msgid "High Performance Computing"
 msgstr "고성능 컴퓨팅"
+
+msgid "Hint"
+msgstr "힌트"
+
+msgid "History"
+msgstr "역사"
 
 msgid "Home Directory"
 msgstr "홈 디렉토리"
@@ -1283,11 +2078,29 @@ msgstr "이 대기열에 있는 호스트는 관리자가 수동으로 해당 �
 msgid "Host(s)"
 msgstr "호스트"
 
+msgid "Hostname"
+msgstr "호스트 이름"
+
 msgid "Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete."
 msgstr "이 대기열에 있는 호스트는 대기열에 있는 작업 수를 기준으로 자동으로 프로비전됩니다.호스트는 지정된 작업 ID로 제한되며 작업이 완료되는 즉시 자동으로 종료됩니다."
 
+msgid "Hot"
+msgstr "핫"
+
+msgid "Hot InService"
+msgstr "핫 인 서비스"
+
+msgid "Hot-served"
+msgstr "핫 서빙"
+
+msgid "Hover a permission for details. "
+msgstr "권한을 마우스오버하면 세부 정보를 볼 수 있습니다. "
+
 msgid "How do you want to name this Workflow Profile?"
 msgstr "이 워크플로 프로필의 이름을 어떻게 지정하시겠습니까?"
+
+msgid "How long this token remains valid. After expiration, the token can no longer authenticate requests."
+msgstr "이 토큰의 유효 기간만료 후에는 토큰이 더 이상 요청을 인증할 수 없습니다."
 
 msgid "How many Virtual CPUs do you want?"
 msgstr "얼마나 많은 가상 CPU를 원하시나요?"
@@ -1345,17 +2158,29 @@ msgstr "확실히 EDH에서 이 소프트웨어 스택의 등록을 취소하고
 msgid "I am sure I want to unregister this Software Stack from SOCA"
 msgstr "확실히 SOCA에서 이 소프트웨어 스택의 등록을 취소하고 싶습니다."
 
+msgid "I confirm I want to delete this job"
+msgstr "확인했습니다. 이 작업을 삭제하겠습니다."
+
 msgid "I understand I will need to update my scripts with the new key to prevent any outage"
 msgstr "운영 중단을 방지하려면 새 키로 스크립트를 업데이트해야 한다는 것을 이해합니다."
 
+msgid "I understand this token will be permanently revoked."
+msgstr "이 토큰이 영구적으로 취소될 것으로 알고 있습니다."
+
 msgid "I want to delete this Workflow Profile"
 msgstr "이 워크플로 프로필을 삭제하고 싶습니다."
+
+msgid "ID"
+msgstr "신분증"
 
 msgid "IMPORTANT"
 msgstr "중요한"
 
 msgid "IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)"
 msgstr "중요: 노드 수는 머신당 vCPU (CPU 아님) 수를 기반으로 합니다.(예: c6i.xlarge에는 2개의 물리적 CPU와 4개의 vCPU가 있습니다.vCPU 8개를 요청하면 EDH는 2개의 인스턴스를 프로비저닝합니다.8개의 논리적 코어가 필요한 경우 ht_support=false를 사용하고 vCPU가 16개인 단일 EC2 시스템을 요청하는 것이 좋습니다."
+
+msgid "IP"
+msgstr "IP"
 
 msgid "Id"
 msgstr "아이디"
@@ -1370,9 +2195,6 @@ msgstr "force_ri가 True인 경우 작업은 예약 인스턴스에서만 실행
 msgid "If present, autofilled with the input file name"
 msgstr "있는 경우 입력 파일 이름으로 자동 채워집니다."
 
-msgid "If the page stays blank, the code-server service may not be running on this cluster."
-msgstr "페이지가 비어 있으면 코드 서버 서비스가 이 클러스터에서 실행되고 있지 않을 수 있습니다."
-
 #, python-format
 msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit %(cfg)s and add:"
 msgstr "몇 분 동안 활동이 없으면 세션이 자동으로 종료되지 않도록 하려면 %(cfg)s 편집 후 다음을 추가하십시오."
@@ -1385,6 +2207,9 @@ msgstr "키가 도용되었다고 생각되면 페이지 하단에 있는 링크
 
 msgid "Image"
 msgstr "이미지"
+
+msgid "Image & Settings"
+msgstr "이미지 및 설정"
 
 msgid "Image Digest"
 msgstr "이미지 다이제스트"
@@ -1403,6 +2228,9 @@ msgstr "이미지 태그"
 
 msgid "Image URI"
 msgstr "이미지 URI"
+
+msgid "Impact"
+msgstr "영향"
 
 msgid "Import"
 msgstr "임포트"
@@ -1428,15 +2256,36 @@ msgstr "중요:"
 msgid "Important: Active Directory"
 msgstr "중요: 액티브 디렉터리"
 
+msgid "In Use"
+msgstr "사용 중"
+
 #, python-format
 msgid "In the %(section)s section click %(action)s"
 msgstr "%(section)s 섹션에서 %(action)s 을 클릭합니다."
 
+msgid "Include finished"
+msgstr "완료 포함"
+
+msgid "Include on-behalf-of in User match (show internal/root calls made for the user)"
+msgstr "사용자 매치에 대리 포함 (사용자에 대한 내부/루트 호출 표시)"
+
 msgid "Info"
 msgstr "정보"
 
+msgid "Infrastructure"
+msgstr "인프라스트럭처"
+
+msgid "Infrastructure data not available yet -- still being assembled."
+msgstr "인프라 데이터는 아직 사용할 수 없습니다. 아직 조립 중입니다."
+
+msgid "Inherit cluster default"
+msgstr "클러스터 기본값 상속"
+
 msgid "Input location"
 msgstr "입력 위치"
+
+msgid "Instance"
+msgstr "인스턴스"
 
 msgid "Instance Family"
 msgstr "인스턴스 패밀리"
@@ -1444,11 +2293,17 @@ msgstr "인스턴스 패밀리"
 msgid "Instance ID of the target node"
 msgstr "대상 노드의 인스턴스 ID"
 
+msgid "Instance IP - Click to copy"
+msgstr "인스턴스 IP - 복사하려면 클릭"
+
 msgid "Instance Type"
 msgstr "인스턴스 유형"
 
 msgid "Instance Type:"
 msgstr "인스턴스 유형:"
+
+msgid "Instance type"
+msgstr "인스턴스 유형"
 
 msgid "Instance type (default: c5.large)"
 msgstr "인스턴스 유형 (기본값: c5.large)"
@@ -1456,11 +2311,20 @@ msgstr "인스턴스 유형 (기본값: c5.large)"
 msgid "Instance type of the target node"
 msgstr "대상 노드의 인스턴스 유형"
 
+msgid "Instance types"
+msgstr "인스턴스 유형"
+
 msgid "Instructions for Linux/Mac"
 msgstr "리눅스/맥용 지침"
 
 msgid "Instructions for Windows"
 msgstr "윈도우용 지침"
+
+msgid "Interrupted"
+msgstr "중단됨"
+
+msgid "Interruptible"
+msgstr "인터럽트 가능"
 
 msgid "Invalid feature flag configuration"
 msgstr "잘못된 기능 플래그 구성"
@@ -1474,11 +2338,14 @@ msgstr "잘못된 그래픽 세션"
 msgid "It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility"
 msgstr "드라이버 비호환성으로 인해 비 GPU와 GPU 인스턴스 간에는 업그레이드/다운그레이드하지 않는 것이 좋습니다."
 
-msgid "JOB CANNOT START"
-msgstr "작업을 시작할 수 없습니다."
+msgid "JSON object defining which API paths and HTTP methods this token can access. Use allow/deny rules."
+msgstr "이 토큰이 액세스할 수 있는 API 경로와 HTTP 메서드를 정의하는 JSON 객체입니다.허용/거부 규칙을 사용하세요."
 
 msgid "Jinja templating"
 msgstr "닌자 템플릿"
+
+msgid "Job Cannot Start"
+msgstr "작업을 시작할 수 없음"
 
 msgid "Job Definition"
 msgstr "직무 정의"
@@ -1522,9 +2389,6 @@ msgstr "취업 시도"
 msgid "Job completed are automatically removed after 1 hour."
 msgstr "완료된 작업은 1시간 후에 자동으로 제거됩니다."
 
-msgid "Job is finished or in invalid state"
-msgstr "작업이 완료되었거나 잘못된 상태입니다."
-
 msgid "Jump to live (End)"
 msgstr "점프 투 라이브 (종료)"
 
@@ -1540,8 +2404,14 @@ msgstr "키"
 msgid "Key"
 msgstr "키"
 
+msgid "Key + Value"
+msgstr "키+값"
+
 msgid "Key File"
 msgstr "키 파일"
+
+msgid "Key only"
+msgstr "키 전용"
 
 msgid "Keyboard shortcuts"
 msgstr "키보드 단축키"
@@ -1549,8 +2419,14 @@ msgstr "키보드 단축키"
 msgid "Keyboard shortcuts (?)"
 msgstr "키보드 단축키 (?)"
 
-msgid "LSF"
-msgstr "LSF"
+msgid "Label"
+msgstr "레이블"
+
+msgid "Label (optional)"
+msgstr "라벨 (선택 사항)"
+
+msgid "Label is required"
+msgstr "라벨이 필요합니다."
 
 msgid "Large (8 vCPUs, 32 GB RAM)"
 msgstr "대형 (vCPU 8개, RAM 32GB)"
@@ -1564,7 +2440,13 @@ msgstr "지난 2일"
 msgid "Last 24 hours"
 msgstr "지난 24시간"
 
+msgid "Last 24h"
+msgstr "지난 24시간"
+
 msgid "Last 30 days"
+msgstr "지난 30일"
+
+msgid "Last 30d"
 msgstr "지난 30일"
 
 msgid "Last 6 hours"
@@ -1573,8 +2455,23 @@ msgstr "지난 6시간"
 msgid "Last 7 days"
 msgstr "지난 7일"
 
+msgid "Last 72h"
+msgstr "지난 72시간"
+
+msgid "Last 7d"
+msgstr "지난 7일"
+
+msgid "Last Connected"
+msgstr "마지막 연결"
+
 msgid "Last Modified"
 msgstr "최종 수정"
+
+msgid "Last Used"
+msgstr "마지막 사용"
+
+msgid "Last modified (UTC)"
+msgstr "최종 수정 날짜 (UTC)"
 
 msgid "Launch Batch Job"
 msgstr "배치 작업 실행"
@@ -1618,6 +2515,9 @@ msgstr "새 타겟 노드 시작"
 msgid "Launch new Virtual Desktop"
 msgstr "새 가상 데스크톱 출시"
 
+msgid "Launch on Spot (Interruptible)"
+msgstr "현장에서 실행 (인터럽트 가능)"
+
 msgid "Launch your virtual desktop in a specific subnet."
 msgstr "특정 서브넷에서 가상 데스크톱을 시작합니다."
 
@@ -1627,17 +2527,32 @@ msgstr "액세스를 제거하려면 비워 두십시오."
 msgid "Leave everything else as default."
 msgstr "다른 모든 항목은 기본값으로 둡니다."
 
+msgid "Ledger AVAILABLE rows the broker cannot yet serve (members mid broker-registration, or stale rows pending the zombie sweep). Not necessarily an error; should trend to 0."
+msgstr "브로커가 아직 서비스를 제공할 수 없는 행 (브로커 등록 중에 있는 회원 또는 좀비 스윕 대기 중인 오래된 행).반드시 오류일 필요는 없습니다. 추세가 0이 되어야 합니다."
+
 msgid "Let us assume you want to submit a simple job on the default OpenPBS"
 msgstr "기본 OpenPBS에서 간단한 작업을 제출한다고 가정해 보겠습니다."
+
+msgid "Lifetime"
+msgstr "평생"
 
 msgid "Limitations"
 msgstr "제한 사항"
 
+msgid "Line selection"
+msgstr "라인 선택"
+
+msgid "Lineage"
+msgstr "리니지"
+
+msgid "Link an allowlist, Apply, then manage its devices."
+msgstr "허용 목록을 연결하고 적용한 다음 해당 장치를 관리합니다."
+
 msgid "Linux"
 msgstr "리눅스"
 
-msgid "List all Virtual Desktops"
-msgstr "모든 가상 데스크톱 목록"
+msgid "List all VDI"
+msgstr "모든 VDI 나열"
 
 msgid "List all active Virtual Desktops"
 msgstr "활성 가상 데스크톱 모두 나열"
@@ -1693,14 +2608,41 @@ msgstr "의 사용자 목록 "
 msgid "List your Windows or Linux Virtual Desktops. Provision machines connected to your EDH environment that can mount shared or local filers"
 msgstr "윈도우 또는 리눅스 가상 데스크톱을 나열하세요.공유 파일러 또는 로컬 파일러를 마운트할 수 있는 EDH 환경에 연결된 머신을 프로비전하세요."
 
+msgid "Live"
+msgstr "라이브"
+
 msgid "Live file tail"
 msgstr "라이브 파일 테일"
+
+msgid "Live updates via Server-Sent Events. Auto-reconnect on drop."
+msgstr "서버 전송 이벤트를 통한 실시간 업데이트드롭 시 자동 재연결."
+
+msgid "Liveness from CloudWatch (AWS/Lambda + relay rejections). Queue backlog + last-reconcile detail arrive with the persisted event store."
+msgstr "CloudWatch의 활성 상태 (AWS/Lambda+ 릴레이 거부)대기열 백로그+마지막 조정 세부 정보가 지속된 이벤트 저장소와 함께 제공됩니다."
+
+msgid "Load Balancers"
+msgstr "로드 밸런서"
 
 msgid "Load earlier content (PageUp)"
 msgstr "이전 콘텐츠 로드 (PageUp)"
 
+msgid "Loading Local Acceleration Mirror status..."
+msgstr "로컬 가속 미러 상태 불러오는 중..."
+
 msgid "Loading earlier content..."
 msgstr "이전 콘텐츠 로드 중..."
+
+msgid "Loading file ..."
+msgstr "파일 로드 중..."
+
+msgid "Loading..."
+msgstr "로드 중..."
+
+msgid "Local Acceleration Mirror"
+msgstr "로컬 가속 미러"
+
+msgid "Local Acceleration Mirror -- Owned Base AMIs"
+msgstr "로컬 가속 미러 -- 소유 기본 AMI"
 
 msgid "Login"
 msgstr "로그인"
@@ -1711,8 +2653,20 @@ msgstr "로그온 유형"
 msgid "Logout"
 msgstr "로그아웃"
 
+msgid "Look up device 0x"
+msgstr "디바이스 0x 조회"
+
+msgid "Look up vendor 0x"
+msgstr "공급업체 0x 검색"
+
 msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
 msgstr "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+
+msgid "MCP (Tool Use)"
+msgstr "MCP (도구 사용)"
+
+msgid "MCP Servers"
+msgstr "MCP 서버"
 
 msgid "MY_ENV"
 msgstr "MY_ENV"
@@ -1729,6 +2683,9 @@ msgstr "현재 지역에서 Amazon 머신 이미지 (AMI) 를 사용할 수 있�
 
 msgid "Malformed file identifier"
 msgstr "파일 식별자 형식이 잘못되었습니다."
+
+msgid "Manage"
+msgstr "관리"
 
 msgid "Manage EDH Projects"
 msgstr "EDH 프로젝트 관리"
@@ -1748,14 +2705,32 @@ msgstr "사용자 데이터 관리 템플릿"
 msgid "Manage Virtual Desktop Profiles"
 msgstr "가상 데스크톱 프로필 관리"
 
+msgid "Manage devices in this allowlist →"
+msgstr "이 허용 목록에 있는 장치 관리 →"
+
 msgid "Manage your Virtual Desktops"
 msgstr "가상 데스크톱 관리"
 
 msgid "Manage your Virtual Targets"
 msgstr "가상 타겟 관리"
 
+msgid "Mark for deletion"
+msgstr "삭제로 표시"
+
+msgid "Mask Public IPs"
+msgstr "공용 IP 마스크"
+
+msgid "Max lifetime"
+msgstr "최대 수명"
+
+msgid "Max renewals per token"
+msgstr "토큰당 최대 갱신 수"
+
 msgid "Max runtime (default: 01:00:00)"
 msgstr "최대 런타임 (기본값: 01:00:00)"
+
+msgid "Max tokens per user"
+msgstr "사용자당 최대 토큰"
 
 msgid "Maximum EBS Root Disk size (in GB)"
 msgstr "최대 EBS 루트 디스크 크기 (GB)"
@@ -1772,8 +2747,11 @@ msgstr "최대 5개의 소모품 자원이 허용됩니다."
 msgid "Medium (4 vCPUs, 16 GB RAM)"
 msgstr "미디엄 (vCPU 4개, RAM 16GB)"
 
-msgid "Members: (choose all that apply)"
-msgstr "회원: (해당하는 항목 모두 선택)"
+msgid "Members"
+msgstr "회원"
+
+msgid "Members:"
+msgstr "회원:"
 
 msgid "Memory (GB)"
 msgstr "메모리 (GB)"
@@ -1783,6 +2761,18 @@ msgstr "메모리 (GB)"
 
 msgid "Menu"
 msgstr "메뉴"
+
+msgid "Method"
+msgstr "메서드"
+
+msgid "Metric window"
+msgstr "지표 창"
+
+msgid "Metrics"
+msgstr "측정항목"
+
+msgid "Mine"
+msgstr "광산"
 
 msgid "Missing file identifier"
 msgstr "누락된 파일 식별자"
@@ -1805,6 +2795,18 @@ msgstr "소프트웨어_스택_ID가 없습니다."
 msgid "Missing template_id"
 msgstr "템플릿_ID가 없습니다."
 
+msgid "Mode"
+msgstr "모드"
+
+msgid "Model"
+msgstr "모델"
+
+msgid "Model (Converse)"
+msgstr "모델 (컨버스)"
+
+msgid "Move"
+msgstr "이동"
+
 msgid "Must be a valid EDH group"
 msgstr "유효한 EDH 그룹이어야 함"
 
@@ -1814,8 +2816,8 @@ msgstr "유효한 EDH 사용자여야 합니다."
 msgid "My API Key"
 msgstr "내 API 키"
 
-msgid "My API Key (Developer mode)"
-msgstr "내 API 키 (개발자 모드)"
+msgid "My API Tokens"
+msgstr "내 API 토큰"
 
 msgid "My AWS Batch Job"
 msgstr "내 AWS 배치 작업"
@@ -1871,6 +2873,9 @@ msgstr "템플릿 이름"
 msgid "Name for your user data template"
 msgstr "사용자 데이터 템플릿의 이름"
 
+msgid "Name is required"
+msgstr "이름은 필수"
+
 msgid "Name of the AWS Batch Job Definition to use"
 msgstr "사용할 AWS 배치 작업 정의의 이름"
 
@@ -1892,14 +2897,35 @@ msgstr "직무 이름"
 msgid "Name of your profile"
 msgstr "프로필 이름"
 
+msgid "Name, description, Enabled, and sub-profile links save together with Apply. Disabling unbinds any Stack/Project using this profile."
+msgstr "이름, 설명, 활성화됨 및 하위 프로필 링크가 적용과 함께 저장됩니다.비활성화하면 이 프로필을 사용하는 모든 스택/프로젝트의 바인딩이 해제됩니다."
+
 msgid "Namespace"
 msgstr "네임스페이스"
+
+msgid "Namespace:"
+msgstr "네임스페이스:"
 
 msgid "Navigate file"
 msgstr "파일 탐색"
 
+msgid "Need help analyzing a specific file? Use the"
+msgstr "특정 파일을 분석하는 데 도움이 필요하신가요?를 사용하세요."
+
+msgid "Nested Virtualization"
+msgstr "중첩된 가상화"
+
+msgid "New"
+msgstr "신규"
+
 msgid "New Password"
 msgstr "새 비밀번호"
+
+msgid "New conversation"
+msgstr "새 대화"
+
+msgid "New screenshots written"
+msgstr "새 스크린샷 작성"
 
 msgid "New terminal tab (Ctrl+Shift+T)"
 msgstr "새 터미널 탭 (Ctrl+Shift+T)"
@@ -1919,29 +2945,98 @@ msgstr "예산 없음"
 msgid "No Description Provided"
 msgstr "설명이 제공되지 않음"
 
+msgid "No Hardware Profiles yet. Create one above."
+msgstr "아직 하드웨어 프로필이 없습니다.위에서 하나 만드세요."
+
+msgid "No MCP servers available. Configure MCP servers in Settings before using this mode."
+msgstr "MCP 서버를 사용할 수 없습니다.이 모드를 사용하기 전에 설정에서 MCP 서버를 구성하십시오."
+
+msgid "No MCP servers configured. Add MCP server definitions to SSM parameter"
+msgstr "MCP 서버가 구성되지 않았습니다.MCP 서버 정의를 SSM 파라미터에 추가합니다."
+
 msgid "No Project found"
 msgstr "프로젝트를 찾을 수 없음"
 
 msgid "No Target Node Profiles found"
 msgstr "타겟 노드 프로파일을 찾을 수 없음"
 
+msgid "No USB allowlists yet. Create one above."
+msgstr "USB 허용 목록은 아직 없습니다.위에 하나 만드세요."
+
 msgid "No User Data Template Found"
 msgstr "사용자 데이터 템플릿을 찾을 수 없음"
+
+msgid "No VDI pools are configured. Add a pool from a VDI software stack to populate this tab."
+msgstr "VDI 풀이 구성되지 않았습니다.VDI 소프트웨어 스택에서 풀을 추가하여 이 탭을 채우십시오."
 
 msgid "No Virtual Desktop Profiles found"
 msgstr "가상 데스크톱 프로필을 찾을 수 없음"
 
+msgid "No active shares"
+msgstr "활성 주식 없음"
+
+msgid "No active tokens found for this user."
+msgstr "이 사용자의 활성 토큰을 찾을 수 없습니다."
+
+msgid "No audit log entries match your filters."
+msgstr "필터와 일치하는 감사 로그 항목이 없습니다."
+
+msgid "No base images tracked yet."
+msgstr "기본 이미지가 아직 추적되지 않았습니다."
+
+msgid "No bindings yet. Bind a Hardware Profile from a Software Stack or Project edit page."
+msgstr "아직 바인딩이 없습니다.소프트웨어 스택 또는 프로젝트 편집 페이지에서 하드웨어 프로필을 바인딩합니다."
+
+msgid "No changes recorded yet. Applied edits appear here (who, when, old -> new, version)."
+msgstr "변경 사항은 아직 기록되지 않았습니다.적용된 편집 내용이 여기에 표시됩니다 (누가, 언제, 이전 -> 신규, 버전)."
+
+msgid "No changes to apply"
+msgstr "적용할 변경 사항 없음"
+
 msgid "No custom AMI found. Create one first"
 msgstr "사용자 지정 AMI를 찾을 수 없습니다.먼저 생성하세요."
+
+msgid "No dashboard for serverless analytics."
+msgstr "서버리스 분석을 위한 대시보드가 없습니다."
+
+msgid "No devices yet. Add one below, then Apply updates."
+msgstr "아직 기기가 없습니다.아래에 하나를 추가한 다음 업데이트를 적용하세요."
+
+msgid "No editable parameters at this level -- expand the tree to drill into sub-sections."
+msgstr "이 수준에서는 편집할 수 있는 매개변수가 없습니다. 트리를 확장하여 하위 섹션으로 자세히 살펴보세요."
+
+msgid "No editor yet for this sub-profile type."
+msgstr "이 하위 프로필 유형의 편집기는 아직 없습니다."
+
+msgid "No events recorded yet"
+msgstr "아직 기록된 이벤트가 없습니다."
+
+msgid "No events yet -- bootstrap may not have started emitting. Live updates will appear here."
+msgstr "아직 이벤트가 없습니다. 부트스트랩이 방출을 시작하지 않았을 수 있습니다.실시간 업데이트가 여기에 표시됩니다."
 
 msgid "No files in this directory"
 msgstr "이 디렉터리에는 파일이 없습니다."
 
+msgid "No history."
+msgstr "기록이 없습니다."
+
 msgid "No image"
 msgstr "이미지 없음"
 
+msgid "No jobs found."
+msgstr "채용공고가 없습니다."
+
+msgid "No jobs to plot."
+msgstr "계획할 일자리가 없습니다."
+
 msgid "No links have been configured by your EDH Administrators"
 msgstr "EDH 관리자가 구성한 링크가 없습니다."
+
+msgid "No matching parameters."
+msgstr "일치하는 매개변수가 없습니다."
+
+msgid "No members -- ASG retained for reuse (reaper deferred)."
+msgstr "멤버 없음 -- ASG는 재사용을 위해 유지됩니다 (리퍼 연기)."
 
 msgid "No more than 1 day"
 msgstr "1일 이내"
@@ -1958,14 +3053,71 @@ msgstr "5시간 이내"
 msgid "No open terminals."
 msgstr "열린 터미널이 없습니다."
 
+msgid "No parameters here."
+msgstr "여기에는 매개변수가 없습니다."
+
+msgid "No pending nominations."
+msgstr "보류 중인 후보가 없습니다."
+
+msgid "No recent activity."
+msgstr "최근 활동이 없습니다."
+
+msgid "No recent scaling activity."
+msgstr "최근 스케일링 활동이 없습니다."
+
+msgid "No saved conversations yet. Start a conversation to create one."
+msgstr "저장된 대화가 아직 없습니다.대화를 시작하여 대화를 생성하세요."
+
+msgid "No saved conversations yet. Start an analysis to create one."
+msgstr "저장된 대화가 아직 없습니다.분석을 시작하여 새로 만드세요."
+
+msgid "No saved desktops yet. Use \"Save & Shut Down\" on a running desktop to keep a resumable image."
+msgstr "아직 저장된 데스크톱이 없습니다.실행 중인 데스크톱에서 \"Save & Shut Down\"을 사용하여 재개 가능한 이미지를 보관하세요."
+
+msgid "No scoped tokens yet. Create one to get started."
+msgstr "범위가 지정된 토큰은 아직 없습니다.시작하려면 하나를 생성하세요."
+
+msgid "No screenshot metrics yet -- next poller cycle will publish."
+msgstr "스크린샷 메트릭은 아직 없습니다. 다음 폴러 주기가 게시될 예정입니다."
+
 msgid "No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator."
 msgstr "소프트웨어 스택을 찾을 수 없습니다.적절한 EDH 프로젝트에 추가되었는지 확인해 주세요.문제가 지속되면 EDH 관리자에게 문의하세요."
+
+msgid "No stacks have been published via Golden Images yet. Use the Nominations tab to approve and publish, or publish directly from your own saved desktops."
+msgstr "아직 골든 이미지를 통해 게시된 스택이 없습니다.추천 탭을 사용하여 승인 및 게시하거나 저장된 데스크톱에서 직접 게시할 수 있습니다."
 
 msgid "Nodes Count"
 msgstr "노드 개수"
 
+msgid "Nominate"
+msgstr "지명"
+
+msgid "Nominate as Golden Image"
+msgstr "골든 이미지로 추천"
+
+msgid "Nominate this saved desktop as a golden image candidate. An administrator will review and may publish it as a software stack."
+msgstr "이 저장된 데스크톱을 골든 이미지 후보로 추천하세요.관리자가 이를 검토하고 소프트웨어 스택으로 게시할 수 있습니다."
+
+msgid "Nominated By"
+msgstr "지명 작성자"
+
+msgid "Nominations"
+msgstr "후보"
+
+msgid "Non-READY or no image"
+msgstr "이미지가 준비되지 않았거나 없음"
+
 msgid "None"
 msgstr "없음"
+
+msgid "None (no hardware profile)"
+msgstr "없음 (하드웨어 프로필 없음)"
+
+msgid "None -- sharing disabled"
+msgstr "없음 -- 공유 비활성화"
+
+msgid "Not a regular file"
+msgstr "일반 파일이 아님"
 
 msgid "Not authorized"
 msgstr "승인되지 않음"
@@ -1991,8 +3143,17 @@ msgstr "참고: 지정하지 않을 경우 EDH는 다음 기본 매개변수를 
 msgid "Note: Your Analytics Dashboard URL is"
 msgstr "참고: 애널리틱스 대시보드 URL은"
 
+msgid "Note: token permissions only control which endpoints the token is allowed to call. EDH still enforces user-level authorization, a regular user cannot access admin endpoints even if the token permissions include them."
+msgstr "참고: 토큰 권한은 토큰이 호출할 수 있는 엔드포인트만 제어합니다.EDH는 여전히 사용자 수준 인증을 적용하므로 토큰 권한에 관리자 엔드포인트가 포함되더라도 일반 사용자는 관리자 엔드포인트에 액세스할 수 없습니다."
+
+msgid "Notes (optional)"
+msgstr "메모 (선택 사항)"
+
 msgid "Notes:"
 msgstr "노트:"
+
+msgid "Nothing will provision until you enable pooling above."
+msgstr "위에서 풀링을 활성화하기 전까지는 아무 것도 프로비전되지 않습니다."
 
 msgid "Number of CPUs to request for your job"
 msgstr "작업에 필요한 CPU 수"
@@ -2012,6 +3173,30 @@ msgstr "시뮬레이션에 할당할 vCPU 수"
 msgid "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision"
 msgstr "시뮬레이션에 할당할 vCPU 수입니다.이 값은 instance_type과 함께 사용하여 프로비전할 노드 수를 계산합니다."
 
+msgid "OS"
+msgstr "OS"
+
+msgid "Off (lazy load)"
+msgstr "끄기 (지연 로드)"
+
+msgid "Old"
+msgstr "올드"
+
+msgid "Oldest Capture"
+msgstr "가장 오래된 캡처"
+
+msgid "On behalf of"
+msgstr "를 대신하여"
+
+msgid "On-Demand"
+msgstr "온디맨드"
+
+msgid "On-Demand above base"
+msgstr "기본 이상의 온디맨드"
+
+msgid "On-Demand floor"
+msgstr "온디맨드 플로어"
+
 msgid "Once connected, simply drag & drop to upload/download files."
 msgstr "연결되면 드래그 앤 드롭하여 파일을 업로드/다운로드하기만 하면 됩니다."
 
@@ -2026,6 +3211,12 @@ msgstr "가상 데스크톱 소프트웨어 스택을 생성한 후에는 해당
 #, python-format
 msgid "Once you have created your Workflow Profile, please ensure that it is %(link)s Failure to do so will result in your profile remaining hidden from users."
 msgstr "워크플로 프로필을 만든 후에는 해당 프로필이 %(link)s 인지 확인하십시오. 그렇지 않으면 프로필이 사용자에게 보이지 않게 됩니다."
+
+msgid "One or more desktops are ready right now. Select to start your desktop instantly"
+msgstr "현재 하나 이상의 데스크톱이 준비되어 있습니다.선택하면 데스크톱이 즉시 시작됩니다."
+
+msgid "One pattern per line (comma / space / newline separated also work). Wildcards like t3.* allowed."
+msgstr "한 줄에 하나의 패턴 (쉼표/공백/개행 구분도 가능).t3.*와 같은 와일드카드가 허용됩니다."
 
 msgid "Only images that have tags are shown in the repository table. Untagged images are not displayed."
 msgstr "태그가 있는 이미지만 저장소 테이블에 표시됩니다.태그가 지정되지 않은 이미지는 표시되지 않습니다."
@@ -2061,23 +3252,26 @@ msgstr "브라우저에서 열기"
 msgid "Open in a separate window"
 msgstr "별도의 창에서 열기"
 
-msgid "OpenPBS"
-msgstr "PBS를 엽니다"
+msgid "Opens in a new tab"
+msgstr "새 탭에서 열림"
 
 msgid "Operating System"
 msgstr "운영 체제"
 
-msgid "Option1: Browser access"
-msgstr "옵션 1: 브라우저 액세스"
-
-msgid "Option2: Native Application"
-msgstr "옵션 2: 기본 애플리케이션"
-
 msgid "Optional"
 msgstr "선택 사항"
 
+msgid "Optional Hardware Profile (USB device allowlist) bound to this stack. A Project binding overrides this Stack binding."
+msgstr "이 스택에 바인딩된 선택적 하드웨어 프로필 (USB 장치 허용 목록)프로젝트 바인딩은 이 스택 바인딩보다 우선 적용됩니다."
+
+msgid "Optional Hardware Profile (USB device allowlist). A Project binding overrides a Software Stack binding."
+msgstr "선택적 하드웨어 프로필 (USB 장치 허용 목록).프로젝트 바인딩은 소프트웨어 스택 바인딩보다 우선합니다."
+
 msgid "Optional: Enable KeepAlive"
 msgstr "선택 사항: 킵얼라이브 활성화"
+
+msgid "Original"
+msgstr "원본"
 
 msgid "Other Shells"
 msgstr "기타 쉘"
@@ -2094,11 +3288,14 @@ msgstr "컨테이너 진입점 재정의"
 msgid "Override your container runtime arguments"
 msgstr "컨테이너 런타임 인수 재정의"
 
+msgid "Overrides the bound Software Stack's hardware profile for desktops launched under this project."
+msgstr "이 프로젝트에서 출시된 데스크톱용 바인딩된 Software Stack의 하드웨어 프로필을 재정의합니다."
+
+msgid "Owned AMI"
+msgstr "소유한 AMI"
+
 msgid "Owner"
 msgstr "소유자"
-
-msgid "PENDING"
-msgstr "보류 중"
 
 #, python-format
 msgid "Page %(current)s of %(total)s"
@@ -2106,6 +3303,9 @@ msgstr "%(total)s 페이지 %(current)s"
 
 msgid "Parameters used to estimate the simulation cost:"
 msgstr "시뮬레이션 비용을 추정하는 데 사용되는 매개변수:"
+
+msgid "Parse to fields"
+msgstr "필드로 파싱"
 
 msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
 msgstr "일부 CPU 허용 (예: 0.5 = CPU 절반)"
@@ -2125,6 +3325,12 @@ msgstr "에 대한 비밀번호 "
 msgid "Password updated correctly"
 msgstr "암호가 올바르게 업데이트됨"
 
+msgid "Paste the filter string from the Windows DCV client (dcvusblist.exe) and Parse to fields, or fill the fields directly, then Add to staging. Format: Name,BaseClass,SubClass,Protocol,VID,PID,Autoshare,SkipReset. Use * as a wildcard. Class/VID/PID are DECIMAL -- exactly as the DCV client's Copy filter string produces them. Hex input with a 0x prefix (e.g. 0x1050) is accepted and auto-converted to decimal."
+msgstr "Windows DCV 클라이언트 (dcvusblist.exe) 에서 필터 문자열을 붙여넣고 필드에 구문 분석하거나 필드를 직접 채운 다음 스테이징에 추가합니다.형식: 이름, 기본 클래스, 하위 클래스, 프로토콜, VID, PID, 자동 공유, SkiPreset*를 와일드카드로 사용하십시오.클래스/VID/PID는 DCV 클라이언트의 복사 필터 문자열이 생성하는 것과 정확히 같은 십진수입니다.접두사가 0x인 16진수 입력 (예: 0x1050) 이 허용되며 자동으로 10진수로 변환됩니다."
+
+msgid "Path"
+msgstr "경로"
+
 msgid "Path to the solver executable/binary"
 msgstr "솔버 실행 파일/바이너리 경로"
 
@@ -2140,11 +3346,41 @@ msgstr "데스크톱 일시 중지"
 msgid "Pause Target Node"
 msgstr "대상 노드 일시 중지"
 
+msgid "Pause auto-refresh"
+msgstr "자동 새로고침 일시 중지"
+
 msgid "Pause or resume (Space)"
 msgstr "일시 중지 또는 재개 (스페이스)"
 
+msgid "Pending Nominations"
+msgstr "보류 중인 후보"
+
+msgid "Pending change"
+msgstr "보류 중인 변경"
+
 msgid "People: OU=People,DC=soca,DC=local"
 msgstr "사람들: OU=사용자, DC=Soca, DC=로컬"
+
+msgid "Per-pool cards from live ASG + warm pool + ledger + scaling activities. Click a card to expand. Reconciler/relay health and durable per-pool telemetry arrive in later phases."
+msgstr "라이브 ASG+웜 풀+원장+스케일링 활동의 풀당 카드.카드를 클릭하면 펼칠 수 있습니다.조정자/릴레이 상태 및 안정적인 풀별 텔레메트리는 이후 단계에서 제공됩니다."
+
+msgid "Per-session loss rate, p95"
+msgstr "세션당 손실률, p95"
+
+msgid "Period:"
+msgstr "기간:"
+
+msgid "Permission Profile"
+msgstr "권한 프로필"
+
+msgid "Permission Profiles"
+msgstr "권한 프로필"
+
+msgid "Permission reference"
+msgstr "권한 참조"
+
+msgid "Permissions"
+msgstr "사용 권한"
 
 msgid "Pick a simple name to identify your graphical session"
 msgstr "그래픽 세션을 식별할 수 있는 간단한 이름을 선택하세요."
@@ -2152,15 +3388,30 @@ msgstr "그래픽 세션을 식별할 수 있는 간단한 이름을 선택하�
 msgid "Pick a simple name to identify your target node session"
 msgstr "대상 노드 세션을 식별하기 위한 간단한 이름을 선택하십시오."
 
+msgid "Pinned - protected from expiry/eviction"
+msgstr "고정 - 만료/퇴거 방지"
+
 #, python-format
 msgid "Please %(warn)s when creating an issue."
 msgstr "이슈를 만들 때는 %(warn)s 해주세요."
 
+msgid "Please confirm"
+msgstr "확인해 주세요"
+
 msgid "Please fill out the form first"
 msgstr "먼저 양식을 작성해 주세요"
 
+msgid "Please select an agent in Settings before analyzing."
+msgstr "분석하기 전에 설정에서 에이전트를 선택하십시오."
+
+msgid "Please select an agent in Settings before sending a message."
+msgstr "메시지를 보내기 전에 설정에서 상담원을 선택하세요."
+
 msgid "Please select an image to run your job"
 msgstr "작업을 실행할 이미지를 선택하십시오."
+
+msgid "Please select at least one subnet."
+msgstr "서브넷을 하나 이상 선택하십시오."
 
 msgid "Please wait ..."
 msgstr "잠시만 기다려 주세요..."
@@ -2177,11 +3428,47 @@ msgstr "잠시만 기다려 주십시오. 세션이 시작되고 곧 준비될 �
 msgid "Pod(s) IP(s)"
 msgstr "포드 (들) IP (들)"
 
+msgid "Poller last cycle"
+msgstr "폴러 라스트 사이클"
+
+msgid "Pool configuration saved (pending apply)."
+msgstr "풀 구성이 저장되었습니다 (적용 보류 중)."
+
+msgid "Pool data not available yet -- still being assembled."
+msgstr "풀 데이터는 아직 사용할 수 없습니다. 아직 조립 중입니다."
+
+msgid "Pooling"
+msgstr "풀링"
+
+msgid "Pooling is disabled for this software stack."
+msgstr "이 소프트웨어 스택에 대한 풀링이 비활성화되었습니다."
+
+msgid "Pools"
+msgstr "수영장"
+
+msgid "Pop out"
+msgstr "팝 아웃"
+
 msgid "Pop-out window was blocked by the browser. Please allow popups for this site."
 msgstr "팝아웃 창이 브라우저에 의해 차단되었습니다.이 사이트의 팝업을 허용해 주세요."
 
 msgid "Port"
 msgstr "포트"
+
+msgid "Pre-configured permission sets for common use cases. Select one to auto-fill the permissions JSON below."
+msgstr "일반적인 사용 사례에 맞게 사전 구성된 권한 집합.하나를 선택하면 아래의 권한 JSON이 자동으로 채워집니다."
+
+msgid "Pre-provision and maintain a fleet of prepared desktops for faster time-to-desktop. The EDH PoolController provisions the AWS resources automatically."
+msgstr "준비된 데스크톱을 사전 프로비저닝하고 유지 관리하여 데스크톱 출시 시간을 단축할 수 있습니다.EDH 풀 컨트롤러는 AWS 리소스를 자동으로 프로비저닝합니다."
+
+msgid "Pre-warmed stopped instances; ~30s to start when claimed"
+msgstr "사전 워밍된 중지된 인스턴스, 청구 시 시작 시간 최대 30초"
+
+msgid "Preference"
+msgstr "선호도"
+
+msgid "Preferences"
+msgstr "환경설정"
 
 msgid "Prepare the input"
 msgstr "입력 준비하기"
@@ -2189,14 +3476,32 @@ msgstr "입력 준비하기"
 msgid "Prepare the request"
 msgstr "요청서 준비하기"
 
+msgid "Prev"
+msgstr "이전"
+
+msgid "Preview"
+msgstr "시사"
+
 msgid "Previous"
 msgstr "이전"
+
+msgid "Previous Conversations"
+msgstr "이전 대화"
 
 msgid "Private DNS of the target node"
 msgstr "대상 노드의 프라이빗 DNS"
 
+msgid "Private IP"
+msgstr "사설 IP"
+
 msgid "Private IP of the target node"
 msgstr "대상 노드의 사설 IP"
+
+msgid "Profile"
+msgstr "프로필"
+
+msgid "Profile Name"
+msgstr "프로필 이름"
 
 msgid "Profile associated to this stack"
 msgstr "이 스택에 연결된 프로필"
@@ -2217,6 +3522,12 @@ msgstr "프로필이 성공적으로 업데이트되었습니다."
 msgid "Project"
 msgstr "프로젝트"
 
+msgid "Project -- shareable only within shared projects"
+msgstr "프로젝트 -- 공유 프로젝트 내에서만 공유 가능"
+
+msgid "Project ID (opt)"
+msgstr "프로젝트 ID (선택)"
+
 msgid "Project Name"
 msgstr "프로젝트 이름"
 
@@ -2235,8 +3546,23 @@ msgstr "프로젝트"
 msgid "Projects and Role Based ACLs"
 msgstr "프로젝트 및 역할 기반 ACL"
 
+msgid "Proto"
+msgstr "프로토"
+
 msgid "Protocol"
 msgstr "프로토콜"
+
+msgid "Provisioning timeout (seconds, blank = cluster default)"
+msgstr "프로비저닝 타임아웃 (초, 공백 = 클러스터 기본값)"
+
+msgid "Published"
+msgstr "게시되었습니다"
+
+msgid "Published By"
+msgstr "게시자"
+
+msgid "Published Stacks"
+msgstr "퍼블리시드 스택"
 
 msgid "Query a job"
 msgstr "작업 쿼리"
@@ -2253,14 +3579,44 @@ msgstr "대기열 2 (높은 우선 순위)"
 msgid "Queue name"
 msgstr "대기열 이름"
 
+msgid "Quick Access"
+msgstr "퀵 액세스"
+
 msgid "REMOVE"
 msgstr "제거"
 
-msgid "RUNNING"
-msgstr "실행 중"
+msgid "Ready Now (hot)"
+msgstr "레디 나우 (핫)"
+
+msgid "Ready-now depth"
+msgstr "바로 사용할 수 있는 깊이"
+
+msgid "Reason"
+msgstr "이유"
+
+msgid "Reason (optional — will be shown to the user)"
+msgstr "이유 (선택 사항 — 사용자에게 표시됨)"
+
+msgid "Received"
+msgstr "수신됨"
+
+msgid "Recent Activity"
+msgstr "최근 활동"
+
+msgid "Recent changes (cluster-wide)"
+msgstr "최근 변경 사항 (클러스터 전체)"
+
+msgid "Recent events"
+msgstr "최근 이벤트"
+
+msgid "Recently deleted"
+msgstr "최근 삭제됨"
 
 msgid "Recommended Parameters"
 msgstr "권장 매개변수"
+
+msgid "Recover"
+msgstr "복구"
 
 #, python-format
 msgid "Refer to %(link)s documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH."
@@ -2270,9 +3626,18 @@ msgstr "현재 파일러와 EDH 간에 안전하고 안정적인 고속 파일 �
 msgid "Refer to %(link)s page for a list of EC2 instances"
 msgstr "EC2 인스턴스 목록은 %(link)s 페이지를 참조하십시오."
 
+msgid "Refresh"
+msgstr "새로 고침"
+
 #, python-format
 msgid "Refresh (%(countdown)ss)"
 msgstr "Refresh (%(countdown)ss)"
+
+msgid "Refs"
+msgstr "심판"
+
+msgid "Refusing to follow symlink"
+msgstr "심볼릭 링크 팔로우 거부"
 
 msgid "Regenerate new key"
 msgstr "새 키 재생성"
@@ -2289,6 +3654,21 @@ msgstr "새 소프트웨어 스택 (AMI) 을 EDH에 등록"
 msgid "Register a new Target Node Software Stack (AMI) to EDH"
 msgstr "새 타겟 노드 소프트웨어 스택 (AMI) 을 EDH에 등록"
 
+msgid "Reject"
+msgstr "거부"
+
+msgid "Reject Nomination"
+msgstr "지명 거부"
+
+msgid "Rejected"
+msgstr "거부됨"
+
+msgid "Reload from list"
+msgstr "목록에서 새로 고침"
+
+msgid "Reloaded"
+msgstr "새로 고침"
+
 msgid "Remove"
 msgstr "제거"
 
@@ -2304,14 +3684,29 @@ msgstr "사용자 제거"
 msgid "Remove user to your group"
 msgstr "그룹에서 사용자 제거"
 
+msgid "Remove?"
+msgstr "제거?"
+
 msgid "Removing a software stack will not impact existing virtual desktops"
 msgstr "소프트웨어 스택을 제거해도 기존 가상 데스크톱에는 영향을 주지 않습니다."
 
 msgid "Removing the Software Stack from EDH will not remove the AMI from your AWS account"
 msgstr "EDH에서 소프트웨어 스택을 제거해도 AWS 계정에서 AMI는 제거되지 않습니다."
 
+msgid "Rendered DCV string"
+msgstr "렌더링된 DCV 문자열"
+
+msgid "Renewable"
+msgstr "재생 가능"
+
+msgid "Renewal allowed"
+msgstr "갱신 허용"
+
 msgid "Report an issue"
 msgstr "문제 신고"
+
+msgid "Reported by VDI collectors"
+msgstr "VDI 콜렉터들의 보고"
 
 msgid "Repository Name"
 msgstr "리포지토리 이름"
@@ -2322,8 +3717,20 @@ msgstr "작업 삭제 요청이 성공했습니다.작업이 대기열에서 곧
 msgid "Requested vCPUs:"
 msgstr "요청된 vCPU:"
 
+msgid "Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)"
+msgstr "8세대 AWS 인스턴스 유형 패밀리 (예: c8i, r8i, m8i) 가 필요합니다."
+
+msgid "Reserved capacity via a Capacity Reservation group (spans multiple instance types/AZs)"
+msgstr "용량 예약 그룹을 통한 예약 용량 (여러 인스턴스 유형/AZ에 걸쳐)"
+
+msgid "Reset"
+msgstr "초기화"
+
 msgid "Reset Password"
 msgstr "비밀번호 재설정"
+
+msgid "Reset all to defaults"
+msgstr "모두 기본값으로 재설정"
 
 msgid "Reset user password"
 msgstr "사용자 암호 재설정"
@@ -2337,14 +3744,44 @@ msgstr "대상 노드 크기 조정"
 msgid "Resize Target Node Instance"
 msgstr "대상 노드 인스턴스 크기 조정"
 
+msgid "Resize fleet"
+msgstr "플릿 크기 조정"
+
+msgid "Resolve preview"
+msgstr "해결 미리 보기"
+
 msgid "Resource Type (e.g., GPU, FPGA)"
 msgstr "리소스 유형 (예: GPU, FPGA)"
 
 msgid "Resources"
 msgstr "리소스"
 
+msgid "Response mode"
+msgstr "응답 모드"
+
+msgid "Restart required"
+msgstr "재시작 필요"
+
+msgid "Restart required for"
+msgstr "재시작 필요"
+
+msgid "Results per page"
+msgstr "페이지당 결과"
+
+msgid "Resume"
+msgstr "이력서"
+
 msgid "Resume streaming"
 msgstr "스트리밍 재개"
+
+msgid "Resuming your saved desktop - it will appear shortly as it boots and re-registers with the broker."
+msgstr "저장한 데스크톱을 다시 시작하는 중 - 부팅되고 브로커에 다시 등록되면 바로 나타납니다."
+
+msgid "Resuming..."
+msgstr "재개 중..."
+
+msgid "Retention"
+msgstr "보존"
 
 msgid "Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...)."
 msgstr "각 항목이 사용자에게 할당된 하나의 공개 키 값인 목록을 반환합니다 (id_rsa.pub, id_edcsa.pub 등...)."
@@ -2355,14 +3792,38 @@ msgstr "리뷰"
 msgid "Review HPC parameters"
 msgstr "HPC 파라미터 검토"
 
+msgid "Review nominations, publish golden images to software stacks, and manage version history."
+msgstr "후보를 검토하고, 소프트웨어 스택에 골든 이미지를 게시하고, 버전 기록을 관리합니다."
+
+msgid "Reviewed By"
+msgstr "리뷰한 사람"
+
+msgid "Revoke"
+msgstr "해지"
+
 msgid "Revoke Admin permission"
 msgstr "관리자 권한 취소"
+
+msgid "Revoke All Active"
+msgstr "전체 활성 취소"
+
+msgid "Revoke Selected"
+msgstr "선택 취소"
+
+msgid "Revoke Token"
+msgstr "토큰 취소"
 
 msgid "Revoke user Admin permission"
 msgstr "사용자 관리자 권한 취소"
 
+msgid "Revoked"
+msgstr "취소"
+
 msgid "Role"
 msgstr "역할"
+
+msgid "Rollback"
+msgstr "롤백"
 
 msgid "Root Disk Size (in GB)"
 msgstr "루트 디스크 크기 (GB)"
@@ -2381,6 +3842,9 @@ msgstr "클라우드에서 직접 임베디드 ECU와 대상 하드웨어를 실
 
 msgid "Runtime Arguments"
 msgstr "런타임 인수"
+
+msgid "S3 keys under prefix"
+msgstr "접두사 아래의 S3 키"
 
 msgid "SFTP"
 msgstr "SFTP"
@@ -2403,11 +3867,23 @@ msgstr "SSH 클라이언트 액세스"
 msgid "SSH Public Key"
 msgstr "SSH 퍼블릭 키"
 
+msgid "Save & Shut Down"
+msgstr "저장 후 종료"
+
+msgid "Save Pool Configuration"
+msgstr "풀 구성 저장"
+
 msgid "Save Schedule"
 msgstr "스케줄 저장"
 
+msgid "Save Settings"
+msgstr "설정 저장"
+
 msgid "Save changes"
 msgstr "변경 사항 저장"
+
+msgid "Save preferences"
+msgstr "환경설정 저장"
 
 msgid "Save the settings and click connect"
 msgstr "설정을 저장하고 연결을 클릭합니다."
@@ -2415,17 +3891,48 @@ msgstr "설정을 저장하고 연결을 클릭합니다."
 msgid "Save your session"
 msgstr "세션 저장"
 
+msgid "Saved"
+msgstr "저장됨"
+
+msgid "Saved Conversations"
+msgstr "저장된 대화"
+
+msgid "Saved Desktops"
+msgstr "저장된 데스크톱"
+
+#, python-brace-format
+msgid "Saved desktop moved to the recycle bin. You can recover it within {n} days."
+msgstr "저장된 데스크톱이 휴지통으로 이동되었습니다.{n} 일 이내에 복구할 수 있습니다."
+
+msgid "Saved desktop recovered."
+msgstr "저장된 데스크톱이 복구되었습니다."
+
+msgid "Saved desktops"
+msgstr "저장된 데스크톱"
+
 msgid "Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at"
 msgstr "AWS의 스케일 아웃 컴퓨팅은 OpenLDAP를 사용하며 LDIF를 사용하여 디렉터리와 직접 상호 작용할 수 있습니다.LDIF에 익숙하지 않은 경우 다음 사이트에서 제공되는 사용자 지정 래퍼를 사용할 수 있습니다."
 
 msgid "Schedule"
 msgstr "스케줄"
 
+msgid "Schedule timezone (blank = no schedule; hot stays constant)"
+msgstr "스케줄 시간대 (공백 = 스케줄 없음, 핫 스테이 일정)"
+
+msgid "Scheduled for removal on next Save"
+msgstr "다음 저장 시 제거 예정"
+
+msgid "Scheduled for removal on next Save — click to undo"
+msgstr "다음 저장 시 제거 예정 — 클릭하여 실행 취소"
+
 msgid "Scheduler"
 msgstr "스케줄러"
 
-msgid "Scheduler ID"
-msgstr "스케줄러 ID"
+msgid "Scheduler (read-only)"
+msgstr "스케줄러 (읽기 전용)"
+
+msgid "Scheduler (submit, query, delete)"
+msgstr "스케줄러 (제출, 쿼리, 삭제)"
 
 #, python-format
 msgid "Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use %(normal)s queue). Refer to %(more_link)s"
@@ -2434,11 +3941,23 @@ msgstr "스케줄러 매개변수는 선택 사항입니다.설정하지 않으�
 msgid "Scheduling priority"
 msgstr "스케줄링 우선순위"
 
+msgid "Scope"
+msgstr "범위"
+
+msgid "Scoped tokens let you grant limited access to specific API endpoints. Each token can be restricted to certain paths and HTTP methods, has a configurable lifetime, and can be revoked independently."
+msgstr "범위가 지정된 토큰을 사용하면 특정 API 엔드포인트에 제한된 액세스 권한을 부여할 수 있습니다.각 토큰은 특정 경로 및 HTTP 메서드로 제한될 수 있고, 구성 가능한 수명을 가지며, 독립적으로 취소될 수 있습니다."
+
 msgid "Scratch Partition:"
 msgstr "스크래치 파티션:"
 
+msgid "Screenshot Pipeline"
+msgstr "스크린샷 파이프라인"
+
 msgid "Search"
 msgstr "검색"
+
+msgid "Search (key or value)"
+msgstr "검색 (키 또는 값)"
 
 msgid "Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..."
 msgstr "AMI ID, AMI 이름, 운영 체제, 아키텍처 (x86_64/ arm64) 로 검색..."
@@ -2446,14 +3965,32 @@ msgstr "AMI ID, AMI 이름, 운영 체제, 아키텍처 (x86_64/ arm64) 로 검�
 msgid "Search for a file or a folder"
 msgstr "파일 또는 폴더 검색"
 
+msgid "Search for a job (e.g. name, owner:alice, state:running, queue:normal)"
+msgstr "작업 검색 (예: 이름, 소유자:앨리스, 상태:실행 중, 대기열:정상)"
+
 msgid "Search for an image tag, digest ..."
 msgstr "이미지 태그 검색, 다이제스트..."
+
+msgid "Search instance types"
+msgstr "검색 인스턴스 유형"
+
+msgid "Search results for"
+msgstr "에 대한 검색 결과"
 
 msgid "Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks."
 msgstr "엔지니어링 워크로드 및 대규모 컴퓨팅 작업을 위해 설계된 안전하고 확장 가능한 클라우드 기반 워크스테이션입니다."
 
+msgid "Security"
+msgstr "보안"
+
+msgid "See AWS Hibernation documentation"
+msgstr "AWS 하이버네이션 설명서 참조"
+
 msgid "See Documentation."
 msgstr "설명서를 참조하십시오."
+
+msgid "See the full list of endpoints and their methods in the API documentation."
+msgstr "API 문서에서 엔드포인트 및 해당 메서드의 전체 목록을 참조하십시오."
 
 msgid "Select"
 msgstr "선택"
@@ -2474,6 +4011,9 @@ msgstr "신뢰할 수 있는 엔티티 유형으로 %(entity)s 을 선택하고 
 msgid "Select %(role)s and use the latest %(policy)s available"
 msgstr "%(role)s 선택 후 사용 가능한 최신 %(policy)s 사용"
 
+msgid "Select a Hardware Profile on the left to view and edit its details and sub-profiles."
+msgstr "왼쪽에서 하드웨어 프로필을 선택하여 세부 정보 및 하위 프로필을 보고 편집합니다."
+
 msgid "Select a Project to see details."
 msgstr "프로젝트를 선택하면 세부 정보를 볼 수 있습니다."
 
@@ -2484,14 +4024,23 @@ msgstr "역할 이름 (예: %(name)s) 을 선택하고 저장합니다."
 msgid "Select a User Data Template to see details."
 msgstr "세부 정보를 보려면 사용자 데이터 템플릿을 선택합니다."
 
+msgid "Select a node or search"
+msgstr "노드 선택 또는 검색"
+
 msgid "Select a profile to see details."
 msgstr "프로필을 선택하면 세부 정보를 볼 수 있습니다."
 
 msgid "Select a stack to see details."
 msgstr "스택을 선택하면 세부 정보를 볼 수 있습니다."
 
+msgid "Select all"
+msgstr "모두 선택"
+
 msgid "Select an EDH Project"
 msgstr "EDH 프로젝트 선택"
+
+msgid "Select an agent"
+msgstr "상담원 선택"
 
 msgid "Select an image (jpg or png) to use as thumbnail"
 msgstr "썸네일로 사용할 이미지 (jpg 또는 png) 를 선택합니다."
@@ -2541,17 +4090,71 @@ msgstr "사용자 선택:"
 msgid "Select your Workflow"
 msgstr "워크플로우 선택"
 
+msgid "Server IP"
+msgstr "서버 IP"
+
+msgid "Server Unavailability Reasons"
+msgstr "서버 사용 불가 이유"
+
+msgid "Server Version"
+msgstr "서버 버전"
+
 msgid "ServerAliveCountMax 2"
 msgstr "서버 라이브 카운트 최대 2"
 
 msgid "ServerAliveInterval 10"
 msgstr "서버 라이브 인터벌 10"
 
+msgid "Servers Available"
+msgstr "사용 가능한 서버"
+
+msgid "Servers by OS Family"
+msgstr "OS 제품군별 서버"
+
+msgid "Session"
+msgstr "세션"
+
+msgid "Session ID"
+msgstr "세션 ID"
+
 msgid "Session Name"
 msgstr "세션 이름"
 
+msgid "Session Owner"
+msgstr "세션 소유자"
+
+msgid "Session Path"
+msgstr "세션 경로"
+
+msgid "Session Shares"
+msgstr "세션 공유"
+
+msgid "Session Sharing Scope"
+msgstr "세션 공유 범위"
+
 msgid "Session Type"
 msgstr "세션 유형"
+
+msgid "Session not found or not owned by user"
+msgstr "세션을 찾을 수 없거나 사용자가 소유하지 않음"
+
+msgid "Sessions"
+msgstr "세션"
+
+msgid "Sessions Ready"
+msgstr "세션 준비 완료"
+
+msgid "Sessions Total"
+msgstr "세션 합계"
+
+msgid "Sessions by State / Type"
+msgstr "주/유형별 세션"
+
+msgid "Sessions with no client connected"
+msgstr "클라이언트가 연결되지 않은 세션"
+
+msgid "Settings"
+msgstr "설정"
 
 msgid "Setup your AWS Batch Job"
 msgstr "AWS 배치 작업 설정"
@@ -2559,8 +4162,32 @@ msgstr "AWS 배치 작업 설정"
 msgid "Setup your Amazon EKS Job"
 msgstr "아마존 EKS 작업 설정"
 
+msgid "Share Session"
+msgstr "세션 공유"
+
+msgid "Shareable URL with embedded token (less secure, use for external guests)"
+msgstr "내장된 토큰이 있는 공유 가능한 URL (보안 수준이 낮으므로 외부 게스트에 사용)"
+
 msgid "Show"
 msgstr "쇼"
+
+msgid "Show end-to-end session path"
+msgstr "엔드-투-엔드 세션 경로 보기"
+
+msgid "Show the desktop thumbnail preview on a guest's \"Shared With Me\" tile. When OFF, guests see the shared-session tile without a screenshot (owners always see their own)."
+msgstr "게스트의 \"Shared With Me\" 타일에 데스크톱 썸네일 미리보기를 표시합니다.OFF인 경우 게스트는 스크린샷 없이 공유 세션 타일을 보게 됩니다 (소유자는 항상 자신의 타일을 볼 수 있음)."
+
+msgid "Show users an interruptible/lower-cost hint when applicable"
+msgstr "해당하는 경우 인터럽트 가능한/저렴한 힌트를 사용자에게 보여주세요."
+
+msgid "Showing data for the last"
+msgstr "마지막 데이터 표시"
+
+msgid "Showing the most recent"
+msgstr "가장 최근 보기"
+
+msgid "Single-use nonce, token never exposed (recommended)"
+msgstr "일회용 넌스, 토큰은 절대 노출되지 않음 (권장)"
 
 msgid "Size"
 msgstr "사이즈"
@@ -2571,11 +4198,17 @@ msgstr "크기 (MB)"
 msgid "Size of the memory to request for your job"
 msgstr "작업에 필요한 메모리 크기"
 
-msgid "Slurm"
-msgstr "슬럼"
+msgid "Skipped"
+msgstr "건너뛰었습니다"
+
+msgid "Sleeping Sessions"
+msgstr "슬리핑 세션"
 
 msgid "Small (2 vCPUs, 8GB RAM)"
 msgstr "소형 (vCPU 2개, RAM 8GB)"
+
+msgid "Snapshot &amp; resume - save a desktop and boot back into its previous state."
+msgstr "스냅샷 및 재개 - 데스크톱을 저장하고 이전 상태로 다시 부팅합니다."
 
 msgid "Software Stack"
 msgstr "소프트웨어 스택"
@@ -2609,11 +4242,38 @@ msgstr "죄송합니다. 최대 아카이브 크기는 {:.2f} MB입니다.아카
 msgid "Sorry, the maximum archive size is {max_size:.2f} MB. Your archive was {actual_size:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
 msgstr "죄송합니다. 최대 아카이브 크기는 {max_size: .2f} MB입니다.아카이브 크기는 {실제_크기: .2f} MB였습니다.이 문제를 피하려면 작은 아카이브를 만들거나, 파일을 개별적으로 다운로드하거나, SFTP를 사용하거나, 승인된 최대 아카이브 크기를 편집할 수 있습니다."
 
+msgid "Source"
+msgstr "소스"
+
+msgid "Source AMI"
+msgstr "소스 AMI"
+
 msgid "Source Code"
 msgstr "소스 코드"
 
+msgid "Source Deprecates"
+msgstr "소스 지원 중단"
+
+msgid "Source Owner"
+msgstr "소스 소유자"
+
 msgid "Specify whether or not your job requires GPUs"
 msgstr "작업에 GPU가 필요한지 여부를 지정합니다."
+
+msgid "Spot"
+msgstr "스팟"
+
+msgid "Spot VDI sessions cannot be paused or scheduled - they run until interrupted or manually terminated"
+msgstr "스팟 VDI 세션은 일시 중지하거나 예약할 수 없습니다. 중단되거나 수동으로 종료될 때까지 실행됩니다."
+
+msgid "Spot capacity - may be interrupted at any time; cannot be stopped or resumed"
+msgstr "스팟 용량 - 언제든지 중단될 수 있으며 중지하거나 재개할 수 없습니다."
+
+msgid "Spot capacity isn't guaranteed. If it's unavailable the resume will fail — you can retry On-Demand or a different type."
+msgstr "스팟 용량은 보장되지 않습니다.사용할 수 없는 경우 이력서는 실패합니다. 온디맨드 또는 다른 유형으로 다시 시도할 수 있습니다."
+
+msgid "Stack ID"
+msgstr "스택 ID"
 
 msgid "Stack Info"
 msgstr "스택 정보"
@@ -2621,8 +4281,17 @@ msgstr "스택 정보"
 msgid "Stack Type"
 msgstr "스택 유형"
 
+msgid "Stacked over last hour: WebSocket / QUIC / HTTP / DVTC"
+msgstr "지난 한 시간 동안 누적됨: 웹소켓/QUIC/HTTP/DVTC"
+
+msgid "Standard"
+msgstr "스탠다드"
+
 msgid "Standard Launch"
 msgstr "표준 출시"
+
+msgid "Start"
+msgstr "스타트"
 
 msgid "Start Desktop"
 msgstr "데스크톱 시작"
@@ -2633,8 +4302,14 @@ msgstr "대상 노드 시작"
 msgid "Start a new terminal on an EDH Login Node"
 msgstr "EDH 로그인 노드에서 새 터미널 시작"
 
-msgid "Starting Code Editor..."
-msgstr "코드 편집기 시작 중..."
+msgid "Start instantly"
+msgstr "즉시 시작"
+
+msgid "Started"
+msgstr "시작됨"
+
+msgid "State"
+msgstr "상태"
 
 msgid "Status"
 msgstr "상태"
@@ -2687,6 +4362,9 @@ msgstr "3단계: 로그인 노드를 통해 클러스터에 연결"
 msgid "Stick to bottom when new data arrives"
 msgstr "새 데이터가 도착하면 맨 아래에 집중하세요"
 
+msgid "Stopped (EBS only, default)"
+msgstr "중지됨 (EBS만 해당, 기본값)"
+
 msgid "Stopped All Day"
 msgstr "하루 종일 멈췄다"
 
@@ -2703,6 +4381,21 @@ msgstr "메인 파티션의 스토리지 크기 (리눅스의 경우 %(linux_pat
 msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
 msgstr "유휴 상태/최대 지속 시간이 지나면 스트림이 자동으로 닫힙니다.장시간 시청하려면 Pop out을 사용하세요."
 
+msgid "Streaming"
+msgstr "스트리밍"
+
+msgid "Streaming Health"
+msgstr "스트리밍 헬스"
+
+msgid "Sub"
+msgstr "서브"
+
+msgid "Sub Status"
+msgstr "하위 상태"
+
+msgid "Sub-profiles"
+msgstr "하위 프로필"
+
 msgid "Submit AWS Batch Job"
 msgstr "AWS 배치 작업 제출"
 
@@ -2718,11 +4411,23 @@ msgstr "작업 제출"
 msgid "Submit job"
 msgstr "작업 제출"
 
-msgid "Subnets must be from the list of private subnets configured on EDH"
-msgstr "서브넷은 EDH에 구성된 프라이빗 서브넷 목록에 있어야 합니다."
+msgid "Submitted"
+msgstr "제출됨"
+
+msgid "Submitting..."
+msgstr "제출 중..."
+
+msgid "Subnet ID"
+msgstr "서브넷 ID"
+
+msgid "Success"
+msgstr "성공"
 
 msgid "Successfully deactivated"
 msgstr "성공적으로 비활성화됨"
+
+msgid "Sum of object sizes"
+msgstr "오브젝트 크기 합계"
 
 #, python-format
 msgid "Support Exact Instance Type (%(example)s)"
@@ -2741,11 +4446,32 @@ msgstr "지원되는 변수 (대소문자 구분)"
 msgid "Supported variables (case-sensitive)"
 msgstr "지원되는 변수 (대소문자 구분)"
 
+msgid "Sysprep"
+msgstr "시스프렙"
+
+msgid "System prompt"
+msgstr "시스템 프롬프트"
+
+msgid "T+"
+msgstr "T+"
+
+msgid "TTL"
+msgstr "TTL"
+
+msgid "Table"
+msgstr "표"
+
 msgid "Tail"
 msgstr "테일"
 
 msgid "Tail (live view)"
 msgstr "테일 (라이브 뷰)"
+
+msgid "Takes effect only after restarting"
+msgstr "다시 시작한 후에만 적용됩니다."
+
+msgid "Target"
+msgstr "타깃"
 
 msgid "Target Node"
 msgstr "타겟 노드"
@@ -2765,8 +4491,14 @@ msgstr "타겟 노드"
 msgid "Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development."
 msgstr "대상 노드는 EDH 관련 수정 (예: 파일 시스템 마운트 없음, AD/OpenLDAP 조인, 설치된 패키지 등) 이 없는 EC2 Amazon 머신 이미지 (AMI) 입니다.이러한 노드는 임베디드 개발에 사용되는 것과 같은 특수 운영 체제 또는 하이퍼바이저와 함께 작동하도록 설계되었습니다."
 
+msgid "Target Stack"
+msgstr "타겟 스택"
+
 msgid "Technical Details"
 msgstr "기술 세부 정보"
+
+msgid "Template"
+msgstr "템플릿"
 
 msgid "Template Name"
 msgstr "템플릿 이름"
@@ -2795,6 +4527,9 @@ msgstr "3단계에서 검색한 SSH 공개 키의 내용"
 msgid "The data remains available on the system without incurring compute charges. Storage fees continue to apply."
 msgstr "데이터는 컴퓨팅 요금 없이 시스템에서 계속 사용할 수 있습니다.스토리지 요금은 계속 적용됩니다."
 
+msgid "The guest(s) you select will be able to connect to your live session with the permissions defined by the chosen profile. Make sure you trust the people you are sharing with before proceeding."
+msgstr "선택한 게스트는 선택한 프로필에서 정의한 권한으로 라이브 세션에 연결할 수 있습니다.진행하기 전에 공유하려는 사람들을 신뢰하는지 확인하세요."
+
 msgid "The maximum size (in GB) of the root disk a user can specify"
 msgstr "사용자가 지정할 수 있는 루트 디스크의 최대 크기 (GB)"
 
@@ -2811,8 +4546,20 @@ msgstr "그런 다음 다음 명령을 실행하여 그룹을 생성합니다."
 msgid "These numbers are just an estimate:"
 msgstr "이 수치는 추정치일 뿐입니다."
 
+msgid "These settings apply to your account across browsers."
+msgstr "이러한 설정은 여러 브라우저에서 사용자 계정에 적용됩니다."
+
+msgid "These settings are enforced by your EDH administrator and apply to all user-created tokens."
+msgstr "이러한 설정은 EDH 관리자가 적용하며 사용자가 생성한 모든 토큰에 적용됩니다."
+
+msgid "These settings control what sharing modes are available cluster-wide. VDI Profile settings cannot exceed these limits."
+msgstr "이 설정은 클러스터 전체에서 사용할 수 있는 공유 모드를 제어합니다.VDI 프로파일 설정은 이러한 제한을 초과할 수 없습니다."
+
 msgid "These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us."
 msgstr "이러한 번역은 AI의 도움을 받아 생성되었으며 부정확하거나 부자연스러운 표현이 포함되어 있을 수 있습니다.원어민이고 번역을 개선하는 데 도움을 주고 싶다면 여러분의 기여를 환영합니다!저희에게 연락해 주세요."
+
+msgid "Thinking..."
+msgstr "생각 중..."
 
 msgid "This API has been disabled by your Administrator"
 msgstr "관리자가 이 API를 비활성화했습니다."
@@ -2823,15 +4570,24 @@ msgstr "이 API 키는 사용자만 사용할 수 있습니다.이 키는 사용
 msgid "This action cannot be reversed."
 msgstr "이 동작은 되돌릴 수 없습니다."
 
+msgid "This action cannot be undone."
+msgstr "이 작업은 취소할 수 없습니다."
+
+msgid "This action cannot be undone. Any script or application using this token will immediately lose access."
+msgstr "이 작업은 취소할 수 없습니다.이 토큰을 사용하는 모든 스크립트나 애플리케이션은 즉시 액세스 권한을 잃게 됩니다."
+
+msgid "This captures a resumable image of this desktop and then terminates it. You can resume it later from Saved Desktops."
+msgstr "이렇게 하면 이 데스크톱의 재개 가능한 이미지가 캡처되고 종료됩니다.저장된 데스크톱에서 나중에 다시 시작할 수 있습니다."
+
+msgid "This environment uses Amazon OpenSearch Serverless (AOSS), which does not expose a browser OpenSearch Dashboards UI. Your activity data is collected into the analytics collection and surfaced in-app; there is no external dashboard link to open."
+msgstr "이 환경에서는 브라우저 오픈서치 대시보드 UI를 노출하지 않는 아마존 오픈서치 서버리스 (AOSS) 를 사용합니다.활동 데이터는 분석 컬렉션에 수집되고 앱 내에 표시됩니다. 외부 대시보드 링크를 열 필요가 없습니다."
+
 msgid "This estimate is based on a simulation time of"
 msgstr "이 추정치는 시뮬레이션 시간을 기반으로 합니다."
 
 #, python-format
 msgid "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
 msgstr "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
-
-msgid "This file is too big to be compressed via web. Download file separately or use SFTP."
-msgstr "이 파일은 너무 커서 웹을 통해 압축할 수 없습니다.파일을 별도로 다운로드하거나 SFTP를 사용하십시오."
 
 msgid "This folder already exist, choose a different name"
 msgstr "이 폴더가 이미 있습니다. 다른 이름을 선택하세요."
@@ -2857,9 +4613,11 @@ msgstr "이 위치는 캐시되지 않습니다."
 msgid "This page will automatically refresh when the state of your virtual desktops changes."
 msgstr "이 페이지는 가상 데스크톱의 상태가 변경되면 자동으로 새로 고쳐집니다."
 
-#, python-format
-msgid "This session will automatically pause <strong>after %(n)s hour</strong> of inactivity.This session will automatically pause <strong>after %(n)s hours</strong> of inactivity."
-msgstr "이 세션은 <strong>%(n)s 시간 동안</strong> 활동이 없으면 자동으로 일시 중지됩니다. 이 세션은 <strong>%(n)s 시간 동안 활동이 없으면 자동으로 일시 중지됩니다</strong>."
+msgid "This session is being shared with"
+msgstr "이 세션은 다음과 공유되고 있습니다."
+
+msgid "This step as a percentage of total launch time"
+msgstr "이 단계는 총 실행 시간의 백분율로 나타낸 것입니다."
 
 msgid "This will generate a temporary password for a given user"
 msgstr "이렇게 하면 특정 사용자의 임시 비밀번호가 생성됩니다."
@@ -2873,6 +4631,30 @@ msgstr "사용할 썸네일 (150픽셀* 150픽셀)"
 msgid "Time in seconds"
 msgstr "시간 (초)"
 
+msgid "Time range"
+msgstr "시간 범위"
+
+msgid "Time since last event"
+msgstr "지난 이벤트 이후 시간"
+
+msgid "Time since session was created"
+msgstr "세션이 생성된 이후 경과한 시간"
+
+msgid "Time since the previous event"
+msgstr "이전 이벤트 이후 시간"
+
+msgid "TimeToServe"
+msgstr "봉사할 시간"
+
+msgid "TimeToServe: no claims in window"
+msgstr "서비스 시간: 창구 내 클레임 없음"
+
+msgid "Timeline"
+msgstr "타임라인"
+
+msgid "Timestamp"
+msgstr "타임스탬프"
+
 #, python-brace-format
 msgid "Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
 msgstr "관리자가 구성한 시간대 {Config.config.timezone} 이 (가) 존재하지 않습니다.기본값은 UTC입니다.지원되는 시간대의 전체 목록은 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 을 참조하십시오."
@@ -2881,29 +4663,104 @@ msgstr "관리자가 구성한 시간대 {Config.config.timezone} 이 (가) 존�
 msgid "Tip: You can use %(and_op)s / %(or_op)s operators (ex: %(ex1)s %(ex2)s %(ex3)s)"
 msgstr "팁: %(and_op)s/%(or_op)s 연산자를 사용할 수 있습니다 (예: %(ex1)s %(ex2)s %(ex3)s)"
 
+msgid "To"
+msgstr "에"
+
 msgid "To prevent outage, you must update all your scripts (if any) with the new key"
 msgstr "운영 중단을 방지하려면 모든 스크립트 (있는 경우) 를 새 키로 업데이트해야 합니다."
+
+msgid "Toggle Enabled off + Apply to disable an allowlist (it stays listed and can be re-enabled). Any Hardware Profile still referencing a disabled allowlist resolves to no devices. Edits are staged and highlighted until you Apply."
+msgstr "허용 목록을 비활성화하려면 Enabled off + Apply (허용 목록 상태로 유지되며 다시 활성화할 수 있음) 를 선택합니다.여전히 비활성화된 허용 목록을 참조하는 하드웨어 프로필은 모두 기기 없음으로 확인됩니다.편집 내용은 적용할 때까지 스테이징되고 강조 표시됩니다."
+
+msgid "Toggle Received timezone: UTC / local"
+msgstr "수신 시간대 전환: UTC/현지"
 
 msgid "Toggle light/dark theme (T)"
 msgstr "라이트/다크 테마 전환 (T)"
 
-msgid "Token has expired. As a security measure we have refreshed your token. Please re-submit your request again."
-msgstr "토큰이 만료되었습니다.보안 조치의 일환으로 토큰을 새로고침했습니다.요청을 다시 제출해 주세요."
+msgid "Toggle order: oldest first / newest first"
+msgstr "토글 순서: 오래된 것부터 최신순으로"
+
+msgid "Token"
+msgstr "토큰"
+
+msgid "Token Audit Log"
+msgstr "토큰 감사 로그"
+
+msgid "Token Created Successfully"
+msgstr "토큰이 성공적으로 생성됨"
+
+msgid "Token ID"
+msgstr "토큰 ID"
+
+msgid "Token Name"
+msgstr "토큰 이름"
+
+msgid "Token Permissions"
+msgstr "토큰 권한"
+
+msgid "Token Policy (System Settings)"
+msgstr "토큰 정책 (시스템 설정)"
 
 msgid "Too many active tail sessions. Close one and try again."
 msgstr "활성 테일 세션이 너무 많습니다.하나를 닫고 다시 시도하세요."
 
+msgid "Total in subtree:"
+msgstr "하위 트리의 합계:"
+
+msgid "Try again"
+msgstr "다시 시도하세요"
+
 msgid "Type"
 msgstr "타입"
+
+msgid "Type 2+ characters to search and add users (optional)"
+msgstr "2자 이상의 문자를 입력하여 사용자를 검색하고 추가합니다 (선택 사항)."
+
+msgid "Type 2+ characters to search groups"
+msgstr "2개 이상의 문자를 입력하여 그룹을 검색합니다."
+
+msgid "Type 2+ characters to search users"
+msgstr "2자 이상의 문자를 입력하여 사용자를 검색합니다."
+
+msgid "Type 2+ characters to search users, or * for all"
+msgstr "사용자를 검색하려면 2자 이상을 입력하고, 전체 사용자를 검색하려면*를 입력합니다."
+
+msgid "Type at least 2 characters to search users"
+msgstr "사용자를 검색하려면 최소 2자 이상 입력하세요"
 
 msgid "Type to search an instance type..."
 msgstr "인스턴스 유형을 검색하려면 입력하십시오..."
 
+msgid "Type your message..."
+msgstr "메시지 입력..."
+
 msgid "Type:"
 msgstr "유형:"
 
+msgid "Typical T+ for this checkpoint (p50 / p95) from launch history"
+msgstr "실행 기록에 나타난 이 체크포인트의 일반적인 T+ (p50/p95)"
+
 msgid "URI of the Image to deploy on your pod"
 msgstr "포드에 배포할 이미지의 URI"
+
+msgid "USB Allowlists"
+msgstr "USB 허용 목록"
+
+msgid "USB References"
+msgstr "USB 레퍼런스"
+
+msgid "USB allowlists updated"
+msgstr "USB 허용 목록 업데이트"
+
+msgid "USB device lookup"
+msgstr "USB 디바이스 조회"
+
+msgid "USB device remotization allowlists. A Hardware Profile bundles a USB device allowlist and binds to a Software Stack or Project (Project overrides Stack). USB remotization is a device compatibility filter, not a security boundary."
+msgstr "USB 장치 원격 조정 허용 목록하드웨어 프로필은 USB 장치 허용 목록을 번들로 묶고 소프트웨어 스택 또는 프로젝트에 바인딩합니다 (프로젝트는 스택보다 우선합니다).USB 리모델링은 기기 호환성 필터이지 보안 경계가 아닙니다."
+
+msgid "USB-IF defined class codes (BaseClass / SubClass / Protocol)"
+msgstr "USB-IF 정의 클래스 코드 (기본 클래스/서브 클래스/프로토콜)"
 
 msgid "Unable to access the file. Please try again:  "
 msgstr "파일에 액세스할 수 없습니다.다시 시도해 주세요:  "
@@ -2913,6 +4770,9 @@ msgstr "파일을 생성할 수 없습니다.로그에서 추가 정보를 확�
 
 msgid "Unable to create new user. API returned error: "
 msgstr "새 사용자를 생성할 수 없습니다.API에서 반환한 오류: "
+
+msgid "Unable to decode job script template. Check logs for additional details"
+msgstr "작업 스크립트 템플릿을 디코딩할 수 없습니다.추가 세부 정보는 로그를 확인하십시오."
 
 msgid "Unable to delete "
 msgstr "삭제할 수 없음 "
@@ -2946,6 +4806,10 @@ msgid "Unable to extract profile information. See logs for additional details"
 msgstr "프로필 정보를 추출할 수 없습니다.자세한 내용은 로그를 참조하십시오."
 
 #, python-format
+msgid "Unable to find any %(link)s agent onboarded to this EDH environment."
+msgstr "이 EDH 환경에 온보딩된 %(link)s 에이전트를 찾을 수 없습니다."
+
+#, python-format
 msgid "Unable to find any %(link)s onboarded to this EDH environment."
 msgstr "이 EDH 환경에 온보딩된 %(link)s 을 찾을 수 없습니다."
 
@@ -2958,15 +4822,9 @@ msgstr "이 EDH 환경에 온보딩된 AWS Batch 작업 대기열을 찾을 수 
 msgid "Unable to generate download link. Check the logs for more information"
 msgstr "다운로드 링크를 생성할 수 없습니다.자세한 내용은 로그를 확인하세요."
 
-msgid "Unable to generate job script. See logs for additional details"
-msgstr "작업 스크립트를 생성할 수 없습니다.자세한 내용은 로그를 참조하십시오."
-
 #, python-brace-format
 msgid "Unable to list AWS Batch jobs due to {error}"
 msgstr "{error} 때문에 AWS 배치 작업을 나열할 수 없습니다."
-
-msgid "Unable to list all_users: "
-msgstr "모든 사용자를 나열할 수 없습니다: "
 
 msgid "Unable to list applications. See logs for additional details"
 msgstr "애플리케이션을 나열할 수 없습니다.자세한 내용은 로그를 참조하십시오."
@@ -2974,17 +4832,11 @@ msgstr "애플리케이션을 나열할 수 없습니다.자세한 내용은 로
 msgid "Unable to list applications. See logs for additional details."
 msgstr "애플리케이션을 나열할 수 없습니다.자세한 내용은 로그를 참조하십시오."
 
-msgid "Unable to list groups: "
-msgstr "그룹을 나열할 수 없음: "
-
 msgid "Unable to list your clusters images"
 msgstr "클러스터 이미지를 나열할 수 없습니다."
 
 msgid "Unable to list your container images"
 msgstr "컨테이너 이미지를 나열할 수 없습니다."
-
-msgid "Unable to locate  the download archive, please try again"
-msgstr "다운로드 아카이브를 찾을 수 없습니다. 다시 시도하십시오."
 
 msgid "Unable to locate the download archive, please try again"
 msgstr "다운로드 아카이브를 찾을 수 없습니다. 다시 시도하십시오."
@@ -3007,11 +4859,8 @@ msgstr "암호를 재설정할 수 없습니다.오류: "
 msgid "Unable to retrieve API key for user. See logs for additional details."
 msgstr "사용자의 API 키를 검색할 수 없습니다.자세한 내용은 로그를 참조하십시오."
 
-msgid "Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue parameters and check logs for more details"
-msgstr "모든 스케줄러에서 작업을 검색할 수 없습니다.사용자/스케줄러/대기열 매개 변수를 확인하고 로그에서 자세한 내용을 확인하십시오."
-
-msgid "Unable to retrieve this virtual desktop."
-msgstr "이 가상 데스크톱을 검색할 수 없습니다."
+msgid "Unable to retrieve jobs for scheduler(s):"
+msgstr "스케줄러에 대한 작업을 검색할 수 없습니다."
 
 msgid "Unable to stat file"
 msgstr "파일을 시작할 수 없습니다."
@@ -3026,6 +4875,9 @@ msgstr "그룹을 업데이트할 수 없음: "
 msgid "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
 msgstr "이 파일을 입력으로 사용할 수 없습니다 (파일이 제거되었거나 액세스 권한이 없을 수 있음)."
 
+msgid "Undo"
+msgstr "실행 취소"
+
 msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars"
 msgstr "아마존 이미지의 고유 ID.유효한 이미지여야 하며, 동음으로 시작하고 8~21자 사이여야 합니다."
 
@@ -3035,11 +4887,23 @@ msgstr "아마존 이미지의 고유 ID.유효한 이미지여야 하며, ami- 
 msgid "Unknown session state"
 msgstr "알 수 없는 세션 상태"
 
+msgid "Unlimited (no expiration)"
+msgstr "무제한 (만료 없음)"
+
+msgid "Unlimited lifetime allowed"
+msgstr "평생 무제한 허용"
+
 msgid "Unregister Software Stack from EDH"
 msgstr "EDH에서 소프트웨어 스택 등록 취소"
 
 msgid "Unregister Software Stack from SOCA"
 msgstr "SOCA에서 소프트웨어 스택 등록 취소"
+
+msgid "Unsaved changes"
+msgstr "저장되지 않은 변경 사항"
+
+msgid "Unsupervised Access Policy"
+msgstr "감독되지 않은 액세스 정책"
 
 msgid "Update Password"
 msgstr "비밀번호 업데이트"
@@ -3074,6 +4938,12 @@ msgstr "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %
 
 msgid "Upload your content to EDH"
 msgstr "콘텐츠를 EDH에 업로드"
+
+msgid "Uploads are resumable — you can pause, and a dropped connection continues where it left off."
+msgstr "업로드는 재개할 수 있습니다. 일시 중지할 수 있으며 끊어진 연결은 중단된 지점부터 계속됩니다."
+
+msgid "Uptime"
+msgstr "업타임"
 
 #, python-format
 msgid "Use %(hidden)s fields to hardcode values. Otherwise, defaults will be applied."
@@ -3155,6 +5025,9 @@ msgstr "사용자 ID"
 msgid "User Membership"
 msgstr "사용자 멤버십"
 
+msgid "User Save & Shut Down capture"
+msgstr "사용자 저장 및 종료 캡처"
+
 msgid "User code to be executed AFTER the solver command"
 msgstr "솔버 명령 이후에 실행할 사용자 코드"
 
@@ -3181,6 +5054,9 @@ msgstr "그룹 내 사용자:"
 
 msgid "User-Data templates are assigned to EDH Target Nodes"
 msgstr "사용자 데이터 템플릿이 EDH 타겟 노드에 할당됨"
+
+msgid "User/Path/Source/IP/Reason: multi-tag, prefix ! to exclude. Method/Status/Actor: click to cycle ✓ include → ✗ exclude → off."
+msgstr "사용자/경로/소스/IP/이유: 멀티태그, 접두사!제외할 것.메서드/상태/액터: 클릭하여 ✓ 포함 → ✗ 제외 → 끄기를 선택합니다."
 
 msgid "User: "
 msgstr "사용자: "
@@ -3212,6 +5088,9 @@ msgstr "파이썬 사용"
 msgid "VALUE"
 msgstr "가치"
 
+msgid "VDI Pooling"
+msgstr "VDI 풀링"
+
 msgid "VDI Profile"
 msgstr "VDI 프로필"
 
@@ -3224,8 +5103,20 @@ msgstr "가치"
 msgid "Value (e.g., 1, 2)"
 msgstr "값 (예: 1, 2)"
 
+msgid "Value only"
+msgstr "가치만"
+
 msgid "Value:"
 msgstr "값:"
+
+msgid "Ver"
+msgstr "버전"
+
+msgid "Version history"
+msgstr "버전 기록"
+
+msgid "Version history is from SSM Parameter Store. Editor-attributed 'who changed it' arrives with the audit trail step."
+msgstr "버전 기록은 SSM 파라미터 스토어에서 가져온 것입니다.편집자가 지정한 '누가 변경했는지'가 감사 추적 단계와 함께 표시됩니다."
 
 msgid "Via EDH Web Portal"
 msgstr "EDH 웹 포털을 통해"
@@ -3242,8 +5133,11 @@ msgstr "세부 정보 보기"
 msgid "View HTTP API documentation"
 msgstr "HTTP API 설명서 보기"
 
-msgid "View my jobs"
-msgstr "내 채용 정보 보기"
+msgid "View Timeline"
+msgstr "타임라인 보기"
+
+msgid "View available paths"
+msgstr "사용 가능한 경로 보기"
 
 msgid "View/Manage Authorized Application Profiles"
 msgstr "승인된 애플리케이션 프로필 보기/관리"
@@ -3265,6 +5159,27 @@ msgstr "가상 데스크톱 스택"
 
 msgid "Virtual Desktops"
 msgstr "가상 데스크톱"
+
+msgid "Virtual Desktops (read-only)"
+msgstr "가상 데스크톱 (읽기 전용)"
+
+msgid "Virtual Desktops (user)"
+msgstr "가상 데스크톱 (사용자)"
+
+msgid "Virtual Desktops / DCV"
+msgstr "가상 데스크톱/DCV"
+
+msgid "Volume Acceleration (Fast-Restore)"
+msgstr "볼륨 가속 (빠른 복원)"
+
+msgid "Warm"
+msgstr "따뜻합니다"
+
+msgid "Warm (pre-stopped)"
+msgstr "웜 (사전 정지)"
+
+msgid "Warm pool state"
+msgstr "웜 풀 스테이트"
 
 msgid "We have generated a test template for you, customize it as needed or"
 msgstr "테스트 템플릿을 생성했습니다. 필요에 따라 사용자 정의하거나"
@@ -3292,6 +5207,18 @@ msgstr "어떤 버전의 솔버를 사용하시겠습니까?"
 
 msgid "What workflow do you want to run?"
 msgstr "어떤 워크플로를 실행하시겠습니까?"
+
+msgid "When (UTC)"
+msgstr "언제 (UTC)"
+
+msgid "When enabled, you can extend the token expiration before it expires without generating a new secret."
+msgstr "활성화하면 새 암호를 생성하지 않고도 만료되기 전에 토큰 만료를 연장할 수 있습니다."
+
+msgid "Will be deleted"
+msgstr "삭제될 예정입니다"
+
+msgid "Window:"
+msgstr "윈도우:"
 
 msgid "Windows"
 msgstr "윈도우"
@@ -3323,6 +5250,9 @@ msgstr "예"
 msgid "You are about to be redirected to"
 msgstr "다음 주소로 리디렉션될 예정입니다."
 
+msgid "You are about to delete job"
+msgstr "작업을 삭제하려고 합니다."
+
 msgid "You are about to permanently delete"
 msgstr "영구 삭제하려고 합니다"
 
@@ -3332,8 +5262,17 @@ msgstr "대상 노트를 영구 삭제하려고 합니다.로컬 파티션에 �
 msgid "You are about to remove this job from your EKS cluster."
 msgstr "EKS 클러스터에서 이 작업을 제거하려고 합니다."
 
+msgid "You are about to share your virtual desktop."
+msgstr "가상 데스크톱을 공유하려고 합니다."
+
 msgid "You are about to terminate this AWS Batch job:"
 msgstr "이 AWS Batch 작업을 종료하려고 합니다."
+
+msgid "You are an AI assistant for Engineering Development Hub (EDH) specialized in Computed Aided Engineering workloads. Analyze file contents and provide helpful insights. For log files, identify errors and suggest fixes. For config files, check for misconfigurations. For scripts, review for issues."
+msgstr "귀하는 컴퓨터 지원 엔지니어링 워크로드를 전문으로 하는 엔지니어링 개발 허브 (EDH) 의 AI 어시스턴트입니다.파일 내용을 분석하고 유용한 통찰력을 제공하세요.로그 파일의 경우 오류를 식별하고 수정 사항을 제안하세요.구성 파일의 경우 잘못된 구성이 있는지 확인하세요.스크립트의 경우 문제를 검토하세요."
+
+msgid "You are an AI assistant for Engineering Development Hub (EDH) specialized in Computed Aided Engineering workloads. Help the user with their questions."
+msgstr "귀하는 컴퓨터 지원 엔지니어링 워크로드를 전문으로 하는 엔지니어링 개발 허브 (EDH) 의 AI 어시스턴트입니다.사용자의 질문을 도와주세요."
 
 msgid "You are currently using"
 msgstr "현재 사용 중입니다."
@@ -3353,9 +5292,6 @@ msgstr "이 파일을 다운로드할 권한이 없거나 이 파일을 파일 �
 #, python-brace-format
 msgid "You are not authorized to upload in this location ({path}). If you recently changed the permissions, please allow up to 10 minutes for sync"
 msgstr "이 위치 ({path}) 에 업로드할 권한이 없습니다.최근에 권한을 변경한 경우 동기화까지 최대 10분이 소요될 수 있습니다."
-
-msgid "You are not the job owner"
-msgstr "당신은 직업 소유자가 아닙니다"
 
 #, python-format
 msgid "You can create %(link)s to provision your virtual desktop faster."
@@ -3436,11 +5372,20 @@ msgstr "먼저 대상 노드를 중지해야 합니다."
 msgid "You must specify cpus and instance_type parameters"
 msgstr "CPU 및 인스턴스_유형 파라미터를 지정해야 합니다."
 
+msgid "You must wait for your target node to finish stopping"
+msgstr "대상 노드가 중지를 완료할 때까지 기다려야 합니다."
+
+msgid "You must wait for your virtual desktop to finish stopping"
+msgstr "가상 데스크톱 중지가 완료될 때까지 기다려야 합니다."
+
 msgid "You will also need to pass the Base64 encoded string as payload. See below for examples:"
 msgstr "또한 Base64로 인코딩된 문자열을 페이로드로 전달해야 합니다.예는 아래를 참조하십시오."
 
 msgid "You will need to specify three headers:"
 msgstr "세 개의 헤더를 지정해야 합니다."
+
+msgid "You will need to specify two headers:"
+msgstr "두 개의 헤더를 지정해야 합니다."
 
 #, python-format
 msgid "You will need to update %(pkg)s to add instances released after the date of your EDH installation"
@@ -3452,6 +5397,9 @@ msgstr "사용자 UID/GID가 필요합니다.모든 EDH 노드 (Linux) 에서 %(
 
 msgid "You won't be charged for the compute time while your session is stopped"
 msgstr "세션이 중지된 동안에는 컴퓨팅 시간에 대한 요금이 청구되지 않습니다."
+
+msgid "Your API Tokens"
+msgstr "나만의 API 토큰"
 
 msgid "Your API key:"
 msgstr "귀하의 API 키:"
@@ -3496,6 +5444,9 @@ msgstr "요청에 따라 데스크톱이 중지될 예정입니다."
 msgid "Your desktop is about to be terminated as requested"
 msgstr "요청에 따라 데스크톱이 곧 종료될 예정입니다."
 
+msgid "Your desktop is being saved & shut down - a resumable image is being captured, then it will terminate."
+msgstr "데스크톱이 저장되고 종료됩니다. 재개 가능한 이미지가 캡처되고 나면 종료됩니다."
+
 msgid "Your desktop is starting"
 msgstr "데스크톱이 시작됩니다"
 
@@ -3532,8 +5483,20 @@ msgstr "프로젝트가 성공적으로 삭제되었습니다"
 msgid "Your project has been updated successfully"
 msgstr "프로젝트가 성공적으로 업데이트되었습니다"
 
+msgid "Your quota"
+msgstr "내 할당량"
+
 msgid "Your schedule has been updated successfully"
 msgstr "일정이 성공적으로 업데이트되었습니다."
+
+msgid "Your session is being interrupted — saving your desktop. It will appear under Saved Desktops when ready."
+msgstr "세션이 중단되어 데스크톱이 절약되고 있습니다.준비가 되면 저장된 데스크톱 아래에 표시됩니다."
+
+msgid "Your session was interrupted — your desktop was saved. Find it under Saved Desktops to resume."
+msgstr "세션이 중단되었습니다. 데스크톱이 저장되었습니다.다시 시작하려면 저장된 데스크톱에서 찾을 수 있습니다."
+
+msgid "Your session was interrupted, but the auto-save did not complete — your work could not be preserved."
+msgstr "세션이 중단되었지만 자동 저장이 완료되지 않아 작업을 보존할 수 없습니다."
 
 #, python-format
 msgid "Your session will be automatically deleted <strong>after %(n)s hour</strong> if you do not restart it.Your session will be automatically deleted <strong>after %(n)s hours</strong> if you do not restart it."
@@ -3554,6 +5517,9 @@ msgstr "대상 노드가 이미 실행 중입니다."
 msgid "Your target node is already stopped"
 msgstr "대상 노드가 이미 중지되었습니다"
 
+msgid "Your target node is already stopping"
+msgstr "대상 노드가 이미 중지되었습니다"
+
 msgid "Your target node is being created"
 msgstr "대상 노드가 생성되고 있습니다"
 
@@ -3563,8 +5529,14 @@ msgstr "대상 노드가 아직 실행되고 있지 않습니다"
 msgid "Your target node is starting"
 msgstr "대상 노드가 시작됨"
 
+msgid "Your target node is still stopping"
+msgstr "대상 노드가 여전히 중지됨"
+
 msgid "Your target node is stopped."
 msgstr "대상 노드가 중지되었습니다."
+
+msgid "Your target node is stopping. This may take a few minutes."
+msgstr "대상 노드가 중지되었습니다.몇 분 정도 걸릴 수 있습니다."
 
 msgid "Your target node schedule has been updated"
 msgstr "대상 노드 일정이 업데이트되었습니다."
@@ -3590,6 +5562,9 @@ msgstr "가상 데스크톱이 이미 실행 중입니다."
 msgid "Your virtual desktop is already stopped"
 msgstr "가상 데스크톱이 이미 중지되었습니다"
 
+msgid "Your virtual desktop is already stopping"
+msgstr "가상 데스크톱이 이미 중지됨"
+
 msgid "Your virtual desktop is being created"
 msgstr "가상 데스크톱이 생성되고 있습니다."
 
@@ -3599,8 +5574,14 @@ msgstr "가상 데스크톱이 아직 실행되지 않음"
 msgid "Your virtual desktop is starting"
 msgstr "가상 데스크톱이 시작됩니다"
 
+msgid "Your virtual desktop is still stopping"
+msgstr "가상 데스크톱이 여전히 중지됨"
+
 msgid "Your virtual desktop is stopped."
 msgstr "가상 데스크톱이 중지되었습니다."
+
+msgid "Your virtual desktop is stopping. This may take a few minutes."
+msgstr "가상 데스크톱이 중지되었습니다.몇 분 정도 걸릴 수 있습니다."
 
 msgid "Your virtual desktop schedule has been updated"
 msgstr "가상 데스크톱 일정이 업데이트되었습니다."
@@ -3608,8 +5589,11 @@ msgstr "가상 데스크톱 일정이 업데이트되었습니다."
 msgid "Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed."
 msgstr "작업공간에는 EDH 파일 시스템에 저장된 모든 데이터가 포함됩니다.기본적으로 /apps 및 /data는 모든 EDH 노드에서 공유되고 액세스할 수 있습니다.필요에 따라 추가 파일 시스템을 마운트할 수 있습니다."
 
-msgid "__SOCA_CLUSTER__NAME__"
-msgstr "__소카_클러스터__이름__"
+msgid "across this software stack"
+msgstr "이 소프트웨어 스택에서"
+
+msgid "ago -- max age in bucket"
+msgstr "ago -- 버킷의 최대 연령"
 
 msgid "all"
 msgstr "모든"
@@ -3617,14 +5601,41 @@ msgstr "모든"
 msgid "and close it with"
 msgstr "로 닫으세요"
 
+msgid "any"
+msgstr "어떤"
+
 msgid "app_profile file is missing."
 msgstr "앱_프로필 파일이 없습니다."
+
+msgid "attention"
+msgstr "주의"
+
+msgid "auto-removes in"
+msgstr "에서 자동 제거"
+
+msgid "avg"
+msgstr "평균"
 
 msgid "base64"
 msgstr "베이스 64"
 
 msgid "breadcrumb"
 msgstr "빵 부스러기"
+
+msgid "by"
+msgstr "에 의해"
+
+msgid "capacity"
+msgstr "생산 능력"
+
+msgid "captured"
+msgstr "캡처되었습니다"
+
+msgid "changes"
+msgstr "변경"
+
+msgid "changes to these take effect only after restarting"
+msgstr "이러한 변경 사항은 다시 시작한 후에만 적용됩니다."
 
 msgid "clear the buffer"
 msgstr "버퍼 지우기"
@@ -3644,8 +5655,14 @@ msgstr "닫혔습니다"
 msgid "comma separated list of job ids e,g: 1,2,3"
 msgstr "쉼표로 구분된 작업 ID 목록 (예: 1,2,3)"
 
+msgid "configured instance type(s) carry capacity"
+msgstr "구성된 인스턴스 유형 운반 용량"
+
 msgid "connecting"
 msgstr "연결"
+
+msgid "connecting..."
+msgstr "연결 중..."
 
 msgid "cpus must be a valid integer"
 msgstr "cpus가 유효한 정수여야 합니다."
@@ -3656,6 +5673,24 @@ msgstr "cr-123456abc"
 msgid "create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags."
 msgstr "가상 타겟, 가상 데스크톱 및 컴퓨팅 노드에 대한 예산을 한 곳에서 생성, 모니터링 및 관리할 수 있습니다.자동 AWS 비용 할당 태그를 통해 완전한 가시성을 확보하십시오."
 
+msgid "current"
+msgstr "전류"
+
+msgid "day(s)"
+msgstr "일 (들)"
+
+msgid "days"
+msgstr "일"
+
+msgid "days, after which it is permanently deleted."
+msgstr "며칠이 지나면 영구적으로 삭제됩니다."
+
+msgid "deleted"
+msgstr "삭제"
+
+msgid "desired"
+msgstr "원하는"
+
 msgid "disconnected"
 msgstr "연결 해제"
 
@@ -3665,8 +5700,20 @@ msgstr "예: --에포크"
 msgid "e.g. /bin/bash"
 msgstr "예: /빈/배시"
 
+msgid "e.g. CI/CD Pipeline Token"
+msgstr "예: CI/CD 파이프라인 토큰"
+
+msgid "e.g. MaxProvisioning, c8i.xlarge, /dcv/"
+msgstr "예: 최대 프로비저닝, c8i.xlarge, /dcv/"
+
 msgid "e.g. argument"
 msgstr "예: 인수"
+
+msgid "e.g. not_sudoer, !path"
+msgstr "예: not_sudoer,!통로"
+
+msgid "e.g. webui, !api, i-0abc"
+msgstr "예: 웹UI,!API, i-0abc"
 
 msgid "encode function:"
 msgstr "인코딩 기능:"
@@ -3674,8 +5721,20 @@ msgstr "인코딩 기능:"
 msgid "error"
 msgstr "오류"
 
+msgid "errors"
+msgstr "오류"
+
+msgid "events. The DcvSessionEventLog table retains 24 hours of history per session."
+msgstr "행사.DCVSessionEventLog 테이블에는 세션당 24시간의 기록이 보관됩니다."
+
 msgid "example: c6g.metal"
 msgstr "예: c6g.metal"
+
+msgid "failed"
+msgstr "실패했습니다"
+
+msgid "failed cycles in last 60 min."
+msgstr "지난 60분 동안 사이클이 실패했습니다."
 
 msgid "file rotated, stream ending"
 msgstr "파일 회전, 스트림 종료"
@@ -3686,20 +5745,39 @@ msgstr "파일이 잘림, 재개 중"
 msgid "file_path"
 msgstr "파일_경로"
 
+msgid "finished jobs - narrow the time range to see older ones."
+msgstr "완료된 작업 - 시간 범위를 좁혀 오래된 작업을 볼 수 있습니다."
+
+#, python-format
+msgid "frame loss > 5%% or latency > 100ms"
+msgstr "프레임 손실 5%% 초과 또는 지연 시간 > 100ms"
+
 msgid "from the filesystem."
 msgstr "파일 시스템에서."
 
 msgid "fsx_capacity"
 msgstr "fsx_Capacity"
 
+msgid "hardware compatible"
+msgstr "하드웨어 호환"
+
 msgid "has been uploaded to EDH"
 msgstr "EDH에 업로드되었습니다"
+
+msgid "healthy"
+msgstr "건강한"
+
+msgid "hot"
+msgstr "뜨거운"
 
 msgid "hour"
 msgstr "시간"
 
 msgid "hour(s) with HyperThreading support set to True"
 msgstr "하이퍼스레딩 지원을 True로 설정한 경우 시간"
+
+msgid "hours"
+msgstr "시간"
 
 msgid "idle"
 msgstr "게으른"
@@ -3713,11 +5791,14 @@ msgstr "타임스탬프 체크포인트 삽입"
 msgid "instance_type"
 msgstr "인스턴스_유형"
 
+msgid "invocations"
+msgstr "기도"
+
 msgid "is HTML tag for new line"
 msgstr "새 줄의 HTML 태그입니다."
 
-msgid "is running but EDG could not validate your session via"
-msgstr "실행 중이지만 EDG가 다음을 통해 세션을 검증할 수 없습니다."
+msgid "is running but EDH could not validate your session via"
+msgstr "실행 중이지만 EDH가 다음을 통해 세션을 검증할 수 없습니다."
 
 msgid "jump to live"
 msgstr "점프 투 라이브"
@@ -3725,8 +5806,17 @@ msgstr "점프 투 라이브"
 msgid "jump to start"
 msgstr "시작으로 이동"
 
+msgid "last"
+msgstr "마지막으로"
+
+msgid "ledger"
+msgstr "원장"
+
 msgid "live"
 msgstr "살고 있다"
+
+msgid "live · updates automatically"
+msgstr "실시간 · 자동 업데이트"
 
 msgid "load earlier"
 msgstr "더 일찍 불러오기"
@@ -3734,8 +5824,53 @@ msgstr "더 일찍 불러오기"
 msgid "loading"
 msgstr "로드 중"
 
+msgid "locked to this stack's AMI — only matching-architecture instance types are selectable."
+msgstr "이 스택의 AMI에 고정 — 일치하는 아키텍처 인스턴스 유형만 선택할 수 있습니다."
+
+msgid "member"
+msgstr "회원"
+
+msgid "min"
+msgstr "분"
+
+msgid "minimum guaranteed On-Demand instances; 0 up to the Hot count."
+msgstr "보장된 최소 온디맨드 인스턴스, 핫 카운트까지는 0개입니다."
+
 msgid "no file specified"
 msgstr "지정된 파일 없음"
+
+msgid "none in window"
+msgstr "창에 없음"
+
+msgid "not in current private subnets"
+msgstr "현재 프라이빗 서브넷에는 없습니다."
+
+msgid "of the capacity above the floor, the portion that is On-Demand (the rest is Spot). 0 to 100, where 100 means all On-Demand."
+msgstr "플로어 위의 용량 중 온디맨드 용량 (나머지는 스팟) 입니다. 0~100, 여기서 100은 전체 온디맨드를 의미합니다."
+
+msgid "on DeviceHunt (opens in a new tab)"
+msgstr "디바이스헌트에서 (새 탭에서 열림)"
+
+msgid "on this exact instance type"
+msgstr "이 정확한 인스턴스 유형에서"
+
+msgid "original"
+msgstr "기발한"
+
+msgid "p95 Frame Loss"
+msgstr "p95 프레임 손실"
+
+msgid "p95 Network Latency"
+msgstr "p95 네트워크 레이턴시"
+
+msgid "parameter(s) updated"
+msgstr "매개변수 업데이트됨"
+
+msgid "patterns"
+msgstr "패턴"
+
+msgid "patterns copied"
+msgstr "패턴 복사됨"
 
 msgid "pause or resume"
 msgstr "일시 중지 또는 재개"
@@ -3746,11 +5881,35 @@ msgstr "일시 중지"
 msgid "pending"
 msgstr "보류 중"
 
+msgid "pre-warmed stopped instances (EBS only); start in ~30s when claimed with available capacity."
+msgstr "사전 워밍된 중지된 인스턴스 (EBS만 해당), 사용 가능한 용량을 포함하여 요청 시 ~30초 내에 시작"
+
 msgid "profile_name is missing."
 msgstr "프로필_이름이 없습니다."
 
 msgid "purchasing Reserved Instances"
 msgstr "예약 인스턴스 구매"
+
+msgid "raw"
+msgstr "노골적인"
+
+msgid "read-only"
+msgstr "읽기 전용"
+
+msgid "ready"
+msgstr "준비된"
+
+msgid "reconciler + relay"
+msgstr "리코일러 + 릴레이"
+
+msgid "region"
+msgstr "부위"
+
+msgid "rejected"
+msgstr "거부"
+
+msgid "restart"
+msgstr "를 다시 시작합니다"
 
 msgid "root_size"
 msgstr "루트_크기"
@@ -3758,8 +5917,14 @@ msgstr "루트_크기"
 msgid "rotated"
 msgstr "회전"
 
+msgid "run from the controller shell."
+msgstr "컨트롤러 셸에서 실행합니다."
+
 msgid "running"
 msgstr "실행 중입니다"
+
+msgid "running, broker-registered instances kept idle for instant assignment."
+msgstr "실행 중인 브로커 등록 인스턴스는 즉시 할당을 위해 유휴 상태로 유지되었습니다."
 
 #, python-brace-format
 msgid "s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com"
@@ -3771,14 +5936,32 @@ msgstr "스케줄러_ID 및 작업_ID를 지정해야 합니다."
 msgid "scratch_size"
 msgstr "스크래치_사이즈"
 
+msgid "set to"
+msgstr "로 설정"
+
+msgid "set to your scoped token (e.g."
+msgstr "범위가 지정된 토큰으로 설정 (예:"
+
+msgid "similar launches over the last 90 days"
+msgstr "지난 90일 동안의 유사한 출시"
+
 msgid "since last mark"
 msgstr "라스트 마크 이후"
 
 msgid "stopped"
 msgstr "중지되었습니다"
 
+msgid "stopping"
+msgstr "중지합니다"
+
 msgid "stream ended"
 msgstr "스트림 종료"
+
+msgid "substring, e.g. /dcv/"
+msgstr "하위 문자열, 예: /dcv/"
+
+msgid "substring, e.g. 10.0"
+msgstr "하위 문자열, 예: 10.0"
 
 msgid "this user from the group"
 msgstr "그룹의 이 사용자"
@@ -3789,6 +5972,15 @@ msgstr "이 사용자를 내 그룹에"
 msgid "this user to the group"
 msgstr "그룹에 속한 이 사용자"
 
+msgid "to get detailed troubleshooting and recommendations with file context."
+msgstr "파일 컨텍스트에 대한 자세한 문제 해결 및 권장 사항을 확인할 수 있습니다."
+
+msgid "to the AgentCore runtimes you want to use."
+msgstr "사용하려는 AgentCore 런타임으로 이동합니다."
+
+msgid "to the recycle bin? You can recover it within"
+msgstr "휴지통으로?안에서 복구할 수 있습니다."
+
 msgid "toggle theme"
 msgstr "토글 테마"
 
@@ -3798,11 +5990,26 @@ msgstr "이 도움말로 전환"
 msgid "toggle wrap"
 msgstr "토글 랩"
 
+msgid "took"
+msgstr "가졌다"
+
+msgid "typed"
+msgstr "입력되었습니다"
+
 msgid "upload because of"
 msgstr "업로드 이유"
 
 msgid "upload was canceled"
 msgstr "업로드가 취소됨"
+
+msgid "user"
+msgstr "사용자"
+
+msgid "user(s)"
+msgstr "사용자"
+
+msgid "v#"
+msgstr "v#"
 
 msgid "vCPUs"
 msgstr "vCPU"
@@ -3810,11 +6017,20 @@ msgstr "vCPU"
 msgid "vcpus"
 msgstr "CPU"
 
+msgid "version(s)"
+msgstr "버전"
+
 msgid "wall_time"
 msgstr "월_타임"
 
 msgid "wall_time must use HH:MM:SS format and only use valid numbers"
 msgstr "wall_time은 HH:MM:SS 형식을 사용해야 하며 유효한 숫자만 사용해야 합니다."
+
+msgid "warm"
+msgstr "따뜻한"
+
+msgid "working"
+msgstr "일"
 
 #, python-brace-format
 msgid "{entry.name} returned an error and cannot be displayed: {err}"
@@ -5286,5 +7502,140 @@ msgstr "🎉 소카 그래요 🌴"
 #~ "tabs or this window leaves them "
 #~ "running so you can resume later."
 #~ msgstr "세션은 tmux를 사용합니다. 탭이나 이 창을 닫으면 나중에 다시 시작할 수 있도록 탭이 계속 실행됩니다."
+
+#~ msgid "(EDH version __VERSION__)"
+#~ msgstr "(EDH 버전 __버전__)"
+
+#~ msgid "(Optional) Description for your template, maximum 500 characters."
+#~ msgstr "(선택 사항) 템플릿에 대한 설명, 최대 500자"
+
+#~ msgid ", "
+#~ msgstr ", "
+
+#~ msgid "Add"
+#~ msgstr "추가"
+
+#~ msgid "All users"
+#~ msgstr "전체 사용자"
+
+#~ msgid "Capacity being provisioned"
+#~ msgstr "용량 프로비저닝 중"
+
+#~ msgid "Capacity provisioning blocked"
+#~ msgstr "용량 프로비저닝이 차단됨"
+
+#~ msgid "Code Editor"
+#~ msgstr "코드 에디터"
+
+#~ msgid "Code Editor is taking longer than expected to load."
+#~ msgstr "코드 편집기를 로드하는 데 예상보다 오래 걸립니다."
+
+#~ msgid "Download Session File"
+#~ msgstr "세션 파일 다운로드"
+
+#~ msgid "Download your client here."
+#~ msgstr "여기에서 클라이언트를 다운로드하세요."
+
+#~ msgid "Entering the Danger Zone"
+#~ msgstr "위험 지대 진입"
+
+#~ msgid "Filter"
+#~ msgstr "필터"
+
+#~ msgid ""
+#~ "If the page stays blank, the "
+#~ "code-server service may not be "
+#~ "running on this cluster."
+#~ msgstr "페이지가 비어 있으면 코드 서버 서비스가 이 클러스터에서 실행되고 있지 않을 수 있습니다."
+
+#~ msgid "JOB CANNOT START"
+#~ msgstr "작업을 시작할 수 없습니다."
+
+#~ msgid "Job is finished or in invalid state"
+#~ msgstr "작업이 완료되었거나 잘못된 상태입니다."
+
+#~ msgid "LSF"
+#~ msgstr "LSF"
+
+#~ msgid "List all Virtual Desktops"
+#~ msgstr "모든 가상 데스크톱 목록"
+
+#~ msgid "Members: (choose all that apply)"
+#~ msgstr "회원: (해당하는 항목 모두 선택)"
+
+#~ msgid "My API Key (Developer mode)"
+#~ msgstr "내 API 키 (개발자 모드)"
+
+#~ msgid "OpenPBS"
+#~ msgstr "PBS를 엽니다"
+
+#~ msgid "Option1: Browser access"
+#~ msgstr "옵션 1: 브라우저 액세스"
+
+#~ msgid "Option2: Native Application"
+#~ msgstr "옵션 2: 기본 애플리케이션"
+
+#~ msgid "PENDING"
+#~ msgstr "보류 중"
+
+#~ msgid "RUNNING"
+#~ msgstr "실행 중"
+
+#~ msgid "Scheduler ID"
+#~ msgstr "스케줄러 ID"
+
+#~ msgid "Slurm"
+#~ msgstr "슬럼"
+
+#~ msgid "Starting Code Editor..."
+#~ msgstr "코드 편집기 시작 중..."
+
+#~ msgid "Subnets must be from the list of private subnets configured on EDH"
+#~ msgstr "서브넷은 EDH에 구성된 프라이빗 서브넷 목록에 있어야 합니다."
+
+#~ msgid ""
+#~ "This file is too big to be "
+#~ "compressed via web. Download file "
+#~ "separately or use SFTP."
+#~ msgstr "이 파일은 너무 커서 웹을 통해 압축할 수 없습니다.파일을 별도로 다운로드하거나 SFTP를 사용하십시오."
+
+#~ msgid ""
+#~ "Token has expired. As a security "
+#~ "measure we have refreshed your token."
+#~ " Please re-submit your request again."
+#~ msgstr "토큰이 만료되었습니다.보안 조치의 일환으로 토큰을 새로고침했습니다.요청을 다시 제출해 주세요."
+
+#~ msgid "Unable to generate job script. See logs for additional details"
+#~ msgstr "작업 스크립트를 생성할 수 없습니다.자세한 내용은 로그를 참조하십시오."
+
+#~ msgid "Unable to list all_users: "
+#~ msgstr "모든 사용자를 나열할 수 없습니다: "
+
+#~ msgid "Unable to list groups: "
+#~ msgstr "그룹을 나열할 수 없음: "
+
+#~ msgid "Unable to locate  the download archive, please try again"
+#~ msgstr "다운로드 아카이브를 찾을 수 없습니다. 다시 시도하십시오."
+
+#~ msgid ""
+#~ "Unable to retrieve jobs on all "
+#~ "schedulers. Verify user/scheduler/queue parameters"
+#~ " and check logs for more details"
+#~ msgstr "모든 스케줄러에서 작업을 검색할 수 없습니다.사용자/스케줄러/대기열 매개 변수를 확인하고 로그에서 자세한 내용을 확인하십시오."
+
+#~ msgid "Unable to retrieve this virtual desktop."
+#~ msgstr "이 가상 데스크톱을 검색할 수 없습니다."
+
+#~ msgid "View my jobs"
+#~ msgstr "내 채용 정보 보기"
+
+#~ msgid "You are not the job owner"
+#~ msgstr "당신은 직업 소유자가 아닙니다"
+
+#~ msgid "__SOCA_CLUSTER__NAME__"
+#~ msgstr "__소카_클러스터__이름__"
+
+#~ msgid "is running but EDG could not validate your session via"
+#~ msgstr "실행 중이지만 EDG가 다음을 통해 세션을 검증할 수 없습니다."
 
 

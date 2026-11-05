@@ -28,6 +28,30 @@ SYMBOL_ARROW="→"
 
 TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
 
+# Remember the current background and restore it on exit. This is important for terminals that use a non-default background color, e.g. the AWS CloudShell.
+EDH_ORIGINAL_BG=""
+if [[ -t 0 && -t 1 ]]; then
+    printf '\033]11;?\007'
+    IFS= read -r -s -t 1 -d $'\007' _edh_bg_reply || true
+    _edh_bg_reply="${_edh_bg_reply#*]11;}"
+    # Only keep a well-formed colour, never replay arbitrary bytes to the terminal
+    if [[ "$_edh_bg_reply" =~ ^rgb:[0-9a-fA-F]{1,4}/[0-9a-fA-F]{1,4}/[0-9a-fA-F]{1,4}$ ]]; then
+        EDH_ORIGINAL_BG="$_edh_bg_reply"
+    fi
+fi
+export EDH_ORIGINAL_BG
+
+reset_terminal_style() {
+    if [[ -t 1 ]]; then
+        if [[ -n "$EDH_ORIGINAL_BG" ]]; then
+            printf '\033]11;%s\007' "$EDH_ORIGINAL_BG"
+        fi
+        # OSC 111 (default background) for terminals without a query answer, then reset colours
+        printf '\033]111\033\\\033[0m'
+    fi
+}
+trap reset_terminal_style EXIT
+
 function realpath() {
     [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
 }
@@ -80,6 +104,10 @@ spinner() {
     printf "\r"
 }
 
+# Portable lowercase: works on bash 3.2 (macOS default) through bash 5+.
+# Avoids the bash 4+ ${var,,} expansion, which throws "bad substitution" on 3.2.
+to_lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
 confirm() {
     local prompt="$1"
     local default="${2:-yes}"
@@ -93,7 +121,7 @@ confirm() {
         echo -ne "  ${CYAN}?${NC} ${prompt} ${DIM}${hint}${NC} "
         read -r answer
         answer="${answer:-$default}"
-        case "${answer,,}" in
+        case "$(to_lower "$answer")" in
             y|yes) return 0 ;;
             n|no) return 1 ;;
             *) echo -e "    ${DIM}Please answer yes or no${NC}" ;;
@@ -164,10 +192,16 @@ section_header() {
 # === Configuration ===========================================================
 
 EDH_DEBUG="${EDH_DEBUG:-${SOCA_DEBUG:-0}}"
-
-SOCA_PYTHON=${SOCA_PYTHON:-$(command -v python3)}
+# SOCA_PYTHON is the Python interpreter used to run the installer. It can be overridden by setting EDH_PYTHON or SOCA_PYTHON (legacy) in the environment.
+# If neither is set, it defaults to the first python3 found in PATH.
+SOCA_PYTHON="${EDH_PYTHON:-${SOCA_PYTHON:-$(command -v python3)}}"
 SOCA_PYTHON_SKIP_VENV=${SOCA_PYTHON_SKIP_VENV:-"false"}
-SOCA_PYTHON_VERSION=${SOCA_PYTHON_VERSION:-"3.13"}
+# Python version for the LOCAL installer venv on the operator's machine only.
+# This is deliberately decoupled from the Lambda runtime ABI (see
+# LAMBDA_PYTHON_VERSION in resources/src/cdk_construct.py) and from the cluster
+# node Python (system.python.version in default_config.yml). Bumping this does
+# not affect deployed compute.
+SOCA_PYTHON_VERSION=${SOCA_PYTHON_VERSION:-"3.14"}
 export SOCA_PYTHON_VERSION
 
 PYENV_URL="https://pyenv.run"
@@ -254,6 +288,22 @@ PYTHON_VERSION=$($SOCA_PYTHON -c "import sys;print(f'{sys.version_info.major}.{s
 if [[ "$PYTHON_VERSION" != "$SOCA_PYTHON_VERSION" ]]; then
     log_warn "Python ${PYTHON_VERSION} detected, but ${SOCA_PYTHON_VERSION} is required"
 
+    # Look for the required interpreter on PATH before reaching for pyenv:
+    # `python3` is often newer than required while the versioned binary sits
+    # next to it. SOCA_PYTHON_VERSION carries the major, so the binary is
+    # python${SOCA_PYTHON_VERSION}, not python3.${SOCA_PYTHON_VERSION}.
+    SOCA_PYTHON_EXACT="$(command -v "python${SOCA_PYTHON_VERSION}" || true)"
+    if [[ -n "${SOCA_PYTHON_EXACT}" ]]; then
+        SOCA_PYTHON_EXACT_VERSION="$("${SOCA_PYTHON_EXACT}" -c "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || true)"
+        if [[ "${SOCA_PYTHON_EXACT_VERSION}" == "${SOCA_PYTHON_VERSION}" ]]; then
+            log_info "Found python${SOCA_PYTHON_VERSION} on PATH ${SYMBOL_ARROW} ${SOCA_PYTHON_EXACT}"
+            SOCA_PYTHON="${SOCA_PYTHON_EXACT}"
+            PYTHON_VERSION="${SOCA_PYTHON_EXACT_VERSION}"
+        fi
+    fi
+fi
+
+if [[ "$PYTHON_VERSION" != "$SOCA_PYTHON_VERSION" ]]; then
     if [[ "${PYENV_AVAILABLE}" == true ]]; then
         PYENV_VERSIONS=$($PYENV versions | grep "${SOCA_PYTHON_VERSION}")
         if [[ -z "$PYENV_VERSIONS" ]]; then
@@ -273,10 +323,21 @@ if [[ "$PYTHON_VERSION" != "$SOCA_PYTHON_VERSION" ]]; then
         SOCA_PYTHON=$($PYENV which python3)
     else
         if confirm "Install PyEnv and Python ${SOCA_PYTHON_VERSION}?"; then
+            # pyenv's installer refuses to run when $HOME/.pyenv exists, and an
+            # earlier failed attempt leaves it behind. Clear it, but ONLY when
+            # it holds no installed interpreter: a populated pyenv is the user's.
+            if [[ -d "$HOME/.pyenv" ]]; then
+                if [[ -d "$HOME/.pyenv/versions" ]] && [[ -n "$(ls -A "$HOME/.pyenv/versions" 2>/dev/null)" ]]; then
+                    log_fail "A populated ${HOME}/.pyenv already exists but pyenv is not on PATH. Add it to PATH (see https://github.com/pyenv/pyenv#set-up-your-shell-environment-for-pyenv) and re-run, or set EDH_PYTHON to a python${SOCA_PYTHON_VERSION} interpreter."
+                    exit 1
+                fi
+                log_warn "Removing an empty/incomplete ${HOME}/.pyenv left by a previous attempt"
+                rm -rf "$HOME/.pyenv"
+            fi
             if ! curl --silent $PYENV_URL | bash; then
                 log_fail "PyEnv installation failed"
-                # flush  $HOME/.pyenv for the next install to avoid the following error:
-                # WARNING: Can not proceed with installation. Kindly remove the '$HOME/.pyenv' directory first.
+                # Leave nothing behind: a partial $HOME/.pyenv makes pyenv's
+                # own installer refuse on the next run.
                 rm -rf "$HOME/.pyenv"
                 exit 1
             fi
@@ -324,9 +385,18 @@ else
         _req_hash="$(sha256_of resources/src/requirements.txt)"
         _stored_req_hash=""
         [[ -f "$PYTHON_VENV/.edh_req_hash" ]] && _stored_req_hash="$(cat "$PYTHON_VENV/.edh_req_hash")"
-        if [[ "${EDH_FORCE_VENV_REBUILD:-0}" == "1" || "$_req_hash" != "$_stored_req_hash" ]]; then
+        # A venv is only reusable if its interpreter still RUNS. bin/python3 is
+        # a symlink to the python that built it, so removing that python leaves
+        # an activate script that succeeds while python3 resolves past the venv.
+        _venv_python_ok=true
+        if ! "$PYTHON_VENV/bin/python3" --version >/dev/null 2>&1; then
+            _venv_python_ok=false
+        fi
+        if [[ "${EDH_FORCE_VENV_REBUILD:-0}" == "1" || "$_req_hash" != "$_stored_req_hash" || "${_venv_python_ok}" == false ]]; then
             if [[ "${EDH_FORCE_VENV_REBUILD:-0}" == "1" ]]; then
                 log_warn "EDH_FORCE_VENV_REBUILD set ${SYMBOL_ARROW} rebuilding virtual environment"
+            elif [[ "${_venv_python_ok}" == false ]]; then
+                log_warn "Virtual environment interpreter no longer runs (the Python that created it is gone) ${SYMBOL_ARROW} rebuilding"
             else
                 log_warn "requirements.txt changed ${SYMBOL_ARROW} rebuilding virtual environment"
             fi

@@ -29,7 +29,7 @@ from models import db, TargetNodeSessions
 import target_nodes_cloudformation_builder
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.aws.odcr_helper import create_capacity_reservation
-from utils.aws.ec2_helper import create_capacity_dry_run
+from utils.aws.ec2_helper import quota_check_skip_reason, QUOTA_CHECK_UNAVAILABLE, create_capacity_dry_run, validate_ec2_quota_for_instance
 from utils.aws.cloudformation_client import SocaCfnClient
 from utils.aws.ssm_helper import get_ami_id_from_alias
 from utils.error import SocaError
@@ -666,6 +666,50 @@ class CreateTargetNode(Resource):
                             f"{tag} does not have Enabled key or Enabled is False."
                         )
 
+            # Quota gate. Target Nodes provision EC2 against the same account and
+            # region vCPU quotas as HPC and VDI. Without this, an exhausted quota
+            # surfaced as a raw VcpuLimitExceeded once CloudFormation was already
+            # creating the stack rather than as a message naming the quota.
+            #
+            # The dry run below cannot cover it: RunInstances with DryRun=true does
+            # not evaluate vCPU quotas, so it returns DryRunOperation whether or not
+            # the account has headroom.
+            #
+            # Target Nodes are On-Demand only -- there is no spot option on this API
+            # -- so the lifecycle is fixed rather than derived.
+            _quota_check = validate_ec2_quota_for_instance(
+                instance_type=launch_parameters.get("instance_type"),
+                desired_capacity=1,
+                lifecycle="on-demand",
+            )
+            if (
+                _quota_check.get("success") is False
+                and _quota_check.get("status_code") == QUOTA_CHECK_UNAVAILABLE
+            ):
+                # The quota could not be READ, so nothing has been shown to be
+                # exhausted. Admit, matching plan_starts_within_quota()'s bias:
+                # AWS still enforces the real limit at RunInstances, whereas
+                # refusing here invents a denial no quota justifies.
+                logger.warning(
+                    f"Quota check could not be completed ({_quota_check.get('message')}); "
+                    f"admitting {launch_parameters.get('instance_type')} and letting AWS enforce the limit"
+                )
+            elif _quota_check.get("success") is False:
+                logger.error(
+                    f"Quota check refused target node launch for "
+                    f"{launch_parameters.get('instance_type')}: {_quota_check.get('message')}"
+                )
+                return SocaError.VIRTUAL_DESKTOP_LAUNCH_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper=str(_quota_check.get("message")),
+                ).as_flask()
+            _skip_reason = quota_check_skip_reason(_quota_check)
+            if _skip_reason:
+                logger.info(
+                    f"Quota check skipped for {launch_parameters.get('instance_type')}: {_skip_reason}"
+                )
+
             logger.debug(f"Trying to perform DryRun with {launch_parameters}")
             dry_run_launch = create_capacity_dry_run(
                 disk_size=launch_parameters.get("disk_size"),
@@ -681,6 +725,7 @@ class CreateTargetNode(Resource):
                 metadata_http_tokens=launch_parameters.get("metadata_http_tokens"),
                 key_name=_get_soca_parameters.get("/configuration/SSHKeyPair"),
                 desired_capacity=1,
+                node_type="target_node",
             )
             if dry_run_launch.get("success"):
                 launch_template = target_nodes_cloudformation_builder.main(
@@ -802,4 +847,3 @@ class CreateTargetNode(Resource):
             return SocaError.GENERIC_ERROR(
                 helper=f"{err}, {exc_type}, {fname}, {exc_tb.tb_lineno}"
             ).as_flask()
-

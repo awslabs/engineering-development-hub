@@ -16,7 +16,7 @@ import config
 from flask import render_template, Blueprint, request, redirect, session, flash
 from flask_babel import gettext as _
 from requests import get, post, delete, put
-from decorators import login_required, admin_only, feature_flag
+from decorators import login_required, admin_only, feature_flag, directory_writable, directory_is_externally_owned
 
 logger = logging.getLogger("soca_logger")
 admin_groups = Blueprint("admin_groups", __name__, template_folder="templates")
@@ -39,6 +39,8 @@ def index():
         sudoers=session["sudoers"],
         all_groups=sorted(all_groups),
         all_users=sorted(all_users),
+        directory=config.Config.DIRECTORY_AUTH_PROVIDER,
+        directory_read_only=directory_is_externally_owned(),
     )
 
 
@@ -46,6 +48,7 @@ def index():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def create_group():
     group_name = request.form.get("group_name")
     members = request.form.getlist("members")
@@ -74,6 +77,7 @@ def create_group():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def delete_group():
     group = str(request.form.get("group_to_delete"))
     if session["user"] == group:  # user group name is <username>group
@@ -135,6 +139,7 @@ def check_group():
 @login_required
 @admin_only
 @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="view")
+@directory_writable(mode="view")
 def manage_group():
     group = request.form.get("group")
     user = request.form.get("user")

@@ -1,0 +1,200 @@
+[
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Container EFA Benchmark"
+  },
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "Runs MPI across nodes with the ranks inside an Apptainer container and measures the result over EFA and over TCP, reporting the ratio. The failure this catches is silent: if the container's libfabric and OpenMPI do not match the host's, MPI still runs but falls back to TCP, so the job succeeds while the interconnect does nothing. The container image is built from this cluster's own EFA installer so the two match. Requires at least 2 nodes and an EFA-capable instance type. Run the Container Runtime Test first."
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Cluster Topology"
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "EFA-capable instance type (instance_type)",
+    "description": "Must support EFA. HPC-family and network-optimized instances give the clearest EFA-versus-TCP separation. Graviton options are single-rail, so expect a narrower margin there.",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "hpc6id.32xlarge - 64 cores, 2x100 Gbps EFA (Intel)",
+        "value": "hpc6id.32xlarge",
+        "selected": true
+      },
+      {
+        "label": "hpc7a.96xlarge - 192 cores, 2x150 Gbps EFA (AMD)",
+        "value": "hpc7a.96xlarge",
+        "selected": false
+      },
+      {
+        "label": "c6in.32xlarge - 64 cores, 200 Gbps EFA (Intel)",
+        "value": "c6in.32xlarge",
+        "selected": false
+      },
+      {
+        "label": "c7gn.16xlarge - 64 cores, 200 Gbps EFA (Graviton, arm64)",
+        "value": "c7gn.16xlarge",
+        "selected": false
+      },
+      {
+        "label": "c8gn.48xlarge - 192 cores, 600 Gbps EFA (Graviton, arm64)",
+        "value": "c8gn.48xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Number of nodes (node_count)",
+    "description": "Must be at least 2. EFA carries traffic BETWEEN nodes, so a single-node job measures shared memory and proves nothing about the fabric. Two nodes is enough for the latency comparison.",
+    "className": "form-control",
+    "name": "node_count",
+    "values": [
+      {
+        "label": "2",
+        "value": "2",
+        "selected": true
+      },
+      {
+        "label": "4",
+        "value": "4",
+        "selected": false
+      },
+      {
+        "label": "8",
+        "value": "8",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Cores per node (ncpus_per_node)",
+    "description": "MUST equal the physical core count of the instance type chosen above, matching the EFA Benchmark sample's convention. The scheduler derives the node count from node_count times this value, so a mismatch is rejected before the job is provisioned. 64 for hpc6id.32xlarge, c6in.32xlarge or c7gn.16xlarge; 192 for hpc7a.96xlarge or c8gn.48xlarge. The latency probe itself uses only one rank per node.",
+    "className": "form-control",
+    "name": "ncpus_per_node",
+    "values": [
+      {
+        "label": "64",
+        "value": "64",
+        "selected": true
+      },
+      {
+        "label": "96",
+        "value": "96",
+        "selected": false
+      },
+      {
+        "label": "192",
+        "value": "192",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Operating system (base_os)",
+    "description": "Validated for Apptainer with EFA on all of these for x86_64. Every option here is one the runtime actually installs on: a base OS listed in Config.containers.apptainer.unsupported_platforms is not offered, because the node would skip the install and this job would then fail at 'apptainer is not on PATH'. That is why Amazon Linux 2 is absent (el7-family, EOL 2026-06-30). On Graviton, Amazon Linux 2023 is excluded for the same reason and the job reports the skip. Ubuntu 24.04 is omitted: its EFA installation fails independently of Apptainer.",
+    "className": "form-control",
+    "name": "base_os",
+    "values": [
+      {
+        "label": "Amazon Linux 2023",
+        "value": "amazonlinux2023",
+        "selected": true
+      },
+      {
+        "label": "Rocky Linux 9",
+        "value": "rocky9",
+        "selected": false
+      },
+      {
+        "label": "RHEL 9",
+        "value": "rhel9",
+        "selected": false
+      },
+      {
+        "label": "Rocky Linux 8",
+        "value": "rocky8",
+        "selected": false
+      },
+      {
+        "label": "RHEL 8",
+        "value": "rhel8",
+        "selected": false
+      },
+      {
+        "label": "Ubuntu 22.04",
+        "value": "ubuntu2204",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Job Naming"
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job name (job_name)",
+    "description": "Used as the scheduler job name and prefixed onto the output file. No spaces or special characters.",
+    "placeholder": "apptainer_efa_test",
+    "value": "apptainer_efa_test",
+    "className": "form-control",
+    "name": "job_name",
+    "subtype": "text",
+    "maxlength": 64
+  },
+  {
+    "type": "header",
+    "subtype": "h5",
+    "label": "Advanced (optional)"
+  },
+  {
+    "type": "select",
+    "required": false,
+    "label": "Walltime",
+    "description": "The first run builds an EFA-enabled container image, which takes several minutes. Later runs reuse it.",
+    "className": "form-control",
+    "name": "walltime",
+    "values": [
+      {
+        "label": "1 hour",
+        "value": "01:00:00",
+        "selected": true
+      },
+      {
+        "label": "2 hours",
+        "value": "02:00:00",
+        "selected": false
+      },
+      {
+        "label": "4 hours",
+        "value": "04:00:00",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "Additional pre-exec commands (user_pre_exec)",
+    "description": "Optional shell commands to run before the validation script. Useful for setting libfabric tuning variables such as FI_EFA_USE_DEVICE_RDMA.",
+    "placeholder": "e.g. export FI_LOG_LEVEL=warn",
+    "className": "form-control",
+    "name": "user_pre_exec",
+    "subtype": "textarea",
+    "rows": 3
+  }
+]

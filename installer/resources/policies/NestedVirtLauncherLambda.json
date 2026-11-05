@@ -5,7 +5,7 @@
             "Action": [
                 "logs:CreateLogGroup"
             ],
-            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/NestedVirtLauncher/*",
+            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/NestedVirtLauncher*",
             "Effect": "Allow",
             "Sid": "CloudWatchLogsPermissions"
         },
@@ -15,7 +15,7 @@
                 "logs:PutLogEvents",
                 "logs:DeleteLogStream"
             ],
-            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/NestedVirtLauncher/*",
+            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/NestedVirtLauncher*",
             "Effect": "Allow",
             "Sid": "CloudWatchLogStreamPermissions"
         },

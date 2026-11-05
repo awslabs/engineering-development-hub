@@ -49,6 +49,12 @@ FEATURE_FLAGS = {
     # /etc/nginx/conf.d/edh-code-server.conf.
     "CODE_SERVER": {"enabled": True, "allowed_users": [], "denied_users": []},
     "HPC": {"enabled": True, "allowed_users": [], "denied_users": []},
+    "JOB_CHAIN_SUBMIT_API": {
+        "enabled": False,
+        "allowed_users": [],
+        "denied_users": [],
+        "depends_on": "HPC",
+    },  # POST /api/scheduler/job/chain only: atomic multi-job submit
     "RUN_REMOTE_COMMAND": {
         "enabled": False,
         "allowed_users": [],
@@ -86,7 +92,11 @@ FEATURE_FLAGS = {
         "allowed_users": [],
         "denied_users": [],
     },
-    "MY_API_KEY_MANAGEMENT": {"enabled": True, "allowed_users": [], "denied_users": []},
+    "MY_API_KEY_MANAGEMENT": {
+        "enabled": False,
+        "allowed_users": [],
+        "denied_users": [],
+    },
     "MY_API_TOKENS": {"enabled": True, "allowed_users": [], "denied_users": []},
     "MY_ACCOUNT_MANAGEMENT": {  # WARNING: this will remove password reset ability for your users
         "enabled": True,
@@ -103,6 +113,11 @@ FEATURE_FLAGS = {
     # nav entry, and /api/admin/config/* endpoints only render/serve when this
     # flag is enabled. Default OFF -- opt-in.
     "CONFIG_EDITOR": {"enabled": False, "allowed_users": [], "denied_users": []},
+    # AWS PCS (Parallel Computing Service) cluster management: WebUI pages, nav
+    # entry, and /admin/pcs/* routes only render/serve when this flag is enabled.
+    # Default OFF -- opt-in. Retune per cluster via the
+    # /configuration/FeatureFlags/PCS/* SSM overlay (no redeploy).
+    "PCS": {"enabled": True, "allowed_users": [], "denied_users": []},
     "AI_ASSISTANT": {"enabled": True, "allowed_users": [], "denied_users": []},
     # Golden Image Publish: self-service nomination and publish workflow for
     # software stack AMIs. You nominate a SAVED desktop, so this depends on
@@ -131,6 +146,24 @@ FEATURE_FLAGS = {
         "allowed_groups": ["sudoers"],
         "denied_groups": [],
         "depends_on": ["VIRTUAL_DESKTOPS"],
+    },
+    # WebUI input HTML rejection for software-stack stack_name/description at
+    # create/update time (nh3.is_html). Defense-in-depth on top of render-time
+    # output-encoding (CR-299322886); disabling does NOT reopen XSS. Never gates
+    # connection_string sanitization (that field renders raw HTML and is always
+    # nh3.clean'd). Default enabled; flip via SSM overlay Enabled=false.
+    "WEBUI_INPUT_HTML_REJECT": {
+        "enabled": True,
+        "allowed_users": [],
+        "denied_users": [],
+    },
+    # Gates the inline shell/system-interpreter job path (payload runs on the controller as the caller, not a scheduler job). Overlay modes via /configuration/FeatureFlags/HPC_SHELL_INTERPRETER/*: disabled=Enabled:false; sudoers(default)/groups=AllowedGroups; all=AllowedGroups:[]+AllowedUsers:[]. Scheduler interpreters are never gated here.
+    "HPC_SHELL_INTERPRETER": {
+        "enabled": True,
+        "allowed_users": [],
+        "denied_users": [],
+        "allowed_groups": ["sudoers"],
+        "denied_groups": [],
     },
 }
 
@@ -271,6 +304,7 @@ def validate_feature_flags():
 # DeniedGroups). Each present field is merged over the code default at read
 # time, so a cluster retunes access with no redeploy (EDH walk-away principle).
 # Absent keys == code default. List fields are JSON arrays (e.g. '["sudoers"]').
+# The whole tree is read with one SSM path call and cached 10 min (_read_overlay).
 #
 # ALL readers (feature_flag decorator, template context, views) MUST go through
 # get_flag() / get_effective_flags() -- never read FEATURE_FLAGS directly -- so
@@ -289,46 +323,125 @@ def _overlay_field_camel(field):
     return "".join(part.capitalize() for part in field.split("_"))
 
 
-def _overlay_key(flag_name, field_camel):
-    return f"/configuration/FeatureFlags/{flag_name}/{field_camel}"
+_OVERLAY_PATH = "/configuration/FeatureFlags/"
 
 
-def _read_enabled_override(flag_name):
-    """Bool override for `enabled`, or None if unset."""
-    _resp = SocaConfig(
-        key=_overlay_key(flag_name, "Enabled")
-    ).get_value(return_as=bool, default=None, allow_unknown_key=True)
-    if _resp.get("success") is True and _resp.get("message") is not None:
-        return _resp.get("message") is True
-    return None
+@soca_cache(prefix="edh:webui:feature_flags_overlay_all", ttl=600)
+def _read_overlay():
+    """Every overlay value in ONE SSM get_parameters_by_path call, returned as
+    SocaResponse(success=True, message={flag_name: {FieldCamel: raw_value}}).
 
-
-def _read_list_override(flag_name, field):
-    """List override for a user/group field from SSM (JSON array), or None."""
-    _resp = SocaConfig(
-        key=_overlay_key(flag_name, _overlay_field_camel(field))
-    ).get_value(return_as=str, default=None, allow_unknown_key=True)
+    Every page render resolves all flags (template context), so reading each
+    field of each flag with its own GetParameter (5 x number of flags) made page
+    loads slow whenever the per-flag cache expired. One path read, cached 10 min
+    in SocaCacheClient (shared across workers): a config flip takes effect within
+    that TTL. Other keys under /configuration/FeatureFlags/ (e.g. Hpc/...) are not
+    overlay keys and are ignored. A read error returns a SocaError (not cached).
+    """
+    _resp = SocaConfig(key=_OVERLAY_PATH).get_value(allow_unknown_key=True)
     if _resp.get("success") is not True:
+        if _resp.get("message") == {}:
+            # Path exists but holds no parameter: no overlay set, code defaults apply
+            return SocaResponse(success=True, message={})
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to read {_OVERLAY_PATH}: {_resp.get('message')}"
+        )
+
+    _overlay = {}
+    for _key, _value in (_resp.get("message") or {}).items():
+        # /configuration/FeatureFlags/<FLAG_NAME>/<Field>
+        _parts = [_p for _p in str(_key).split("/") if _p]
+        if len(_parts) == 4 and _parts[2] in FEATURE_FLAGS:
+            _overlay.setdefault(_parts[2], {})[_parts[3]] = _value
+    return SocaResponse(success=True, message=_overlay)
+
+
+def _parse_enabled_override(raw):
+    """Bool override for `enabled` (raw SSM value, possibly already cast), or None."""
+    if raw is None:
         return None
-    _raw = _resp.get("message")
-    if not Validators.is_string_not_empty(_raw):
-        return None
-    _cast = SocaCastEngine(_raw).as_json()
-    if _cast.get("success") is True and Validators.is_list(_cast.get("message")):
-        _items = []
-        for _v in _cast.get("message"):
-            _sc = SocaCastEngine(_v).cast_as(expected_type=str)
-            if _sc.get("success") is True:
-                _items.append(_sc.get("message"))
-        return _items
-    logger.warning(
-        f"FEATURE_FLAGS overlay: {flag_name}/{field} is not a JSON list "
-        f"({_raw!r}); keeping code default"
-    )
+    if isinstance(raw, bool):
+        return raw
+    _cast = SocaCastEngine(raw).cast_as(expected_type=bool)
+    if _cast.get("success") is True and isinstance(_cast.get("message"), bool):
+        return _cast.get("message")
     return None
 
 
-@soca_cache(prefix="feature_flags_overlay", ttl=60)
+def _parse_list_override(flag_name, field, raw):
+    """List override for a user/group field (JSON array, possibly already cast), or None."""
+    if raw is None:
+        return None
+    if Validators.is_list(raw):
+        _values = raw
+    else:
+        if not Validators.is_string_not_empty(raw):
+            return None
+        _cast = SocaCastEngine(raw).as_json()
+        if not (
+            _cast.get("success") is True and Validators.is_list(_cast.get("message"))
+        ):
+            logger.warning(
+                f"FEATURE_FLAGS overlay: {flag_name}/{field} is not a JSON list "
+                f"({raw!r}); keeping code default"
+            )
+            return None
+        _values = _cast.get("message")
+    _items = []
+    for _v in _values:
+        _sc = SocaCastEngine(_v).cast_as(expected_type=str)
+        if _sc.get("success") is True:
+            _items.append(_sc.get("message"))
+    return _items
+
+
+def _merge_flag(flag_name, overlay):
+    """Code default for flag_name with its overlay fields merged on top, or None if
+    the flag is missing / malformed. Fail-safe: any parse error keeps the code
+    default (never a partial merge)."""
+    _base = FEATURE_FLAGS.get(flag_name, {})
+    if not Validators.is_dict(_base):
+        return None
+
+    _merged = dict(_base)
+    _merged.setdefault("allowed_groups", [])
+    _merged.setdefault("denied_groups", [])
+
+    _fields = (overlay or {}).get(flag_name, {})
+    _overrides = {}
+    try:
+        _en = _parse_enabled_override(_fields.get("Enabled"))
+        if _en is not None:
+            _overrides["enabled"] = _en
+        for _field in _OVERLAY_LIST_FIELDS:
+            _ov = _parse_list_override(
+                flag_name, _field, _fields.get(_overlay_field_camel(_field))
+            )
+            if _ov is not None:
+                _overrides[_field] = _ov
+    except Exception as err:
+        logger.warning(
+            f"FEATURE_FLAGS overlay parse failed for {flag_name}: {err}; "
+            f"using code defaults"
+        )
+        _overrides = {}
+
+    _merged.update(_overrides)
+    return _merged
+
+
+def _get_overlay():
+    """Overlay map from the cached path read. Fail-safe: a read error falls back to
+    code defaults (empty overlay), never a denial."""
+    _resp = _read_overlay()
+    if _resp.get("success") is True and Validators.is_dict(_resp.get("message")):
+        return _resp.get("message")
+    logger.warning(
+        f"FEATURE_FLAGS overlay read failed: {_resp.get('message')}; using code defaults"
+    )
+    return {}
+
+
 def get_flag(flag_name):
     """Effective flag config = code default with a per-field SSM overlay merged
     on top, returned as SocaResponse(success=True, message=<merged dict>). A
@@ -339,40 +452,14 @@ def get_flag(flag_name):
     the template context and views (via .get("message")), never returned as an
     HTTP response, so it is intentionally NOT wrapped with .as_flask().
 
-    Caching: @soca_cache (SocaCacheClient / ElastiCache, shared across workers,
-    60s) caches only the successful merged result, so a config flip takes effect
-    within the TTL and a cache outage degrades to a live SSM read (never a
-    denial).
+    Caching: the overlay is read once for all flags (_read_overlay, 10 min in
+    SocaCacheClient), so this costs one cache lookup.
     """
-    _base = FEATURE_FLAGS.get(flag_name, {})
-    if not Validators.is_dict(_base):
+    _merged = _merge_flag(flag_name, _get_overlay())
+    if _merged is None:
         return SocaError.GENERIC_ERROR(
             helper=f"Feature flag {flag_name!r} is missing or malformed"
         )
-
-    _merged = dict(_base)
-    _merged.setdefault("allowed_groups", [])
-    _merged.setdefault("denied_groups", [])
-
-    # Stage overlay overrides and apply them only if ALL reads succeed, so a
-    # mid-read error truly falls back to code defaults (never a partial merge).
-    _overrides = {}
-    try:
-        _en = _read_enabled_override(flag_name)
-        if _en is not None:
-            _overrides["enabled"] = _en
-        for _field in _OVERLAY_LIST_FIELDS:
-            _ov = _read_list_override(flag_name, _field)
-            if _ov is not None:
-                _overrides[_field] = _ov
-    except Exception as err:
-        logger.warning(
-            f"FEATURE_FLAGS overlay read failed for {flag_name}: {err}; "
-            f"using code defaults"
-        )
-        _overrides = {}
-
-    _merged.update(_overrides)
     return SocaResponse(success=True, message=_merged)
 
 
@@ -383,13 +470,11 @@ def get_effective_flags():
     HTTP response, so intentionally not .as_flask()-wrapped. A flag that fails
     to resolve falls back to its code default so the map is always complete.
     """
+    _overlay = _get_overlay()  # One cache lookup for every flag
     _flags = {}
     for _name in FEATURE_FLAGS.keys():
-        _r = get_flag(_name)
-        if _r.get("success") is True:
-            _flags[_name] = _r.get("message")
-        else:
-            _flags[_name] = FEATURE_FLAGS.get(_name, {})
+        _merged = _merge_flag(_name, _overlay)
+        _flags[_name] = _merged if _merged is not None else FEATURE_FLAGS.get(_name, {})
     return SocaResponse(success=True, message=_flags)
 
 

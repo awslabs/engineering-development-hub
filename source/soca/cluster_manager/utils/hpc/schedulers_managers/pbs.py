@@ -23,6 +23,7 @@ from utils.datamodels.soca_node import (
 )
 from utils.datamodels.hpc.pbs.node import SocaHpcNodePBS
 from utils.aws.cloudformation_client import SocaCfnClient
+from utils.aws.boto3_wrapper import get_boto
 from utils.hpc.scheduler_command_builder import SocaHpcPBSJobCommandBuilder
 
 logger = logging.getLogger("soca_logger")
@@ -53,6 +54,48 @@ class SocaSchedulerPBSNodesManager:
             )
 
     @staticmethod
+    def terminate_node_capacity(instance_id: str) -> SocaResponse:
+        """
+        Terminate ONE instance, leaving its CloudFormation stack in place.
+
+        Used to reclaim an idle AlwaysOn node while its siblings keep running.
+        Deleting the stack is not an option there: it would take the siblings
+        and their jobs with it.
+
+        Safe because AlwaysOn capacity is an EC2 Fleet of Type="instant",
+        which provisions once and does not backfill. A spot fleet
+        (Type="maintain") or a capacity-block ASG would replace the instance,
+        so create_alwayson refuses an idle timer alongside those rather than
+        letting this churn.
+
+        The stack is left holding a fleet resource whose instance is gone.
+        That is inert for an instant fleet, and deleting the stack later still
+        succeeds: terminating an already-terminated instance is not an error.
+        """
+        if not instance_id:
+            return SocaError.GENERIC_ERROR(
+                helper="Unable to terminate capacity: no instance id"
+            )
+
+        logger.info(f"About to terminate idle instance {instance_id=}")
+        _ec2_client = get_boto(service_name="ec2")
+        if not _ec2_client.get("success"):
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to get EC2 client to terminate {instance_id} due to {_ec2_client.get('message')}"
+            )
+
+        try:
+            _ec2_client.get("message").terminate_instances(InstanceIds=[instance_id])
+        except Exception as err:
+            return SocaError.GENERIC_ERROR(
+                helper=f"Capacity removed from scheduler but unable to terminate instance {instance_id} due to {err}"
+            )
+
+        return SocaResponse(
+            success=True, message=f"{instance_id=} terminated successfully"
+        )
+
+    @staticmethod
     def get_pbs_node_mom_attribute(soca_node: SocaNode) -> str:
         # PBS Client Node will be registered via their Private IP\
         # You can change that if needed, but make sure whatever value you select (DNS, IP) must be routable/resolvable by the system
@@ -75,7 +118,9 @@ class SocaSchedulerPBSNodesManager:
             "register_soca_nodes_to_scheduler": [SocaNode],  # EC2 Nodes to be registered in PBS
             "deregister_scheduler_nodes_no_associated_ec2_capacity": [PbsNode],  # PBS Nodes without associated EC2 instances
             "deregister_scheduler_nodes_finished_jobs": [PbsNode],  # PBS Nodes associated to completed jobs
-            "deregister_scheduler_nodes_terminate_when_idle": [PbsNode]  # PBS Nodes associated to KeepForever node with expired terminate_when_idle
+            "delete_idle_capacity_per_stack": [{"stack_id": str, "nodes": [PbsNode]}]  # one entry per stack whose EVERY node is idle past its terminate_when_idle
+            "reclaim_idle_scheduler_nodes": [PbsNode]  # individually idle nodes to drain and terminate, leaving their stack up
+            "deregister_unparseable_scheduler_nodes": [dict]  # raw pbsnodes records for nodes no model could be built from, whose job has left the queue
         }
 
         Each action list is then processed to either register new nodes or deregister existing ones.
@@ -89,10 +134,12 @@ class SocaSchedulerPBSNodesManager:
                 helper=f"Unable to retrieve registered nodes due to {_registered_nodes.get('message')}"
             )
 
+        _nodes_payload = _registered_nodes.get("message")
         _sync_actions = common_sync.sync_scheduler_config(
-            scheduler_registered_nodes=_registered_nodes.get("message"),
+            scheduler_registered_nodes=_nodes_payload.get("nodes"),
             provisioned_ec2_nodes=provisioned_ec2_nodes,
             jobs_in_queues=jobs_in_queues,
+            unparseable_scheduler_nodes=_nodes_payload.get("unparseable_nodes"),
         )
 
         logger.info(
@@ -163,31 +210,106 @@ class SocaSchedulerPBSNodesManager:
                             f"Associated capacity {_pbs_nodes.stack_id} deleted successfully"
                         )
 
-        _deregister_scheduler_nodes_terminate_when_idle = _sync_actions.get(
-            "deregister_scheduler_nodes_terminate_when_idle"
+        _delete_idle_capacity_per_stack = _sync_actions.get(
+            "delete_idle_capacity_per_stack"
         )
-        if _deregister_scheduler_nodes_terminate_when_idle:
+        if _delete_idle_capacity_per_stack:
             logger.info(
                 "De-registering SocaPbsNode + delete cloudformation_capacity with expired terminate_when_idle flag"
             )
-            for _pbs_nodes in _deregister_scheduler_nodes_terminate_when_idle:
-                _deregister_node = self.deregister_node(pbs_node=_pbs_nodes)
-                if _deregister_node.get("success") is False:
+            for _entry in _delete_idle_capacity_per_stack:
+                _stack_id = _entry.get("stack_id")
+                for _pbs_node in _entry.get("nodes", []):
+                    _deregister_node = self.deregister_node(pbs_node=_pbs_node)
+                    if _deregister_node.get("success") is False:
+                        # Logged and carried on rather than skipping the delete.
+                        # The stack is going either way, so stopping here would
+                        # leave capacity running that nothing is going to use. A
+                        # node left registered against a terminated instance is
+                        # picked up by the no-associated-capacity path.
+                        logger.error(
+                            f"Unable to deregister node {_pbs_node.instance_id} due to {_deregister_node.get('message')}, "
+                            f"continuing to delete {_stack_id} anyway"
+                        )
+
+                # Once per stack, not once per node.
+                _delete_associated_capacity = self.delete_associated_capacity(
+                    stack_name=_stack_id
+                )
+                if _delete_associated_capacity.get("success") is False:
                     logger.error(
-                        f"Unable to deregister node {_pbs_nodes.instance_id} due to {_deregister_node.get('message')}"
+                        f"Unable to delete associated capacity {_stack_id} due to {_delete_associated_capacity.get('message')}"
                     )
                 else:
-                    _delete_associated_capacity = self.delete_associated_capacity(
-                        stack_name=_pbs_nodes.stack_id
+                    logger.info(
+                        f"Associated capacity {_stack_id} deleted successfully"
                     )
-                    if _delete_associated_capacity.get("success") is False:
-                        logger.error(
-                            f"Unable to delete associated capacity {_pbs_nodes.stack_id} due to {_delete_associated_capacity.get('message')}"
-                        )
-                    else:
-                        logger.info(
-                            f"Associated capacity {_pbs_nodes.stack_id} deleted successfully"
-                        )
+
+        _reclaim_idle_scheduler_nodes = _sync_actions.get("reclaim_idle_scheduler_nodes")
+        if _reclaim_idle_scheduler_nodes:
+            logger.info(
+                "De-registering SocaPbsNode + terminating the instance for idle nodes "
+                "whose stack must survive because a sibling is still in use"
+            )
+            for _pbs_node in _reclaim_idle_scheduler_nodes:
+                _deregister_node = self.deregister_node(pbs_node=_pbs_node)
+                if _deregister_node.get("success") is False:
+                    # Not terminated: an instance whose node is still registered
+                    # would keep being offered work it can no longer run.
+                    logger.error(
+                        f"Unable to deregister node {_pbs_node.instance_id} due to {_deregister_node.get('message')}, "
+                        f"leaving its instance running"
+                    )
+                    continue
+                _terminate = self.terminate_node_capacity(
+                    instance_id=_pbs_node.instance_id
+                )
+                if _terminate.get("success") is False:
+                    logger.error(
+                        f"Unable to terminate idle instance {_pbs_node.instance_id} due to {_terminate.get('message')}"
+                    )
+                else:
+                    logger.info(
+                        f"Idle instance {_pbs_node.instance_id} of {_pbs_node.stack_id} terminated successfully"
+                    )
+
+        _deregister_unparseable_scheduler_nodes = _sync_actions.get(
+            "deregister_unparseable_scheduler_nodes"
+        )
+        if _deregister_unparseable_scheduler_nodes:
+            logger.error(
+                "De-registering nodes that could not be parsed into a node model and whose job has left the queue"
+            )
+            # Addressed with plain strings read off the pbsnodes payload, because
+            # building the node model is exactly what failed for these.
+            for _unparseable_node in _deregister_unparseable_scheduler_nodes:
+                _deregister_node = self.deregister_node(
+                    pbs_mom=_unparseable_node.get("pbs_mom")
+                )
+                if _deregister_node.get("success") is False:
+                    logger.error(
+                        f"Unable to deregister unparseable node {_unparseable_node.get('node_name')} due to {_deregister_node.get('message')}"
+                    )
+                    continue
+
+                _stack_id = _unparseable_node.get("stack_id")
+                if not _stack_id:
+                    logger.error(
+                        f"Unparseable node {_unparseable_node.get('node_name')} deregistered but it has no readable stack_id, so its EC2 capacity cannot be deleted from here. Instance {_unparseable_node.get('instance_id')} needs an operator"
+                    )
+                    continue
+
+                _delete_associated_capacity = self.delete_associated_capacity(
+                    stack_name=_stack_id
+                )
+                if _delete_associated_capacity.get("success") is False:
+                    logger.error(
+                        f"Unable to delete associated capacity {_stack_id} due to {_delete_associated_capacity.get('message')}"
+                    )
+                else:
+                    logger.info(
+                        f"Associated capacity {_stack_id} deleted successfully"
+                    )
 
     def get_registered_nodes(
         self,
@@ -212,6 +334,8 @@ class SocaSchedulerPBSNodesManager:
         )
 
         _registered_nodes_on_scheduler = []
+        # Nodes pbsnodes reported that could not be turned into a SocaHpcNodePBS.
+        _unparseable_nodes_on_scheduler = []
 
         if _nodes_data.get("success"):
             if _nodes_data.get("message").get("returncode") == 1:
@@ -236,7 +360,7 @@ class SocaSchedulerPBSNodesManager:
                     f"Received PBS parser with pbsnodes output {_pbsnodes_output}"
                 )
 
-                for node_info in _pbsnodes_output.get("nodes", {}).values():
+                for _node_name, node_info in _pbsnodes_output.get("nodes", {}).items():
                     try:
 
                         if node_info.get("state") in [
@@ -334,21 +458,77 @@ class SocaSchedulerPBSNodesManager:
                         logger.error(
                             f"Pydantic validation failed for node_info={node_info}: {ve.json()}"
                         )
+                        _unparseable_nodes_on_scheduler.append(
+                            self.unparseable_node_record(
+                                node_name=_node_name,
+                                node_info=node_info,
+                                error=ve.json(),
+                            )
+                        )
                         continue
 
                     except Exception as err:
                         exc_type, exc_obj, exc_tb = sys.exc_info()
-                        logger.info(
-                            f"Unable to parse PBS node {node_info=} due to {err} on line  {exc_tb.tb_lineno}, skipping"
+                        # error, not info: a node that cannot be parsed is capacity
+                        # EDH is paying for and can no longer see. The generic case
+                        # is the one nobody anticipated, so it is the louder of the
+                        # two, not the quieter.
+                        logger.error(
+                            f"Unable to parse PBS node {_node_name} {node_info=} due to {err} on line {exc_tb.tb_lineno}, skipping"
+                        )
+                        _unparseable_nodes_on_scheduler.append(
+                            self.unparseable_node_record(
+                                node_name=_node_name,
+                                node_info=node_info,
+                                error=str(err),
+                            )
                         )
                         continue
 
-            return SocaResponse(success=True, message=_registered_nodes_on_scheduler)
+            if _unparseable_nodes_on_scheduler:
+                logger.error(
+                    f"{len(_unparseable_nodes_on_scheduler)} node(s) registered in the scheduler could not be parsed and are excluded from node management: {[_n.get('node_name') for _n in _unparseable_nodes_on_scheduler]}"
+                )
+
+            return SocaResponse(
+                success=True,
+                message={
+                    "nodes": _registered_nodes_on_scheduler,
+                    "unparseable_nodes": _unparseable_nodes_on_scheduler,
+                },
+            )
 
         else:
             return SocaError.GENERIC_ERROR(
                 helper=f"Unable to run {_run_command} due to {_nodes_data.get('message')}"
             )
+
+    @staticmethod
+    def unparseable_node_record(
+        node_name: str, node_info: dict, error: str
+    ) -> dict:
+        """
+        What is still usable about a node whose model construction failed.
+
+        Read straight from the pbsnodes payload rather than from a model, since
+        building the model is what failed. Every value is optional: the point is
+        to carry whatever identifies the node and its capacity so an operator,
+        and the safe teardown path in common_sync, can act on it.
+        """
+        _resources_available = node_info.get("resources_available", {}) or {}
+        return {
+            "node_name": node_name,
+            "pbs_mom": node_info.get("Mom"),  # note: case sensitive
+            "instance_id": _resources_available.get("instance_id"),
+            "stack_id": _resources_available.get("stack_id"),
+            "compute_node": _resources_available.get("compute_node"),
+            "keep_forever": str(
+                _resources_available.get("keep_forever", "false")
+            ).lower()
+            == "true",
+            "state": node_info.get("state"),
+            "error": error,
+        }
 
     def register_node(self, soca_node: SocaNode) -> SocaResponse:
         """

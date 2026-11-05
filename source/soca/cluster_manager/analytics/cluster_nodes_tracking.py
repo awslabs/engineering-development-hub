@@ -8,7 +8,10 @@ import json
 import datetime
 from utils.config import SocaConfig
 from utils.analytics_client import SocaAnalyticsClient
-from utils.subprocess_client import SocaSubprocessClient
+from utils.subprocess_client import (
+    SocaSubprocessClient,
+    subprocess_message_as_dict,
+)
 from utils.logger import SocaLogger
 from utils.datamodels.hpc.scheduler import get_schedulers, SocaHpcSchedulerProvider
 from utils.hpc.scheduler_command_builder import SocaHpcPBSJobCommandBuilder
@@ -60,14 +63,13 @@ if __name__ == "__main__":
             _command = SocaSubprocessClient(
                 run_command=_run_command,
             ).run(non_fatal_rcs=[1])
+
+            # SocaResponse.message is a dict on success but a STRING on failure, because
+            # SocaError.return_error formats it into one. Normalise before reading keys.
+            _message = subprocess_message_as_dict(_command.message)
+
             if _command.success is False:
-                # _message = ast.literal_eval(_command.message)
-                _message = _command.message
-                # False Positive
-                if (
-                    "pbsnodes: server has no node list"
-                    in _message.get("stderr").lower()
-                ):
+                if "server has no node list" in (_message.get("stderr") or "").lower():
                     logger.info(
                         f"No nodes found for scheduler {_scheduler.identifier}, skipping ..."
                     )
@@ -79,8 +81,25 @@ if __name__ == "__main__":
                     continue
 
             else:
+                # A non-fatal rc==1 lands here with success=True and an EMPTY stdout, which
+                # is the ordinary "no nodes yet" case rather than an error. Treat it as such
+                # instead of handing "" to json.loads.
+                _stdout = (_message.get("stdout") or "").strip()
+                if not _stdout:
+                    logger.info(
+                        f"No nodes reported by scheduler {_scheduler.identifier}, skipping ..."
+                    )
+                    continue
+
                 # Compute Nodes detected
-                pbsnodes_output = json.loads(_command.message.get("stdout"))
+                try:
+                    pbsnodes_output = json.loads(_stdout)
+                except json.JSONDecodeError as err:
+                    logger.error(
+                        f"Unable to parse pbsnodes output for scheduler "
+                        f"{_scheduler.identifier} as JSON: {err}"
+                    )
+                    continue
                 for hostname, data in pbsnodes_output["nodes"].items():
 
                     try:

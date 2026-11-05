@@ -16,11 +16,17 @@ and the PoolController reconcile are wired in later phases.
 """
 
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from utils.cast import SocaCastEngine
 
 logger = logging.getLogger("soca_logger")
+
+# EC2 Capacity Reservation id. Same {8,17} hex convention the rest of the tree
+# uses for EC2 resource ids (session_event.INSTANCE_ID_RE, the ami- patterns in
+# software_stacks), covering both the legacy 8-char and current 17-char forms.
+_CR_ID_RE = re.compile(r"^cr-[0-9a-f]{8,17}$")
 
 
 def _as_int(value: Any) -> Optional[int]:
@@ -96,12 +102,19 @@ def validate_pool_type_config(
     # is not backed by a reservation. A per-entry capacity_reservation_id is an
     # OPTIONAL OVERRIDE that targets one specific reservation (deterministic at
     # launch); otherwise the type targets the stack-level CR-Group ARN (if set).
-    # Existence / AZ-match / type-match are validated in the endpoint via
-    # odcr_helper (needs AWS calls) -- here we only check shape.
+    #
+    # Shape only -- existence / AZ-match / type-match need AWS calls and are
+    # checked by validate_capacity_reservation_exists(), which the endpoint
+    # calls. The previous check here was `startswith("cr-")`, which accepted
+    # anything after the prefix: "cr-123" was stored and rendered into a live
+    # launch template's CapacityReservationTarget. Matched to the repo's EC2
+    # id convention (session_event.INSTANCE_ID_RE, the ami- patterns in
+    # software_stacks) so a typo is refused at save time rather than at launch.
     _cr_id = (entry.get("capacity_reservation_id") or "").strip()
-    if _cr_id and not _cr_id.startswith("cr-"):
+    if _cr_id and not _CR_ID_RE.match(_cr_id):
         errors.append(
-            "capacity_reservation_id must be a Capacity Reservation id (cr-...)"
+            "capacity_reservation_id must be a Capacity Reservation id of the "
+            "form cr-<8 to 17 hex chars>"
         )
 
     _follow_odcr = _as_bool(entry.get("follow_odcr_capacity"), default=True)
@@ -135,6 +148,154 @@ def validate_pool_type_config(
 
 
 _VALID_POOL_STATES = ("Stopped", "Hibernated")
+
+
+def validate_capacity_reservation_ids(entries: Any) -> List[str]:
+    """Confirm every per-entry capacity_reservation_id EXISTS and matches its
+    instance type. Returns a list of error strings (empty when all are fine).
+
+    Shape alone is not enough. validate_pool_type_config previously accepted
+    anything starting with "cr-", so "cr-123" was stored and rendered into a
+    live launch template's CapacityReservationTarget; nothing downstream ever
+    checked it, and the failure surfaced only when a member tried to launch.
+    The ODCR docstring in validate_pool_type_config claimed existence was
+    "validated in the endpoint via odcr_helper" -- it was not: the pool
+    endpoint makes no odcr_helper call at all (grep: zero references in
+    api/v1/dcv/pool.py).
+
+    Needs ec2:DescribeCapacityReservations, which the controller role already
+    holds (simulate-principal-policy: allowed), so this adds no IAM and needs
+    no stack update.
+
+    FAIL-OPEN on an API error: an unreachable or throttled EC2 must not block
+    an admin save. Only a definitive "this reservation does not exist" or a
+    definitive type mismatch produces an error. A reservation is also rejected
+    when it is not usable (cancelled / expired), because targeting one fails
+    at launch exactly like a nonexistent id.
+    """
+    _errors: List[str] = []
+    _wanted: Dict[str, str] = {}  # cr id -> instance_type that referenced it
+    for _e in entries or []:
+        _cr = ((_e or {}).get("capacity_reservation_id") or "").strip()
+        if _cr:
+            _wanted[_cr] = ((_e or {}).get("instance_type") or "").strip()
+    if not _wanted:
+        return _errors
+
+    try:
+        import utils.aws.boto3_wrapper as utils_boto3
+
+        _resp = utils_boto3.get_boto(service_name="ec2")
+        if _resp.get("success") is False:
+            logger.warning(
+                "ODCR validation: no EC2 client; admitting %d reservation id(s) "
+                "unchecked",
+                len(_wanted),
+            )
+            return _errors
+        _ec2 = _resp.get("message")
+        _found = {}
+        _page = _ec2.get_paginator("describe_capacity_reservations")
+        for _p in _page.paginate(CapacityReservationIds=sorted(_wanted)):
+            for _cr in _p.get("CapacityReservations", []) or []:
+                _found[_cr.get("CapacityReservationId")] = _cr
+    except Exception as err:
+        # Includes InvalidCapacityReservationId.NotFound, which EC2 raises for
+        # the WHOLE call rather than omitting the row -- so we cannot tell
+        # which id was bad from here. Re-check them one at a time so a real
+        # typo is named, and so one bad id does not hide the others.
+        logger.info(
+            "ODCR validation: batch describe failed (%s); re-checking "
+            "individually",
+            err,
+        )
+        return _validate_capacity_reservations_individually(_wanted)
+
+    for _cr_id, _itype in sorted(_wanted.items()):
+        _cr = _found.get(_cr_id)
+        if _cr is None:
+            _errors.append(
+                f"capacity_reservation_id {_cr_id} does not exist in this "
+                f"account and region"
+            )
+            continue
+        _errors.extend(_capacity_reservation_mismatches(_cr_id, _itype, _cr))
+    return _errors
+
+
+def _validate_capacity_reservations_individually(wanted: Dict[str, str]) -> List[str]:
+    """Per-id fallback for validate_capacity_reservation_ids.
+
+    describe_capacity_reservations raises InvalidCapacityReservationId.NotFound
+    for the entire request when ANY requested id is unknown, so a single typo
+    in a batch tells us nothing about which id it was. Checking one at a time
+    names the offender. Still fail-open per id on a non-NotFound error.
+    """
+    _errors: List[str] = []
+    try:
+        import utils.aws.boto3_wrapper as utils_boto3
+
+        _resp = utils_boto3.get_boto(service_name="ec2")
+        if _resp.get("success") is False:
+            return _errors
+        _ec2 = _resp.get("message")
+    except Exception:
+        return _errors
+
+    for _cr_id, _itype in sorted(wanted.items()):
+        try:
+            _r = _ec2.describe_capacity_reservations(
+                CapacityReservationIds=[_cr_id]
+            )
+            _rows = _r.get("CapacityReservations", []) or []
+            if not _rows:
+                _errors.append(
+                    f"capacity_reservation_id {_cr_id} does not exist in this "
+                    f"account and region"
+                )
+                continue
+            _errors.extend(
+                _capacity_reservation_mismatches(_cr_id, _itype, _rows[0])
+            )
+        except Exception as err:
+            if "InvalidCapacityReservationId" in str(err) or "NotFound" in str(err):
+                _errors.append(
+                    f"capacity_reservation_id {_cr_id} does not exist in this "
+                    f"account and region"
+                )
+            else:
+                logger.warning(
+                    "ODCR validation: %s could not be checked (%s); admitting "
+                    "it unchecked",
+                    _cr_id,
+                    err,
+                )
+    return _errors
+
+
+def _capacity_reservation_mismatches(cr_id: str, instance_type: str, cr: Dict[str, Any]) -> List[str]:
+    """Usability + instance-type agreement for one described reservation.
+
+    A Capacity Reservation is pinned to one instance type (and one AZ and
+    platform), so a per-entry override that names a reservation for a
+    DIFFERENT type can never place that entry's members.
+    """
+    _errors: List[str] = []
+    _state = str(cr.get("State") or "").lower()
+    # 'active' and 'pending' are both targetable; 'payment-pending' is in-flight
+    # and resolves on its own. Anything else is terminal for this reservation.
+    if _state not in ("active", "pending", "payment-pending"):
+        _errors.append(
+            f"capacity_reservation_id {cr_id} is in state '{cr.get('State')}' "
+            f"and cannot be targeted"
+        )
+    _cr_type = (cr.get("InstanceType") or "").strip()
+    if instance_type and _cr_type and _cr_type != instance_type:
+        _errors.append(
+            f"capacity_reservation_id {cr_id} is reserved for {_cr_type}, not "
+            f"{instance_type}"
+        )
+    return _errors
 
 
 def _as_bool(value: Any, default: bool) -> Optional[bool]:

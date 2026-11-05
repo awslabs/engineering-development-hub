@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Begin: Install AWS CloudWatch agent
-{% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
+{% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
 function install_aws_cloudwatch_agent () {
   # AWS CloudWatch agent is disabled by default
   # change to "enabled" to activate CloudWatch log agent
@@ -14,7 +14,7 @@ function install_aws_cloudwatch_agent () {
     log_info "Installing CloudWatch Agent"
     local DOWNLOAD_LINK_PATTERN="{{ context.get("/system/cloudwatch_agent/download_link_pattern") }}"
     local AWS_REGION="{{ context.get("/configuration/Region") }}"
-    {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023") %}
+    {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027") %}
     local OS="amazon_linux"
     local EXT="rpm"
     {% elif context.get("/job/BaseOS") in ("rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}

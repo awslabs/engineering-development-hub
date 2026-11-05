@@ -100,6 +100,17 @@ def setup_database(
         required=False,
     )
 
+    # Cluster-derived app user so the rds-db:connect grant can wildcard the
+    # AWS-generated DbiResourceId (which changes on every PITR restore) while
+    # still pinning the DbUserName. A sibling cluster has a different user name
+    # and is therefore unreachable. Lowercased because PostgreSQL folds unquoted
+    # identifiers while the IAM ARN is built verbatim; hyphens -> underscores to
+    # satisfy the ^[A-Za-z_][A-Za-z0-9_]*$ guard the bootstrap applies before
+    # interpolating app_user into DDL. Max length is 8 + 15 = 23, well under 63.
+    _app_user = (
+        f"edh_app_{user_specified_variables.cluster_id.lower().replace('-', '_')}"
+    )
+
     # Info skeleton surfaced via SSM regardless of provider, so the web app
     # /configuration/Database/provider check always has a value to read.
     database_info: Dict[str, Any] = {
@@ -109,7 +120,7 @@ def setup_database(
         "port": 5432,
         "name": _database_name,
         "secret_arn": None,
-        "app_user": "edh_app",
+        "app_user": _app_user,
         "iam_auth": True,
         "cluster_resource_id": None,
     }

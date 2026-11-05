@@ -101,6 +101,7 @@ def _discover_all_functions(cluster_id: str, timeout: int) -> list[str]:
 
 @click.group(name="lambda")
 def logs_lambda() -> None:
+    """Lambda function logs."""
     pass
 
 
@@ -159,6 +160,7 @@ def fetch(
     end_time: Optional[str] = None,
     ai_assistant: Optional[str] = None,
 ) -> None:
+    """Fetch recent log events for one Lambda function."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -298,6 +300,7 @@ def fetch(
 )
 @click.pass_context
 def list_functions(ctx: click.Context, output_format: str, timeout: int) -> None:
+    """List the cluster's Lambda functions."""
     # note: do not use https://docs.aws.amazon.com/boto3/latest/reference/services/lambda/client/list_tags.html
     # as this will not work with tags automatically applied by CloudFormation. Instead, use Resource Groups Tagging API to find all Lambda functions with the edh:ClusterId tag.
     if not is_controller_instance():
@@ -407,6 +410,7 @@ def watch(
     sns_topic_arn: Optional[str] = None,
     sns_topic_trigger_log_level: Optional[str] = None,
 ) -> None:
+    """Stream Lambda logs until stopped or timed out."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -521,6 +525,7 @@ def watch(
 )
 @click.pass_context
 def failed(ctx: click.Context, lines: int, timeout: int) -> None:
+    """Scan every cluster Lambda for recent failures."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 

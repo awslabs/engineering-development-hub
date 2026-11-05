@@ -74,7 +74,8 @@ class SocaSchedulerLSFNodesManager:
             "register_soca_nodes_to_scheduler": [SocaNode],  # EC2 Nodes to be registered in LSF
             "deregister_scheduler_nodes_no_associated_ec2_capacity": [SocaHpcNodeLSF],  # LSF Nodes without associated EC2 instances
             "deregister_scheduler_nodes_finished_jobs": [SocaHpcNodeLSF],  # LSF Nodes associated to completed jobs
-            "deregister_scheduler_nodes_terminate_when_idle": [SocaHpcNodeLSF]  # LSF Nodes associated to KeepForever node with expired terminate_when_idle
+            "delete_idle_capacity_per_stack": [{"stack_id": str, "nodes": [SocaHpcNodeLSF]}]  # one entry per stack whose EVERY node is idle past its terminate_when_idle
+            "reclaim_idle_scheduler_nodes": [SocaHpcNodeLSF]  # individually idle nodes, PBS only for now
         }
 
         Each action list is then processed to either register new nodes or deregister existing ones.
@@ -124,31 +125,45 @@ class SocaSchedulerLSFNodesManager:
                             f"Associated capacity {_lsf_node.stack_id} deleted successfully"
                         )
 
-        _deregister_scheduler_nodes_terminate_when_idle = _sync_actions.get(
-            "deregister_scheduler_nodes_terminate_when_idle"
+        _delete_idle_capacity_per_stack = _sync_actions.get(
+            "delete_idle_capacity_per_stack"
         )
-        if _deregister_scheduler_nodes_terminate_when_idle:
+        if _delete_idle_capacity_per_stack:
             logger.info(
                 "De-registering SocaLSFNode + delete cloudformation_capacity with expired terminate_when_idle flag"
             )
-            for _lsf_node in _deregister_scheduler_nodes_terminate_when_idle:
-                _deregister_node = self.deregister_node(lsf_node=_lsf_node)
-                if _deregister_node.get("success") is False:
+            for _entry in _delete_idle_capacity_per_stack:
+                _stack_id = _entry.get("stack_id")
+                for _lsf_node in _entry.get("nodes", []):
+                    _deregister_node = self.deregister_node(lsf_node=_lsf_node)
+                    if _deregister_node.get("success") is False:
+                        # Logged and carried on rather than skipping the delete:
+                        # the stack is going either way, and a node left
+                        # registered against a terminated instance is picked up
+                        # by the no-associated-capacity path.
+                        logger.error(
+                            f"Unable to deregister node {_lsf_node.instance_id} due to {_deregister_node.get('message')}, "
+                            f"continuing to delete {_stack_id} anyway"
+                        )
+
+                # Once per stack, not once per node.
+                _delete_associated_capacity = self.delete_associated_capacity(
+                    stack_name=_stack_id
+                )
+                if _delete_associated_capacity.get("success") is False:
                     logger.error(
-                        f"Unable to deregister node {_lsf_node.instance_id} due to {_deregister_node.get('message')}"
+                        f"Unable to delete associated capacity {_stack_id} due to {_delete_associated_capacity.get('message')}"
                     )
                 else:
-                    _delete_associated_capacity = self.delete_associated_capacity(
-                        stack_name=_lsf_node.stack_id
+                    logger.info(
+                        f"Associated capacity {_stack_id} deleted successfully"
                     )
-                    if _delete_associated_capacity.get("success") is False:
-                        logger.error(
-                            f"Unable to delete associated capacity {_lsf_node.stack_id} due to {_delete_associated_capacity.get('message')}"
-                        )
-                    else:
-                        logger.info(
-                            f"Associated capacity {_lsf_node.stack_id} deleted successfully"
-                        )
+
+        # NOTE: reclaim_idle_scheduler_nodes (terminate ONE idle node, leaving
+        # its stack and busy siblings in place) is implemented for PBS only.
+        # LSF therefore keeps the stricter behaviour: capacity is reclaimed only
+        # when every node in the stack is idle. Implementing it here needs an
+        # LSF equivalent of terminate_node_capacity.
 
     def get_registered_nodes(
         self,

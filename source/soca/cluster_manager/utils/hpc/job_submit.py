@@ -20,6 +20,17 @@ from utils.hpc.scheduler_command_builder import (
     SocaHpcPBSJobCommandBuilder,
     SocaHpcLSFJobCommandBuilder,
     SocaHpcSlurmJobCommandBuilder,
+    SocaHpcPCSJobCommandBuilder
+)
+from utils.hpc.job_dependencies import (
+    SocaJobDependencyType,
+    build_dependency_arg,
+    client_error,
+    coerce_dependency_type,
+    find_cycle,
+    max_chain_stages,
+    max_parents_per_stage,
+    short_job_id,
 )
 import shlex
 import pwd
@@ -77,7 +88,22 @@ class SocaHpcJobSubmit:
                 self._scheduler = _sched
                 break
 
-    def submit_script_path(self, script_path: str) -> SocaResponse:
+    def submit_script_path(
+        self,
+        script_path: str,
+        depends_on: Optional[list] = None,
+        dependency_type=SocaJobDependencyType.AFTER_OK,
+        hold: bool = False,
+    ) -> SocaResponse:
+        """
+        Submit `script_path` as `self._user`.
+
+        depends_on       job ids this submission must wait for, or None
+        dependency_type  when the wait is satisfied, see SocaJobDependencyType
+        hold             submit held, so the job cannot start until released.
+                         Used by submit_chain to wire a whole graph before any
+                         part of it runs.
+        """
         logger.info(
             f"Received SocaHpcJobSubmit submit_script_path request for {self._user} on {self._scheduler} via script path: {script_path}"
         )
@@ -86,6 +112,22 @@ class SocaHpcJobSubmit:
             return SocaError.GENERIC_ERROR(
                 f"specified scheduler_id is invalid, must be one of {[s.identifier for s in self._all_schedulers]}"
             )
+
+        # Built before the permission check so an invalid dependency is refused
+        # without touching the filesystem.
+        _extra_args = []
+        if hold:
+            _extra_args.append(self._hold_flag())
+        if depends_on:
+            _dependency_arg = build_dependency_arg(
+                provider=self._scheduler.provider,
+                dependency_type=dependency_type,
+                job_ids=depends_on,
+            )
+            if _dependency_arg.get("success") is False:
+                return _dependency_arg
+            _extra_args.append(_dependency_arg.get("message"))
+        _prefix = (" ".join(_arg for _arg in _extra_args if _arg) + " ") if _extra_args else ""
 
         _file_path = pathlib.Path(script_path)
         if not _file_path.exists():
@@ -106,20 +148,25 @@ class SocaHpcJobSubmit:
             ]:
                 _run_command = SocaHpcPBSJobCommandBuilder(
                     scheduler_info=self._scheduler
-                ).qsub(args=f"{shlex.quote(_file_path.as_posix())}")
+                ).qsub(args=f"{_prefix}{shlex.quote(_file_path.as_posix())}")
 
             elif self._scheduler.provider == SocaHpcSchedulerProvider.LSF:
                 _run_command = SocaHpcLSFJobCommandBuilder(
                     scheduler_info=self._scheduler
-                ).bsub(args=f"{shlex.quote(_file_path.as_posix())}")
+                ).bsub(args=f"{_prefix}{shlex.quote(_file_path.as_posix())}")
 
             elif self._scheduler.provider == SocaHpcSchedulerProvider.SLURM:
                 _run_command = SocaHpcSlurmJobCommandBuilder(
                     scheduler_info=self._scheduler
-                ).sbatch(args=f"{shlex.quote(_file_path.as_posix())}")
+                ).sbatch(args=f"{_prefix}{shlex.quote(_file_path.as_posix())}")
+            
+            elif self._scheduler.provider == SocaHpcSchedulerProvider.AWS_PCS:
+                _run_command = SocaHpcPCSJobCommandBuilder(
+                    scheduler_info=self._scheduler
+                ).sbatch(args=f"{_prefix}{shlex.quote(_file_path.as_posix())}")
             else:
                 return SocaError.GENERIC_ERROR(
-                    helper=f"{self._scheduler.provider=} is not a recognized scheduler on SOCA, must be openpbs, slurm or lsf"
+                    helper=f"{self._scheduler.provider=} is not a recognized scheduler on SOCA, must be openpbs, aws_pcs, slurm or lsf"
                 )
 
             if not _run_command:
@@ -159,6 +206,9 @@ class SocaHpcJobSubmit:
         self,
         payload: base64,
         submit_directory: Optional[str] = None,
+        depends_on: Optional[list] = None,
+        dependency_type=SocaJobDependencyType.AFTER_OK,
+        hold: bool = False,
     ) -> SocaResponse:
         logger.info(
             f"Received SocaHpcJobSubmit submit_encoded_payload request for {self._user} on {self._scheduler} via encoded payload"
@@ -254,7 +304,10 @@ class SocaHpcJobSubmit:
 
             logger.info(f"About to submit job via {_job_submit_script_path}")
             _submit_request = self.submit_script_path(
-                script_path=_job_submit_script_path
+                script_path=_job_submit_script_path,
+                depends_on=depends_on,
+                dependency_type=dependency_type,
+                hold=hold,
             )
             if _submit_request.get("success") is True:
                 return SocaResponse(
@@ -270,6 +323,311 @@ class SocaHpcJobSubmit:
             return SocaError.GENERIC_ERROR(
                 helper=f"Unable to submit job due to {err} on line {exc_tb.tb_lineno}"
             )
+
+
+    def _hold_flag(self) -> str:
+        """The submit flag that queues a job without letting it start."""
+        if self._scheduler.provider in (
+            SocaHpcSchedulerProvider.OPENPBS,
+            SocaHpcSchedulerProvider.PBSPRO,
+        ):
+            return "-h"
+        if self._scheduler.provider in (
+            SocaHpcSchedulerProvider.SLURM,
+            SocaHpcSchedulerProvider.AWS_PCS,
+        ):
+            return "--hold"
+        if self._scheduler.provider == SocaHpcSchedulerProvider.LSF:
+            return "-H"
+        return ""
+
+    def _is_pbs(self) -> bool:
+        return self._scheduler.provider in (
+            SocaHpcSchedulerProvider.OPENPBS,
+            SocaHpcSchedulerProvider.PBSPRO,
+        )
+
+    def _run_as_user(self, run_command: str, timeout: int = 15) -> SocaResponse:
+        """Run a prebuilt scheduler command as the submitting user."""
+        _current_env = os.environ.copy()
+        if self._scheduler.binary_folder_paths:
+            _current_env["PATH"] = (
+                f"{self._scheduler.binary_folder_paths}:{_current_env.get('PATH', '')}"
+            )
+        for _key in list(_current_env.keys()):
+            if _key.startswith("SOCA_"):
+                _current_env.pop(_key)
+
+        return SocaSubprocessClient(run_command=run_command, run_as=self._user).run(
+            env=_current_env, timeout=timeout, cwd=self._cwd
+        )
+
+    def _pbs_delete_jobs(self, job_ids: list) -> None:
+        """
+        Best effort removal, used to roll back a chain that failed part way.
+
+        Deleted newest first: deleting a parent while a dependent is still
+        registered against it leaves the dependent behind, so dependents go
+        first.
+        """
+        _builder = SocaHpcPBSJobCommandBuilder(scheduler_info=self._scheduler)
+        for _job_id in reversed(job_ids):
+            _delete = self._run_as_user(
+                _builder.qdel(args=f"{shlex.quote(str(_job_id))}")
+            )
+            if _delete.get("success") is False:
+                logger.error(
+                    f"Unable to roll back chain job {_job_id}: {_delete.get('message')}"
+                )
+
+    def submit_chain(
+        self,
+        stages: list,
+        submit_directory: Optional[str] = None,
+        dependency_type=SocaJobDependencyType.AFTER_OK,
+    ) -> SocaResponse:
+        """
+        Submit several jobs as one dependency graph, or submit none of them.
+
+        `stages` is an ordered list of dicts:
+
+            {
+              "payload":         base64 job script (required),
+              "depends_on":      [index, ...] into `stages`, default [] (a root),
+              "dependency_type": overrides the graph default for this stage,
+              "name":            label echoed back, for the caller's display
+            }
+
+        Message on success is a list of
+        {"index", "name", "job_id", "depends_on": [job_id, ...]}.
+
+        On PBS every stage is submitted HELD, the edges are wired with qalter,
+        and only then are the holds released. Three reasons it is done that
+        way rather than passing the dependency at submit time:
+
+        - a stage cannot start, and so cannot finish, before the graph it
+          belongs to is complete;
+        - a failure part way leaves nothing running to clean up around, so the
+          rollback is just a delete of what was submitted;
+        - the graph is validated for cycles first, which the scheduler itself
+          does not do. It accepts a cycle and the jobs then wait on each other
+          with no timeout.
+
+        Releasing clears only the user hold placed here. A stage whose
+        dependency is still unsatisfied keeps the scheduler's own hold and
+        stays queued, which is the desired end state.
+        """
+        logger.info(
+            f"Received submit_chain request for {self._user} on {self._scheduler} with {len(stages or [])} stage(s)"
+        )
+
+        if not self._scheduler:
+            return client_error(
+                f"specified scheduler_id is invalid, must be one of {[s.identifier for s in self._all_schedulers]}"
+            )
+
+        if not stages:
+            return client_error("A job chain needs at least one stage")
+
+        _count = len(stages)
+        _max_stages = max_chain_stages()
+        if _count > _max_stages:
+            return client_error(
+                (
+                    f"A job chain is limited to {_max_stages} stage(s), received {_count}. "
+                    f"Raise /configuration/HPC/JobChain/MaxStages to allow more."
+                )
+            )
+        _max_parents = max_parents_per_stage()
+
+        # Validate shape and edges before anything is written or submitted.
+        _prerequisites = {}
+        for _index, _stage in enumerate(stages):
+            if not isinstance(_stage, dict) or not _stage.get("payload"):
+                return client_error(
+                    f"Chain stage {_index} is missing its payload"
+                )
+            # Checked before any falsy-to-empty coercion: `depends_on: 0` is a
+            # bare index rather than a list, and 0 is falsy, so coercing first
+            # would silently turn "depends on stage 0" into "depends on
+            # nothing" and let the stage run immediately.
+            _depends_on = _stage.get("depends_on")
+            if _depends_on is None:
+                _depends_on = []
+            if not isinstance(_depends_on, (list, tuple)):
+                return client_error(
+                    f"Chain stage {_index} depends_on must be a list of stage indexes"
+                )
+            _parents = set()
+            for _parent in _depends_on:
+                if not isinstance(_parent, int) or isinstance(_parent, bool):
+                    return client_error(
+                        f"Chain stage {_index} depends_on must contain stage indexes, received {_parent!r}"
+                    )
+                if _parent == _index:
+                    return client_error(
+                        f"Chain stage {_index} cannot depend on itself"
+                    )
+                if _parent < 0 or _parent >= _count:
+                    return client_error(
+                        f"Chain stage {_index} depends on stage {_parent}, which is not in this chain"
+                    )
+                _parents.add(_parent)
+
+            # 0 means no separate fan-in limit; the stage count already bounds it.
+            if _max_parents and len(_parents) > _max_parents:
+                return client_error(
+                    (
+                        f"Chain stage {_index} waits on {len(_parents)} parents, which is "
+                        f"more than the {_max_parents} allowed. Raise "
+                        f"/configuration/HPC/JobChain/MaxParentsPerStage to allow more, "
+                        f"or set it to 0 to bound fan-in only by the stage count."
+                    )
+                )
+            _prerequisites[_index] = _parents
+
+            if _stage.get("dependency_type") is not None:
+                _coerced = coerce_dependency_type(_stage.get("dependency_type"))
+                if _coerced.get("success") is False:
+                    return _coerced
+
+        _cycle = find_cycle(_prerequisites)
+        if _cycle:
+            return client_error(
+                (
+                    "Job chain contains a circular dependency through stage(s) "
+                    f"{' -> '.join(str(_node) for _node in _cycle)}. The scheduler "
+                    "would accept it and the jobs would wait on each other forever."
+                )
+            )
+
+        # Parents before children, so a parent's real job id is known by the
+        # time its child is wired.
+        _order = []
+        _placed = set()
+        while len(_order) < _count:
+            _progressed = False
+            for _index in range(_count):
+                if _index in _placed:
+                    continue
+                if _prerequisites[_index] <= _placed:
+                    _order.append(_index)
+                    _placed.add(_index)
+                    _progressed = True
+            if not _progressed:
+                # find_cycle already covers this; kept so the loop cannot spin.
+                return client_error(
+                    "Job chain dependencies cannot be ordered"
+                )
+
+        _hold_for_wiring = self._is_pbs()
+        _job_ids = {}
+        _submitted = []
+
+        for _index in _order:
+            _stage = stages[_index]
+            _stage_type = _stage.get("dependency_type") or dependency_type
+            _parent_ids = [_job_ids[_parent] for _parent in sorted(_prerequisites[_index])]
+
+            # On PBS the edge is attached afterwards, so nothing can start
+            # mid-build. Elsewhere the parents are already submitted, so the
+            # dependency goes on at submit time.
+            _submit = self.submit_encoded_payload(
+                payload=_stage.get("payload"),
+                submit_directory=submit_directory,
+                depends_on=None if _hold_for_wiring else (_parent_ids or None),
+                dependency_type=_stage_type,
+                hold=_hold_for_wiring,
+            )
+            if _submit.get("success") is False:
+                if _hold_for_wiring:
+                    self._pbs_delete_jobs(_submitted)
+                return SocaError.GENERIC_ERROR(
+                    helper=(
+                        f"Chain stage {_index} failed to submit, "
+                        f"{len(_submitted)} earlier stage(s) rolled back: {_submit.get('message')}"
+                    )
+                )
+
+            _stdout = str(_submit.get("message") or "").strip()
+            _job_id = _stdout.split()[0] if _stdout else ""
+            if not _job_id:
+                if _hold_for_wiring:
+                    self._pbs_delete_jobs(_submitted)
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Chain stage {_index} returned no job id from the scheduler"
+                )
+
+            _job_ids[_index] = _job_id
+            _submitted.append(_job_id)
+
+        if _hold_for_wiring:
+            _builder = SocaHpcPBSJobCommandBuilder(scheduler_info=self._scheduler)
+
+            for _index in _order:
+                _parents = sorted(_prerequisites[_index])
+                if not _parents:
+                    continue
+                _stage_type = stages[_index].get("dependency_type") or dependency_type
+                _dependency_arg = build_dependency_arg(
+                    provider=self._scheduler.provider,
+                    dependency_type=_stage_type,
+                    job_ids=[_job_ids[_parent] for _parent in _parents],
+                )
+                if _dependency_arg.get("success") is False:
+                    self._pbs_delete_jobs(_submitted)
+                    return _dependency_arg
+
+                _alter = self._run_as_user(
+                    _builder.qalter(
+                        args=f"{_dependency_arg.get('message')} {shlex.quote(_job_ids[_index])}"
+                    )
+                )
+                if _alter.get("success") is False:
+                    self._pbs_delete_jobs(_submitted)
+                    return SocaError.GENERIC_ERROR(
+                        helper=(
+                            f"Unable to attach dependency to chain stage {_index} "
+                            f"({_job_ids[_index]}), whole chain rolled back: {_alter.get('message')}"
+                        )
+                    )
+
+            # Release only the hold placed above. An unsatisfied dependency
+            # keeps its own hold and the stage correctly stays queued.
+            for _index in _order:
+                _release = self._run_as_user(
+                    _builder.qrls(args=f"-h u {shlex.quote(_job_ids[_index])}")
+                )
+                if _release.get("success") is False:
+                    self._pbs_delete_jobs(_submitted)
+                    return SocaError.GENERIC_ERROR(
+                        helper=(
+                            f"Unable to release chain stage {_index} "
+                            f"({_job_ids[_index]}), whole chain rolled back: {_release.get('message')}"
+                        )
+                    )
+
+        _result = []
+        for _index in range(_count):
+            _result.append(
+                {
+                    "index": _index,
+                    "name": stages[_index].get("name"),
+                    "job_id": _job_ids[_index],
+                    "short_job_id": short_job_id(_job_ids[_index]),
+                    "depends_on": [
+                        _job_ids[_parent] for _parent in sorted(_prerequisites[_index])
+                    ],
+                }
+            )
+
+        _chain_job_ids = [_stage.get("job_id") for _stage in _result]
+        logger.info(
+            f"Job chain submitted: {len(_result)} stage(s), job ids {_chain_job_ids}"
+        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Job chain stage detail: {_result}")
+        return SocaResponse(success=True, message=_result)
 
 
 class SocaShellScriptSubmit:

@@ -55,6 +55,12 @@
     # MOUNT_OPTIONS (optional): NFS options to use
     # ENABLED (optional): Whether the automount is enabled
 
+    local MOUNT_TARGET
+    local MOUNT_PATH
+    local MOUNT_OPTIONS
+    local ON_MOUNT_FAILURE
+    local ENABLED
+
     for arg in "$@"; do
         case $arg in
             --mount-target=*) MOUNT_TARGET="${arg#*=}" ;;
@@ -137,7 +143,7 @@
         log_info "FSx Lustre Client not installed, installing it .. "
         {% if context.get("/job/BaseOS") == "amazonlinux2" %}
           amazon-linux-extras install -y lustre
-        {% elif context.get("/job/BaseOS") == "amazonlinux2023" %}
+        {% elif context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2027") %}
           packages_install lustre-client
         {% elif context.get("/job/BaseOS") in ("rhel7", "centos7") %}
           case "$KERNEL$MACHINE" in
@@ -168,7 +174,8 @@
 
         {% elif context.get("/job/BaseOS") in ("rhel9", "rocky9") %}
             case "$KERNEL$MACHINE" in
-              *"5.14.0-611"*) rhel_driver_install 9 ;;
+              *"5.14.0-687"*) rhel_driver_install 9 ;;
+              *"5.14.0-611"*) rhel_driver_install 9 's#9#9.7#' ;;
               *"5.14.0-570"*) rhel_driver_install 9 's#9#9.6#' ;;
               *"5.14.0-503"*) rhel_driver_install 9 's#9#9.5#' ;;
               *"5.14.0-427"*) rhel_driver_install 9 's#9#9.4#' ;;
@@ -185,7 +192,11 @@
             packages_install lustre-client-modules-${KERNEL}
         {% endif %}
 
-        {% if context.get("/job/BaseOS") not in ["amazonlinux2", "amazonlinux2023"] %}
+        {# AL2027 is listed here alongside AL2/AL2023 because a `lustre-client` package
+           exists in the AL2027 repositories (verified 2026-09-05), so the driver arrives
+           via packages_install and this modprobe-then-reboot recovery is not needed.
+           NOTE: only `lustre-client` was found -- no `kmod-lustre-client`. #}
+        {% if context.get("/job/BaseOS") not in ["amazonlinux2", "amazonlinux2023", "amazonlinux2027"] %}
             log_info "Lustre Driver installed, trying to load driver via modprobe lustre"
             # note: this is executed as part of EC2 User Data, so ensure the command will never return a non-0 code or the user data will stop
             modprobe lustre || {

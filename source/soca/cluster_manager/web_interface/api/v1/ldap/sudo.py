@@ -15,7 +15,9 @@ from flask_restful import Resource, reqparse
 from flask_babel import gettext as _
 import config
 import ldap
-from decorators import restricted_api, private_api, admin_api, feature_flag
+from ldap.dn import escape_dn_chars
+from ldap.filter import escape_filter_chars
+from decorators import restricted_api, private_api, admin_api, feature_flag, directory_writable
 import errors
 import logging
 import os
@@ -137,12 +139,16 @@ class Sudo(Resource):
             else:
                 return SocaResponse(success=False, message=_(f"{user} does not have SUDO permissions"), status_code=403).as_flask()
 
+        # Escape user input before building the LDAP filter: without it, user="*" (or a value
+        # containing "(", ")" or "\") would change the filter and could match other entries.
         if config.Config.DIRECTORY_AUTH_PROVIDER in ["openldap", "existing_openldap"]:
-            _user_filter = f"(&(objectClass=sudoRole)(sudoUser={user}))"
+            _user_filter = f"(&(objectClass=sudoRole)(sudoUser={escape_filter_chars(user)}))"
             _attr_list = ["cn"]
         else:
-            # member on AD expects the DN of the user
-            _user_filter = f"(&(objectClass=group)(member=cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}))"
+            # member on AD expects the DN of the user: escape the RDN value for the DN first,
+            # then the whole DN for its use as a filter value.
+            _user_dn = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+            _user_filter = f"(&(objectClass=group)(member={escape_filter_chars(_user_dn)}))"
             _attr_list = ["cn"]
 
         try:
@@ -180,6 +186,7 @@ class Sudo(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def post(self):
         """
         Grant sudo permissions
@@ -264,7 +271,8 @@ class Sudo(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _dn_user = f"cn={user},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}"
+                # escape_dn_chars: a "," or "=" in user must not change the DN structure
+                _dn_user = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}"
                 _attrs = [
                     (
                         "objectClass",
@@ -278,7 +286,7 @@ class Sudo(Resource):
             else:
                 # with AD, there is no concept of Sudoers OU, instead we rely on group membership
                 _dn_sudoers_group = config.Config.DIRECTORY_ADMIN_SEARCH_BASE
-                _dn_user = f"cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+                _dn_user = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
                 _add_sudo = _soca_identity_client.modify(
                     dn=_dn_sudoers_group,
                     mod_list=[(ldap.MOD_ADD, "member", [_dn_user.encode("utf-8")])],
@@ -304,6 +312,7 @@ class Sudo(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def delete(self):
         """
         Revoke sudo permissions
@@ -388,11 +397,11 @@ class Sudo(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                dn_user = f"cn={user},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}"
+                dn_user = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}"
                 _delete_sudo = _soca_identity_client.delete(dn=dn_user)
             else:
                 _dn_sudoers_group = config.Config.DIRECTORY_ADMIN_SEARCH_BASE
-                _dn_user = f"cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+                _dn_user = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
                 _delete_sudo = _soca_identity_client.modify(
                     dn=_dn_sudoers_group,
                     mod_list=[(ldap.MOD_DELETE, "member", [_dn_user.encode("utf-8")])],

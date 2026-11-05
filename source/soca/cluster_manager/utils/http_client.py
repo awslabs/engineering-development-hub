@@ -249,7 +249,8 @@ class SocaHttpClient:
             _message = _req.text
 
         logger.debug(
-            f"Returning SocaResponse dict: success {_success}, message {_message}, status_code: {_req.status_code}, request: {_req} "
+            "Returning SocaResponse dict: success %s, message %s, status_code: %s, request: %s",
+            _success, _message, _req.status_code, _req,
         )
         return SocaResponse(
             success=_success,

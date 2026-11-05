@@ -35,9 +35,11 @@ import utils.aws.boto3_wrapper as utils_boto3
 from utils.datamodels.constants import SocaLinuxBaseOS, SocaWindowsBaseOS
 from utils.aws.ssm_helper import get_ami_id_from_alias
 from utils.aws.ec2_helper import (
+    classify_quota_gate,
     create_capacity_dry_run,
     describe_images,
     describe_subnets,
+    validate_ec2_quota_for_instance,
 )
 from utils.aws.odcr_helper import (
     create_capacity_reservation,
@@ -51,6 +53,11 @@ from utils.response import SocaResponse
 from utils.stack_naming import generate_stack_name
 from utils.jinjanizer import SocaJinja2Generator
 from helpers.software_stacks import SoftwareStacksHelper
+from helpers.vdi_root_volume import (
+    ami_root_snapshot_size,
+    effective_min_size,
+    resolve_vdi_root_volume,
+)
 from helpers.base_image_registry import resolve_launch_ami
 import pathlib
 import base64
@@ -78,6 +85,96 @@ def clean_user_data(text_to_remove: list, data: str) -> str:
     _ec2_user_data = re.sub(r"^\s*\n", "", _ec2_user_data, flags=re.MULTILINE)
 
     return _ec2_user_data
+
+
+def refuse_if_quota_exhausted(
+    *,
+    instance_type: str,
+    lifecycle: str,
+    capacity_reservation_id,
+    session_uuid,
+    session_owner: str,
+):
+    """Refuse a VDI launch that the account's vCPU quota cannot accommodate.
+
+    Returns None when the request may proceed, or a ready-to-return flask
+    response when it must be refused.
+
+    CALL THIS ONLY ON A PATH THAT ACTUALLY LAUNCHES AN INSTANCE OR STARTS A
+    STOPPED ONE. That is not a style preference, it is the correctness
+    condition, and the two tiers fall on opposite sides of it.
+
+    A HOT claim reuses an already-RUNNING member. Its vCPUs are already
+    charged against the quota, so gating the claim refuses a request that
+    needs no additional quota at all. This is why the two call sites sit below
+    the pool-claim attempt rather than above the branch containing it.
+
+    A WARM claim is the opposite and MUST be gated. EC2 states it directly:
+    "Instances that are in the pending, stopping, stopped, and hibernated
+    states do not count towards your On-Demand Instance quotas."
+    (AWSEC2/latest/UserGuide/ec2-on-demand-instances.html, On-Demand Instance
+    quotas.) A Warmed:Stopped member is therefore costing ZERO vCPU quota, and
+    promoting it consumes quota that was never charged -- it is a
+    capacity-creating event in the only sense this gate cares about.
+
+    One exception, from the same paragraph: "Capacity Reservations count
+    toward your On-Demand Instance quotas, even if they are unused." So for an
+    ODCR-backed entry the quota was already charged at reservation time and
+    promoting into it IS quota-neutral -- a real branch in the denial logic,
+    which is why capacity_reservation_id is a parameter here.
+
+    An earlier version of this docstring asserted the reverse -- that "warm
+    pool members consume the same vCPU quota themselves" -- and argued from
+    that to keep the gate below the claim. The conclusion happened to be right
+    for hot claims, so no behaviour was wrong, but anyone extending the gate
+    to warm serving by following that reasoning would have placed it exactly
+    backwards.
+
+    VDI provisions EC2 against the same account and region vCPU quotas as HPC
+    and until this change did so with no check at all: an exhausted quota
+    surfaced as a raw VcpuLimitExceeded once CloudFormation was already
+    creating the stack, rather than as a message naming the quota to raise.
+
+    This cannot be left to create_capacity_dry_run(). RunInstances with
+    DryRun=true does NOT evaluate vCPU quotas -- it returns DryRunOperation
+    whether or not the account has headroom -- so the dry run passes and the
+    launch then fails.
+
+    Ordering caveat: the optional ODCR capacity probe earlier in the request
+    creates a reservation, and reserved capacity is charged against the quota
+    at reservation time, so an exhausted quota can surface there first as
+    InstanceLimitExceeded. That path runs before the spot flag is resolved, so
+    this check cannot be hoisted above it without reordering the handler.
+    """
+    _quota_check = validate_ec2_quota_for_instance(
+        instance_type=instance_type,
+        desired_capacity=1,
+        lifecycle=lifecycle,
+        capacity_reservation_id=capacity_reservation_id,
+    )
+    _verdict = classify_quota_gate(_quota_check)
+
+    if _verdict["unavailable"]:
+        logger.warning(
+            f"Quota check could not be completed ({_verdict['refusal']}); "
+            f"admitting {instance_type} and letting AWS enforce the limit"
+        )
+    elif _verdict["admit"] is False:
+        logger.error(
+            f"Quota check refused VDI launch for {instance_type}: "
+            f"{_verdict['refusal']}"
+        )
+        return SocaError.VIRTUAL_DESKTOP_LAUNCH_ERROR(
+            session_number=session_uuid,
+            session_owner=session_owner,
+            helper=str(_verdict["refusal"]),
+        ).as_flask()
+
+    if _verdict["skip_reason"]:
+        logger.info(
+            f"Quota check skipped for {instance_type}: {_verdict['skip_reason']}"
+        )
+    return None
 
 
 class CreateVirtualDesktop(Resource):
@@ -136,8 +233,8 @@ class CreateVirtualDesktop(Resource):
                   disk_size:
                     type: string
                     pattern: '^[0-9]+$'
-                    description: EBS root volume size in GB
-                    example: "50"
+                    description: EBS root volume size in GB. Defaults to /configuration/dcv/root_volume/default_size_linux or default_size_windows for the stack's OS
+                    example: "100"
                   session_name:
                     type: string
                     minLength: 1
@@ -299,7 +396,10 @@ class CreateVirtualDesktop(Resource):
         parser.add_argument(
             "software_stack_id", type=str, location="form", required=True
         )
-        parser.add_argument("disk_size", type=str, location="form", default="50")
+        # disk_size has no parser default: when omitted it resolves to the
+        # per-OS /configuration/dcv/root_volume default once the stack's OS is
+        # known (see resolve_vdi_root_volume below).
+        parser.add_argument("disk_size", type=str, location="form", default=None)
         parser.add_argument(
             "session_name", type=str, location="form"
         )  # auto-uuid'd if None
@@ -477,11 +577,13 @@ class CreateVirtualDesktop(Resource):
 
             # Resolve InstancePlatform from the AMI metadata
             _instance_platform = ""
+            _ami_min_root_size = None
             _img_resp = describe_images(image_ids=[_ami_id])
             if _img_resp.get("success"):
                 _images = _img_resp.get("message", {}).get("Images", [])
                 if _images:
                     _instance_platform = _images[0].get("PlatformDetails", "")
+                    _ami_min_root_size = ami_root_snapshot_size(_images[0]).get("message")
 
             if not _instance_platform:
                 return SocaError.VIRTUAL_DESKTOP_LAUNCH_ERROR(
@@ -489,16 +591,34 @@ class CreateVirtualDesktop(Resource):
                     session_owner=_user,
                     helper=f"Unable to determine InstancePlatform for AMI {_ami_id}",
                 ).as_flask()
-            _check_disk_size = SocaCastEngine(args["disk_size"]).cast_as(
-                expected_type=int
+            # Stack minimum (cluster minimum when the stack is 0) and the AMI
+            # root snapshot are both floors.
+            _min_root_size = effective_min_size(
+                base_os=_software_stack_info.get("ami_base_os"),
+                stack_min=_software_stack_info.get("ami_root_disk_size"),
+                ami_min=_ami_min_root_size,
+                params=_get_soca_parameters,
             )
-            if _check_disk_size.get("success") is True:
-                args["disk_size"] = _check_disk_size.get("message")
+            if _min_root_size.get("success") is not True:
+                return SocaError.VIRTUAL_DESKTOP_LAUNCH_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper=f"disk_size error: {_min_root_size.message} ",
+                ).as_flask()
+            _resolve_root_volume = resolve_vdi_root_volume(
+                base_os=_software_stack_info.get("ami_base_os"),
+                requested_size=args["disk_size"],
+                params=_get_soca_parameters,
+                min_size=_min_root_size.get("message"),
+            )
+            if _resolve_root_volume.get("success") is True:
+                _root_volume = _resolve_root_volume.get("message")
+                args["disk_size"] = _root_volume.size
             else:
                 return SocaError.VIRTUAL_DESKTOP_LAUNCH_ERROR(
                     session_number=_session_uuid,
                     session_owner=_user,
-                    helper=f"disk_size error: {_check_disk_size.message} ",
+                    helper=f"disk_size error: {_resolve_root_volume.message} ",
                 ).as_flask()
 
             if not args["hibernate"]:
@@ -1232,10 +1352,7 @@ class CreateVirtualDesktop(Resource):
                 "session_name": _session_name,
                 "session_uuid": _session_uuid,
                 "base_os": _software_stack_info.get("ami_base_os"),
-                "disk_size": args["disk_size"],
-                "volume_type": _get_soca_parameters.get(
-                    "/configuration/DefaultVolumeType"
-                ),
+                **_root_volume.as_launch_parameters(),
                 "volume_acceleration": _software_stack_info.get("volume_acceleration"),
                 "cluster_id": _get_soca_parameters.get("/configuration/ClusterId"),
                 "metadata_http_tokens": _get_soca_parameters.get(
@@ -1303,6 +1420,14 @@ class CreateVirtualDesktop(Resource):
                 )
 
             logger.debug(f"Launch parameters for DCV: {launch_parameters}")
+
+            # NOTE: the vCPU quota gate is NOT here. It used to sit at this point,
+            # above the async-placement branch, which made an exhausted quota refuse
+            # the request before the VDI pool claim below was ever attempted -- even
+            # though a pool claim reuses a running member and launches nothing. See
+            # refuse_if_quota_exhausted() for why placement is load-bearing. The gate
+            # now runs on each of the two paths that actually create capacity:
+            # cold async placement, and the synchronous dry-run/CreateStack path.
 
             # --- Async placement (skips dry-run + ODCR + CreateStack) ---
             _async_flag = SocaConfig(
@@ -1400,6 +1525,96 @@ class CreateVirtualDesktop(Resource):
                         200,
                     )
 
+                # Reaching here means the pool claim missed, so this request will
+                # create NEW capacity via async placement. Gate it now -- below the
+                # claim attempt above, which needs no quota.
+                _quota_refusal = refuse_if_quota_exhausted(
+                    instance_type=launch_parameters.get("instance_type"),
+                    lifecycle="spot" if _spot_requested else "on-demand",
+                    capacity_reservation_id=args.get("capacity_reservation_id"),
+                    session_uuid=_session_uuid,
+                    session_owner=_user,
+                )
+                if _quota_refusal is not None:
+                    return _quota_refusal
+
+                # VDI pool, WARM tier: no idle hot member, but the pool may hold
+                # a parked Warmed:Stopped member that can be promoted in ~1 min
+                # instead of a ~10 min cold bootstrap. try_claim_warm reserves
+                # one and asks the reconciler to raise desired capacity; the
+                # session_state_watcher binds the member once it announces
+                # readiness, then the existing broker-READY backstop promotes
+                # placing->running.
+                #
+                # Deliberately BELOW the quota gate, unlike the hot claim.
+                # Promoting a stopped member charges vCPUs that were never
+                # charged -- stopped instances do not count toward On-Demand
+                # quotas -- so a warm claim creates capacity in the only sense
+                # the gate cares about. See refuse_if_quota_exhausted().
+                #
+                # The session row is written `placing` with instance_id=None,
+                # which is exactly the shape the cold async path writes, so the
+                # watcher's existing placing handling needs no special case.
+                _warm_claim = vdi_pool_allocator.try_claim_warm(
+                    stack_id=_software_stack_id.message,
+                    instance_type=args["instance_type"],
+                    owner=_user,
+                    session_uuid=_session_uuid,
+                    session_name=_session_name,
+                )
+                if _warm_claim:
+                    _warm_session = VirtualDesktopSessions(
+                        is_active=True,
+                        created_on=datetime.now(timezone.utc),
+                        deactivated_on=None,
+                        session_owner=_user,
+                        session_uuid=_session_uuid,
+                        session_project=args.get("project"),
+                        session_id=soca_parameters["/dcv/SessionId"],
+                        session_name=_session_name,
+                        stack_name=_cfn_stack_name,
+                        session_local_admin_password=_session_local_admin_password,
+                        # Filled in by the binder once a member is claimed and
+                        # its broker session exists.
+                        authentication_token=None,
+                        session_token=str(uuid.uuid4()),
+                        session_thumbnail=_software_stack_info.get("thumbnail"),
+                        schedule=json.dumps(config.Config.DCV_DEFAULT_SCHEDULE),
+                        session_state="placing",
+                        session_state_latest_change_time=datetime.now(timezone.utc),
+                        instance_private_dns=None,
+                        instance_private_ip=None,
+                        instance_id=None,
+                        instance_type=args["instance_type"],
+                        instance_base_os=_software_stack_info.get("ami_base_os"),
+                        os_family=_software_stack_info.get("os_family"),
+                        support_hibernation=args["hibernate"],
+                        software_stack_id=_software_stack_id.message,
+                        session_type=_pool_session_type,
+                    )
+                    try:
+                        db.session.add(_warm_session)
+                        db.session.commit()
+                    except Exception as _warm_err:
+                        db.session.rollback()
+                        # Release the reservation or the reconcile holds desired
+                        # capacity up for a session that does not exist.
+                        vdi_pool_allocator.release_reservation(
+                            _software_stack_id.message,
+                            args["instance_type"],
+                            _session_uuid,
+                        )
+                        return SocaError.GENERIC_ERROR(
+                            helper=f"Warm pool member reserved but DB write failed: {_warm_err}"
+                        ).as_flask()
+                    return (
+                        {
+                            "success": True,
+                            "message": f"Pool desktop provisioning for {_session_uuid}",
+                        },
+                        200,
+                    )
+
                 # Resolve CFN notification ARNs (same as sync path)
                 _async_cfn_notification_arns = []
                 _cfn_topic_resp = SocaConfig(
@@ -1470,6 +1685,19 @@ class CreateVirtualDesktop(Resource):
                     ).as_flask()
             # --- End async placement ---
 
+            # Synchronous path: this creates new capacity, so gate it. The pool
+            # claim is reachable only in the async branch above, so nothing that
+            # merely reuses a running member passes through here.
+            _quota_refusal = refuse_if_quota_exhausted(
+                instance_type=launch_parameters.get("instance_type"),
+                lifecycle="spot" if _spot_requested else "on-demand",
+                capacity_reservation_id=args.get("capacity_reservation_id"),
+                session_uuid=_session_uuid,
+                session_owner=_user,
+            )
+            if _quota_refusal is not None:
+                return _quota_refusal
+
             dry_run_launch = create_capacity_dry_run(
                 disk_size=launch_parameters.get("disk_size"),
                 instance_type=launch_parameters.get("instance_type"),
@@ -1480,10 +1708,13 @@ class CreateVirtualDesktop(Resource):
                 instance_profile=launch_parameters.get("instance_profile"),
                 custom_tags=launch_parameters.get("custom_tags"),
                 volume_type=launch_parameters.get("volume_type"),
+                volume_iops=launch_parameters.get("volume_iops"),
+                volume_throughput=launch_parameters.get("volume_throughput"),
                 hibernate=launch_parameters.get("hibernate"),
                 metadata_http_tokens=launch_parameters.get("metadata_http_tokens"),
                 key_name=_get_soca_parameters.get("/configuration/SSHKeyPair"),
                 desired_capacity=1,
+                node_type="dcv_node",
             )
             logger.info(f"Dry Run Result: {dry_run_launch}")
 

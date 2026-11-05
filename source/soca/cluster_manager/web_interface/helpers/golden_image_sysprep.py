@@ -4,19 +4,20 @@
 """
 Golden Image Sysprep Engine.
 
-Verifies whether a Windows AMI has been sysprepped, and if not,
-auto-runs EC2Launch sysprep on a throwaway instance, then captures
-a new (sysprepped) AMI.
+Runs EC2Launch sysprep on a throwaway instance launched from a Windows AMI,
+then captures a new (sysprepped) AMI.
 
 Linux images skip this entirely.
 
 Flow:
   1. Launch m7i-flex.large from the AMI in a private subnet (SSM-managed)
-  2. Wait for SSM to report the instance as managed (~60s)
-  3. SSM RunCommand: check Sysprep_succeeded.tag
-  4a. If sysprepped → terminate instance, return original AMI
-  4b. If NOT sysprepped → SSM RunCommand: EC2Launch sysprep --shutdown
-      → wait for instance to stop → CreateImage → terminate → return new AMI
+  2. Wait for SSM to report the instance as managed
+  3. SSM RunCommand: EC2Launch sysprep --shutdown, unconditionally
+  4. Wait for the instance to stop, CreateImage, wait for it, terminate
+  5. Return the new AMI
+
+Every resource the flow creates is tagged edh:ClusterId, which the
+controller's SSM and image-cleanup grants are conditioned on.
 """
 
 import logging
@@ -125,6 +126,7 @@ def _windows_sysprep_flow(ami_id: str) -> SysprepResult:
     _subnet_id = _get_private_subnet()
     _instance_profile_arn = _get_instance_profile_arn()
     _security_group_id = _get_controller_sg()
+    _cluster_id = _get_cluster_id()
 
     if not _subnet_id or not _instance_profile_arn:
         return SysprepResult(
@@ -134,12 +136,22 @@ def _windows_sysprep_flow(ami_id: str) -> SysprepResult:
             message="Cannot resolve subnet or instance profile for sysprep verification",
         )
 
+    # Checked separately: an empty tag value fails authorization, not config.
+    if not _cluster_id:
+        return SysprepResult(
+            success=False,
+            ami_id=ami_id,
+            status="error",
+            message="Cannot resolve /configuration/ClusterId for sysprep verification",
+        )
+
     instance_id = None
     new_ami_id = None
     try:
         # Step 1: Launch throwaway instance
         instance_id = _launch_throwaway(
-            client_ec2, ami_id, _subnet_id, _instance_profile_arn, _security_group_id
+            client_ec2, ami_id, _subnet_id, _instance_profile_arn, _security_group_id,
+            _cluster_id,
         )
         logger.info(f"Sysprep engine: launched throwaway {instance_id} from {ami_id}")
 
@@ -156,7 +168,7 @@ def _windows_sysprep_flow(ami_id: str) -> SysprepResult:
         logger.info(f"Sysprep engine: {instance_id} stopped after sysprep")
 
         # Step 6: CreateImage from the stopped instance
-        new_ami_id = _create_image(client_ec2, instance_id, ami_id)
+        new_ami_id = _create_image(client_ec2, instance_id, ami_id, _cluster_id)
         logger.info(f"Sysprep engine: created sysprepped AMI {new_ami_id}")
 
         # Step 7: Wait for AMI to become available
@@ -231,8 +243,19 @@ def _get_controller_sg() -> Optional[str]:
     return None
 
 
+def _get_cluster_id() -> Optional[str]:
+    """Cluster id for the edh:ClusterId tag."""
+    try:
+        _r = SocaConfig(key="/configuration/ClusterId").get_value()
+        return _r.get("message") if _r.get("success") is True else None
+    except Exception:
+        pass
+    return None
+
+
 def _launch_throwaway(client_ec2, ami_id: str, subnet_id: str,
-                      instance_profile_arn: str, security_group_id: Optional[str]) -> str:
+                      instance_profile_arn: str, security_group_id: Optional[str],
+                      cluster_id: str) -> str:
     """Launch a m7i-flex.large throwaway instance from the AMI."""
     _params = {
         "ImageId": ami_id,
@@ -246,6 +269,7 @@ def _launch_throwaway(client_ec2, ami_id: str, subnet_id: str,
                 "ResourceType": "instance",
                 "Tags": [
                     {"Key": "Name", "Value": "edh-sysprep-verify"},
+                    {"Key": "edh:ClusterId", "Value": cluster_id},
                     {"Key": "edh:Purpose", "Value": "sysprep-verification"},
                     {"Key": "edh:Ephemeral", "Value": "true"},
                 ],
@@ -322,24 +346,25 @@ def _wait_for_stopped(client_ec2, instance_id: str):
     raise TimeoutError(f"Instance {instance_id} did not stop within timeout")
 
 
-def _create_image(client_ec2, instance_id: str, source_ami_id: str) -> str:
+def _create_image(client_ec2, instance_id: str, source_ami_id: str,
+                  cluster_id: str) -> str:
     """Create an AMI from the stopped (sysprepped) instance."""
     _name = f"edh-golden-sysprepped-{int(time.time())}"
+    _tags = [
+        {"Key": "Name", "Value": _name},
+        {"Key": "edh:ClusterId", "Value": cluster_id},
+        {"Key": "edh:GoldenImage", "Value": "true"},
+        {"Key": "edh:SourceAmi", "Value": source_ami_id},
+        {"Key": "edh:SysprepStatus", "Value": "auto_sysprepped"},
+    ]
     _resp = client_ec2.create_image(
         InstanceId=instance_id,
         Name=_name,
         Description=f"Auto-sysprepped golden image (source: {source_ami_id})",
         NoReboot=True,
         TagSpecifications=[
-            {
-                "ResourceType": "image",
-                "Tags": [
-                    {"Key": "Name", "Value": _name},
-                    {"Key": "edh:GoldenImage", "Value": "true"},
-                    {"Key": "edh:SourceAmi", "Value": source_ami_id},
-                    {"Key": "edh:SysprepStatus", "Value": "auto_sysprepped"},
-                ],
-            }
+            {"ResourceType": "image", "Tags": _tags},
+            {"ResourceType": "snapshot", "Tags": _tags},
         ],
     )
     return _resp["ImageId"]

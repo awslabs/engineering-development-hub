@@ -12,7 +12,6 @@
                 "autoscaling:DeleteAutoScalingGroup",
                 "autoscaling:CreateAutoScalingGroup",
                 "autoscaling:DetachInstances",
-                "ec2:DeleteLaunchTemplate",
                 "ec2:CreateLaunchTemplate",
                 "fsx:CreateDataRepositoryTask"
             ],
@@ -71,7 +70,8 @@
                 "ec2:ModifyInstanceAttribute",
                 "ec2:ModifyInstanceCapacityReservationAttributes",
                 "ec2:CreateImage",
-                "ec2:CreateSnapshot"
+                "ec2:CreateSnapshot",
+                "ec2:CreateNetworkInterface"
             ],
             "Resource": [
                 "arn:%%AWS_PARTITION%%:ec2:*:*:subnet/*",
@@ -109,10 +109,119 @@
             ],
             "Resource": [
                 "%%COMPUTE_NODE_ROLE_ARN%%",
+                "%%VDI_NODE_ROLE_ARN%%",
                 "%%SPOTFLEET_ROLE_ARN%%",
-                "%%TARGET_NODE_ROLE_ARN%%"
+                "%%TARGET_NODE_ROLE_ARN%%",
+                "%%VDI_NODE_ROLE_ARN%%"
             ],
             "Effect": "Allow"
+        },
+        {
+            "Sid": "PCSCreateClusterTagged",
+            "Effect": "Allow",
+            "Action": ["pcs:CreateCluster","pcs:TagResource"],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestTag/edh:visibility:%%CLUSTER_ID%%": "true"
+                }
+            }
+        },
+        {
+            "Sid": "PCSCreateSlurmSecret",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:CreateSecret",
+                "secretsmanager:TagResource",
+                "secretsmanager:RotateSecret",
+                "secretsmanager:GetSecretValue"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:secretsmanager:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:secret:pcs!*"
+        },
+        {
+            "Sid": "PCSCreateChildResourcesTagged",
+            "Effect": "Allow",
+            "Action": [
+                "pcs:CreateQueue",
+                "pcs:CreateComputeNodeGroup"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:visibility:%%CLUSTER_ID%%": "true",
+                    "aws:RequestTag/edh:visibility:%%CLUSTER_ID%%": "true"
+                }
+            }
+        },
+        {
+            "Sid": "PCSTagChildResourcesOnCluster",
+            "Effect": "Allow",
+            "Action": "pcs:TagResource",
+            "Resource": "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:visibility:%%CLUSTER_ID%%": "true"
+                }
+            }
+        },
+        {
+            "Sid": "PCSPassInstanceRole",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "%%PCS_NODE_ROLE_ARN%%",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": "ec2.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Sid": "EDHDeleteLaunchTemplateTagged",
+            "Effect": "Allow",
+            "Action": "ec2:DeleteLaunchTemplate",
+            "Resource": "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:launch-template/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            }
+        },
+        {
+            "Sid": "PCSDeleteResources",
+            "Effect": "Allow",
+            "Action": [
+                "pcs:DeleteCluster",
+                "pcs:DeleteQueue",
+                "pcs:DeleteComputeNodeGroup"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*",
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*/queue/*",
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*/computenodegroup/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:visibility:%%CLUSTER_ID%%": "true"
+                }
+            }
+        },
+        {
+            "Sid": "PCSUpdateResources",
+            "Effect": "Allow",
+            "Action": [
+                "pcs:UpdateQueue",
+                "pcs:UpdateComputeNodeGroup"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*",
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*/queue/*",
+                "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*/computenodegroup/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:visibility:%%CLUSTER_ID%%": "true"
+                }
+            }
         },
         {
             "Sid": "BedrockModelInvoke",
@@ -130,12 +239,19 @@
             "Effect": "Allow"
         },
         {
-            "Sid": "BedrockKnowledgeBase",
+            "Sid": "BedrockKnowledgeBaseRetrieve",
             "Action": [
-                "bedrock:Retrieve",
-                "bedrock:RetrieveAndGenerate"
+                "bedrock:Retrieve"
             ],
             "Resource": "arn:%%AWS_PARTITION%%:bedrock:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:knowledge-base/*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "BedrockKnowledgeBaseRetrieveAndGenerate",
+            "Action": [
+                "bedrock:RetrieveAndGenerate"
+            ],
+            "Resource": "*",
             "Effect": "Allow"
         }
     ]

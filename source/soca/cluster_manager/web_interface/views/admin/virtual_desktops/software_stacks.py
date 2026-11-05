@@ -18,6 +18,7 @@ from flask import render_template, Blueprint, request, redirect, session, flash,
 from flask_babel import gettext as _
 from decorators import login_required, admin_only
 from utils.http_client import SocaHttpClient
+from helpers.vdi_root_volume import root_size_defaults
 
 logger = logging.getLogger("soca_logger")
 admin_virtual_desktops_software_stacks = Blueprint(
@@ -42,6 +43,15 @@ def instance_types_search():
         request.args.get("arch") or None,
     )
     return jsonify({"success": True, "message": _results})
+
+
+def get_root_defaults():
+    """Per-OS cluster default and minimum root sizes, shown on the stack forms."""
+    _root_size_defaults = root_size_defaults()
+    if _root_size_defaults.get("success") is True:
+        return _root_size_defaults.get("message")
+    logger.warning(f"Unable to read VDI root volume defaults: {_root_size_defaults.message}")
+    return {"linux": None, "windows": None, "min_linux": None, "min_windows": None}
 
 
 def get_region():
@@ -85,6 +95,7 @@ def index():
             supported_base_os=config.Config.DCV_BASE_OS.keys(),
             software_stacks=_list_software_stacks.get("message"),
             region_name=get_region(),
+            root_defaults=get_root_defaults(),
         )
     else:
         flash(_(
@@ -98,6 +109,7 @@ def index():
             hardware_profiles=[],
             software_stacks={},
             region_name=get_region(),
+            root_defaults=get_root_defaults(),
         )
 
 
@@ -220,6 +232,7 @@ def software_stack_edit():
                 else None
             ),
             region_name=get_region(),
+            root_defaults=get_root_defaults(),
         )
     else:
         flash(_(

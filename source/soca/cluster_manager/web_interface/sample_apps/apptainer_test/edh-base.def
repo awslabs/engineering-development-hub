@@ -1,0 +1,40 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# EDH base container image (no EFA, no MPI).
+#
+# Used by the "Container Test (Apptainer)" sample app to prove the runtime works.
+# Deliberately minimal: the point is to validate Apptainer itself, not to be a
+# useful application image.
+#
+# The base comes from Amazon ECR Public rather than Docker Hub. ECR Public
+# imposes no anonymous pull rate limit, so a cluster running many validation
+# jobs will not start failing on HTTP 429 the way Docker Hub does.
+#
+# Build it by hand with:
+#     apptainer build edh-base-$(uname -m).sif edh-base.def
+#
+# The image is architecture-specific. Build it on a node of the architecture you
+# intend to run it on; there is no cross-building here.
+
+Bootstrap: docker
+From: public.ecr.aws/amazonlinux/amazonlinux:2023
+
+%post
+    dnf -y install hostname procps-ng
+    dnf -y clean all
+    rm -rf /var/cache/dnf
+
+%environment
+    export EDH_CONTAINER_KIND="edh-base"
+
+%labels
+    Maintainer Engineering Development Hub
+    Purpose Runtime validation for the Apptainer container sample
+
+%help
+    Minimal EDH validation container. Contains no MPI and no EFA support; use
+    edh-efa.def for interconnect testing.
+
+    Verify it with:
+        apptainer exec edh-base-$(uname -m).sif cat /etc/os-release

@@ -65,6 +65,10 @@
                                       
                                     <div id="edh-inline-terminals" class="edh-terminal-container"
                                            style="position:relative; height:70vh; min-height:400px; width:100%;">
+                                          <div id="edh-inline-loading-state" class="edh-loading-state" role="status">
+                                              <span class="edh-loading-spinner" aria-hidden="true"></span>
+                                              <span>{{ _("Fetching terminals, please wait ...") }}</span>
+                                          </div>
                                           <div id="edh-inline-empty-state" class="edh-empty-state" style="display:none">
                                               {{ _("No open terminals.") }}<br>
                                               <button id="edh-inline-new-tab-empty">{{ _("Start a new terminal on an EDH Login Node") }}</button>
@@ -88,8 +92,17 @@
                                           "connected":      {{ _("Connected")|tojson }},
                                           "disconnected":   {{ _("Disconnected")|tojson }},
                                           "detached":       {{ _("Detached")|tojson }},
+                                          "paused":         {{ _("Paused (idle)")|tojson }},
+                                          "ended":          {{ _("Session ended")|tojson }},
                                           "auth_failed":    {{ _("Authentication failed - please refresh the page and try again.")|tojson }},
                                           "ws_error":       {{ _("WebSocket connection failed. Check that the webshell service is running on Login Nodes.")|tojson }},
+                                          "detached_hint":  {{ _("This session is still running. Click this tab to reattach.")|tojson }},
+                                          "paused_hint":    {{ _("Disconnected after a period of inactivity. The session is still running - click this tab to resume.")|tojson }},
+                                          "ended_hint":     {{ _("This session no longer exists on any login node. Click this tab to start a new one here.")|tojson }},
+                                          "locating":       {{ _("Locating the login node that holds this session...")|tojson }},
+                                          "reconnecting":   {{ _("Connection lost - reconnecting...")|tojson }},
+                                          "reconnect_gave_up": {{ _("Could not reconnect. Click this tab to try again.")|tojson }},
+                                          "on_node":        {{ _("Login node")|tojson }},
                                           "detach_tab":     {{ _("Detach (session keeps running)")|tojson }},
                                           "kill_tab":       {{ _("End session (terminates tmux)")|tojson }},
                                           "confirm_kill":   {{ _("End this terminal session? The remote tmux will be terminated.")|tojson }},
@@ -132,6 +145,7 @@
         tabBar:        document.getElementById("edh-inline-tab-bar"),
         termContainer: document.getElementById("edh-inline-terminals"),
         emptyState:    document.getElementById("edh-inline-empty-state"),
+        loadingState:  document.getElementById("edh-inline-loading-state"),
         labelPrefix:   "main-",
         storageKey:    "edh_inline_tabs_{{ user }}",
         csrfToken:     "{{ csrf_token() | safe }}",
@@ -169,24 +183,16 @@
         });
     }
 
-    function maybeInit() {
-        const terminalTab = document.getElementById("terminal");
-        if (terminalTab && terminalTab.classList.contains("active")) {
-            manager.init();
-            return;
-        }
-        const btn = document.querySelector('[data-bs-toggle="tab"][href="#terminal"], [data-bs-target="#terminal"]');
-        if (btn) {
-            btn.addEventListener("shown.bs.tab", () => manager.init(), { once: true });
-        } else {
-            manager.init();
-        }
-    }
-
+    // This page renders the terminal directly rather than inside a
+    // Bootstrap tab-pane, so there is nothing to wait for. An earlier
+    // version looked for an element with id="terminal" and a
+    // [data-bs-toggle="tab"] trigger before calling init(); neither has
+    // ever existed in this template, so both lookups always failed and
+    // execution always fell through to the bare init() below.
     if (document.readyState === "complete") {
-        maybeInit();
+        manager.init();
     } else {
-        window.addEventListener("load", maybeInit);
+        window.addEventListener("load", () => manager.init());
     }
 })();
 </script>

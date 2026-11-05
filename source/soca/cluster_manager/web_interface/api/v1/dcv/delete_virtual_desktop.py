@@ -296,10 +296,26 @@ class DeleteVirtualDesktop(Resource):
                     f"Session-sharing grant revoke raised for {session_uuid} (non-fatal): {e}"
                 )
 
+            # A warm-claim reservation that has not bound yet: `placing`, no
+            # instance_id, and no CFN stack. There is nothing to terminate --
+            # but the reservation MUST be released, or the reconcile keeps this
+            # pool's desired capacity raised by one for a session that no
+            # longer exists, holding a started instance nobody will claim until
+            # the ledger reaper expires the row.
+            if not _check_session.instance_id and not _cfn_stack_exists(_stack_name):
+                logger.info(
+                    f"Unbound pool reservation for {session_uuid}; releasing it "
+                    f"(no instance or stack to tear down)"
+                )
+                vdi_pool_allocator.release_reservation(
+                    _check_session.software_stack_id,
+                    _check_session.instance_type,
+                    session_uuid,
+                )
             # Pool-served desktops have no CloudFormation stack -- the instance
             # was claimed from a pool ASG and detached. Terminate it directly.
             # Regular VDIs are torn down via their CFN stack as before.
-            if _check_session.instance_id and not _cfn_stack_exists(_stack_name):
+            elif _check_session.instance_id and not _cfn_stack_exists(_stack_name):
                 logger.info(
                     f"Pool-served desktop (no CFN stack); terminating instance "
                     f"{_check_session.instance_id} directly"

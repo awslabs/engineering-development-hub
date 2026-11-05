@@ -17,6 +17,7 @@ from utils.hpc.scheduler_command_builder import (
     SocaHpcPBSJobCommandBuilder,
     SocaHpcLSFJobCommandBuilder,
     SocaHpcSlurmJobCommandBuilder,
+    SocaHpcPCSJobCommandBuilder,
 )
 from utils.datamodels.hpc.shared.job_resources import SocaHpcJobProvisioningState
 
@@ -35,6 +36,31 @@ class SocaHpcJobController:
         self._job = job
         self._scheduler_info = self._job.job_scheduler_info
 
+    # Always-on capacity is provisioned through the job datamodel for code reuse,
+    # but it is never submitted to the scheduler: create_alwayson mints a synthetic
+    # job_id of the form "alwayson-<uuid4>" and sets job_scheduler_state to
+    # "alwayson". There is therefore no scheduler-side job to annotate, and asking
+    # PBS to qalter that id fails with "illegally formed job identifier". The
+    # failure was then raised as its own GENERIC_ERROR and reported BEFORE the real
+    # cause, so every always-on provisioning failure produced a misleading first
+    # traceback.
+    ALWAYSON_JOB_ID_PREFIX = "alwayson-"
+
+    def _is_scheduler_managed(self) -> bool:
+        """False for capacity that exists only in EDH, with no job in the scheduler."""
+        _state_cast = SocaCastEngine(
+            data=getattr(self._job, "job_scheduler_state", "")
+        ).cast_as(expected_type=str)
+        _state = _state_cast.get("message") if _state_cast.get("success") else ""
+        if _state.lower() == "alwayson":
+            return False
+
+        _id_cast = SocaCastEngine(data=getattr(self._job, "job_id", "")).cast_as(
+            expected_type=str
+        )
+        _job_id = _id_cast.get("message") if _id_cast.get("success") else ""
+        return not _job_id.startswith(self.ALWAYSON_JOB_ID_PREFIX)
+
     def set_error_message(self, errors: list) -> SocaResponse:
         # for openpbs, we assign all errors in the error_message resource
         # only alphanumeric chars are allowed, replace space with _
@@ -48,6 +74,22 @@ class SocaHpcJobController:
                 _sanitized_errors.append(_sanitized_error)
 
         _errors_list = "_".join(_sanitized_errors)
+
+        if not self._is_scheduler_managed():
+            # Record the error and move the provisioning state on, but do not try to
+            # annotate a job the scheduler has never heard of. The caller still
+            # surfaces the real error to the operator.
+            logger.info(
+                f"{self._job.job_id} is not scheduler-managed, recording error "
+                f"without a scheduler update: {_errors_list}"
+            )
+            self._job.job_provisioning_state = (
+                SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_BLOCKED
+            )
+            return SocaResponse(
+                success=True,
+                message="error_message recorded without a scheduler update",
+            )
 
         if self._scheduler_info.provider in [
             SocaHpcSchedulerProvider.OPENPBS,
@@ -65,6 +107,13 @@ class SocaHpcJobController:
             )
 
         elif self._scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
+            _update_error_message = self.slurm_update_comment(
+                resource_name="error_message",
+                resource_value=_errors_list,
+            )
+
+        elif self._scheduler_info.provider == SocaHpcSchedulerProvider.AWS_PCS:
+            # also slurm, additional logic handled via slum_update_comment
             _update_error_message = self.slurm_update_comment(
                 resource_name="error_message",
                 resource_value=_errors_list,
@@ -216,9 +265,18 @@ class SocaHpcJobController:
         time.sleep(5)
 
         # get current job comment (do not use  _job.comment as it may be not have been refreshed by the dispatcher)
-        _run_command = SocaHpcSlurmJobCommandBuilder(
-            scheduler_info=self._scheduler_info
-        ).scontrol(args=f'-o "comment" -json {self._job.job_id}')
+        if self._scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
+            _run_command = SocaHpcSlurmJobCommandBuilder(
+                scheduler_info=self._scheduler_info
+            ).scontrol(args=f'-o "comment" -json {self._job.job_id}')
+        elif self._scheduler_info.provider == SocaHpcSchedulerProvider.AWS_PCS:
+            _run_command = SocaHpcPCSJobCommandBuilder(
+                scheduler_info=self._scheduler_info
+            ).scontrol(args=f'-o "comment" -json {self._job.job_id}')
+        else:
+            return SocaError.GENERIC_ERROR(
+                f"slurm_update_comment is only available if the scheduler is Slurm or AWS_PCS, found {self._scheduler_info}"
+            )
         if not _run_command:
             return SocaError.GENERIC_ERROR(
                 helper=f"Unable to build scontrol command for {resource_name} to {resource_value} for job {self._job.job_id}"
@@ -400,6 +458,46 @@ class SocaHpcJobController:
                 helper=f"Unable to update resource {resource_name} to {resource_value} for job {self._job.job_id} due to {_job_data.get('message')}"
             )
 
+    def increment_provisioning_retry(self) -> SocaResponse:
+        """
+        Add one to the job's retry_attempt resource.
+
+        Called when provisioning fails BEFORE a CloudFormation stack id is
+        recorded on the job. reset_cloudformation_stack_creation() is the only
+        other writer of this resource and it requires an existing stack_id, so
+        a failure earlier than that was never counted and the job retried
+        without bound.
+
+        Every failure counts, including a throttle: SocaCfnClient collapses all
+        ClientErrors into AWS_API_ERROR, so permanent and transient are not
+        distinguishable from the caller. Spending one of
+        stack_max_retry_attempts on a throttle costs a cycle; not counting it
+        costs an unbounded loop.
+        """
+        _next_attempt = self._job.job_failed_provisioning_retry_count + 1
+        if self._scheduler_info.provider == SocaHpcSchedulerProvider.LSF:
+            _update = self.lsf_update_resource(
+                resource_name="retry_attempt",
+                resource_value=_next_attempt,
+                resource_type="Numeric",
+            )
+        else:
+            _update = self.pbs_update_resource(
+                resource_name="retry_attempt",
+                resource_value=_next_attempt,
+            )
+
+        if _update.get("success") is False:
+            logger.error(
+                f"Unable to increment retry_attempt to {_next_attempt} for job {self._job.job_id} due to {_update.get('message')}. This job may retry provisioning without reaching its retry limit"
+            )
+            return _update
+
+        logger.info(
+            f"Provisioning retry count for job {self._job.job_id} is now {_next_attempt}"
+        )
+        return SocaResponse(success=True, message=_next_attempt)
+
     def reset_cloudformation_stack_creation(
         self,
     ) -> SocaResponse:
@@ -466,7 +564,9 @@ class SocaHpcJobController:
             logger.info("Detected OpenPBS/PBSPro job, updating select resource")
             _resource_selector_name = "select"
             # remove compute_node if there
-            _select_clean = re.sub(r':?compute_node=[^:\s]*', '', self._job.pbs_resource_list.get('select'))
+            _select_clean = re.sub(
+                r":?compute_node=[^:\s]*", "", self._job.pbs_resource_list.get("select")
+            )
             _resource_selector_value = f"{_select_clean}:compute_node=tbd"
 
         elif self._scheduler_info.provider == SocaHpcSchedulerProvider.LSF:
@@ -534,6 +634,11 @@ class SocaHpcJobController:
             _run_command = SocaHpcSlurmJobCommandBuilder(
                 scheduler_info=self._scheduler_info
             ).scancel(args=f"{self._job.job_id}")
+        elif self._scheduler_info.provider == SocaHpcSchedulerProvider.AWS_PCS:
+            _run_command = SocaHpcPCSJobCommandBuilder(
+                scheduler_info=self._scheduler_info
+            ).scancel(args=f"{self._job.job_id}")
+
         else:
             return SocaError.GENERIC_ERROR(
                 helper=f"Unable to delete job {self._job.job_id} due to unsupported scheduler {self._scheduler_info.provider}"

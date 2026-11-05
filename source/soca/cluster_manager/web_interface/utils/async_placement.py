@@ -11,9 +11,9 @@ enabled. Instead of probing ODCR inline (2.3s) and calling CreateStack, this:
   3. Enqueues a lightweight SQS message to the PLACEMENT_REQUEST_QUEUE
   4. Returns immediately (~50ms total)
 
-The DcvPlacement Lambda (Step 1) picks up the SQS message, probes capacity
-in parallel across subnets, creates a real ODCR with a short window, and
-emits the result to PLACEMENT_RESULT_QUEUE.
+The DcvPlacement Lambda (Step 1) picks up the SQS message, reserves a real
+short-window ODCR in the first candidate AZ that has capacity, and emits the
+result to PLACEMENT_RESULT_QUEUE.
 
 The CapacityExecutor Lambda (Step 3) reads the result, fetches placement_context
 from the DB row, and calls CreateStack.
@@ -107,7 +107,7 @@ def enqueue_placement(
         return SocaError.GENERIC_ERROR(helper=f"DB error: {err}")
 
     # 2. Enqueue a lightweight message to the PLACEMENT_REQUEST_QUEUE.
-    #    The Lambda only needs enough to probe capacity — no secrets.
+    #    The Lambda only needs enough to place the session -- no secrets.
     _queue_url = os.environ.get("PLACEMENT_REQUEST_QUEUE_URL", "")
     if not _queue_url:
         # Fallback: read from SSM (cold path, only on first call)
@@ -142,8 +142,8 @@ def enqueue_placement(
         "instance_platform": instance_platform or "",
         "cluster_id": _CLUSTER_ID,
         "custom_tags": _custom_tags,
-        # Admin-supplied ODCR (empty = auto-probe). When set, DcvPlacement
-        # skips capacity probing and passes this id straight through so the
+        # Admin-supplied ODCR (empty = reserve our own). When set, DcvPlacement
+        # reserves nothing and passes this id straight through so the
         # instance lands in the admin's reservation, not a fresh per-session one.
         "capacity_reservation_id": capacity_reservation_id or "",
         "spot": bool(spot),

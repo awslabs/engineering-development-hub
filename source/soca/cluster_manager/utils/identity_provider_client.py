@@ -9,6 +9,7 @@ from utils.aws.secretsmanager_client import SocaSecret
 from utils.response import SocaResponse
 from utils.validators import Validators
 import ldap
+from ldap.dn import escape_dn_chars
 from typing import Optional, Literal, List
 
 logger = logging.getLogger("soca_logger")
@@ -28,14 +29,19 @@ def is_initialized(func):
 class SocaIdentityProviderClient:
     def __init__(
         self,
-        provider: Optional[str] = SocaConfig(
-            key="/configuration/UserDirectory/provider"
-        )
-        .get_value()
-        .get("message"),
+        provider: Optional[str] = None,
         ldap_endpoint: Optional[str] = None,
         ldap_base_dn: Optional[str] = None,
     ):
+        # Not a default argument: those evaluate once at import, which would
+        # need AWS credentials to import this module and would pin the value
+        # for the process lifetime.
+        if provider is None:
+            provider = (
+                SocaConfig(key="/configuration/UserDirectory/provider")
+                .get_value()
+                .get("message")
+            )
         self._provider = provider.lower()
         self._ldap_endpoint = None
         self._ldap_base_dn = None
@@ -80,20 +86,25 @@ class SocaIdentityProviderClient:
                 .get_value()
                 .get("message")
             )
+        else:
+            self._ldap_endpoint = ldap_endpoint
+            logger.info(f"Using provided ldap endpoint {self._ldap_endpoint}")
 
         if not self._domain_controller_ips:
             logger.warning(
                 "/configuration/UserDirectory/domain_controller_ips is empty, SOCA will perform all operations via generic DNS. Specify DC IPs if you want to pin operations on a given AD DC."
             )
         else:
-            logger.info(
-                f"Domain Controller IPs have been specified {self._domain_controller_ips=}, all operations will default to the first IP in this list "
+            # DEBUG: static config, logged on every client creation (i.e. most requests)
+            logger.debug(
+                "Domain Controller IPs have been specified %s, all operations will default to the first IP in this list",
+                self._domain_controller_ips,
             )
             self._ldap_endpoint = f"ldap://{self._domain_controller_ips[0]}"
 
         # Retrieve LDAP Base if not specified
         if ldap_base_dn is None:
-            logger.info("No ldap base dn specified, retrieving value on SSM")
+            logger.debug("No ldap base dn specified, retrieving value on SSM")
             self._ldap_base_dn = (
                 SocaConfig(key="/configuration/UserDirectory/domain_base")
                 .get_value()
@@ -105,7 +116,7 @@ class SocaIdentityProviderClient:
         )
 
         logger.debug(
-            f"Initialized SocaIdentityProviderClient for {self._provider} with {self.__dict__}"
+            "Initialized SocaIdentityProviderClient for %s with %s", self._provider, self.__dict__
         )
 
     @property
@@ -245,7 +256,8 @@ class SocaIdentityProviderClient:
         _admin_user_directory_credentials = _admin_secret.message
         _root_user_dn = _admin_user_directory_credentials.get("username")
         _root_user_password = _admin_user_directory_credentials.get("password")
-        logger.info(f"Root User DN: {_root_user_dn}")
+        # DEBUG: logged on every bind, and keeps the service account name out of normal logs
+        logger.debug("Root User DN: %s", _root_user_dn)
         try:
             self._conn.bind_s(_root_user_dn, _root_user_password, ldap.AUTH_SIMPLE)
             logger.debug("UserDirectory: Successfully bind as service account")
@@ -277,7 +289,8 @@ class SocaIdentityProviderClient:
                 logger.warning(
                     f"SOCA BaseDN for OpenLDAP {self._ldap_people_search_base} not provided on user {dn} ..adding it"
                 )
-                _user_bind = f"uid={dn},{self._ldap_people_search_base}"
+                # Only a bare username reaches this branch: escape it as a DN value
+                _user_bind = f"uid={escape_dn_chars(dn)},{self._ldap_people_search_base}"
             else:
                 _user_bind = dn
         else:
@@ -430,7 +443,8 @@ class SocaIdentityProviderClient:
                         key: [
                             (
                                 value.decode("utf-8")
-                                if Validators.is_bytes(value) and key not in _do_not_decode
+                                if Validators.is_bytes(value)
+                                and key not in _do_not_decode
                                 else value
                             )
                             for value in values
@@ -443,8 +457,11 @@ class SocaIdentityProviderClient:
                 # that satisfies max_results instead of walking the full match
                 # set. Combined with a small page_size this is a single round
                 # trip. Result order is directory order, not ranked.
-                if max_results is not None and Validators.is_list_length_greater_equal_than(
-                    _decoded_result, max_results
+                if (
+                    max_results is not None
+                    and Validators.is_list_length_greater_equal_than(
+                        _decoded_result, max_results
+                    )
                 ):
                     del _decoded_result[max_results:]
                     break

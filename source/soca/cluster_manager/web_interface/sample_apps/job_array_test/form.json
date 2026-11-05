@@ -1,0 +1,177 @@
+[
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Job Array"
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Subjob indices (array_indices)",
+    "description": "One submission, many independent subjobs. Examples: 1-100 runs 100 subjobs; 0-999:10 runs 100 subjobs stepping by 10; 1-4,9-10 runs 6. Each subjob sees its own index in $PBS_ARRAY_INDEX. Only digits, '-', ':' and ',' are accepted.",
+    "placeholder": "1-100",
+    "className": "form-control",
+    "name": "array_indices",
+    "value": "1-10",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Resources per subjob"
+  },
+  {
+    "type": "paragraph",
+    "label": "These describe ONE subjob, not the whole array. Capacity is sized from them multiplied by the subjob count, so raising a value here multiplies across every subjob."
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "What type of instance do you want to use? (instance_type)",
+    "description": "EC2 instance type to provision. Several subjobs share one instance when its CPU and memory allow, so a larger instance runs more subjobs per node rather than running them faster.",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "Small (2 vCPUs, 4 GB RAM)",
+        "value": "c6i.large",
+        "selected": false
+      },
+      {
+        "label": "Medium (4 vCPUs, 8 GB RAM)",
+        "value": "c6i.xlarge",
+        "selected": true
+      },
+      {
+        "label": "Large (8 vCPUs, 16 GB RAM)",
+        "value": "c6i.2xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "vCPUs per subjob (ncpus_per_subjob)",
+    "description": "How many cores ONE subjob needs. This also sets how many subjobs share an instance: 1 vCPU each on a 4-core instance packs 4 per node, while 4 vCPUs each gives one subjob the whole node.",
+    "className": "form-control",
+    "name": "ncpus_per_subjob",
+    "values": [
+      {
+        "label": "1 vCPU (densest packing)",
+        "value": "1",
+        "selected": true
+      },
+      {
+        "label": "2 vCPUs",
+        "value": "2",
+        "selected": false
+      },
+      {
+        "label": "4 vCPUs",
+        "value": "4",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Memory per subjob (mem_per_subjob)",
+    "description": "Requested explicitly because subjobs share an instance. Without it the scheduler places subjobs on CPU alone and the ones sharing a host can exhaust its memory between them. Must not exceed the instance's memory.",
+    "className": "form-control",
+    "name": "mem_per_subjob",
+    "values": [
+      {
+        "label": "1 GB",
+        "value": "1gb",
+        "selected": false
+      },
+      {
+        "label": "2 GB",
+        "value": "2gb",
+        "selected": true
+      },
+      {
+        "label": "4 GB",
+        "value": "4gb",
+        "selected": false
+      },
+      {
+        "label": "8 GB",
+        "value": "8gb",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Job"
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job Name (job_name)",
+    "placeholder": "Do not use spaces",
+    "className": "form-control",
+    "name": "job_name",
+    "value": "my_array",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Queue (queue)",
+    "description": "An EDH-managed queue provisions capacity for the array. The alwayson queue instead runs the subjobs across whatever always-on nodes already exist, packing them as those nodes allow.",
+    "className": "form-control",
+    "name": "queue",
+    "values": [
+      {
+        "label": "normal",
+        "value": "normal",
+        "selected": true
+      },
+      {
+        "label": "high",
+        "value": "high",
+        "selected": false
+      },
+      {
+        "label": "low",
+        "value": "low",
+        "selected": false
+      },
+      {
+        "label": "alwayson (no provisioning)",
+        "value": "alwayson",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "header",
+    "subtype": "h4",
+    "label": "Advanced"
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "Commands to run BEFORE the solver (user_pre_exec)",
+    "description": "Runs inside every subjob, not once for the array.",
+    "className": "form-control",
+    "name": "user_pre_exec",
+    "rows": 3
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "Commands to run AFTER the solver (user_post_exec)",
+    "description": "Runs inside every subjob, not once for the array.",
+    "className": "form-control",
+    "name": "user_post_exec",
+    "rows": 3
+  }
+]

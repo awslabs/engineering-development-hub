@@ -77,9 +77,11 @@
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
                                                        title="{{ _("The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error") }}"
-                                                       for="root_size">{{ _("Root Disk Size (in GB)") }}</label>
+                                                       for="root_size">{{ _("Minimum Root Disk Size (in GB)") }}</label>
                                                 <input type="number" min=0 value={{ software_stack_info.ami_root_disk_size }} id="root_size" class="form-control"
                                                        required name="root_size">
+                                                {% set _stack_is_windows = (software_stack_info.os_family == "windows") or ("windows" in (software_stack_info.ami_base_os or "")) %}
+                                                <small class="form-text text-muted">{{ _("Users cannot launch below this size. Set 0 to use the cluster minimum (currently %(min)s GB for this stack's OS). The launch form offers the cluster default (currently %(size)s GB), or the minimum if it is larger.", min=(root_defaults.min_windows if _stack_is_windows else root_defaults.min_linux), size=(root_defaults.windows if _stack_is_windows else root_defaults.linux)) }}</small>
                                             </div>
 
                                              <div class="form-group">

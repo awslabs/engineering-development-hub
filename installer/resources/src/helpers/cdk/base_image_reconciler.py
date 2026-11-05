@@ -27,6 +27,7 @@ from aws_cdk import aws_ssm as ssm
 from aws_cdk import custom_resources as cr
 
 from helpers import security_groups as security_groups_helper
+from helpers import ec2 as ec2_helper
 
 logger = logging.getLogger("soca_logger")
 
@@ -152,9 +153,7 @@ def build_base_image_reconciler(
         log_group=scope.generate_log_group(name="BaseImageReconcilerLambda"),
         role=role,
         vpc=vpc,
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-        ),
+        vpc_subnets=ec2_helper.private_subnet_type_selection(vpc),
         security_groups=[sg],
         environment={
             "EDH_CLUSTER_ID": cluster_id,

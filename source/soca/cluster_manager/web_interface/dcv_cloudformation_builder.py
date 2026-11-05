@@ -29,7 +29,6 @@ from troposphere.ec2 import (
     LaunchTemplateBlockDeviceMapping,
     NetworkInterfaces,
     Placement,
-    Tag,
 )
 import troposphere.ec2 as ec2
 import logging
@@ -38,6 +37,11 @@ from utils.response import SocaResponse
 from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.aws.ec2_helper import describe_images
+from utils.version import __version__
+from utils.aws.cfn_tag_helper import (
+    build_launch_template_tag_specifications,
+    build_tag_specifications,
+)
 
 logger = logging.getLogger("soca_logger")
 
@@ -104,7 +108,7 @@ def main(**launch_parameters):
         t = Template()
         t.set_version("2010-09-09")
         t.set_description(
-            "(SOCA) - Base template to deploy DCV nodes version 26.8.0"
+            f"(SOCA) - Base template to deploy DCV nodes version {__version__}"
         )
         # Async placement: subnet + ODCR are chosen by the DcvPlacement Lambda
         # at stack-create time and injected as CFN parameters by CapacityExecutor,
@@ -169,21 +173,6 @@ def main(**launch_parameters):
                         f"{tag} does not have Enabled key or Enabled is False."
                     )
 
-        # Make sure that the requested disk size is proper
-        # This allows the admin to define a min size for DCV sessions
-        # and register this size as part of the AMI registration process.
-        # This in turn cannot be smaller than the AMI size either.
-
-        _root_size_gb_list = []
-
-        # What did the user ask for?
-        if "disk_size" not in launch_parameters or not launch_parameters.get(
-            "disk_size", False
-        ):
-            _root_size_gb_list.append(40)  # DEFAULT size fallback
-        else:
-            _root_size_gb_list.append(int(launch_parameters["disk_size"]))
-
         # Per-stack override falls back to the fleet SocaConfig default. The
         # fleet key is optional: allow_unknown_key + success gate resolve an
         # unset key to no-PRVI without emitting a not-found error every launch.
@@ -194,17 +183,29 @@ def main(**launch_parameters):
             launch_parameters.get("volume_acceleration"),
             _fleet_vir_resp.message if _fleet_vir_resp.success else None,
         )
-        if launch_parameters["disk_size"] is False:
-            _root_volume_size = 40
-        else:
-            _dsz = SocaCastEngine(launch_parameters["disk_size"]).cast_as(expected_type=int)
-            _root_volume_size = _dsz.get("message") if _dsz.get("success") else 40
+        # Size, type, IOPS and throughput arrive already resolved and bounded
+        # by helpers.vdi_root_volume.resolve_vdi_root_volume(); every caller
+        # goes through it, so there is no second default here.
         _ebs_root_kwargs = dict(
-            VolumeSize=_root_volume_size,
-            VolumeType=launch_parameters.get("volume_type", "gp3"),
+            VolumeType=launch_parameters.get("volume_type") or "gp3",
             DeleteOnTermination=True,
             Encrypted=True,
         )
+        for _ebs_key, _param in (
+            ("VolumeSize", "disk_size"),
+            ("Iops", "volume_iops"),
+            ("Throughput", "volume_throughput"),
+        ):
+            _value = launch_parameters.get(_param)
+            # Iops/Throughput are absent for types that reject them.
+            if not _value and _ebs_key != "VolumeSize":
+                continue
+            _cast = SocaCastEngine(_value).cast_as(int)
+            if _cast.get("success") is not True:
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Root volume {_param} {_value!r} is not an integer"
+                )
+            _ebs_root_kwargs[_ebs_key] = _cast.get("message")
         if _effective_vir:
             # Native kwarg; requires troposphere >= 4.9.6 (pinned in
             # soca_python_controller_requirements.txt.j2).
@@ -271,26 +272,23 @@ def main(**launch_parameters):
         #   sync + admin CR-id -> literal "admin" (never auto-replaced)
         #   sync, no CR        -> untagged (no reservation pinned to the instance)
         if _async_placement:
-            _cr_source_tags = [
-                Tag(
-                    Key="edh:CapacityReservationSource",
-                    Value=Ref("CapacityReservationSource"),
-                )
-            ]
+            _cr_source_tags = {
+                "edh:CapacityReservationSource": Ref("CapacityReservationSource")
+            }
         elif launch_parameters.get("capacity_reservation_id"):
-            _cr_source_tags = [
-                Tag(Key="edh:CapacityReservationSource", Value="admin")
-            ]
+            _cr_source_tags = {"edh:CapacityReservationSource": "admin"}
         else:
-            _cr_source_tags = []
+            _cr_source_tags = {}
 
-        ltd.TagSpecifications = [
-            ec2.TagSpecifications(
-                ResourceType="instance",
-                Tags=[Tag(Key=k, Value=v) for k, v in _base_tags.items()]
-                + _cr_source_tags,
-            )
-        ]
+        # Tags. Covers instance, volume and network-interface at launch.
+        _ltd_tag_specifications = build_tag_specifications(
+            base_tags={**_base_tags, **_cr_source_tags}
+        )
+        if _ltd_tag_specifications.get("success") is False:
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to build LaunchTemplateData TagSpecifications because of {_ltd_tag_specifications.get('message')}"
+            ).as_flask()
+        ltd.TagSpecifications = _ltd_tag_specifications.get("message")
 
         ltd.MetadataOptions = MetadataOptions(
             HttpEndpoint="enabled",
@@ -353,12 +351,14 @@ def main(**launch_parameters):
         lt.LaunchTemplateData = ltd
         # Tag the launch template resource itself (LaunchTemplateData.TagSpecifications
         # only tags the instances/volumes it launches, not the LT). (V2149182652)
-        lt.TagSpecifications = [
-            ec2.TagSpecifications(
-                ResourceType="launch-template",
-                Tags=[Tag(Key=k, Value=v) for k, v in _base_tags.items()],
-            )
-        ]
+        _lt_tag_specifications = build_launch_template_tag_specifications(
+            base_tags=_base_tags
+        )
+        if _lt_tag_specifications.get("success") is False:
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to build LaunchTemplate TagSpecifications because of {_lt_tag_specifications.get('message')}"
+            ).as_flask()
+        lt.TagSpecifications = _lt_tag_specifications.get("message")
         t.add_resource(lt)
 
         if launch_parameters.get("nested_virtualization") is True:

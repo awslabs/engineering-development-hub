@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# Apptainer Container Test wrapper (Slurm)
+# ========================================
+# Slurm equivalent of job_pbs.sh.j2. Dispatches to the same bundled validation
+# script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh
+#
+# --comment is NOT read by Slurm. It is how EDH receives the provisioning
+# parameters (instance_type, base_os, ...), which Slurm itself has no concept of
+# -- see utils/hpc/job_controller.py::slurm_update_comment. Without it this
+# sample silently lands on the cluster default instance type while still printing
+# the instance_type the user picked on the form.
+#
+# FORMAT IS LOAD-BEARING: utils/hpc/job_fetcher.py splits this string on SPACES
+# and then on the first "=" of each part, discarding any part with no "=". So the
+# pairs must be space separated with no spaces around "=". A semicolon separated
+# list parses as ONE pair whose value is the rest of the string, which silently
+# yields a nonexistent instance type.
+#
+#SBATCH --job-name={{job_name}}
+#SBATCH --partition=normal
+#SBATCH --time={{walltime}}
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node={{ncpus}}
+#SBATCH --comment="instance_type={{instance_type}} base_os={{base_os}}"
+#SBATCH --output={{job_name}}.%j.out
+#SBATCH --error={{job_name}}.%j.err
+
+set -uo pipefail
+
+cd "${SLURM_SUBMIT_DIR:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer Container Test: {{job_name}}"
+echo "  instance_type: {{instance_type}}"
+echo "  base_os:       {{base_os}}"
+echo "  walltime:      {{walltime}}"
+echo "  SLURM_JOB_ID:  ${SLURM_JOB_ID:-unknown}"
+echo "  Started:       $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+APPTAINER_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh"
+if [[ ! -x "${APPTAINER_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer Container Test complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "=========================================="
+
+exit ${RESULT}

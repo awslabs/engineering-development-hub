@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-CDK helper: resources_mirroring — cloud-side mirror executor.
+CDK helper: resources_mirroring -- cloud-side mirror executor.
 
 Provisions (D1-D15):
   - ResourceMirrorExecutor Lambda (one invocation per manifest item; region-aware)
@@ -187,10 +187,19 @@ def resources_mirroring(
                         },
                         "ItemFailed": {
                             "Type": "Pass",
+                            # Pass the whole item through rather than naming fields
+                            # individually. A per-field JSONPath here ("s3_target.$":
+                            # "$.s3_target") FAILS this Pass state on an item that
+                            # lacks the field, and a failure inside ItemFailed has no
+                            # Catch above it -- so it fails the entire Map and cancels
+                            # every sibling item. A malformed manifest item (exactly
+                            # what the executor's own guard exists to report) is that
+                            # case. Same reason error is passed whole: $.error.Cause
+                            # is absent on some SFN error shapes, e.g. States.Timeout.
                             "Parameters": {
                                 "status": "failed_caught",
-                                "s3_target.$": "$.s3_target",
-                                "error.$": "$.error.Cause",
+                                "item.$": "$",
+                                "error.$": "$.error",
                             },
                             "End": True,
                         },
@@ -263,6 +272,28 @@ def resources_mirroring(
         actions=["s3:ListBucket"],
         resources=[mirror_bucket_arn],
     ))
+    # Durable run record. The SFN's own execution history lives in a vendedlogs group
+    # retained for two weeks, and the Lambda log groups are the only other record, so
+    # an install older than that leaves nothing to read. This one key outlives both and
+    # is what `edhctl mirror status` reports.
+    #
+    # Deliberately under the `_resources_mirroring/` namespace rather than `system/` or
+    # `configuration/`: those two are the Parameters and Config sections of the
+    # installer's own config, round-tripped by config export and treated as declared
+    # desired state, and this is observed operational state. Follows the existing
+    # `_cache_hashes/` and `_dashboards/` precedent. It is still under the cluster
+    # prefix, so the controller's existing ssm:GetParameter* grant reads it and the
+    # config auditor syncs it into the cache rather than reporting it as drift.
+    trigger_role.add_to_policy(iam.PolicyStatement(
+        actions=["ssm:PutParameter"],
+        resources=[
+            f"arn:{Aws.PARTITION}:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:parameter"
+            f"/edh/{cluster_id}/_resources_mirroring/*"
+        ],
+    ))
+
+    # D10/D12: method label
+    mirroring_method = "cloud-in-vpc-nat" if vpc_config else "cloud-no-vpc"
 
     trigger_lambda = _lambda.Function(
         scope,
@@ -275,11 +306,25 @@ def resources_mirroring(
         timeout=Duration.minutes(block_timeout_minutes),  # must outlast the mirror run
         memory_size=128,
         role=trigger_role,
+        # The same values are ALSO passed as CustomResource properties below, which is
+        # what CFN diffs to decide whether to re-run the resource. They are duplicated
+        # into the environment because the out-of-band recovery path (a direct invoke
+        # from `edhctl mirror recover`) has no ResourceProperties, and an operator
+        # recovering a cluster should not have to supply a state machine ARN.
+        environment={
+            "CLUSTER_ID": cluster_id,
+            "STATE_MACHINE_ARN": state_machine.state_machine_arn,
+            "MANIFEST_BUCKET": mirror_bucket_name,
+            "MANIFEST_KEY": manifest_s3_key,
+            "BUCKET_REGION": mirror_region or "",
+            "FAILURE_MODE": failure_mode,
+            "MIRRORING_METHOD": mirroring_method,
+            "RUN_RECORD_KEY": (
+                f"/edh/{cluster_id}/_resources_mirroring/last_run"
+            ),
+        },
         log_group=scope.generate_log_group(name="ResourceMirrorTriggerLambda"),
     )
-
-    # D10/D12: method label
-    mirroring_method = "cloud-in-vpc-nat" if vpc_config else "cloud-no-vpc"
 
     CustomResource(
         scope,

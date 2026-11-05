@@ -167,7 +167,7 @@
                                                     {% if p.type == 'bool' %}
                                                         <input type="checkbox" class="form-check-input pref-input" data-pref-type="bool" data-orig="{{ 'true' if p.value else 'false' }}" {{ 'checked' if p.value }}>
                                                     {% elif p.type == 'enum' %}
-                                                        <select class="form-select form-select-sm pref-input" data-pref-type="enum" data-orig="{{ p.value }}" style="width:auto;display:inline-block;">
+                                                        <select class="form-control form-control-sm pref-input" data-pref-type="enum" data-orig="{{ p.value }}" style="width:auto;display:inline-block;">
                                                         {% for opt in p.allowed %}
                                                             <option value="{{ opt }}" {{ 'selected' if opt == p.value }}>{{ opt }}</option>
                                                         {% endfor %}
@@ -179,7 +179,7 @@
                                                     {% endif %}
                                                     </td>
                                                     <td class="pref-delta small text-muted"></td>
-                                                    <td><span class="badge bg-{{ 'primary' if p.source == 'user' else 'secondary' }}">{{ p.source }}</span></td>
+                                                    <td><span class="badge bg-{{ 'primary' if p.source == 'user' else 'secondary' }} text-white">{{ p.source }}</span></td>
                                                     <td>
                                                     {% if p.is_set %}
                                                         <button type="button" class="btn btn-sm btn-link pref-reset">{{ _("Reset") }}</button>

@@ -13,7 +13,6 @@ from aws_cdk import (
     Duration,
     Aws,
     CustomResource,
-    aws_ec2 as ec2,
     aws_events as events,
     aws_events_targets,
     aws_lambda as aws_lambda,
@@ -23,6 +22,8 @@ from aws_cdk import (
     aws_ssm as ssm,
     aws_s3_assets as s3_assets,
 )
+
+from helpers import ec2 as ec2_helper
 
 import json
 import hashlib
@@ -254,8 +255,8 @@ def ssm_config_sync(
         # VPC-attached so the Lambda can reach the ElastiCache cluster
         # (private endpoint). Same pattern as DcvEventRelay.
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["ssm_config_sync_lambda_sg"]],
         layers=[
@@ -407,8 +408,8 @@ def ssm_config_sync(
         # off. Avoids retry storms during transient Valkey hiccups.
         retry_attempts=0,
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["ssm_config_sync_lambda_sg"]],
         layers=[
@@ -480,8 +481,8 @@ def ssm_config_sync(
         # automatic retries needed.
         retry_attempts=0,
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["ssm_config_sync_lambda_sg"]],
         layers=[

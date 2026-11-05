@@ -1,0 +1,145 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Phase 5b bootstrap enforcement point for code integrity.
+#
+# Runs after the cluster Python is installed and before j2generator.sh, which is
+# the first thing that actually EXECUTES out of the shipped tree. So a tampered
+# tree is still caught before any of it runs, while the gate gets to use the same
+# interpreter as edhctl (/opt/edh/<cluster>/python/latest/bin/python3) rather
+# than the distro python -- AL2023 ships 3.9, and pinning a modern floor on the
+# system interpreter would be a needless constraint.
+#
+# The check still only needs utils/integrity_manifest.py, which is
+# dependency-free: no venv activation, no boto3, no flask, and therefore nothing
+# from the web tier has to be importable this early.
+#
+# This gate also writes the Phase 6 BUILD-TIME DEVIATION RECORD. The epic
+# specified that record must run "immediately after extraction, before npm
+# install and the Python runtime install" so it sees only the shipped tree --
+# but that constraint predates RUNTIME_PREFIXES. The deviation set is MODIFIED +
+# MISSING over manifest-TRACKED paths only, and python/, packages/, and
+# node_modules/ are untracked by construction, so nothing installed between
+# extraction and here can contaminate it. One gate is therefore correct, and it
+# gets the cluster interpreter rather than the distro one.
+#
+# THE LOAD-BEARING DISTINCTION, do not collapse these:
+#
+#   * failure to PRODUCE the check (no manifest, no python3, unreadable file)
+#     -> ALWAYS non-fatal. An infrastructure hiccup running a diagnostic must
+#        never stop a node from booting.
+#   * deviations FOUND by the check
+#     -> fatality governed by /configuration/Integrity/on_validation_failure.
+#        That is a policy decision, and an operator with strict change control
+#        has a legitimate reason to want a node to refuse to come up.
+#
+# The knob is resolved from the Jinja context at render time with a shell-side
+# default, matching how on_mount_failure is resolved in
+# filesystems_automount.sh.j2. Vocabulary reuses exit/ignore rather than
+# inventing off/fail.
+
+log_info "Verifying code integrity of the extracted tree"
+
+_EDH_TREE="/opt/edh/{{ context.get('/configuration/ClusterId') }}"
+_EDH_INTEGRITY_MODULE="${_EDH_TREE}/cluster_manager/utils/integrity_manifest.py"
+_EDH_INTEGRITY_MANIFEST="${_EDH_TREE}/.edh-integrity-manifest.json"
+# Same interpreter edhctl uses, so the gate and `edhctl support verify` can never
+# disagree because of a Python version difference.
+_EDH_PYTHON="${_EDH_TREE}/python/latest/bin/python3"
+
+# jq-style `//` default so an unset key behaves as warn rather than empty.
+_EDH_ON_VALIDATION_FAILURE="{{ context.get('/configuration/Integrity/on_validation_failure') or 'warn' }}"
+case "${_EDH_ON_VALIDATION_FAILURE}" in
+    ignore|warn|exit) : ;;
+    *)
+        log_warning "Unrecognized on_validation_failure '${_EDH_ON_VALIDATION_FAILURE}'; using warn"
+        _EDH_ON_VALIDATION_FAILURE="warn"
+        ;;
+esac
+
+# The check RUNS even under on_validation_failure=ignore. The Phase 6 deviation
+# record is WRITE-ONCE and is produced below, so skipping the whole block under
+# `ignore` would mean a later switch to warn or exit writes that record from an
+# already-drifted tree and labels the drift as shipped-that-way, which is the
+# opposite of the record's purpose. `ignore` therefore suppresses the VERDICT,
+# not the diagnostic.
+if [[ ! -f "${_EDH_INTEGRITY_MANIFEST}" ]]; then
+    # Pre-manifest clusters and any build that did not stamp one. Non-fatal by
+    # design: this is a failure to produce, not a deviation found.
+    log_warning "No integrity manifest at ${_EDH_INTEGRITY_MANIFEST}; skipping integrity check"
+elif [[ ! -x "${_EDH_PYTHON}" ]]; then
+    log_warning "Cluster Python not found at ${_EDH_PYTHON}; skipping integrity check"
+else
+    # Emits: <status> <modified_count> <missing_count>
+    # status is OK, DEVIATIONS, or ERROR. ERROR is always non-fatal.
+    _EDH_INTEGRITY_RESULT=$(
+        EDH_TREE="${_EDH_TREE}" EDH_MODULE="${_EDH_INTEGRITY_MODULE}" \
+            "${_EDH_PYTHON}" - <<'EDH_INTEGRITY_PY' 2>/dev/null
+import importlib.util
+import os
+import sys
+
+try:
+    _tree = os.environ["EDH_TREE"]
+    _spec = importlib.util.spec_from_file_location(
+        "edh_integrity", os.environ["EDH_MODULE"]
+    )
+    _integrity = importlib.util.module_from_spec(_spec)
+    # Do not litter the freshly extracted tree with bytecode.
+    sys.dont_write_bytecode = True
+    _spec.loader.exec_module(_integrity)
+
+    _manifest = _integrity.read_manifest(tree_root=_tree)
+    if not (_manifest.get("files") or {}):
+        print("ERROR 0 0")
+        raise SystemExit(0)
+
+    _deviations = _integrity.compute_deviations(
+        tree_root=_tree, manifest=_manifest
+    )
+    _modified = len(_deviations["modified"])
+    _missing = len(_deviations["missing"])
+
+    # Phase 6 record. WRITE-ONCE and release-only, both enforced inside
+    # write_deviation_record. Caught BROADLY on purpose: the verdict is computed
+    # above and printed below, inside this same block, so anything escaping here
+    # reaches the outer handler and prints ERROR 0 0 instead. That would discard a
+    # real DEVIATIONS result and boot the node even under
+    # on_validation_failure=exit, defeating the knob. Narrowing this to OSError
+    # is what made the comment above untrue.
+    try:
+        _integrity.write_deviation_record(tree_root=_tree, manifest=_manifest)
+    except Exception:
+        pass
+
+    _status = "OK" if (_modified + _missing) == 0 else "DEVIATIONS"
+    print(f"{_status} {_modified} {_missing}")
+except Exception:
+    # Producing the check failed. Never fatal.
+    print("ERROR 0 0")
+EDH_INTEGRITY_PY
+    )
+
+    _EDH_INTEGRITY_STATUS=$(echo "${_EDH_INTEGRITY_RESULT}" | awk '{print $1}')
+    _EDH_INTEGRITY_MODIFIED=$(echo "${_EDH_INTEGRITY_RESULT}" | awk '{print $2}')
+    _EDH_INTEGRITY_MISSING=$(echo "${_EDH_INTEGRITY_RESULT}" | awk '{print $3}')
+
+    case "${_EDH_INTEGRITY_STATUS}" in
+        OK)
+            log_info "Integrity check passed: extracted tree matches the shipped manifest"
+            ;;
+        DEVIATIONS)
+            if [[ "${_EDH_ON_VALIDATION_FAILURE}" == "exit" ]]; then
+                exit_fail "Integrity check FAILED: ${_EDH_INTEGRITY_MODIFIED} modified, ${_EDH_INTEGRITY_MISSING} missing file(s) versus the shipped manifest. on_validation_failure=exit, so this node will not continue. Run 'edhctl support verify' on a working controller for detail, or set /configuration/Integrity/on_validation_failure to warn to boot anyway."
+            elif [[ "${_EDH_ON_VALIDATION_FAILURE}" == "ignore" ]]; then
+                log_info "Integrity check found ${_EDH_INTEGRITY_MODIFIED} modified and ${_EDH_INTEGRITY_MISSING} missing file(s); not reported as a deviation (on_validation_failure=ignore). The build-time deviation record was still written."
+            else
+                log_warning "Integrity check found deviations: ${_EDH_INTEGRITY_MODIFIED} modified, ${_EDH_INTEGRITY_MISSING} missing file(s) versus the shipped manifest. Continuing (on_validation_failure=${_EDH_ON_VALIDATION_FAILURE}). Run 'edhctl support verify' for detail."
+            fi
+            ;;
+        *)
+            # Includes ERROR and any unexpected output. Non-fatal by design.
+            log_warning "Integrity check could not be completed; continuing. This is never fatal."
+            ;;
+    esac
+fi

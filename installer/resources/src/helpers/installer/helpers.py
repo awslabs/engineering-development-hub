@@ -6,6 +6,9 @@ import boto3
 import sys
 import os
 import datetime
+import fnmatch
+import functools
+import importlib.util
 import time
 import ipaddress
 import shlex
@@ -25,7 +28,7 @@ import urllib.request
 from urllib.parse import urlparse
 import hashlib
 from pydantic import ValidationError
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from pathlib import Path
 from botocore.client import ClientError
 from botocore import config
@@ -46,6 +49,184 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 logger = logging.getLogger("soca_logger")
+
+
+def _load_soca_util(module_name: str, repo_root: Path):
+    # Modules under source/soca ship to nodes, so the installer reads them from
+    # disk rather than duplicating their contents. Anything loaded this way MUST
+    # be dependency-free -- the installer runs outside the cluster venv.
+    _module_path = (
+        repo_root / "source" / "soca" / "cluster_manager" / "utils"
+        / f"{module_name}.py"
+    )
+    _spec = importlib.util.spec_from_file_location(
+        f"edh_{module_name}", _module_path
+    )
+    _module = importlib.util.module_from_spec(_spec)
+    # Executing a module writes bytecode next to it. This runs against the
+    # operator's own source tree moments before make_archive(), so without this
+    # the archive would carry a stray __pycache__ into every node.
+    _previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        _spec.loader.exec_module(_module)
+    finally:
+        sys.dont_write_bytecode = _previous
+    return _module
+
+
+@functools.lru_cache(maxsize=1)
+def get_edh_version() -> str:
+    # Canonical version lives under source/soca so it also ships to nodes; read it, never duplicate it.
+    # Cached because build_boto3_client() calls this on every client construction,
+    # and each uncached call re-reads and re-executes the module file.
+    return _load_soca_util(
+        module_name="version", repo_root=Path(__file__).resolve().parents[5]
+    ).__version__
+
+
+def verify_installer_tree(release_root: str) -> dict:
+    """Verify installer/** against the shipped installer manifest (Phase 7).
+
+    This runs HERE, on the operator's workstation, because it is the only place
+    the installer tree exists. installer/** never reaches a node, so
+    `edhctl support verify` on a cluster has nothing to compare -- a node-only
+    check would miss this class of modification entirely, and a recent customer
+    fork's changes were located entirely in installer/.
+
+    Verifying before the deploy is also strictly more useful than verifying
+    after: a tampered or forked installer tree is caught before it builds a
+    cluster rather than after.
+
+    Returns {"status": ..., "modified": [...], "missing": [...]}. status is
+    "verified", "deviations", or "no_baseline". Never raises and never exits --
+    failure to PRODUCE this check is not a reason to block an install.
+    """
+    try:
+        _integrity = _load_soca_util(
+            module_name="integrity_manifest", repo_root=Path(release_root)
+        )
+        _manifest = _integrity.read_installer_manifest(release_root=release_root)
+        if not (_manifest.get("files") or {}):
+            return {"status": "no_baseline", "modified": [], "missing": []}
+
+        _on_disk = _integrity.build_file_map(
+            tree_root=release_root,
+            exclude_prefixes=(f"{_integrity.CODE_TREE_PREFIX}/",),
+        )
+        _modified = []
+        _missing = []
+        for _relative_path, _expected_hash in _manifest["files"].items():
+            _actual_hash = _on_disk.get(_relative_path)
+            if _actual_hash is None:
+                _missing.append(_relative_path)
+            elif _actual_hash != _expected_hash:
+                _modified.append(_relative_path)
+
+        return {
+            "status": "deviations" if (_modified or _missing) else "verified",
+            "modified": sorted(_modified),
+            "missing": sorted(_missing),
+            "build_id": _manifest.get("build_id"),
+            "tracked": len(_manifest["files"]),
+        }
+    except Exception as _err:
+        logger.debug(f"Installer tree verification could not run: {_err}")
+        return {"status": "no_baseline", "modified": [], "missing": []}
+
+
+def report_installer_tree_integrity(release_root: str) -> None:
+    """Log the installer-tree verdict at startup. Advisory, never fatal.
+
+    Paths are printed because every one is already public in the GitHub release,
+    exactly as in `edhctl support verify`. File content is never printed.
+    """
+    _result = verify_installer_tree(release_root=release_root)
+
+    if _result["status"] == "no_baseline":
+        logger.debug(
+            "No installer integrity manifest present; skipping installer-tree "
+            "verification. This is expected when installing from a source "
+            "checkout rather than a published release."
+        )
+        return
+
+    if _result["status"] == "verified":
+        logger.info(
+            f"Installer tree verified against the shipped manifest "
+            f"({_result['tracked']} files, build_id={_result['build_id']})."
+        )
+        return
+
+    logger.warning(
+        f"Installer tree DEVIATES from the shipped manifest "
+        f"(build_id={_result['build_id']}): "
+        f"{len(_result['modified'])} modified, {len(_result['missing'])} missing. "
+        f"This install will deploy code that differs from the published release."
+    )
+    for _relative_path in _result["modified"]:
+        logger.warning(f"  modified: {_relative_path}")
+    for _relative_path in _result["missing"]:
+        logger.warning(f"  missing:  {_relative_path}")
+
+
+def generate_dev_manifest_if_needed(source_soca_directory: str, repo_root: str):
+    # Without this the manifest is only ever produced by the full release path,
+    # so no development cluster would carry one, `edhctl support verify` would
+    # no-op, and the entire code path would rot between release cycles.
+    #
+    # A release manifest is authoritative and left untouched. A *dev* manifest
+    # is always regenerated: it describes whichever tree it was generated from,
+    # so reusing a stale one left behind by an earlier install of a different
+    # tree would silently validate against the wrong baseline.
+    #
+    # HONEST LIMITATION: a dev manifest is a SELF-BASELINE. It matches the tree
+    # it was generated from, so it detects post-install drift but cannot detect
+    # workstation-side modification -- the same flaw that disqualified
+    # soca.tar.gz as a baseline. For dev builds, build-time provenance rests on
+    # build_type + git_dirty + commit SHA, not on hash verification.
+    # Failure to produce a diagnostic must never abort an install. Only
+    # deviations FOUND by a check are subject to the fatality knob.
+    #
+    # The WHOLE body is guarded, and on Exception rather than OSError. This runs
+    # immediately before make_archive() on both installer paths, so anything that
+    # escapes takes the deployment with it -- and the two riskiest calls are the
+    # module load, which imports and execs a file off disk, and read_manifest,
+    # which parses JSON. Neither raises OSError for the failures that matter.
+    try:
+        _integrity = _load_soca_util(
+            module_name="integrity_manifest", repo_root=Path(repo_root)
+        )
+
+        _existing = _integrity.read_manifest(tree_root=source_soca_directory)
+        if _existing.get("build_type") == _integrity.BUILD_TYPE_RELEASE:
+            logger.debug(
+                f"Release manifest present (build_id "
+                f"{_existing.get('build_id')}); leaving it untouched."
+            )
+            return
+
+        _manifest = _integrity.build_manifest(
+            tree_root=source_soca_directory,
+            version=get_edh_version(),
+            build_type=_integrity.BUILD_TYPE_DEV,
+            git_directory=repo_root,
+        )
+        _integrity.write_manifest(
+            tree_root=source_soca_directory, manifest=_manifest
+        )
+        logger.info(
+            f"Generated dev integrity manifest: "
+            f"{len(_manifest['files'])} files, "
+            f"build_id={_manifest['build_id']} "
+            f"(self-baseline -- detects post-install drift only)"
+        )
+    except Exception as _err:
+        logger.warning(
+            f"Could not generate the dev integrity manifest ({_err}). "
+            f"Install continues; `edhctl support verify` will report no "
+            f"baseline on this cluster."
+        )
 
 
 class CustomFormatter(logging.Formatter):
@@ -193,7 +374,9 @@ def build_boto3_client(
         f"Building boto3 client for {service_name} in region {region_name} "
         f"with resource={resource}"
     )
-    aws_solution_user_agent = {"user_agent_extra": "AwsSolution/SO0072/26.8.0"}
+    aws_solution_user_agent = {
+        "user_agent_extra": f"AwsSolution/SO0072/{get_edh_version()}"
+    }
     boto_extra_config = config.Config(**aws_solution_user_agent)
 
     _t0 = time.monotonic()
@@ -387,6 +570,112 @@ def aggregate_address(
         return ""
 
 
+_CIDR_INPUT_SEPARATORS: str = ",;"
+
+
+def normalize_cidr_input(value: Any) -> list:
+    """
+    Split one operator answer into a list of CIDRs, dropping exact duplicates.
+
+    Accepts a single CIDR, a delimited string ("10.0.0.0/8, 192.0.2.0/24"), a
+    list of either, or None. Order is preserved and overlapping entries are kept
+    as given.
+
+    Normalization only: an unparseable value passes through so the model
+    validator can reject it by name.
+    """
+    if value is None:
+        return []
+
+    _items: list = value if isinstance(value, list) else [value]
+
+    _flat: list = []
+    for _item in _items:
+        if not isinstance(_item, str):
+            _flat.append(_item)
+            continue
+        _candidate: str = _item
+        for _separator in _CIDR_INPUT_SEPARATORS:
+            _candidate = _candidate.replace(_separator, " ")
+        _flat.extend(_candidate.split())
+
+    # Compare normalized (10.0.0.1/8 and 10.0.0.0/8 are one entry), keep verbatim.
+    _unique: list = []
+    _seen: set = set()
+    for _entry in _flat:
+        _key: Any = _entry
+        if isinstance(_entry, str) and "/" in _entry:
+            try:
+                _key = str(ipaddress.ip_network(_entry, strict=False))
+            except ValueError:
+                _key = _entry
+        if _key in _seen:
+            continue
+        _seen.add(_key)
+        _unique.append(_entry)
+
+    logger.debug(f"normalize_cidr_input - {value=} normalized to {_unique=}")
+    return _unique
+
+
+# An existing VPC must carry 2 public and 2 private subnets for a public
+# deployment. A private deployment places every entry point in a private subnet
+# and selects no public subnet, so it needs only the 2 private ones. Two is a
+# floor rather than a preference: OpenSearch exits the synth below 2 private
+# subnets (helpers/analytics.py).
+EXISTING_VPC_MIN_SUBNETS: dict = {"public": 4, "private": 2}
+
+
+def is_private_deployment(deployment_mode: Any) -> bool:
+    """
+    True when the operator asked for private load balancers.
+
+    Tests for "private" rather than "not public": the installer relaxes the
+    public subnet requirement only on an explicit choice, so a run that somehow
+    reaches the subnet gates without a mode is held to the stricter one. The CDK
+    layer reads the same value the other way around (deployment_mode ==
+    "public"), and both prompts and --deployment-mode offer only these two.
+    """
+    return deployment_mode == "private"
+
+
+def existing_vpc_subnet_requirement(deployment_mode: Any) -> tuple:
+    """
+    (minimum subnet count, that requirement in words) for an existing VPC.
+    """
+    if is_private_deployment(deployment_mode=deployment_mode):
+        return EXISTING_VPC_MIN_SUBNETS["private"], "2 private"
+    return EXISTING_VPC_MIN_SUBNETS["public"], "2 public + 2 private"
+
+
+def supplied_subnets_error(
+    deployment_mode: Any, public_subnets: Any, private_subnets: Any
+) -> Optional[str]:
+    """
+    Why --vpc-id cannot be honored with the subnet lists supplied, or None.
+
+    --vpc-id means the operator picks the subnets, since nothing else can. A
+    private deployment supplies only --private-subnets, because no public
+    subnet is created, selected or consumed on that path.
+    """
+    if not private_subnets:
+        return (
+            "vpc_id is provided without private_subnets. Please provide "
+            "private_subnets or remove vpc_id."
+        )
+
+    if (
+        not is_private_deployment(deployment_mode=deployment_mode)
+        and not public_subnets
+    ):
+        return (
+            "vpc_id is provided without public_subnets. Please provide "
+            "public_subnets, select the private deployment mode, or remove vpc_id."
+        )
+
+    return None
+
+
 def detect_customer_ip(address_family: Literal["ipv4", "ipv6"]) -> str:
     """
     Try to determine the customer IP address by using the checkip.amazonaws.com service.
@@ -437,8 +726,11 @@ def detect_customer_ip(address_family: Literal["ipv4", "ipv6"]) -> str:
         )
         exit(1)
 
+    _manual_flag: str = "--client-ip" if address_family == "ipv4" else "--client-ipv6"
+
     logger.debug(
-        f"\n====== Trying to detect your {_formal_af_name} address via {check_url} . Use SilentInstall.client_ip in your config file to specify manually if needed ======\n"
+        f"\n====== Trying to detect your {_formal_af_name} address via {check_url} . "
+        f"Pass {_manual_flag} to specify it manually ======\n"
     )
 
     client_ip: str = ""
@@ -508,26 +800,144 @@ def get_ami_mapping() -> dict:
     return mapping
 
 
-def get_install_properties(path: str) -> dict:
-    # Retrieve SOCA configuration properties
-    logger.debug(f"Configuration file path: {path}")
-    try:
-        with open(path, "r") as config_file:
-            config_parameters = yaml.safe_load(config_file)
-    except ScannerError as _err:
-        logger.error(f"{path} is not a valid YAML file. Verify syntax, {_err}")
-        sys.exit(1)
-    except FileNotFoundError:
+# LOCAL_CONFIG_GLOB is the only auto-loaded form, and it is gitignored.
+# LOCAL_CONFIG_EXAMPLE is the shipped template. Neither it nor
+# LOCAL_CONFIG_REFUSED matches the glob; LOCAL_CONFIG_REFUSED is reported with
+# a rename hint rather than ignored.
+LOCAL_CONFIG_GLOB: str = "local_config_*.yml"
+LOCAL_CONFIG_EXAMPLE: str = "local_config.example.yml"
+LOCAL_CONFIG_REFUSED: str = "local_config.yml"
+
+
+def deep_merge_config(base: dict, overlay: dict) -> dict:
+    # Mappings merge key by key; scalars and lists replace outright. Lists
+    # replace rather than concatenate so a layer can shorten dc_ips or a
+    # subnet list, not only extend it.
+    merged: dict = dict(base)
+    for key, overlay_value in overlay.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, dict) and isinstance(overlay_value, dict):
+            merged[key] = deep_merge_config(base_value, overlay_value)
+        else:
+            merged[key] = overlay_value
+    return merged
+
+
+def _config_leaf_keys(node: dict, prefix: str = ""):
+    # Dotted paths of every leaf, for provenance. A dict-valued key is not a
+    # leaf; an empty dict is, since it carries a value the merge can replace.
+    for key, value in node.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict) and value:
+            yield from _config_leaf_keys(value, path)
+        else:
+            yield path
+
+
+def resolve_config_paths(
+    explicit_paths: Optional[list] = None,
+    default_config_path: Optional[str] = None,
+) -> list:
+    # Layer order, lowest precedence first: shipped defaults, local_config_*.yml
+    # in sorted order, then --config paths in the order given.
+    if default_config_path is None:
+        default_config_path = str(
+            Path(__file__).resolve().parents[4] / "default_config.yml"
+        )
+
+    _layers: list = [default_config_path]
+    _config_dir = Path(default_config_path).resolve().parent
+
+    # Both near-miss names below are reported rather than skipped. The name the
+    # hint suggests is checked against the glob itself rather than against any
+    # one bad name: swapping .yaml for .yml only replaces the last suffix, so
+    # local_config.yaml lands on LOCAL_CONFIG_REFUSED and local_config.bak.yaml
+    # lands on local_config.bak.yml, which has no underscore and so is not
+    # auto-loaded either. Both would send the operator into a second abort.
+    for _mistyped in sorted(_config_dir.glob("local_config*.yaml")):
+        _suggested = _mistyped.with_suffix(".yml")
+        if not fnmatch.fnmatch(_suggested.name, LOCAL_CONFIG_GLOB):
+            _suggested = _config_dir / "local_config_site.yml"
         logger.error(
-            f"{path} not found. Make sure the file exist and the path is correct."
+            f"Found {_mistyped}, but an auto-loaded overlay must match "
+            f"{LOCAL_CONFIG_GLOB}. Rename it to {_suggested} or pass it with "
+            f"--config."
         )
         sys.exit(1)
 
-    if config_parameters:
-        return config_parameters
-    else:
+    _refused = _config_dir / LOCAL_CONFIG_REFUSED
+    if _refused.is_file():
+        logger.error(
+            f"Found {_refused}, which is not loaded: an auto-loaded overlay must "
+            f"match {LOCAL_CONFIG_GLOB}. Rename it to "
+            f"{_config_dir / 'local_config_site.yml'} (any suffix after the "
+            f"underscore works) or pass it with --config."
+        )
+        sys.exit(1)
+
+    # Sorted so ordering is explicit and reproducible: local_config_10_base.yml
+    # applies before local_config_20_site.yml.
+    for _overlay in sorted(_config_dir.glob(LOCAL_CONFIG_GLOB)):
+        _layers.append(str(_overlay))
+
+    _layers.extend(explicit_paths or [])
+    return _layers
+
+
+def get_install_properties(
+    path: Optional[str] = None, paths: Optional[list] = None
+) -> dict:
+    # Retrieve SOCA configuration properties, merging each layer over the last.
+    _paths: list = paths if paths is not None else [path]
+    logger.debug(f"Configuration file layers: {_paths}")
+
+    config_parameters: dict = {}
+    provenance: dict = {}
+
+    for _path in _paths:
+        try:
+            with open(_path, "r") as config_file:
+                _layer = yaml.safe_load(config_file)
+        # YAMLError, not ScannerError: an unclosed flow sequence raises
+        # ParserError, which ScannerError does not catch.
+        except yaml.YAMLError as _err:
+            logger.error(f"{_path} is not a valid YAML file. Verify syntax, {_err}")
+            sys.exit(1)
+        except FileNotFoundError:
+            logger.error(
+                f"{_path} not found. Make sure the file exist and the path is correct."
+            )
+            sys.exit(1)
+
+        if not _layer:
+            logger.debug(f"{_path} is empty, nothing to merge")
+            continue
+        if not isinstance(_layer, dict):
+            logger.error(f"{_path} must contain a YAML mapping at the top level")
+            sys.exit(1)
+
+        for _key in _config_leaf_keys(_layer):
+            provenance[_key] = _path
+        config_parameters = deep_merge_config(config_parameters, _layer)
+
+    if not config_parameters:
         return {}
-        # sys.exit("No parameters were found in configuration file.")
+
+    _base_layer = _paths[0]
+    _overridden = {k: v for k, v in provenance.items() if v != _base_layer}
+    if _overridden:
+        logger.info(
+            f"{len(_overridden)} configuration key(s) overridden by {len(_paths) - 1} "
+            f"additional layer(s)"
+        )
+        for _key, _source in sorted(_overridden.items()):
+            logger.debug(f"  {_key} <- {_source}")
+
+    # Provenance is logged, never returned: this dict is JSON-serialized into
+    # the CDK context and partly written to SSM, so an extra key would travel.
+    # version is single-sourced from utils/version.py, never from the YAML.
+    config_parameters.setdefault("Config", {})["version"] = get_edh_version()
+    return config_parameters
 
 
 def retrieve_secret_value(secretsmanager_client: boto3.client, secret_id: str) -> dict:
@@ -562,6 +972,15 @@ def upload_objects(
         )
         shutil.rmtree(dist_directory)
     os.makedirs(dist_directory)
+
+    # Stamp the integrity baseline BEFORE archiving, or it never reaches a node.
+    # Release builds already carry one and it is left untouched. Both installer
+    # entry points archive source/soca separately, so both must call this or the
+    # feature silently no-ops on whichever path skips it.
+    generate_dev_manifest_if_needed(
+        source_soca_directory=f"{install_directory}/../../../source/soca",
+        repo_root=f"{install_directory}/../../..",
+    )
 
     # Move required file to dist/ directory
     make_archive(
@@ -626,6 +1045,8 @@ def upload_objects(
 
 def build_lambda_dependency(install_directory: str) -> int:
     logger.debug("Building Lambda dependency")
+    from cdk_construct import LAMBDA_PYTHON_VERSION
+
     lambda_functions_folders = f"{install_directory}/../functions/"
     for _dir in os.scandir(lambda_functions_folders):
         if _dir.is_file():
@@ -637,7 +1058,7 @@ def build_lambda_dependency(install_directory: str) -> int:
                     "pip3",
                     "install",
                     "--python-version",
-                    f"{os.environ['SOCA_PYTHON_VERSION']}",
+                    LAMBDA_PYTHON_VERSION,
                     "-r",
                     f"{_dir.path}/requirements.txt",
                     "--platform",
@@ -715,7 +1136,7 @@ def check_prefix_list(ec2_client: boto3.client, prefix_list_id: str) -> dict | N
     logger.debug(f"Prefix List ID: {_pl['PrefixListId']}")
     logger.debug(f"Name: {_pl.get('PrefixListName', 'N/A')}")
     logger.debug(f"State: {_pl.get('State', 'N/A')}")
-    logger.debugint(f"Address Family: {_pl.get('AddressFamily', None)}")
+    logger.debug(f"Address Family: {_pl.get('AddressFamily', None)}")
     logger.debug(f"Max Entries: {_pl.get('MaxEntries', 'N/A')}")
     logger.debug(f"Version: {_pl.get('Version', 'N/A')}")
     logger.debug(f"Owner ID: {_pl.get('OwnerId', 'N/A')}")

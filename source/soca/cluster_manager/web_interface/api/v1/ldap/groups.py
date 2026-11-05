@@ -82,7 +82,7 @@ class Groups(Resource):
                           group_dn:
                             type: string
                             description: LDAP Distinguished Name of the group
-                            example: "cn=developers,ou=group,dc=soca,dc=local"
+                            example: "cn=developers,ou=group,dc=edh-test,dc=internal"
                           members:
                             type: array
                             items:
@@ -91,10 +91,10 @@ class Groups(Resource):
                             example: ["john.doe", "jane.smith"]
                       example:
                         "developers":
-                          group_dn: "cn=developers,ou=group,dc=soca,dc=local"
+                          group_dn: "cn=developers,ou=group,dc=edh-test,dc=internal"
                           members: ["john.doe", "jane.smith"]
                         "admins":
-                          group_dn: "cn=admins,ou=group,dc=soca,dc=local"
+                          group_dn: "cn=admins,ou=group,dc=edh-test,dc=internal"
                           members: ["admin"]
           '400':
             description: Malformed client input
@@ -201,7 +201,7 @@ class Groups(Resource):
                 attr_list=_attr_list,
             )
             if _groups.success:
-                # ex: ('cn=edhadminsocagroup,ou=group,dc=soca-dev200,dc=local', {'cn': [b'edhadminsocagroup'], 'memberUid': [b'edhadmin']})
+                # ex: ('cn=edhadminedhgroup,ou=group,dc=edh-test,dc=internal', {'cn': [b'edhadminedhgroup'], 'memberUid': [b'edhadmin']})
                 for group in _groups.message:
                     group_base = group[0]
                     group_name = (

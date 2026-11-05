@@ -13,16 +13,25 @@ needs to decorate the size list and the "ready now" quick-launch zone:
     {
       "<stack_id>": {
         "<instance_type>": {
-            "ready_now": <int>,   # AVAILABLE hot members -> instant claim
-            "warming":   <int>,   # warm capacity (starts in ~30s)
-            "label":     "<str>"  # optional admin display tag, may be ""
+            "ready_now":       <int>,   # AVAILABLE hot members -> instant claim
+            "warming":         <int>,   # MEASURED promotable warm members
+            "warming_up":      <int>,   # warm members still booting in
+            "warm_measured":   <bool>,  # False -> depth unknown, promise nothing
+            "warm_configured": <int>,   # what the admin asked for
+            "label":           "<str>"  # optional admin display tag, may be ""
         }, ...
       }, ...
     }
 
+`warming` is a measurement taken by the reconciler, not the admin's configured
+warm_count. The two differ whenever a warm pool is still filling, failed to
+fill, or has been partly consumed -- which is exactly when the modal must not
+promise warm capacity.
+
 This is intentionally a thin, cheap, end-user-safe read (one ledger COUNT
-query per enabled entry) so the modal can poll it (~15s) without touching the
-heavier software-stacks list API. Admin-only pool mutation lives in pool.py.
+query per enabled entry, plus one scan of the one-row-per-pool summary table)
+so the modal can poll it (~15s) without touching the heavier software-stacks
+list API. Admin-only pool mutation lives in pool.py.
 
 VDI software stacks only.
 """
@@ -96,7 +105,16 @@ class VdiPoolAvailability(Resource):
                               description: Available hot members for instant claim
                             warming:
                               type: integer
-                              description: Warm capacity starting up
+                              description: Measured warm members parked and promotable
+                            warming_up:
+                              type: integer
+                              description: Measured warm members still booting into the warm pool
+                            warm_measured:
+                              type: boolean
+                              description: False when warm depth is unknown (unstamped pool or describe failure)
+                            warm_configured:
+                              type: integer
+                              description: Admin-configured warm_count, for comparison only
                             label:
                               type: string
                               description: Optional admin display tag
@@ -136,6 +154,25 @@ class VdiPoolAvailability(Resource):
         # true claim-now count -- not stale ledger rows. None -> ledger fallback.
         _ready_ids = vdi_pool_allocator.broker_ready_instance_ids()
 
+        # Reconciler-stamped per-pool depth. `warming` used to report the
+        # admin's CONFIGURED warm_count, which never moves: it did not drop as
+        # warm members were consumed, did not go to zero when a warm pool
+        # failed to fill or was still filling, and was never compared against
+        # the ASG. A type with hot_count=0 and warm_count=5 was therefore
+        # badged as pre-warmed and pinned at the top of the size list while
+        # being unable to serve anybody. Report what the reconciler measured.
+        #
+        # One DDB scan of a one-row-per-pool table, so the endpoint stays
+        # cheap enough for the modal to poll. A read failure leaves
+        # _summaries empty and `warming` reports 0 with warm_measured false,
+        # which is honest: we do not know, so do not promise.
+        _summary_resp = vdi_pool_store.get_pool_summaries()
+        _summaries = (
+            _summary_resp.get("message") or {}
+            if _summary_resp.get("success") is True
+            else {}
+        )
+
         _out = {}
         for _cfg in _configs:
             _stack_id = _cfg.get("stack_id")
@@ -149,11 +186,24 @@ class VdiPoolAvailability(Resource):
                 # cold-launchable sizes like any non-pooled type.
                 if _entry.get("enabled", True) is False:
                     continue
+                _sum = _summaries.get(f"POOL#{_stack_id}#{_it}") or {}
                 _types[_it] = {
                     "ready_now": vdi_pool_allocator.available_count(
                         _stack_id, _it, _ready_ids
                     ),
-                    "warming": int(_entry.get("warm_count") or 0),
+                    # Promotable now: parked warm members a desired-capacity
+                    # bump can start. Excludes members still booting into the
+                    # warm pool, which are reported separately so the UI can
+                    # distinguish "ready in ~30s" from "not yet".
+                    "warming": int(_sum.get("warm_promotable") or 0),
+                    "warming_up": int(_sum.get("warm_warming_up") or 0),
+                    # False when the reconciler has not stamped this pool yet,
+                    # or its warm describe failed. The UI must not promise warm
+                    # capacity on an unmeasured pool.
+                    "warm_measured": bool(_sum.get("warm_measured")),
+                    # What the admin asked for, kept for the admin view and for
+                    # telling "not filled yet" apart from "not configured".
+                    "warm_configured": int(_entry.get("warm_count") or 0),
                     "label": _entry.get("label") or "",
                 }
             _out[str(_stack_id)] = _types

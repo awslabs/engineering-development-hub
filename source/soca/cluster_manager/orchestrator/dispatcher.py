@@ -4,7 +4,10 @@
 import argparse
 import socket
 import os
+import pathlib
 import re
+import shlex
+import stat
 import sys
 import yaml
 from yaml.nodes import MappingNode
@@ -17,6 +20,8 @@ from utils.error import SocaError
 from utils.logger import SocaLogger
 from utils.config import SocaConfig
 from utils.response import SocaResponse
+from utils.cast import SocaCastEngine
+from utils.subprocess_client import SocaSubprocessClient
 
 from utils.aws.ec2_helper import validate_instance_ri_coverage
 
@@ -166,14 +171,87 @@ def load_license_mapping(license_mapping_file: str) -> dict:
         )
 
 
+def query_license_script(
+    script_command: str, minus: int = 0, timeout: int = 30
+) -> SocaResponse:
+    """
+    provider: "script". Run a customer command (absolute script path followed by
+    its arguments, no shell) whose stdout is a single integer: the number of
+    licenses currently AVAILABLE. A non-zero exit code or any other output is an
+    error, so the job stays queued rather than being dispatched on a guess.
+    """
+    logger.info(f"Checking Script-based licenses, executing {script_command=}")
+    try:
+        _command_parts = shlex.split(script_command)
+    except ValueError as _err:
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to parse script_command {script_command!r}: {_err}"
+        )
+    if not _command_parts:
+        return SocaError.GENERIC_ERROR(helper="script_command is empty")
+    _script_path = pathlib.Path(_command_parts[0])
+
+    # Runs on every dispatcher cycle with the dispatcher's privileges, so
+    # refuse anything another user could swap the contents of.
+    if not _script_path.is_absolute():
+        return SocaError.GENERIC_ERROR(
+            helper=f"script_command must start with an absolute path, received {_script_path}"
+        )
+    if not _script_path.is_file():
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to find license script, {_script_path} does not seem to exist or is not a file"
+        )
+    if not os.access(_script_path, os.X_OK):
+        return SocaError.GENERIC_ERROR(
+            helper=f"{_script_path} is not executable. Run chmod +x {_script_path}"
+        )
+    _stat = _script_path.stat()
+    if _stat.st_uid not in (0, os.geteuid()):
+        return SocaError.GENERIC_ERROR(
+            helper=f"{_script_path} must be owned by root or by the user running the dispatcher"
+        )
+    if _stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return SocaError.GENERIC_ERROR(
+            helper=f"{_script_path} must not be group or world writable. Run chmod go-w {_script_path}"
+        )
+
+    _script_output = SocaSubprocessClient(run_command=script_command).run(
+        timeout=timeout
+    )
+    logger.debug("License script output: %s", _script_output)
+    if _script_output.get("success") is False:
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to run license script {_script_path}: {_script_output.get('message')}"
+        )
+
+    _output = _script_output.get("message").get("stdout", "").strip()
+    logger.debug("Received license script output: %s", _output)
+    _licenses_available = SocaCastEngine(data=_output).cast_as(int)
+    if _licenses_available.get("success") is False:
+        return SocaError.GENERIC_ERROR(
+            helper=f"License script {_script_path} must print a single integer, received {_output!r}"
+        )
+    _licenses_available = _licenses_available.get("message")
+    if _licenses_available < 0:
+        return SocaError.GENERIC_ERROR(
+            helper=f"License script {_script_path} returned a negative count ({_licenses_available})"
+        )
+
+    return SocaResponse(success=True, message=_licenses_available - (minus or 0))
+
+
 def verify_job_licenses_requirements(
     job_info: SocaHpcJob,
     license_mapping: dict,
     override_license_count_for_pending_jobs: dict,
+    concurrent_subjobs: int = 1,
 ) -> SocaResponse:
 
     _license_error = False
     if job_info.licenses:
+        logger.info(
+            f"Found license requirement {job_info.licenses} for this job {job_info.job_id}, checking availability ..."
+        )
         for _license in job_info.licenses:
             if _license_error:
                 break
@@ -184,7 +262,20 @@ def verify_job_licenses_requirements(
             _license_daemons = license_mapping.get("daemons", {})
             if _license.name in _license_daemons.keys():
                 _requested_license_name = _license.name
-                _requested_license_count = _license.count
+                # The scheduler reports an array parent's license request per
+                # SUBJOB, like nodes and cpus, so the raw count is what one subjob
+                # takes. concurrent_subjobs is 1 for an ordinary job.
+                _license_count = SocaCastEngine(data=_license.count).cast_as(int)
+                if _license_count.success is False:
+                    logger.error(
+                        f"Unable to read the license count {_license.count!r} for "
+                        f"{_license.name} on {job_info.job_id}"
+                    )
+                    _license_error = True
+                    break
+                _requested_license_count = (
+                    _license_count.get("message") * concurrent_subjobs
+                )
                 _license_server = _license_daemons[_license.name].get("server", None)
                 _license_port = _license_daemons[_license.name].get("port", None)
                 _license_feature = _license_daemons[_license.name].get("feature", None)
@@ -198,6 +289,7 @@ def verify_job_licenses_requirements(
                     f"{_requested_license_name=} {_requested_license_count=} {_license_server=} {_license_port=} {_license_feature=} {_license_minus=} {_license_provider=}"
                 )
                 if _license_provider == "flexlm":
+                    logger.info(f"Checking FlexLM licenses for {_license.name}")
                     if _lmutil_path is None:
                         logger.error(
                             f"Requested FlexLM checks for {_license.name} but flexlm_lmutil_path is not set in the license mapping file"
@@ -211,9 +303,53 @@ def verify_job_licenses_requirements(
                             feature=_license_feature,
                             minus=_license_minus,
                         ).flexlm(lmutil_path=_lmutil_path)
+                elif _license_provider == "script":
+                    _script_command = _license_daemons[_license.name].get(
+                        "script_command", None
+                    )
+                    logger.info(
+                        f"Checking Script-based licenses for {_license.name}, executing {_script_command=}"
+                    )
+
+                    if not _script_command:
+                        logger.error(
+                            f"Requested script checks for {_license.name} but script_command is not set in the license mapping file"
+                        )
+                        _license_error = True
+                        break
+                    _script_timeout = SocaCastEngine(
+                        data=_license_daemons[_license.name].get("timeout", 30)
+                    ).cast_as(int)
+                    if _script_timeout.success is False:
+                        logger.error(
+                            f"Invalid timeout for {_license.name} in the license mapping file, must be an integer (seconds)"
+                        )
+                        _license_error = True
+                        break
+                    _license_query = query_license_script(
+                        script_command=str(_script_command),
+                        minus=_license_minus,
+                        timeout=_script_timeout.get("message"),
+                    )
+                    logger.info(
+                        f"Script-based license check for {_license.name} completed successfully"
+                    )
+                    logger.debug(f"Script-based license check output: {_license_query}")
                 else:
+                    _provider_hint = ""
+                    if _license_provider is None:
+                        _provider_hint = " The provider key is missing."
+                    elif str(_license_provider).startswith("/"):
+                        # Common mistake: script path set as the provider
+                        _provider_hint = (
+                            f' It looks like a path: set provider: "script" and '
+                            f'script_command: "{_license_provider}" instead.'
+                        )
                     logger.error(
-                        f"Unsupported license provider {_license_provider}. Only flexlm is supported as of today"
+                        f"Invalid license provider {_license_provider!r} for "
+                        f"{_license.name} in the license mapping file. "
+                        f'Supported values: "flexlm", "script".{_provider_hint} '
+                        f"Job {job_info.job_id} stays queued until this is fixed."
                     )
                     _license_error = True
                     break
@@ -238,15 +374,22 @@ def verify_job_licenses_requirements(
                         )
 
                     logger.info(f"{_license_available=} for {_requested_license_name=}")
-                    if (
-                        _license_available - _license_minus
-                    ) >= _requested_license_count:
+                    # _license_minus is NOT subtracted again here: SocaLicenseQuery
+                    # returns (issued - minus) - in_use.
+                    if _license_available >= _requested_license_count:
                         logger.info(
                             f"License Ask OK for {_requested_license_name}. Requested {_requested_license_count}, available {_license_available}"
                         )
+                        # Accumulate what this cycle has RESERVED, not
+                        # available-plus-requested.
                         override_license_count_for_pending_jobs[
                             _requested_license_name
-                        ] = (_license_available + _requested_license_count)
+                        ] = (
+                            override_license_count_for_pending_jobs.get(
+                                _requested_license_name, 0
+                            )
+                            + _requested_license_count
+                        )
                     else:
                         logger.error(
                             f"Requested {_requested_license_count}*{_requested_license_name} but only {_license_available} are available"
@@ -394,7 +537,14 @@ if __name__ == "__main__":
 
             # Checking if we don't already have hit the queue limit in term of running jobs
             _current_running_jobs = sum(
-                1 for job in get_jobs if job.job_state == SocaHpcJobState.RUNNING
+                1
+                for job in get_jobs
+                if job.job_provisioning_state
+                in [
+                    SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_IN_PROGRESS,
+                    SocaHpcJobProvisioningState.COMPUTE_PROVISIONING_COMPLETE,
+                    SocaHpcJobProvisioningState.RUNNING,
+                ]
             )
             logger.info(
                 f"Detected {_current_running_jobs=} running jobs in {queue=}, max_running_job is {_queues_configuration.max_running_jobs=}"
@@ -483,6 +633,12 @@ if __name__ == "__main__":
                                 job_info=job,
                                 license_mapping=_license_mapping,
                                 override_license_count_for_pending_jobs=_override_license_count_for_pending_jobs,
+                                # Same concurrency figure capacity sizing uses, so
+                                # licenses and nodes are reserved for the same
+                                # number of simultaneous subjobs.
+                                concurrent_subjobs=job.array_concurrency(
+                                    max_running_subjobs=_queues_configuration.max_running_subjobs
+                                ).get("message"),
                             )
                             if _check_license.get("success") is False:
                                 SocaHpcJobController(job=job).set_error_message(
@@ -527,6 +683,39 @@ if __name__ == "__main__":
                                 )
                                 continue
                             else:
+                                # An array parent reports nodes/cpus per subjob.
+                                # Runs after validate(), which checks nodes
+                                # against cpus per subjob. Gated on is_array
+                                # rather than the subjob count, so an array the
+                                # parser could not size is refused below instead
+                                # of provisioning one subjob's worth.
+                                if job.is_array:
+                                    _array_plan = job.array_capacity_plan(
+                                        max_running_subjobs=_queues_configuration.max_running_subjobs,
+                                        node_vcpus=job.node_vcpus,
+                                        node_mem_mib=job.node_mem_mib,
+                                    )
+                                    if _array_plan.get("success") is False:
+                                        logger.error(
+                                            f"Refusing job array {job.job_id=}: {_array_plan.get('message')}"
+                                        )
+                                        SocaHpcJobController(job=job).set_error_message(
+                                            errors=[_array_plan.get("message")]
+                                        )
+                                        continue
+
+                                    _plan = _array_plan.get("message")
+                                    logger.info(
+                                        f"Job array {job.job_id=} sizing: "
+                                        f"{_plan.get('subjobs')} subjobs, "
+                                        f"concurrency {_plan.get('concurrent_subjobs')}"
+                                        f"{' (capped by max_running_subjobs)' if _plan.get('capped') else ''}, "
+                                        f"{_plan.get('subjobs_per_node')} per node "
+                                        f"({_plan.get('density_basis')}-bound) "
+                                        f"-> provisioning {_plan.get('nodes_to_provision')} node(s)"
+                                    )
+                                    job.nodes = _plan.get("nodes_to_provision")
+
                                 # Verify job provisioning won't hit the maximum number of concurrent running jobs allowed for the queue
                                 if (
                                     _queues_configuration.max_running_jobs is not None
@@ -538,7 +727,7 @@ if __name__ == "__main__":
                                     )
                                     break  # exit the loop entirely as no other jobs on this queue can be provisioned at this time
                                 else:
-                                    _current_running_jobs + 1
+                                    _current_running_jobs += 1
 
                                 # Verify job provisioning won't hit the maximum number of concurrent provisioned instances allowed for the queue
                                 if (

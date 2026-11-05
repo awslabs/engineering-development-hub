@@ -168,6 +168,34 @@ def _pool_entry_enabled(stack_id, instance_type):
     )
 
 
+def backfill_on_claim(stack_id):
+    """Whether a claim should leave the pool at depth. Default True.
+
+    This is the admin checkbox "Backfill on claim (keep pool at depth)" in
+    software_stacks_edit.html. It was validated (validate_pool_config), stored
+    (put_pool_config) and rendered back into the form, and NOTHING read it --
+    a shipped control the admin UI presented as functional while it changed
+    nothing. This is its consumer.
+
+    True  -> detach WITHOUT decrementing desired, so the ASG replaces the
+             claimed member and satisfies that replacement from the warm pool.
+    False -> detach WITH decrement, so the group shrinks by one and the admin
+             pays for only what is actually in use.
+
+    Defaults True on any read failure, which is both the documented default and
+    the prior hardcoded behaviour.
+    """
+    try:
+        _cfg = vdi_pool_store.get_pool_config(stack_id)
+        _meta = _cfg.get("message") if _cfg.get("success") is True else None
+        if not _meta:
+            return True
+        return _meta.get("backfill_on_claim") is not False
+    except Exception as err:
+        logger.debug("backfill_on_claim read failed for stack %s: %s", stack_id, err)
+        return True
+
+
 def try_claim_hot(stack_id, instance_type, owner, base_os, session_uuid, session_type, session_name=None):
     """Atomically claim an idle hot member, register the broker session
     synchronously, bind + detach it. Returns
@@ -193,6 +221,32 @@ def try_claim_hot(stack_id, instance_type, owner, base_os, session_uuid, session
     except Exception as err:
         logger.warning("pool ledger query failed for %s: %s", _pid, err)
         return None
+
+    # Attempt only members the broker can actually serve. A stale AVAILABLE row
+    # (a member stopped into the warm pool, a member that fell out of DCV) costs
+    # a full broker create_session round trip to discover, serially, inside a
+    # user-facing request -- so N stale rows meant N round trips before falling
+    # through to the cold path. Intersecting first makes that free.
+    #
+    # ready_ids None means the broker query itself failed: fall back to trying
+    # every row, which is the prior behaviour, rather than refusing to serve a
+    # pool because one side call did not answer.
+    _ready_ids = broker_ready_instance_ids()
+    if _ready_ids is not None:
+        _serveable = [
+            _r for _r in _avail
+            if (_r.get("instance_id") or _r.get("sk")) in _ready_ids
+        ]
+        _skipped = len(_avail) - len(_serveable)
+        if _skipped:
+            logger.info(
+                "pool claim: %s has %d AVAILABLE row(s) the broker cannot serve; "
+                "skipping them (hygiene sweeps will prune)",
+                _pid,
+                _skipped,
+            )
+            _emit("ClaimStaleRowsSkipped", _skipped, _pid)
+        _avail = _serveable
 
     _now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _retries = 0
@@ -257,10 +311,20 @@ def try_claim_hot(stack_id, instance_type, owner, base_os, session_uuid, session
             f"{_cluster_id()}-vdipool-{stack_id}-"
             f"{str(instance_type).replace('.', '-')}"
         )
-        # Tag (identification + watcher backstop) + detach (no-decrement) so the
-        # ASG backfills.
+        # Tag (identification + watcher backstop), retire the pool identity,
+        # then detach. decrement_desired is the inverse of the admin's
+        # "Backfill on claim (keep pool at depth)" setting: backfill on means
+        # leave desired alone so the ASG replaces this member from the warm
+        # pool, which is what drains warm for a hot pool.
         _bind_claimed_instance(
-            _iid, _asg_name, session_uuid, owner, base_os, session_name
+            _iid,
+            _asg_name,
+            session_uuid,
+            owner,
+            base_os,
+            session_name,
+            _pid,
+            not backfill_on_claim(stack_id),
         )
 
         _emit("TierServedHot", 1, _pid)
@@ -277,6 +341,253 @@ def try_claim_hot(stack_id, instance_type, owner, base_os, session_uuid, session
         }
 
     return None  # nothing claimable
+
+
+def _reservation_sk(session_uuid):
+    """Sort key for a warm-claim reservation row.
+
+    Prefixed so it can NEVER collide with an instance id, which matters
+    because DcvEventRelay._handle_pool_ready writes its AVAILABLE row keyed by
+    instance id under a condition that rejects a non-AVAILABLE/WARMED prior
+    state. A reservation keyed like an instance would make a legitimate
+    announce fail that condition.
+    """
+    return f"RESV#{session_uuid}"
+
+
+def warm_promotable(stack_id, instance_type):
+    """(promotable, measured) warm depth for a pool, net of reservations.
+
+    promotable is the reconciler's MEASURED Warmed:Stopped count (never the
+    admin's configured warm_count) minus the warm claims already in flight
+    against this pool, so two users cannot both be promised the same single
+    warm member. measured is False when the reconciler has not stamped the
+    pool yet or its describe failed -- unknown, which must not be read as
+    capacity.
+    """
+    _pid = _pool_id(stack_id, instance_type)
+    try:
+        _resp = vdi_pool_store.get_pool_summaries()
+        _sums = _resp.get("message") or {} if _resp.get("success") is True else {}
+    except Exception as err:
+        logger.warning("warm_promotable: summary read failed for %s: %s", _pid, err)
+        return (0, False)
+    _sum = _sums.get(_pid) or {}
+    if not _sum.get("warm_measured"):
+        return (0, False)
+    _promotable = int(_sum.get("warm_promotable") or 0)
+    _outstanding = _outstanding_reservations(_pid)
+    return (max(0, _promotable - _outstanding), True)
+
+
+def _outstanding_reservations(pool_id):
+    """Count RESERVED rows for a pool. 0 on error.
+
+    Returning 0 on error is deliberate: it fails toward ATTEMPTING a warm
+    claim, whose own conditional reservation write and the reconciler's
+    promotable-count check are the real arbiters. Failing the other way would
+    silently disable warm serving whenever a query hiccuped.
+    """
+    if not _ledger_table_name():
+        return 0
+    try:
+        from boto3.dynamodb.conditions import Attr, Key
+
+        _ddb = utils_boto3.get_boto(service_name="dynamodb", resource=True).message
+        return len(
+            _ddb.Table(_ledger_table_name()).query(
+                KeyConditionExpression=Key("pk").eq(pool_id),
+                FilterExpression=Attr("status").eq("RESERVED"),
+                ProjectionExpression="sk",
+            ).get("Items", [])
+        )
+    except Exception as err:
+        logger.debug("reservation count failed for %s: %s", pool_id, err)
+        return 0
+
+
+def try_claim_warm(stack_id, instance_type, owner, session_uuid, session_name=None):
+    """Reserve a warm member and kick the ASG to promote it. Asynchronous.
+
+    Returns {"pool_id", "reservation_sk", "asg_name"} when a promotion is
+    under way, else None -> the caller falls through to the cold path.
+
+    WHY THIS CANNOT BE SYNCHRONOUS. A hot claim returns in 1-3s because the
+    member is already running and broker-registered, which is what lets
+    _create_broker_session afford a 16s inline budget. A warm member is
+    Warmed:Stopped: promoting it is an EC2 start plus a full boot plus a DCV
+    re-register, measured at 67s end to end on a Windows Server 2025
+    m7i-flex.large (claim 19:52:29, promoted member claimable 19:53:34). That
+    is far too long to hold a Flask worker, so this writes a reservation,
+    kicks, and returns -- the caller writes a `placing` session row exactly as
+    the cold path does, and session_state_watcher._bind_warm_reservations
+    finishes the claim.
+
+    QUOTA. The caller MUST have passed refuse_if_quota_exhausted before
+    reaching here. Unlike a hot claim, a warm claim DOES consume quota:
+    stopped instances do not count toward On-Demand vCPU quotas, so promoting
+    one charges vCPUs that were never charged. See
+    refuse_if_quota_exhausted's docstring.
+
+    Denials all fall through to the cold path rather than refusing the user:
+    pool entry disabled, warm depth unmeasured, no promotable member left
+    after subtracting in-flight reservations, ASG at MaxSize, or a kick error.
+    """
+    if not _ledger_table_name():
+        return None
+    if not _pool_entry_enabled(stack_id, instance_type):
+        return None
+
+    _pid = _pool_id(stack_id, instance_type)
+    _emit("WarmClaimAttempts", 1, _pid)
+
+    _promotable, _measured = warm_promotable(stack_id, instance_type)
+    if not _measured:
+        logger.info(
+            "pool warm-claim %s: warm depth unmeasured (pool not stamped yet); "
+            "falling through to cold",
+            _pid,
+        )
+        _emit("WarmClaimUnmeasured", 1, _pid)
+        return None
+    if _promotable < 1:
+        logger.info(
+            "pool warm-claim %s: no promotable warm member free (measured depth "
+            "minus in-flight reservations); falling through to cold",
+            _pid,
+        )
+        _emit("WarmClaimNoCapacity", 1, _pid)
+        return None
+
+    # Reserve BEFORE kicking. The reservation is what stops a second request
+    # being promised the same member, and what makes the reconcile sustain the
+    # raised desired capacity (_reserved_counts). Conditional on the row not
+    # already existing so a double-submit of one session cannot double-reserve.
+    _sk = _reservation_sk(session_uuid)
+    _now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        from boto3.dynamodb.conditions import Attr
+
+        _ddb = utils_boto3.get_boto(service_name="dynamodb", resource=True).message
+        _ddb.Table(_ledger_table_name()).put_item(
+            Item={
+                "pk": _pid,
+                "sk": _sk,
+                "status": "RESERVED",
+                "session_uuid": session_uuid,
+                "claimed_by": owner,
+                "session_name": session_name or "",
+                "reserved_at": _now,
+                "stack_id": str(stack_id),
+                "instance_type": instance_type,
+            },
+            ConditionExpression=Attr("sk").not_exists(),
+        )
+    except Exception as err:
+        logger.warning("pool warm-claim %s: reservation write failed: %s", _pid, err)
+        return None
+
+    _kick = _invoke_promote_warm(stack_id, instance_type)
+    if not _kick.get("promoted"):
+        # Nothing is coming. Release the reservation immediately rather than
+        # leaving the user in `placing` until the reaper expires it, and let
+        # the request cold-launch.
+        logger.info(
+            "pool warm-claim %s: kick refused (%s); releasing reservation and "
+            "falling through to cold",
+            _pid,
+            _kick.get("reason"),
+        )
+        release_reservation(stack_id, instance_type, session_uuid)
+        _emit("WarmClaimKickRefused", 1, _pid)
+        return None
+
+    _emit("TierServedWarm", 1, _pid)
+    logger.info(
+        "pool warm-claim %s: reserved for %s and promoting on %s (desired %s -> %s)",
+        _pid,
+        session_uuid,
+        _kick.get("asg_name"),
+        _kick.get("desired_before"),
+        _kick.get("desired_after"),
+    )
+    return {
+        "pool_id": _pid,
+        "reservation_sk": _sk,
+        "asg_name": _kick.get("asg_name"),
+    }
+
+
+def _invoke_promote_warm(stack_id, instance_type):
+    """Ask the reconciler to raise desired capacity by one. SYNCHRONOUS invoke.
+
+    Routed through the reconciler Lambda because of IAM, not taste: the
+    controller role holds no autoscaling:SetDesiredCapacity (verified with
+    simulate-principal-policy: implicitDeny), while the reconciler role
+    already holds autoscaling:UpdateAutoScalingGroup gated to the cluster tag,
+    and the controller already holds lambda:InvokeFunction on that function
+    for the apply path. So nothing new needs granting -- which is the
+    requirement, because EDH does not do stack updates and an IAM-dependent
+    design would be dead on every installed cluster.
+
+    InvocationType RequestResponse (not Event, as the apply path uses): the
+    caller must know whether a member is actually coming before it decides
+    between a `placing` row and a cold launch.
+    """
+    try:
+        import json
+        import os
+
+        _lambda = utils_boto3.get_boto(service_name="lambda").message
+        _resp = _lambda.invoke(
+            FunctionName=f"{os.environ.get('EDH_CLUSTER_ID', '')}-VdiPoolReconciler",
+            InvocationType="RequestResponse",
+            Payload=json.dumps(
+                {
+                    "action": "promote_warm",
+                    "stack_id": stack_id,
+                    "instance_type": instance_type,
+                }
+            ).encode("utf-8"),
+        )
+        if _resp.get("FunctionError"):
+            logger.warning(
+                "promote_warm invoke returned FunctionError: %s",
+                _resp.get("FunctionError"),
+            )
+            return {"promoted": False, "reason": "kick_function_error"}
+        return json.loads(_resp["Payload"].read() or b"{}") or {}
+    except Exception as err:
+        logger.warning("promote_warm invoke failed: %s", err)
+        return {"promoted": False, "reason": f"kick_invoke_failed: {err}"}
+
+
+def release_reservation(stack_id, instance_type, session_uuid):
+    """Delete a warm-claim reservation row.
+
+    Called when the kick is refused, when the bind completes, and by the
+    delete path if a desktop is torn down while still reserved. Best-effort:
+    the reconciler's ledger reaper expires RESERVED rows past
+    connect_abandon_timeout_seconds as the backstop.
+    """
+    if not _ledger_table_name():
+        return
+    try:
+        _ddb = utils_boto3.get_boto(service_name="dynamodb", resource=True).message
+        _ddb.Table(_ledger_table_name()).delete_item(
+            Key={
+                "pk": _pool_id(stack_id, instance_type),
+                "sk": _reservation_sk(session_uuid),
+            }
+        )
+    except Exception as err:
+        logger.warning(
+            "pool: release_reservation failed for %s/%s (reaper will expire "
+            "it): %s",
+            _pool_id(stack_id, instance_type),
+            session_uuid,
+            err,
+        )
 
 
 def _create_broker_session(instance_id, session_uuid, owner, session_type, base_os=None):
@@ -339,9 +650,75 @@ def _create_broker_session(instance_id, session_uuid, owner, session_type, base_
         return None, False
 
 
-def _bind_claimed_instance(instance_id, asg_name, session_uuid, owner, base_os, session_name=None):
-    """Tag the instance for watcher discovery + a console-friendly Name, then
-    detach (no-decrement) so the ASG backfills. Returns True on success."""
+def _ring_claim_personalize_doorbell(instance_id, base_os):
+    """Nudge a just-claimed Windows member to run its baked claim_personalize.ps1.
+
+    Must run after create_tags: the agent reads edh:JobOwner itself, so the command
+    body is static. Fire and forget; the agent's AtStartup trigger is the backstop.
+    """
+    if "windows" not in str(base_os or "").lower():
+        return
+    try:
+        _ssm_resp = utils_boto3.get_boto(service_name="ssm")
+        if not _ssm_resp.success:
+            # On failure get_boto returns the error string, so send_command would
+            # raise AttributeError and mask the real cause.
+            logger.warning(
+                "claim personalization doorbell could not get an ssm client for %s: %s; "
+                "the EDHClaimPersonalize AtStartup task will apply it on the next boot",
+                instance_id,
+                _ssm_resp.message,
+            )
+            return
+        _ssm = _ssm_resp.message
+        _resp = _ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunPowerShellScript",
+            Comment="EDH VDI claim personalization",
+            Parameters={
+                "commands": [
+                    "powershell.exe -NonInteractive -NoProfile -ExecutionPolicy "
+                    "Bypass -File C:\\ProgramData\\EDH\\claim_personalize.ps1"
+                ]
+            },
+        )
+        logger.info(
+            "claim personalization doorbell sent to %s (command %s)",
+            instance_id,
+            (_resp.get("Command") or {}).get("CommandId"),
+        )
+    except Exception as err:
+        # Non-fatal: the desktop still works, the owner just is not a local
+        # admin until the AtStartup backstop runs. Log loudly.
+        logger.warning(
+            "claim personalization doorbell failed for %s: %s; the EDHClaimPersonalize "
+            "AtStartup task will apply it on the next boot",
+            instance_id,
+            err,
+        )
+
+
+def _bind_claimed_instance(instance_id, asg_name, session_uuid, owner, base_os, session_name=None, pool_id="", decrement_desired=False):
+    """Tag the instance for watcher discovery + a console-friendly Name, retire
+    its pool identity, then detach so the ASG backfills. Returns True on
+    success.
+
+    decrement_desired selects WHICH detach semantics apply, and the two tiers
+    need opposite ones:
+
+      * HOT claim (False, the default): detach WITHOUT decrementing, so the ASG
+        is one member short of desired and launches a replacement -- satisfied
+        from the warm pool. That backfill is the only thing that drains a warm
+        pool at all, so a hot claim must not decrement.
+
+      * WARM claim (True): the reservation already raised desired by one
+        specifically to promote this member, and binding consumes it. Leaving
+        desired elevated makes the ASG launch a replacement that the next
+        reconcile immediately terminates once the reservation clears -- one
+        wasted instance launch per warm claim. Observed live on edh-stor2:
+        claim at 18:35:43 bound i-0ffc36cd02009f83c at 18:37:20, and
+        i-04509c993a20a0db1 was launched purely to be killed.
+    """
     _ec2 = utils_boto3.get_boto(service_name="ec2").message
     _asg = utils_boto3.get_boto(service_name="autoscaling").message
     _tags = [
@@ -349,6 +726,18 @@ def _bind_claimed_instance(instance_id, asg_name, session_uuid, owner, base_os, 
         {"Key": "edh:ClusterId", "Value": _cluster_id()},
         {"Key": "edh:DCVSystem", "Value": base_os or ""},
         {"Key": "edh:JobOwner", "Value": owner},
+        # Retire the pool identity. edh:pool_id is propagated at launch and is
+        # the key DcvEventRelay._handle_pool_ready gates on, so a claimed
+        # desktop that keeps it can re-announce itself AVAILABLE and be handed
+        # to a second user. The on-host agents only skip re-announce when a DCV
+        # session exists, which is false after a scheduled stop/start -- so the
+        # tag is the only durable gate. BLANKED rather than deleted: the
+        # controller claim policy grants ec2:CreateTags and NOT ec2:DeleteTags,
+        # and the relay's `if not pool_id` check rejects an empty value. The
+        # value is preserved under edh:pool_origin for provenance.
+        {"Key": "edh:pool_id", "Value": ""},
+        {"Key": "edh:pool_origin", "Value": pool_id or ""},
+        {"Key": "edh:pool_claimed_at", "Value": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")},
     ]
     # Overwrite the ASG-propagated pool Name with the per-user desktop name so
     # the EC2 console shows it cleanly (matches the cold-VDI convention in
@@ -362,11 +751,13 @@ def _bind_claimed_instance(instance_id, asg_name, session_uuid, owner, base_os, 
     except Exception as err:
         logger.warning("tag claimed instance %s failed: %s", instance_id, err)
         return False
+    # Strictly after create_tags: edh:JobOwner is the agent's only input.
+    _ring_claim_personalize_doorbell(instance_id, base_os)
     try:
         _asg.detach_instances(
             InstanceIds=[instance_id],
             AutoScalingGroupName=asg_name,
-            ShouldDecrementDesiredCapacity=False,
+            ShouldDecrementDesiredCapacity=bool(decrement_desired),
         )
     except Exception as err:
         # Non-fatal for the user (the desktop still works); the pool will

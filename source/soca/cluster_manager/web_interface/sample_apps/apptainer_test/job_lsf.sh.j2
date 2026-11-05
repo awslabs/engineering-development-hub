@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# Apptainer Container Test wrapper (LSF)
+# ======================================
+# LSF equivalent of job_pbs.sh.j2. Dispatches to the same bundled validation
+# script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh
+#
+# The -Jd job description is NOT read by LSF. It is how EDH receives the
+# provisioning parameters (instance_type, base_os, ...), which LSF itself has no
+# concept of -- see utils/hpc/job_controller.py::lsf_update_job_description.
+# Without it this sample silently lands on the cluster default instance type
+# while still printing the instance_type the user picked on the form.
+#
+# FORMAT IS LOAD-BEARING: utils/hpc/job_fetcher.py splits this string on SPACES
+# and then on the first "=" of each part, discarding any part with no "=". So the
+# pairs must be space separated with no spaces around "=". A comma separated list
+# or spaces around "=" parses to nothing at all.
+#
+#BSUB -J {{job_name}}
+#BSUB -q normal
+#BSUB -W {{walltime}}
+#BSUB -n {{ncpus}}
+#BSUB -R "span[hosts=1]"
+#BSUB -Jd "instance_type={{instance_type}} base_os={{base_os}}"
+#BSUB -o {{job_name}}.%J.out
+#BSUB -e {{job_name}}.%J.err
+
+set -uo pipefail
+
+cd "${LS_SUBCWD:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer Container Test: {{job_name}}"
+echo "  instance_type: {{instance_type}}"
+echo "  base_os:       {{base_os}}"
+echo "  walltime:      {{walltime}}"
+echo "  LSB_JOBID:     ${LSB_JOBID:-unknown}"
+echo "  Started:       $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+APPTAINER_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh"
+if [[ ! -x "${APPTAINER_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer Container Test complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "=========================================="
+
+exit ${RESULT}

@@ -116,7 +116,13 @@ def reset_key():
     password_verif = request.form.get("password_verif", None)
     admin_reset = request.form.get("admin_reset", None)
     if admin_reset == "yes":
-        # Admin can generate a temp password on behalf of the user
+        # Admin can generate a temp password on behalf of the user.
+        # This route is open to every user (self-service reset below), so the
+        # admin branch must check sudo itself. session["sudoers"] is refreshed
+        # from LDAP by @login_required on every request.
+        if session.get("sudoers", False) is not True:
+            flash(_("Sorry this page requires admin privileges."), "error")
+            return redirect("/")
         user = request.form.get("user", None)
         if user is None:
             return redirect("/admin/users")

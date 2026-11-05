@@ -69,6 +69,10 @@ log_info "EC2 UserData script is being executed, check logs in /var/log/cloud-in
 # Install Required System library/packages
 /bin/bash ${EDH_BOOTSTRAP_ASSETS_FOLDER}/install_required_packages.sh >> ${EDH_BOOTSTRAP_LOGS_FOLDER}/install_required_packages.sh.log 2>&1
 
+# Disable SELINUX. Here rather than 03_setup so the reboot check below actually applies it,
+# and so the rest of the bootstrap does not run under an enforcing policy.
+{% include "templates/linux/disable_selinux.sh.j2" %}
+
 if [[ "$(get_reboot_required)" == "yes" ]]; then
     cp /var/log/cloud-init-output.log "${EDH_BOOTSTRAP_LOGS_FOLDER}/cloud-init-output-post-install-required-packages-$(date +%s).log" || echo "/cloud-init-output not found"
     log_info "Rebooting and re-running user data post install_required_packages"

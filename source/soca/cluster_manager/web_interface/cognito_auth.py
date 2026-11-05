@@ -21,6 +21,7 @@ from requests import get
 import pwd
 import logging
 from utils.http_client import SocaHttpClient
+from api.v1.ldap.user import check_ad_authentication_groups
 
 """
 To enable SSO auth via cognito, update COGNITO section on config.py
@@ -123,6 +124,15 @@ def sso_authorization(code):
 
         if check_user.get("success"):
             logger.info("User exist in specified OU")
+            _check_groups = check_ad_authentication_groups(username=user)
+            if not _check_groups.get("success"):
+                logger.error(
+                    f"Valid SSO credentials but {user} is not allowed to log in: {_check_groups.get('message')}. Verify group membership or update /configuration/UserDirectory/ad_authentication_groups if needed."
+                )
+                return {
+                    "success": False,
+                    "message": "Authentication successful, but your account does not belong to any of the groups allowed to access SOCA. Contact your administrator to be added to an authorized group.",
+                }
             try:
                 pwd.getpwnam(user)
                 logger.info(f"{user=} exists on this system.")

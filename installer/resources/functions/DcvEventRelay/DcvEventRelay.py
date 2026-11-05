@@ -90,6 +90,7 @@ from hashlib import sha256
 from typing import Optional
 
 import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -618,6 +619,45 @@ def _handle_pool_ready(body: dict, attested_instance: str) -> bool:
     if not pool_id:
         _emit_rejected("pool_ready_no_pool_id")
         return False
+    # A CLAIMED member is a user's desktop, detached from the pool -- it must
+    # never re-enter the claimable set. The on-host agents skip re-announce
+    # only when a DCV session exists, which is false after a scheduled
+    # stop/start, so the claim path retires edh:pool_id and stamps
+    # edh:DCVSessionUUID. Checked independently of the blanked pool_id so a
+    # member claimed before that change (or one whose tag write partly failed)
+    # is still rejected here.
+    if tags.get("edh:DCVSessionUUID"):
+        logger.warning(
+            "pool-ready: instance %s carries edh:DCVSessionUUID=%r (claimed "
+            "desktop, pool_origin=%r); dropping -- a claimed member must not "
+            "re-enter the pool",
+            attested_instance,
+            tags.get("edh:DCVSessionUUID"),
+            tags.get("edh:pool_origin"),
+        )
+        _emit_rejected("pool_ready_already_claimed")
+        return False
+
+    # Warm-bound vs hot-bound. The launch lifecycle hook fires on the way INTO
+    # the warm pool as well as on promotion out of it, so a warm member also
+    # bootstraps, announces pool-ready, and is THEN stopped. Writing AVAILABLE
+    # for it over-reported claimable depth on every pool creation or resize and
+    # made try_claim_hot attempt stopped members -- one failed broker
+    # registration per stale row, serially, inside a user-facing request.
+    #
+    # The signal is VdiPoolTagger's edh:pool_role, which it writes from the
+    # same "EC2 Instance-launch Lifecycle Action" event at Warmed:Pending:Wait,
+    # well before the on-host agent announces (the agent waits for dcvserver,
+    # then the SM agent, then a 20s settle). Using the tag rather than
+    # describe_auto_scaling_instances is deliberate: the relay role holds only
+    # autoscaling:CompleteLifecycleAction, and EDH does not do stack updates,
+    # so an IAM-dependent check would be dead on every installed cluster.
+    #
+    # Tag ABSENT -> fall through to AVAILABLE, i.e. exactly today's behaviour,
+    # which the zombie sweep and ledger reaper already clean up. So a tagger
+    # lag degrades to the old semantics rather than to a new failure mode.
+    _warm_bound = str(tags.get("edh:pool_role", "")).strip().lower() == "warm"
+    _status = "WARMED" if _warm_bound else "AVAILABLE"
 
     table_name = (
         f"{EDH_CLUSTER_ID}-vdi-pool-ledger" if EDH_CLUSTER_ID else ""
@@ -633,7 +673,7 @@ def _handle_pool_ready(body: dict, attested_instance: str) -> bool:
             Item={
                 "pk": pool_id,
                 "sk": attested_instance,
-                "status": "AVAILABLE",
+                "status": _status,
                 "instance_id": attested_instance,
                 # Canonical ASG name (auto-added tag), NOT the "<asg>-hot" Name
                 # tag -- the claim path detaches by this exact ASG name.
@@ -642,8 +682,45 @@ def _handle_pool_ready(body: dict, attested_instance: str) -> bool:
                 "registered_at": datetime.now(timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 ),
-            }
+            },
+            # Never clobber a CLAIMED or RESERVED row. An unconditional put
+            # turned a re-announce into a silent AVAILABLE overwrite of a
+            # CLAIMED row, handing a live desktop back to the claim path.
+            #
+            # AVAILABLE and WARMED are both allowed prior states: a first
+            # announce matches attribute_not_exists, an idle member
+            # re-announcing (idempotent retry, broker reconnect) matches
+            # AVAILABLE, and a member promoted OUT of the warm pool announces
+            # again over its own WARMED row -- which is the whole promotion
+            # path, so excluding WARMED here would break warm serving.
+            # RESERVED rows written by the warm claim path use an RESV# sort
+            # key, so they never key-collide with an instance id.
+            ConditionExpression=(
+                "attribute_not_exists(#st) OR #st IN (:avail, :warmed)"
+            ),
+            ExpressionAttributeNames={"#st": "status"},
+            ExpressionAttributeValues={
+                ":avail": "AVAILABLE",
+                ":warmed": "WARMED",
+            },
         )
+    except ClientError as err:
+        if err.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            logger.warning(
+                "pool-ready: %s/%s already holds a CLAIMED/RESERVED ledger row; "
+                "dropping announce rather than overwriting it",
+                pool_id,
+                attested_instance,
+            )
+            _emit_rejected("pool_ready_row_not_available")
+            return False
+        logger.error(
+            "pool-ready ledger write failed for %s/%s: %s",
+            pool_id,
+            attested_instance,
+            err,
+        )
+        return False
     except Exception as err:
         logger.error(
             "pool-ready ledger write failed for %s/%s: %s",
@@ -653,7 +730,11 @@ def _handle_pool_ready(body: dict, attested_instance: str) -> bool:
         )
         return False
     logger.info(
-        "pool-ready: %s AVAILABLE (instance=%s)", pool_id, attested_instance
+        "pool-ready: %s %s (instance=%s role=%s)",
+        pool_id,
+        _status,
+        attested_instance,
+        tags.get("edh:pool_role") or "unset",
     )
 
     # Complete the launch lifecycle hook so the ASG promotes the member from

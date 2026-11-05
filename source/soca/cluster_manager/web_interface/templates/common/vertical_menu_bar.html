@@ -136,6 +136,11 @@
             <span>{{ _("My HPC Jobs") }}</span>
         </a>
     </li>
+    <li class="nav-item  {{ 'active-section' if CURRENT_PATH.startswith('/submit_job') else '' }}">
+        <a class="nav-link" href="/submit_job">
+            <span>{{ _("Launch Workflow") }}</span>
+        </a>
+    </li>
     {% endif %}
 
     {% set analytics_flag = feature_flags.get("ANALYTICS_COST_MANAGEMENT", {}) %}
@@ -293,6 +298,18 @@
             <span>{{ _("Workflows Management") }}</span>
         </a>
     </li>
+
+    {% set pcs_flag = feature_flags.get("PCS", {}) %}
+    {% set pcs_allowed = pcs_flag.get("allowed_users", []) %}
+    {% set pcs_denied = pcs_flag.get("denied_users", []) %}
+    {% set pcs_show = pcs_flag.get("enabled", False) and (pcs_allowed == [] or user in pcs_allowed) and user not in pcs_denied %}
+    {% if pcs_show %}
+    <li class="nav-item">
+        <a class="nav-link" href="/admin/pcs">
+            <span>{{ _("PCS Management") }}</span>
+        </a>
+    </li>
+    {% endif %}
     {% endif %}
 
        <div class="pt-3 text-center d-none d-md-inline mt-auto">

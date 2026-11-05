@@ -403,7 +403,8 @@ class ListVirtualDesktops(Resource):
                 VirtualDesktopSessions.session_uuid == args["session_uuid"]
             )
 
-        logger.debug(f"Found all DCV sessions {_all_dcv_sessions.all()}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Found all DCV sessions %s", _all_dcv_sessions.all())
 
         user_sessions = {}
         logger.info("Getting Session information for all session")

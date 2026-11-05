@@ -17,6 +17,7 @@ from base64 import b64encode as encode
 from email.utils import parseaddr
 import config
 import ldap
+from ldap.dn import escape_dn_chars
 from flask_restful import Resource, reqparse
 from requests import get
 import json
@@ -139,7 +140,7 @@ class Reset(Resource):
         if password is None:
             return SocaError.CLIENT_MISSING_PARAMETER(parameter="password").as_flask()
 
-        dn_user = f"uid={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+        dn_user = f"uid={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
         enc_passwd = bytes(password, "utf-8")
         salt = os.urandom(16)
         sha = hashlib.sha1(enc_passwd)  # nosec

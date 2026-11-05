@@ -5,8 +5,14 @@
 function start_edh_scheduler_services {
     log_info "Checking EDH Scheduler service status and starting them if stopped"
 
-    # Find all services starting with 'edh_scheduler_'
-    local SCHEDULER_SERVICES=$(systemctl list-unit-files | grep '^edh_scheduler_' | awk '{print $1}')
+    {% if context.get("/job/NodeType") == "pcs_node" %}
+        # PCS compute nodes run the single PCS-managed slurmd unit instead of the
+        # edh_scheduler_* services, so start that one.
+        local SCHEDULER_SERVICES="slurmd"
+    {% else %}
+        # Find all services starting with 'edh_scheduler_'
+        local SCHEDULER_SERVICES=$(systemctl list-unit-files | grep '^edh_scheduler_' | awk '{print $1}')
+    {% endif %}
 
     if [[ -z "${SCHEDULER_SERVICES}" ]]; then
         log_info "No EDH Scheduler services found, skipping ... "

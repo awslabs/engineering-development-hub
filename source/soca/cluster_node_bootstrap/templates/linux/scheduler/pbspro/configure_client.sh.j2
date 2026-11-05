@@ -16,11 +16,22 @@ function pbspro_configure_client_{{  SCHEDULER_VARS.get("IDENTIFIER") }} () {
         mv /etc/pbs.conf /etc/pbs.conf.original.$(date +%s)
     fi
 
+    {#
+      Only a compute_node is registered with qmgr, so only a compute_node runs
+      a mom. See openpbs/configure_client.sh.j2 for the full reasoning.
+    #}
+    {% if context.get("/job/NodeType") == "compute_node" %}
+    local START_MOM=1
+    log_info "NodeType is compute_node, pbs_mom will be started"
+    {% else %}
+    local START_MOM=0
+    log_info "NodeType is {{ context.get("/job/NodeType") }}, pbs_mom will NOT be started (this node is not registered with the scheduler)"
+    {% endif %}
     echo -e "PBS_SERVER=${SCHEDULER_HOSTNAME}
 PBS_START_SERVER=0
 PBS_START_SCHED=0
 PBS_START_COMM=0
-PBS_START_MOM=1
+PBS_START_MOM=${START_MOM}
 PBS_EXEC=${PBSPRO_INSTALL_DIR}
 PBS_LEAF_NAME=${CLIENT_SERVER_IP}
 PBS_HOME=${PBS_HOME}

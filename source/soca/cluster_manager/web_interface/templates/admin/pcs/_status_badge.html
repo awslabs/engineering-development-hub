@@ -1,0 +1,32 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+{# Colored status badge shared by every PCS admin page (clusters, queues, compute node
+   groups, launch templates, instances). Import with:
+     {% from 'admin/pcs/_status_badge.html' import status_badge %}
+   then render {{ status_badge(some_status) }}. Covers PCS resource states and EC2 instance
+   states so a single macro serves all surfaces. #}
+{% macro status_badge(status) %}
+    {% set _status = status or '-' %}
+    {% set _status_colors = {
+        'CREATING': 'primary',
+        'ACTIVE': 'success',
+        'UPDATING': 'primary',
+        'SUSPENDING': 'warning',
+        'SUSPENDED': 'secondary',
+        'DELETING': 'warning',
+        'CREATE_FAILED': 'danger',
+        'UPDATE_FAILED': 'danger',
+        'DELETE_FAILED': 'danger',
+        'RUNNING': 'success',
+        'PENDING': 'primary',
+        'SHUTTING-DOWN': 'warning',
+        'STOPPING': 'warning',
+        'STOPPED': 'secondary',
+        'TERMINATED': 'danger'
+    } %}
+    {% set _badge_bg = _status_colors.get(_status, 'dark') %}
+    {# White text everywhere except the light backgrounds (warning/light) where it is unreadable. #}
+    <span class="badge bg-{{ _badge_bg }}{{ ' text-dark' if _badge_bg in ['warning', 'light'] else ' text-white' }}">{{ _status }}</span>
+{% endmacro %}

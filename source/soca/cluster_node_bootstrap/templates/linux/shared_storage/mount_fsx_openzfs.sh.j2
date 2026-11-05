@@ -18,6 +18,8 @@
     local MOUNT_PATH
     local MOUNT_OPTIONS
     local ON_MOUNT_FAILURE
+    local ENABLED
+    local ENDPOINT
     for arg in "$@"; do
         case $arg in
             --mount-target=*) MOUNT_TARGET="${arg#*=}" ;;

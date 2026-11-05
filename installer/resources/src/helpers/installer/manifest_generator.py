@@ -39,15 +39,18 @@ GPU_DRIVER_BUCKETS = {
 }
 # Prefixes to mirror per bucket. `latest/` tracks newest; the pinned grid-N/ prefixes MUST
 # match the versions the consumer templates hardcode, because the consumer pulls
-# `<s3_bucket_path>/<GridVersion>/` -- Windows has NO cross-version fallback, Linux falls
-# back to latest/. Keep in sync with the consumer pins:
-#   windows/gpu/nvidia_drivers.ps.j2   WS2019=grid-18.0, WS2022/2025=grid-19.4
-#   linux/gpu/install_drivers.sh.j2    grid-17.1, grid-19.4
-# A non-existent prefix lists empty and is skipped, so an over-broad list is harmless.
+# `<s3_bucket_path>/<GridVersion>/`. Both platforms fall back to latest/ when the pinned
+# prefix is absent, so a missing pin degrades to an unpinned driver rather than a failed
+# install -- which is quiet, and exactly why this list has to be kept in sync.
+# Keep in sync with the consumer pins:
+#   windows/gpu/nvidia_drivers.ps.j2   WS2019=grid-18.0, WS2022/2025=grid-20.2
+#   linux/gpu/install_drivers.sh.j2    amazonlinux2=grid-17.1, everything else=grid-20.2
+# A non-existent prefix lists empty and is skipped, so an over-broad list is harmless; the
+# superseded grid-19.4 stays listed because a cluster can be pinned back to it.
 # AMD s3_bucket_path config already points at `.../latest/`, so AMD needs latest/ only.
 GPU_DRIVER_PREFIXES = {
-    "ec2-linux-nvidia-drivers":   ["latest/", "grid-17.1/", "grid-19.4/"],
-    "ec2-windows-nvidia-drivers": ["latest/", "grid-18.0/", "grid-19.4/"],
+    "ec2-linux-nvidia-drivers":   ["latest/", "grid-17.1/", "grid-19.4/", "grid-20.2/"],
+    "ec2-windows-nvidia-drivers": ["latest/", "grid-18.0/", "grid-19.4/", "grid-20.2/"],
     "ec2-amd-linux-drivers":      ["latest/"],
     "ec2-amd-windows-drivers":    ["latest/"],
 }
@@ -61,13 +64,20 @@ KNOWN_GETPUT_BUCKETS = {"ec2-linux-nvidia-drivers"}
 
 
 def expand_gpu_driver_prefixes(cluster_name, nvidia=True, amd=False, s3_client=None):
-    """D16: list each enabled GPU driver vendor's bucket `latest/` prefix and emit one
+    """D16: list each enabled GPU driver vendor's bucket prefixes and emit one
     s3-copy manifest item per object. Handles single- (NVIDIA) or multi-file (AMD)
-    uniformly, no version-pinning (tracks current `latest/`).
+    uniformly. Per bucket the prefixes come from GPU_DRIVER_PREFIXES, which pins the
+    GRID versions the consumer templates ask for alongside `latest/`; a bucket with
+    no entry there gets GPU_DRIVER_DEFAULT_PREFIXES (`latest/` only).
+
+    A prefix that does not exist lists zero objects and contributes no items, so an
+    over-broad list costs one empty listing. The per-prefix object count is logged,
+    which is the only place a pin missing from the mirror is visible.
 
     Per-vendor toggles (D16a): nvidia default on, amd default off. AMD is re-enabled
-    for a deployed cluster simply by re-running the mirror (D9) with amd=True — the
-    manifest is regenerated per run, so the refresh picks up the new vendor set."""
+    for a deployed cluster simply by re-running the mirror (D9) with amd=True -- the
+    manifest is regenerated per run, so the refresh picks up the new vendor set, and
+    the same re-run is what picks up a newly pinned GRID version."""
     import boto3
     s3 = s3_client or boto3.client("s3", region_name=GPU_DRIVER_REGION)
     s3_base_prefix = f"{cluster_name}/resources_mirroring"
@@ -117,9 +127,9 @@ def generate_manifest(
         parameters: the install config Parameters dict (same input as resources_mirroring())
         cluster_name: cluster name for S3 prefix
         ssm_prefix: SSM parameter prefix (e.g. "/edh/mycluster")
-        mirror_s3_sources: D11 flag — include s3:// sources in the manifest
-        mirror_gpu_nvidia: D16a — expand NVIDIA GPU driver `latest/` prefixes (default on)
-        mirror_gpu_amd: D16a — expand AMD GPU driver `latest/` prefixes (default off; AMD
+        mirror_s3_sources: D11 flag -- include s3:// sources in the manifest
+        mirror_gpu_nvidia: D16a -- expand NVIDIA GPU driver `latest/` prefixes (default on)
+        mirror_gpu_amd: D16a -- expand AMD GPU driver `latest/` prefixes (default off; AMD
             offerings are old/rare. Re-enable for a deployed cluster via a manifest-refresh
             re-run with amd=True)
         s3_client: optional boto3 S3 client for GPU prefix listing (defaults to us-east-1)
@@ -152,6 +162,15 @@ def generate_manifest(
         if config_key.endswith("/s3_bucket_path"):
             return "s3_path"
         return None
+
+    def _expected_sha256_for(node: dict, url_key: str):
+        """Digest for ONE url key, so a multi-artifact block cannot cross-pair.
+
+        None for an unmatched <prefix>_url: a wrong digest fails the install.
+        """
+        if url_key.endswith("_url") and len(url_key) > len("_url"):
+            return node.get(f"{url_key[: -len('_url')]}_sha256")
+        return node.get("sha256")
 
     def _url_to_s3_key(url: str) -> str:
         parsed = urlparse(url)
@@ -198,7 +217,7 @@ def generate_manifest(
                         continue
                     if _should_skip(value):
                         continue
-                    expected_sha256 = node.get("sha256")
+                    expected_sha256 = _expected_sha256_for(node, key)
                     s3_key = _url_to_s3_key(value)
                     items.append({
                         "urls": [value],

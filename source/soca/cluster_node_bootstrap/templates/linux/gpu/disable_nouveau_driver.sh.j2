@@ -5,7 +5,7 @@
 function disable_nvidia_nouveau () {
   log_info "Disabling the nouveau open source driver for NVIDIA graphics cards"
   
-  {% if context.get("/job/BaseOS") in ["amazonlinux2", "amazonlinux2023"] %}
+  {% if context.get("/job/BaseOS") in ["amazonlinux2", "amazonlinux2023", "amazonlinux2027"] %}
     log_info "NVIDIA installer automatically disable NOUVEAU driver, no extra configuration is needed"
   {% elif context.get("/job/BaseOS") == "rocky9" %}
    rm -rf /etc/modprobe.d/blacklist-nouveau.conf

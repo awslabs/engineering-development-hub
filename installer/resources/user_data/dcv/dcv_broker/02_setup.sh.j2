@@ -59,7 +59,7 @@ pushd ${DCV_STAGING}
 {% elif context.get("/configuration/BaseOS") == "ubuntu2404" %}
   {% set BROKER_OS = "ubuntu2404" %}
 {% else %}
-  exit_fail "Unsupported OS for DCV Broker: $BROKER_OS"
+  exit_fail "Unsupported OS for DCV Broker: {{ context.get("/configuration/BaseOS") }}"
 {% endif %}
 
 BROKER_URL="{{ context.get("/system/dcv/session_manager_broker/" ~ BROKER_OS ~ "/url") }}"
@@ -78,7 +78,7 @@ BROKER_SHA256="{{ context.get("/system/dcv/session_manager_broker/" ~ BROKER_OS 
         packages_install openjdk-11-jdk
     fi
 {% else %}
-    exit_fail "Unsupported OS for DCV Broker: $BROKER_OS"
+    exit_fail "Unsupported DCV Broker package family for the Java runtime: {{ BROKER_OS | default(context.get('/configuration/BaseOS'), true) }}"
 {% endif %}
 
 

@@ -157,7 +157,7 @@ class SocaCacheClient:
                         success=True, message=self.cache_client.get(self.key_fqdn(key))
                     )
                 else:
-                    logger.info(f"Key {key} does not exist in cache")
+                    logger.debug("Key %s does not exist in cache", key)
                     return SocaResponse(success=False, message="CACHE_MISS")
         except Exception as err:
             return SocaError.CACHE_ERROR(helper=f"Unable to get {key} due to {err}")

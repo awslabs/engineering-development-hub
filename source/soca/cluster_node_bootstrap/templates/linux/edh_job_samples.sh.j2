@@ -28,7 +28,7 @@ EDH_JOB_SAMPLES_ROOT="/apps/edh/{{ context.get('/configuration/ClusterId') }}/jo
 EDH_JOB_SAMPLES_SRC="/opt/edh/{{ context.get('/configuration/ClusterId') }}/cluster_manager/web_interface/sample_apps"
 
 # Verify the source tree was extracted as expected. If not, this is a hard
-# failure — without these files no compute node can run the sample jobs.
+# failure -- without these files no compute node can run the sample jobs.
 if [[ ! -d "${EDH_JOB_SAMPLES_SRC}" ]]; then
     log_warning "Sample apps source dir not found at ${EDH_JOB_SAMPLES_SRC}; skipping job_samples staging."
     log_warning "Default Application Profiles seeded for these apps will fail at job-execution time."
@@ -45,6 +45,32 @@ else
     else
         log_warning "efa_test/efa_test_job.sh not found in source tree; EFA Benchmark sample app will not work."
     fi
+
+    # Stage the Apptainer container samples.
+    #
+    # Both ship a validation script plus the container definition file it builds
+    # from, so the definition is staged alongside the script rather than embedded
+    # in it. Staged unconditionally: the Application Profiles that invoke these
+    # are only seeded when Apptainer is enabled, and staging a few KB of shell on
+    # a cluster that never uses it is cheaper than a second config lookup here.
+    for _edh_container_sample in apptainer_test apptainer_efa_test; do
+        if [[ -d "${EDH_JOB_SAMPLES_SRC}/${_edh_container_sample}" ]]; then
+            log_info "Staging ${_edh_container_sample} sample app to ${EDH_JOB_SAMPLES_ROOT}/${_edh_container_sample}/"
+            mkdir -p "${EDH_JOB_SAMPLES_ROOT}/${_edh_container_sample}"
+            # Runtime assets only. form.json, the job_*.sh.j2 wrappers and the
+            # thumbnail are read from the source tree by the WebUI at seed time
+            # and do not belong on the shared mount.
+            for _edh_container_asset in "${EDH_JOB_SAMPLES_SRC}/${_edh_container_sample}"/*.sh \
+                                        "${EDH_JOB_SAMPLES_SRC}/${_edh_container_sample}"/*.def \
+                                        "${EDH_JOB_SAMPLES_SRC}/${_edh_container_sample}"/*.c; do
+                [[ -f "${_edh_container_asset}" ]] || continue
+                cp -f "${_edh_container_asset}" "${EDH_JOB_SAMPLES_ROOT}/${_edh_container_sample}/"
+            done
+            chmod 755 "${EDH_JOB_SAMPLES_ROOT}/${_edh_container_sample}"/*.sh 2>/dev/null || true
+        else
+            log_warning "${_edh_container_sample} not found in source tree; the matching Apptainer sample app will not work."
+        fi
+    done
 
     # Permissions: edhadmin owns the dir tree, world-readable
     chown -R edhadmin:edhadmin "${EDH_JOB_SAMPLES_ROOT}" 2>/dev/null || true

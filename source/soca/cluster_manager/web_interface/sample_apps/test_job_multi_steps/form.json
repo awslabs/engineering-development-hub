@@ -1,0 +1,184 @@
+[
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "This sample demonstrates the <b>Step</b> component of the form builder. Every Step starts a new page; components placed before the first Step (like this paragraph) form a first \"General\" page. Use Back / Next or click a step in the indicator above. Next validates the required fields of the current step, and Submit only appears on the last step."
+  },
+  {
+    "type": "edhStep",
+    "label": "Compute",
+    "description": "Choose the capacity for the job. Both fields are required: Next is refused until they are filled."
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "What type of instance do you want to use? (instance_type)",
+    "description": "EC2 instance type to provision. This will be used along with vcpus to calculate the number of nodes to provision",
+    "className": "form-control",
+    "name": "instance_type",
+    "values": [
+      {
+        "label": "Small (2 vCPUs, 4 GB RAM)",
+        "value": "c6i.large",
+        "selected": false
+      },
+      {
+        "label": "Medium (4 vCPUs, 8 GB RAM)",
+        "value": "c6i.xlarge",
+        "selected": false
+      },
+      {
+        "label": "Large (8 vCPUs, 16 GB RAM)",
+        "value": "c6i.2xlarge",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "How many Virtual CPUs do you want ? (vcpus)",
+    "description": "Number of Virtual CPUs (vCPUs) to allocate to the simulation",
+    "className": "form-control",
+    "name": "vcpus",
+    "value": "2",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "edhStep",
+    "label": "Job and input",
+    "description": "Name the job and pick its input."
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Job Name (job_name)",
+    "placeholder": "Do not use spaces",
+    "className": "form-control",
+    "name": "job_name",
+    "subtype": "text",
+    "maxlength": 255
+  },
+  {
+    "type": "edhFilePicker",
+    "required": false,
+    "label": "Input file(s) / folder(s) (input_file)",
+    "description": "Optional for this sample. Click Browse to select one or more input files and/or folders.",
+    "placeholder": "Click Browse to select your input file(s) or folder(s)",
+    "name": "input_file",
+    "allowMultiple": true,
+    "selectType": "both"
+  },
+  {
+    "type": "edhStep",
+    "label": "Solver",
+    "description": "A field can be conditional inside a step: \"Number of solver threads\" only appears when the mode is Advanced."
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "Solver mode (solver_mode)",
+    "className": "form-control",
+    "name": "solver_mode",
+    "values": [
+      {
+        "label": "Standard",
+        "value": "standard",
+        "selected": true
+      },
+      {
+        "label": "Advanced",
+        "value": "advanced",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "text",
+    "required": true,
+    "label": "Number of solver threads (solver_threads)",
+    "description": "Only shown, and only required, when Solver mode is Advanced.",
+    "className": "form-control",
+    "name": "solver_threads",
+    "value": "4",
+    "subtype": "text",
+    "maxlength": 255,
+    "showIf": "solver_mode=advanced"
+  },
+  {
+    "type": "checkbox-group",
+    "required": false,
+    "label": "Optional tuning (enable_tuning)",
+    "description": "Check this box to add the \"Tuning\" step. Unchecked, every field of that step is hidden, so the step is skipped.",
+    "name": "enable_tuning",
+    "values": [
+      {
+        "label": "Show the Tuning step",
+        "value": "yes",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "edhStep",
+    "label": "Tuning",
+    "description": "This step only exists when \"Show the Tuning step\" is checked on the Solver step."
+  },
+  {
+    "type": "text",
+    "required": false,
+    "label": "(Example) --param1 (param1)",
+    "placeholder": "Value for --param1",
+    "className": "form-control",
+    "name": "param1",
+    "subtype": "text",
+    "maxlength": 255,
+    "showIf": "enable_tuning"
+  },
+  {
+    "type": "textarea",
+    "required": false,
+    "label": "(Example) User code to be executed AFTER the solver command (user_post_exec)",
+    "placeholder": "enter shell code here",
+    "className": "form-control",
+    "name": "user_post_exec",
+    "subtype": "textarea",
+    "rows": 3,
+    "showIf": "enable_tuning"
+  },
+  {
+    "type": "edhStep",
+    "label": "Storage and submit",
+    "description": "Last step: the Submit button is shown here only."
+  },
+  {
+    "type": "select",
+    "required": true,
+    "label": "How much storage do you want (SSD under /scratch)",
+    "className": "form-control",
+    "name": "scratch_size",
+    "values": [
+      {
+        "label": "10 GB",
+        "value": "10",
+        "selected": false
+      },
+      {
+        "label": "50 GB",
+        "value": "50",
+        "selected": false
+      },
+      {
+        "label": "150 GB",
+        "value": "150",
+        "selected": false
+      }
+    ]
+  },
+  {
+    "type": "paragraph",
+    "subtype": "p",
+    "label": "Steps are presentation only: the job script receives the same variables as a single-page form. Fields hidden by a condition reach the script empty."
+  }
+]

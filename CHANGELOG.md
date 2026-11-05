@@ -5,7 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Calendar Versioning](https://calver.org/).
 
-## [26.8.0] - 2026-08-15
+## [26.11.0] - 2026-11-05
+
+### Features
+
+- Added the `edhctl db` command group to inspect and maintain the cluster's Aurora database, including point-in-time restore and export/import between clusters
+- Added `edhctl support verify` to check a cluster's code against the EDH release
+- Added `Conditional Fields` and `Multi-Steps` widgets on WorkFlow Designer for web based job submission
+- Added support for AWS Parallel Computing Service
+- Added Amazon Linux 2027 as a supported base OS, with per-role base OS selection in the installer
+- Added HPC job array support, including the web UI and a sample array job
+- Added an optional Apptainer container runtime for HPC nodes, with sample validation apps
+- Added a warm tier to VDI pools so desktops can be claimed without a cold launch
+- Added configurable default and minimum root volume sizes for virtual desktops
+- Added script-based license checks (`provider: "script"`) alongside FlexLM
+- Added Bedrock Knowledge Base selection to the AI Assistant
+- Added `edhctl notifications`, `edhctl keys`, `edhctl mirror` and `edhctl filesystems apply`, plus bash tab completion for `edhctl`
+- Added support for multiple client CIDRs and `--client-ipv6` in the installer
+- Added support for a custom AD admin group
+- You can now restrict user authentication to a list of AD groups
+- Made the PBS job history window configurable
+
+### Changed
+
+- The Aurora IAM database user is now per cluster (`edh_app_<cluster_id>`) instead of the shared `edh_app`
+- Replaced the deprecated `bleach` HTML sanitizer with `nh3` for the software-stack `connection_string` field (allowlist unchanged)
+- New clusters default their Active Directory domain to `<cluster_id>.internal` instead of `.local`. Existing clusters are unchanged
+- New clusters name each user's group `<user>edhgroup` and the AD sudo group `edhsudoadminsgroup`. Node systemd units are renamed from `soca-` to `edh-`. Existing clusters are unchanged
+- Legacy API keys (`MY_API_KEY_MANAGEMENT`) are disabled by default; use Scoped API Tokens, which are no longer in preview
+- API documentation now requires login
+- Updated the installer to Python 3.14 and the cluster Python to 3.13
+- Updated GPU drivers (GRID 20.2 default, per-family NVIDIA driver pins, `g7` support) and the AMI list (new Rocky and Ubuntu versions)
+- Bootstrap logs are now stored per instance (`<hostname>/<instance_id>/`)
+
+### Fixes
+
+- Fixed security issues: stored XSS in admin pages, unescaped user input in LDAP queries
+- Deleting a user now revokes their API tokens and legacy API keys
+- Fixed HPC capacity and quota handling: `max_running_jobs` and `max_provisioned_instances` enforcement, EC2 quota accounting (Spot, ODCR, High Memory), license reservation across dispatcher cycles, and job memory requests
+- Fixed VDI placement to spread across Availability Zones and stop retrying capacity refusals
+- Fixed Web Terminal reconnect and duplicate session issues
+- Fixed an Amazon Linux 2023 controller rebooting repeatedly on SELinux
+- Fixed filesystems set to `on_mount_failure: exit` not failing the node bootstrap when the mount failed
+- Fixed the installer exiting successfully when `cdk deploy` failed, and uninstall ordering for secrets and log groups
+- Fixed `qsub -P <project>` never reaching the `edh:JobProject` tag: HPC instances, volumes and ENIs were tagged `None`. Jobs without a project no longer get the tag
+- Restored the installer prompts for re-using an existing filesystem for `/apps` and `/data`, and an existing OpenSearch domain
+- Fixed `--os-domain` being ignored when re-using an existing OpenSearch domain.
+- Fixed Lambda layer builds shipping an empty zip (`Uploaded file must be a non-empty zip`) after an earlier build failed or was interrupted.
+- Fixed admin group members not having sudo on ephemeral HPC nodes when `JoinEphemeralNodesToAD` is `false` (the default).
+- Fixed the ephemeral-node admin sudoers rule with mixed-case group names.
+- Fixed any cluster user being able to run inline shell interpreters (`/bin/bash`, `/bin/sh`, ...) on the controller through the HPC job API. They are now limited to `sudoers` by the new `HPC_SHELL_INTERPRETER` feature flag.
+- Fixed the job dispatcher logging a `CAST_ERROR` for every PBS timestamp it read. The values were always parsed correctly; only the error log was wrong.
+- Fixed launch templates, EBS volumes and network interfaces launching without cluster tags on HPC, legacy HPC and target nodes. The HPC Auto Scaling group used for Capacity Blocks is now tagged too.
+- Fixed the EC2 capacity check reporting a capacity shortage when a tag policy denied its untagged dry-run request. It now sends the cluster tags and reports authorization denials separately.
+- Fixed the WebUI footer cluster name and version not being translatable in any locale.
+- Fixed compiled translation catalogs (`.mo`) being included in release packages. They are rebuilt automatically when the web tier starts.
+- Fixed a non-inclusive term in a code comment that failed the release build's inclusive-words check.
+- Fixed resource mirroring rejecting correct downloads with a SHA-256 mismatch when a configuration block pins several artifacts, such as `apptainer`. Installs with mirroring enabled rolled back.
+
+## [26.8.0] - 2026-08-14
 
 ### Features
 

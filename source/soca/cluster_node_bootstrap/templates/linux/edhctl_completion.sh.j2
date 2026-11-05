@@ -1,0 +1,75 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: edhctl shell tab completion
+# Installs a /etc/profile.d loader that sources the completion script shipped
+# in the cluster tree. The loader is a pointer rather than a copy on purpose:
+# the completion table is generated from edhctl's click tree and travels with
+# the code, so a patched tree takes effect on the next login instead of leaving
+# a stale duplicate under /etc.
+#
+# 'complete -F' is registered directly by the sourced script rather than by
+# dropping a file into /etc/bash_completion.d, because the bash-completion
+# package is not part of the EDH package set and the package install block is
+# guarded by a .soca_preinstalled_packages_<cluster> lock, so it could not be
+# added to an already-installed cluster anyway.
+#
+# Scope note: 02_prerequisites.sh.j2 applies 'chmod -R 600' to cluster_manager
+# and then marks edhctl executable, leaving it 700 and root-owned. edhctl is
+# therefore a root tool, and this completion is correspondingly usable from a
+# root login shell (sudo -i / sudo su -). The readability guard in the loader is
+# what makes a non-root login a silent no-op rather than an error every login.
+function setup_edhctl_completion () {
+  local EDHCTL_COMPLETION_SOURCE="/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/edhctl/completion/edhctl.bash"
+  local EDHCTL_COMPLETION_LOADER="/etc/profile.d/edhctl-completion.sh"
+
+  if [[ ! -f ${EDHCTL_COMPLETION_SOURCE} ]]; then
+    # Not fatal. A missing completion table costs an admin some typing; failing
+    # the controller bootstrap over it would cost them the cluster.
+    log_warning "edhctl completion table not found at ${EDHCTL_COMPLETION_SOURCE}, skipping tab completion setup"
+    return 0
+  fi
+
+  log_info "Installing edhctl tab completion loader at ${EDHCTL_COMPLETION_LOADER}"
+
+  # Quoted heredoc: nothing below is expanded by this shell. The cluster path is
+  # substituted by Jinja at render time, which is the same absolute path every
+  # other bootstrap template bakes in, so the loader needs no environment
+  # variable and works under 'sudo -i' where /etc/environment may not be read.
+  cat << 'EOF' > ${EDHCTL_COMPLETION_LOADER}
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Loads bash tab completion for edhctl and socactl. Installed by EDH bootstrap
+# from templates/linux/edhctl_completion.sh.j2. [SOCA_DO_NOT_DELETE]
+#
+# Sourced by /etc/profile for login shells. Guarded three ways: bash only,
+# because 'complete' is a bash builtin; interactive only, since a completion
+# table is dead weight in a scripted login; and readable only, because the
+# shipped tree is root-owned mode 600 and a non-root login must no-op quietly
+# rather than print an error on every single login.
+if [ -n "${BASH_VERSION}" ]; then
+  case $- in
+    *i*)
+      if [ -r "/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/edhctl/completion/edhctl.bash" ]; then
+        . "/opt/edh/{{ context.get("/configuration/ClusterId") }}/cluster_manager/tools/edhctl/completion/edhctl.bash"
+      fi
+      ;;
+  esac
+fi
+EOF
+
+  # World-readable and not executable: /etc/profile.d entries are sourced, not
+  # run, and every interactive login shell must be able to read this one.
+  chmod 644 ${EDHCTL_COMPLETION_LOADER}
+
+  # Prove the loader parses before an admin's next login discovers otherwise. A
+  # broken /etc/profile.d entry prints an error on every login, for every user.
+  if ! bash -n ${EDHCTL_COMPLETION_LOADER}; then
+    log_warning "edhctl completion loader at ${EDHCTL_COMPLETION_LOADER} failed to parse, removing it"
+    rm -f ${EDHCTL_COMPLETION_LOADER}
+    return 0
+  fi
+}
+setup_edhctl_completion
+# End: edhctl shell tab completion

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#PBS -q {{queue}}
+#PBS -N {{job_name}}
+# A job ARRAY: one submission, {{array_indices}} independent subjobs.
+# https://awslabs.github.io/engineering-development-hub-documentation/tutorials/integration-ec2-job-parameters/
+#PBS -J {{array_indices}}
+#PBS -l instance_type={{instance_type}}
+# select describes ONE subjob, not the whole array. EDH multiplies it by the
+# subjob count to size the fleet.
+#
+# mem is requested explicitly because subjobs PACK: several run on one instance
+# when its resources allow. Without a mem request PBS schedules on ncpus alone
+# and the subjobs sharing a host can exhaust its memory between them.
+#PBS -l select=1:ncpus={{ncpus_per_subjob}}:mem={{mem_per_subjob}}
+
+# Change path to current working directory
+cd $PBS_O_WORKDIR
+
+# PBS_ARRAY_INDEX is this subjob's index, the only thing that differs between
+# them. Use it to pick this subjob's slice of the work -- an input file, a
+# parameter value, a random seed.
+echo "Subjob ${PBS_ARRAY_INDEX} of array ${PBS_ARRAY_ID} running on $(hostname)"
+echo "  full job id : ${PBS_JOBID}"
+echo "  array indices: {{array_indices}}"
+
+{{user_pre_exec}}
+
+# Example: one input file per subjob, named input_1.dat, input_2.dat, ...
+# INPUT_FILE="input_${PBS_ARRAY_INDEX}.dat"
+# ./my_solver --input "${INPUT_FILE}" --output "result_${PBS_ARRAY_INDEX}.dat"
+
+echo "Job array subjob ${PBS_ARRAY_INDEX} submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]

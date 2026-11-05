@@ -1,0 +1,327 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Apptainer container runtime
+#
+# Apptainer is installed from a PINNED source tarball built with a PINNED Go
+# toolchain rather than from a distro package. No single package covers the base
+# OS matrix (apptainer is absent from the Amazon Linux 2023 repos, absent from
+# EPEL 7, and not in Ubuntu until 25.10), and upstream publishes no aarch64
+# artifact at all, so the source build is the only path that yields the same
+# version everywhere. Pinning the Go toolchain as well is not optional: a newer
+# Go fails to build this release.
+#
+# Package installs go through packages_install and downloads through
+# file_download, the shared wrappers from common.sh.j2, so this template inherits
+# their retry, multi-URL fallback and checksum behaviour rather than reimplementing
+# it. Both end in exit_fail, which means a genuine failure here takes the node out
+# of the bootstrap -- the same contract every other feature in 02_setup follows,
+# and the correct one: a node that was configured for containers and could not
+# install them must not join the scheduler and accept container jobs.
+#
+# Availability that VARIES BY DISTRO is therefore resolved at render time, not by
+# catching a runtime failure. That is the pattern
+# system_packages/epel.sh.j2 already uses, which carries an explicit
+# "EPEL is not supported on Amazon Linux 2023" branch rather than attempting an
+# install that cannot succeed. Two applications of it here:
+#
+#   * squashfuse is built from a pinned source tarball on every distro instead of
+#     installed as a package. It is absent from the amazonlinux2023 repos (whose
+#     only enabled repositories are amazonlinux and kernel-livepatch; EDH
+#     deliberately does not enable EPEL there) and amazonlinux2023 is the DEFAULT
+#     base OS. A uniform source build removes the per-distro repository question
+#     altogether and pins one version everywhere, matching how Apptainer itself is
+#     obtained. This is the specific step that previously took two nodes out of
+#     the scheduler when it was a package install.
+#
+#   * unsupported_platforms excludes distros whose package names or kernels have
+#     not been validated for this runtime, so the fatal path is never reached on
+#     one of them. It accepts a bare base OS or a base_os:arch pair.
+
+{#- The set of values accepted here MUST match utils.cast.SocaCastEngine.cast_as(bool),
+    which is what soca_samples.py._apptainer_is_enabled() uses to decide whether to
+    seed the two sample Application Profiles. The two gates read the same key from
+    opposite ends: if one accepts a value the other rejects, a cluster gets WebUI
+    entries whose runtime was never installed, or a runtime with no entries.
+    Kept byte-identical with the gate in apptainer_efa_stage.sh.j2, and both are
+    checked against the cast engine by tests/apptainer_samples.
+
+    Two forms are deliberately NOT used. Plain Jinja truthiness is wrong because
+    the string "false" is truthy. The previous `in (True, "true", "True")` was
+    wrong because `1 in (True, ...)` is True, so an integer 1 enabled the install
+    while the cast engine rejects it as a non-boolean. -#}
+{% set APPTAINER_CFG = context.get("/configuration/HPC/containers/apptainer", {}) %}
+{% set APPTAINER_ENABLED = APPTAINER_CFG.get("enabled", False) %}
+{% if APPTAINER_ENABLED is true or (APPTAINER_ENABLED is string and APPTAINER_ENABLED | lower in ["true", "yes", "on", "enabled"]) %}
+
+function edh_install_apptainer () {
+  local APPTAINER_VERSION="{{ context.get("/system/apptainer/version") }}"
+  local APPTAINER_URL="{{ context.get("/system/apptainer/url") }}"
+  local APPTAINER_SHA256="{{ context.get("/system/apptainer/sha256") }}"
+  local GO_VERSION="{{ context.get("/system/apptainer/go_version") }}"
+  local GO_SHA256_X86_64="{{ context.get("/system/apptainer/go_sha256_amd64") }}"
+  local GO_SHA256_AARCH64="{{ context.get("/system/apptainer/go_sha256_arm64") }}"
+  local INSTALL_PREFIX="{{ APPTAINER_CFG.get("install_prefix") }}"
+  local IMAGES_PATH="{{ APPTAINER_CFG.get("images_path") }}"
+  local UNSUPPORTED="{{ APPTAINER_CFG.get("unsupported_platforms") }}"
+  local BASE_OS="{{ context.get("/job/BaseOS") }}"
+
+  local ARCH
+  ARCH=$(uname -m)
+
+  log_info "[BEGIN] edh_install_apptainer (version=${APPTAINER_VERSION} arch=${ARCH} base_os=${BASE_OS})"
+
+  # -- Platform gate. Apptainer does not support the full base OS x architecture
+  #    matrix, and this is also where a distro whose package names are not
+  #    validated is excluded rather than discovered by a failed install.
+  #    unsupported_platforms is a comma-separated list whose entries are either a
+  #    bare <base_os> (all architectures) or a <base_os>:<arch> pair, so a platform
+  #    can be added or removed without a code change.
+  local PLATFORM="${BASE_OS}:${ARCH}"
+  local ENTRY
+  for ENTRY in ${UNSUPPORTED//,/ }; do
+    if [[ "${ENTRY}" == "${PLATFORM}" ]] || [[ "${ENTRY}" == "${BASE_OS}" ]]; then
+      log_warning "Apptainer is not supported on ${PLATFORM}, skipping installation. To change this, edit Config.containers.apptainer.unsupported_platforms"
+      return 0
+    fi
+  done
+
+  # -- Go archive for this architecture.
+  local GOARCH
+  local GO_SHA256
+  case "${ARCH}" in
+    x86_64)
+      GOARCH="amd64"
+      GO_SHA256="${GO_SHA256_X86_64}"
+      ;;
+    aarch64)
+      GOARCH="arm64"
+      GO_SHA256="${GO_SHA256_AARCH64}"
+      ;;
+    *)
+      log_warning "Unknown architecture ${ARCH}, skipping Apptainer installation"
+      return 0
+      ;;
+  esac
+
+  # -- Already installed at the pinned version? Nothing to do. This is what makes
+  #    a pre-baked AMI cheap.
+  if [[ -x "${INSTALL_PREFIX}/bin/apptainer" ]]; then
+    local INSTALLED
+    INSTALLED=$("${INSTALL_PREFIX}/bin/apptainer" --version 2>/dev/null | awk '{print $NF}')
+    if [[ "${INSTALLED}" == "${APPTAINER_VERSION}" ]]; then
+      log_info "Apptainer ${APPTAINER_VERSION} already installed at ${INSTALL_PREFIX}, skipping build"
+      edh_apptainer_ensure_squashfuse
+      edh_apptainer_configure "${INSTALL_PREFIX}" "${IMAGES_PATH}" "${ARCH}"
+      log_info "[COMPLETED] edh_install_apptainer"
+      return 0
+    fi
+    log_info "Apptainer ${INSTALLED} found but ${APPTAINER_VERSION} is pinned, rebuilding"
+  fi
+
+  # -- Build dependencies. Only what the shared base package list
+  #    (system_packages/os/base_packages/) does not already install on every node:
+  #    gcc, gcc-c++, make, git, wget, automake, zlib-devel and xz-devel come from
+  #    there, so they are deliberately not repeated here.
+  #
+  #    shadow-utils-subid-devel is NOT installed. It only adds libsubid for
+  #    `apptainer build --fakeroot`, and this runtime is rootless: the samples
+  #    build their images with a plain `apptainer build` as an ordinary job user
+  #    via unprivileged user namespaces. Leaving it out also avoids depending on a
+  #    package whose availability differs across the RHEL-family distros.
+  log_info "Installing Apptainer build dependencies"
+  {% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+    packages_install build-essential libseccomp-dev cryptsetup-bin uidmap \
+      squashfs-tools fuse3 libfuse3-dev pkg-config
+  {% else %}
+    packages_install libseccomp-devel cryptsetup fuse3 fuse3-devel \
+      squashfs-tools pkgconf-pkg-config
+  {% endif %}
+
+  # -- squashfuse is what makes `apptainer exec` MOUNT an image instead of
+  #    unpacking it to a temporary sandbox on every launch.
+  edh_apptainer_ensure_squashfuse
+
+  local BUILD_DIR="${EDH_BOOTSTRAP_ASSETS_FOLDER}/apptainer"
+  mkdir -p "${BUILD_DIR}"
+  pushd "${BUILD_DIR}" > /dev/null || exit_fail "Unable to enter ${BUILD_DIR}"
+
+  # -- Pinned Go toolchain. Build-time only; it is not installed on the node.
+  local GO_TARBALL="${GO_VERSION}.linux-${GOARCH}.tar.gz"
+  log_info "Downloading pinned Go toolchain ${GO_TARBALL}"
+  file_download --download-url="https://go.dev/dl/${GO_TARBALL}" \
+    --save-as="${BUILD_DIR}/${GO_TARBALL}" \
+    --sha256-checksum="${GO_SHA256}"
+  rm -rf "${BUILD_DIR}/go"
+  tar -C "${BUILD_DIR}" -xzf "${GO_TARBALL}" || exit_fail "Unable to extract ${GO_TARBALL}"
+
+  export PATH="${BUILD_DIR}/go/bin:${PATH}"
+  export GOPATH="${BUILD_DIR}/gopath"
+  export GOCACHE="${BUILD_DIR}/gocache"
+  # Never let the toolchain silently fetch a different version than the pinned one.
+  export GOTOOLCHAIN="local"
+  log_info "Using $(go version 2>&1)"
+
+  # -- Pinned Apptainer source.
+  log_info "Downloading Apptainer ${APPTAINER_VERSION} source"
+  file_download --download-url="${APPTAINER_URL}" \
+    --save-as="${BUILD_DIR}/apptainer-${APPTAINER_VERSION}.tar.gz" \
+    --sha256-checksum="${APPTAINER_SHA256}"
+  rm -rf "apptainer-${APPTAINER_VERSION}"
+  tar -xzf "apptainer-${APPTAINER_VERSION}.tar.gz" || exit_fail "Unable to extract the Apptainer source"
+  pushd "apptainer-${APPTAINER_VERSION}" > /dev/null || exit_fail "Unable to enter the Apptainer source directory"
+
+  # --without-suid yields the rootless build. Unprivileged user namespaces are
+  # enabled on every supported base OS and /dev/infiniband is world-accessible,
+  # so EFA is reachable from a rootless container without a setuid starter.
+  log_info "Configuring Apptainer (rootless, prefix=${INSTALL_PREFIX})"
+  ./mconfig --without-suid --prefix="${INSTALL_PREFIX}" || exit_fail "Apptainer mconfig failed on ${PLATFORM}"
+  make -C builddir -j"$(nproc)" || exit_fail "Apptainer build failed on ${PLATFORM}"
+  make -C builddir install || exit_fail "Apptainer install failed on ${PLATFORM}"
+  popd > /dev/null || true
+  popd > /dev/null || true
+
+  log_info "Installed $("${INSTALL_PREFIX}/bin/apptainer" --version 2>&1)"
+  edh_apptainer_configure "${INSTALL_PREFIX}" "${IMAGES_PATH}" "${ARCH}"
+  log_info "[COMPLETED] edh_install_apptainer"
+}
+
+function edh_apptainer_ensure_squashfuse () {
+  # Build squashfuse from a pinned release tarball on every distro. Rationale for
+  # not using a package is at the top of this file: squashfuse does not exist in
+  # the amazonlinux2023 repositories and amazonlinux2023 is the default base OS,
+  # so a package install is the one step here that cannot be made to work
+  # everywhere. The release tarball ships a configure script, so no autotools run
+  # is needed, and the build takes seconds.
+  local SQ_VERSION="{{ context.get("/system/apptainer/squashfuse_version") }}"
+  local SQ_URL="{{ context.get("/system/apptainer/squashfuse_url") }}"
+  local SQ_SHA256="{{ context.get("/system/apptainer/squashfuse_sha256") }}"
+  local SQ_DIR="${EDH_BOOTSTRAP_ASSETS_FOLDER}/squashfuse"
+
+  # Apptainer looks for the `squashfuse` binary specifically, not squashfuse_ll.
+  if command -v squashfuse > /dev/null 2>&1; then
+    log_info "squashfuse already present at $(command -v squashfuse), skipping build"
+    return 0
+  fi
+
+  if [[ -z "${SQ_URL}" ]] || [[ -z "${SQ_SHA256}" ]]; then
+    exit_fail "No squashfuse pin configured under /system/apptainer. Without squashfuse every apptainer exec unpacks the whole image instead of mounting it."
+  fi
+
+  # Compression codecs squashfuse links against, plus the FUSE 3 headers it is
+  # built against. zlib and xz development headers already come from the shared
+  # base package list. Without the codec headers, configure silently drops codec
+  # support and an image compressed with a missing codec will not mount; without
+  # the fuse3 headers, configure either drops FUSE support outright or fails.
+  #
+  # fuse3 is listed HERE rather than only on the full-build path above, because
+  # this function is also reached directly when Apptainer is already present at
+  # the pinned version -- a pre-baked AMI carrying apptainer but not squashfuse
+  # would otherwise configure squashfuse with no fuse3 headers available.
+  log_info "Installing squashfuse build dependencies"
+  {% if context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
+    packages_install liblz4-dev liblzo2-dev libzstd-dev fuse3 libfuse3-dev \
+      pkg-config
+  {% else %}
+    packages_install lz4-devel lzo-devel libzstd-devel fuse3 fuse3-devel \
+      pkgconf-pkg-config
+  {% endif %}
+
+  mkdir -p "${SQ_DIR}"
+  pushd "${SQ_DIR}" > /dev/null || exit_fail "Unable to enter ${SQ_DIR}"
+
+  log_info "Downloading pinned squashfuse ${SQ_VERSION}"
+  file_download --download-url="${SQ_URL}" \
+    --save-as="${SQ_DIR}/squashfuse-${SQ_VERSION}.tar.gz" \
+    --sha256-checksum="${SQ_SHA256}"
+
+  rm -rf "squashfuse-${SQ_VERSION}"
+  tar -xzf "squashfuse-${SQ_VERSION}.tar.gz" || exit_fail "Unable to extract the squashfuse source"
+  pushd "squashfuse-${SQ_VERSION}" > /dev/null || exit_fail "Unable to enter the squashfuse source directory"
+
+  # Install into /usr/local so it lands on the default PATH, which is where
+  # Apptainer looks for it.
+  ./configure --prefix=/usr/local || exit_fail "squashfuse configure failed"
+  make -j"$(nproc)" || exit_fail "squashfuse build failed"
+  make install || exit_fail "squashfuse install failed"
+  ldconfig 2>/dev/null || true
+  popd > /dev/null || true
+  popd > /dev/null || true
+
+  command -v squashfuse > /dev/null 2>&1 \
+    || exit_fail "squashfuse ${SQ_VERSION} was built and installed but the binary is not on PATH"
+  log_info "Built squashfuse ${SQ_VERSION} from source at $(command -v squashfuse)"
+}
+
+# NOTE: the EFA installer staging that the Apptainer EFA sample depends on is NOT
+# here, deliberately. Apptainer is installed in 02_setup but EFA is installed in
+# 03_setup_post_reboot, so at this point the installer does not exist yet and
+# staging it from here silently did nothing. It lives in
+# templates/linux/containers/apptainer_efa_stage.sh.j2, included from 03 after
+# efa.sh.j2.
+
+function edh_apptainer_configure () {
+  local INSTALL_PREFIX="${1}"
+  local IMAGES_PATH="${2}"
+  local ARCH="${3}"
+
+  # -- Architecture-scoped image store. A SIF built for one architecture will not
+  #    run on the other, so images are never stored in a flat directory. Both the
+  #    kernel name and the Go/Docker name are provided for each architecture,
+  #    because the two are used interchangeably in practice and a job script may
+  #    reference either.
+  local CANONICAL="${ARCH}"
+  local ALIAS=""
+  case "${ARCH}" in
+    x86_64)  ALIAS="amd64" ;;
+    aarch64) ALIAS="arm64" ;;
+  esac
+
+  if ! mkdir -p "${IMAGES_PATH}/${CANONICAL}"; then
+    log_warning "Unable to create ${IMAGES_PATH}/${CANONICAL}, container images will have no shared location"
+  else
+    chmod 755 "${IMAGES_PATH}" "${IMAGES_PATH}/${CANONICAL}" 2>/dev/null || true
+    log_info "Container image store: ${IMAGES_PATH}/${CANONICAL}"
+    if [[ -n "${ALIAS}" ]] && [[ ! -e "${IMAGES_PATH}/${ALIAS}" ]]; then
+      # Relative target so the link stays valid regardless of where the shared
+      # filesystem is mounted.
+      ln -sfn "${CANONICAL}" "${IMAGES_PATH}/${ALIAS}" \
+        && log_info "Aliased ${IMAGES_PATH}/${ALIAS} to ${CANONICAL}" \
+        || log_warning "Unable to alias ${IMAGES_PATH}/${ALIAS}"
+    fi
+  fi
+
+  # -- Cache and temp must stay OFF the shared filesystem. The default is under
+  #    the user's home, which is shared, so every image pull would write gigabytes
+  #    to it. Prefer node-local scratch when configure_scratch_partition built one.
+  local CACHE_ROOT
+  if [[ -d /scratch ]] && [[ -w /scratch ]]; then
+    CACHE_ROOT="/scratch/apptainer"
+  else
+    CACHE_ROOT="/var/tmp/apptainer"
+  fi
+  mkdir -p "${CACHE_ROOT}/cache" "${CACHE_ROOT}/tmp" 2>/dev/null || true
+  chmod 1777 "${CACHE_ROOT}" "${CACHE_ROOT}/cache" "${CACHE_ROOT}/tmp" 2>/dev/null || true
+  log_info "Apptainer cache root: ${CACHE_ROOT}"
+
+  set_environment_variable "APPTAINER_CACHEDIR" "${CACHE_ROOT}/cache"
+  set_environment_variable "APPTAINER_TMPDIR" "${CACHE_ROOT}/tmp"
+  set_environment_variable "EDH_CONTAINER_IMAGES" "${IMAGES_PATH}/${CANONICAL}"
+
+  # -- Put apptainer on PATH for login and job shells alike.
+  cat << APPTAINER_PROFILE_EOF > /etc/profile.d/zz-edh-apptainer.sh
+# EDH: Apptainer. Managed by templates/linux/containers/apptainer.sh.j2
+export PATH="${INSTALL_PREFIX}/bin:\${PATH}"
+export APPTAINER_CACHEDIR="${CACHE_ROOT}/cache"
+export APPTAINER_TMPDIR="${CACHE_ROOT}/tmp"
+export EDH_CONTAINER_IMAGES="${IMAGES_PATH}/${CANONICAL}"
+APPTAINER_PROFILE_EOF
+  chmod 644 /etc/profile.d/zz-edh-apptainer.sh
+}
+
+edh_install_apptainer
+
+{% else %}
+log_info "Apptainer is disabled (Config.containers.apptainer.enabled is false), skipping container runtime installation"
+{% endif %}
+# End: Apptainer container runtime

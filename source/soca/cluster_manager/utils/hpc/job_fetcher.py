@@ -24,30 +24,60 @@ from utils.datamodels.hpc.scheduler import SocaHpcScheduler, SocaHpcSchedulerPro
 from utils.datamodels.hpc.lsf.job import SocaHpcJobLSF
 from utils.datamodels.hpc.pbs.job import SocaHpcJobPBS
 from utils.datamodels.hpc.slurm.job import SocaHpcJobSlurm
+from utils.hpc.job_identity import count_array_indices, parse_array_state_count
+from utils.hpc.pbs_memory import parse_pbs_memory_to_mib
 
 from utils.hpc.scheduler_command_builder import (
     SocaHpcPBSJobCommandBuilder,
     SocaHpcLSFJobCommandBuilder,
     SocaHpcSlurmJobCommandBuilder,
+    SocaHpcPCSJobCommandBuilder
 )
 
 logger = logging.getLogger("soca_logger")
 
+# PBS sets the project attribute to this when a job is submitted without -P.
+PBS_PROJECT_DEFAULT_SENTINEL = "_pbs_project_default"
+
 
 def _parse_pbs_time(value) -> Optional[int]:
-    # PBS times are formatted strings ("Wed Mar 18 20:23:04 2026"); some fields (obittime) may be epoch ints
+    """
+    Normalize a PBS time field to an epoch int.
+
+    qstat -f -F json reports every time field (qtime, stime, obittime, mtime) as a
+    formatted string, e.g. "Wed Mar 18 20:23:04 2026". A digit-only value is still
+    accepted as an epoch so a caller supplying one is handled, but no PBS field is
+    emitted in that shape.
+
+    The shape is decided by inspecting the string rather than by attempting
+    SocaCastEngine.cast_as(int) and letting it fail: that returns
+    SocaError.CAST_ERROR for a formatted string, which logs at ERROR level on every
+    dispatcher tick even when the value is parsed correctly here.
+    """
     if value is None:
         return None
-    _cast_int = SocaCastEngine(data=value).cast_as(int)
-    if _cast_int.get("success") is True:
-        return _cast_int.get("message")
+
     _cast_str = SocaCastEngine(data=value).cast_as(str)
-    if _cast_str.get("success") is True:
-        try:
-            return int(datetime.strptime(_cast_str.get("message"), "%a %b %d %H:%M:%S %Y").timestamp())
-        except (TypeError, ValueError):
+    if _cast_str.get("success") is False:
+        return None
+
+    _value = _cast_str.get("message").strip()
+    if not _value:
+        return None
+
+    if re.fullmatch(r"\d+", _value):
+        # Epoch form
+        _cast_epoch = SocaCastEngine(data=_value).cast_as(int)
+        if _cast_epoch.get("success") is False:
             return None
-    return None
+        return _cast_epoch.get("message")
+
+    try:
+        # Formatted form
+        return int(datetime.strptime(_value, "%a %b %d %H:%M:%S %Y").timestamp())
+    except (TypeError, ValueError):
+        logger.debug(f"Unable to parse PBS time value {_value!r}")
+        return None
 
 
 def get_job_orchestration_mapping(value: str) -> SocaHpcJobOrchestrationMethod:
@@ -160,7 +190,7 @@ def job_state_mapping(
         SocaHpcSchedulerProvider.PBSPRO: _pbs_mapping,
         SocaHpcSchedulerProvider.LSF: _lsf_mapping,
         SocaHpcSchedulerProvider.SLURM: _slurm_mapping,
-        # SocaHpcSchedulerProvider.AWS_PCS: _slurm_mapping,
+        SocaHpcSchedulerProvider.AWS_PCS: _slurm_mapping,
         # SocaHpcSchedulerProvider.AWS_BATCH: _aws_batch_mapping
     }
 
@@ -278,6 +308,13 @@ class SocaHpcJobFetcher:
                 scheduler_info=self.scheduler_info
             ).squeue(args=f"{_queue_option} {_user_option} {_job_id_option} --json")
 
+        elif self.scheduler_info.provider == SocaHpcSchedulerProvider.AWS_PCS:
+            _queue_option = f"--partition {queue}" if queue else ""
+            _user_option = f"--user {user}" if user else ""
+            _job_id_option = f"--job {job_id}" if job_id else ""
+            _run_command = SocaHpcPCSJobCommandBuilder(
+                scheduler_info=self.scheduler_info
+            ).squeue(args=f"{_queue_option} {_user_option} {_job_id_option} --json")
         else:
             return SocaError.GENERIC_ERROR(
                 helper=f"{self.scheduler_info.provider=} is not a recognized scheduler on SOCA, must be openpbs, slurm or lsf"
@@ -333,7 +370,7 @@ class SocaHpcJobFetcher:
                         bjobs_output=_get_output_as_json.get("message")
                     )
 
-                elif self.scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
+                elif self.scheduler_info.provider in [SocaHpcSchedulerProvider.SLURM, SocaHpcSchedulerProvider.AWS_PCS]:
                     _jobs_list = self.__slurm_parser(
                         squeue_output=_get_output_as_json.get("message")
                     )
@@ -1078,7 +1115,16 @@ class SocaHpcJobFetcher:
                     _end_time = _v.get("mtime")
                 _job_pbs.job_end_time = _parse_pbs_time(_end_time)
 
-                _job_pbs.job_project = _v.get("Project", None)
+                # PBS emits this attribute lowercase, and assigns the sentinel
+                # PBS_PROJECT_DEFAULT_SENTINEL when the job was submitted without
+                # -P. EDH's canonical "no project" is None -- validate_project_budget
+                # branches on it and cluster_hooks/pbs/queued_job.py preserves it --
+                # so normalize the sentinel instead of letting it reach cost
+                # allocation looking like a real project name.
+                _pbs_project = _v.get("project", None)
+                if _pbs_project == PBS_PROJECT_DEFAULT_SENTINEL:
+                    _pbs_project = None
+                _job_pbs.job_project = _pbs_project
                 if _v.get("job_state", None) is not None:
                     _job_pbs.job_state = job_state_mapping(
                         state=_v.get("job_state"),
@@ -1088,12 +1134,91 @@ class SocaHpcJobFetcher:
                         "job_state"
                     )  # Tracking as raw actual scheduler job state
 
+                # ---- Job array attributes ----
+                # PBS reports an array PARENT as a single job whose Resource_List
+                # describes ONE subjob, plus these attributes describing how many
+                # subjobs there are. Without them the dispatcher reads nodes=1 off
+                # a 100-subjob array and provisions one node's worth of capacity.
+                #
+                # All of this arrives in the `qstat -f -F json` output already
+                # fetched above: no `-t` expansion and no per-subjob query.
+                _pbs_array = _v.get("array", None)
+                _job_pbs.is_array = str(_pbs_array).strip().lower() == "true"
+
+                # Raw mirrors for the customization hook documented on
+                # SocaHpcJobPBS. Set unconditionally: a SUBJOB carries array_id
+                # and array_index without being an array parent itself.
+                _job_pbs.pbs_array = _pbs_array
+                _job_pbs.pbs_array_id = _v.get("array_id", None)
+                # array_index is present only on a SUBJOB. Guard the cast rather
+                # than letting SocaCastEngine log a CAST_ERROR for every ordinary
+                # job and every array parent, which is the common case.
+                _pbs_array_index = _v.get("array_index", None)
+                if _pbs_array_index is not None:
+                    _index_cast = SocaCastEngine(data=_pbs_array_index).cast_as(int)
+                    _job_pbs.pbs_array_index = (
+                        _index_cast.get("message")
+                        if _index_cast.get("success")
+                        else None
+                    )
+                _job_pbs.pbs_array_state_count = _v.get("array_state_count", None)
+                _job_pbs.pbs_array_indices_submitted = _v.get(
+                    "array_indices_submitted", None
+                )
+                _job_pbs.pbs_array_indices_remaining = _v.get(
+                    "array_indices_remaining", None
+                )
+
+                if _job_pbs.is_array:
+                    _job_pbs.array_indices_submitted = _v.get(
+                        "array_indices_submitted", None
+                    )
+                    _job_pbs.array_subjob_count = count_array_indices(
+                        _job_pbs.array_indices_submitted
+                    ).get("message")
+
+                    # PBS writes a literal "-" once no subjob is waiting. Normalize
+                    # it to None so callers can treat falsy as "nothing queued"
+                    # rather than having to know the sentinel.
+                    _remaining = _v.get("array_indices_remaining", None)
+                    if _remaining is not None and str(_remaining).strip() in (
+                        "",
+                        "-",
+                    ):
+                        _remaining = None
+                    _job_pbs.array_indices_remaining = _remaining
+
+                    _job_pbs.array_state_count = parse_array_state_count(
+                        _v.get("array_state_count", "")
+                    ).get("message")
+
+                    logger.info(
+                        f"Detected job array {_job_pbs.job_id=} "
+                        f"{_job_pbs.array_indices_submitted=} "
+                        f"{_job_pbs.array_subjob_count=} "
+                        f"{_job_pbs.array_indices_remaining=} "
+                        f"{_job_pbs.array_state_count=}"
+                    )
+
+                    if _job_pbs.array_subjob_count == 0:
+                        # The size could not be determined, so capacity cannot be
+                        # sized either. Say so here: the dispatcher refuses the job
+                        # rather than silently provisioning one subjob's worth.
+                        logger.error(
+                            f"Unable to determine subjob count for array "
+                            f"{_job_pbs.job_id} from "
+                            f"array_indices_submitted={_job_pbs.array_indices_submitted!r}"
+                        )
+
                 # Map SocaHpcJobResourceModel
 
                 _resource_mapping = {
                     # PBS resource name : SocaHpcJobPbs attr
                     "nodect": "nodes",
                     "ncpus": "cpus",
+                    # PBS reports mem as a string with a unit ("6gb"). Converted
+                    # to MiB in the branch below. (V2421117070)
+                    "mem": "mem_mib",
                     "base_os": "base_os",
                     "instance_profile": "instance_profile",
                     "instance_ami": "instance_ami",
@@ -1141,6 +1266,24 @@ class SocaHpcJobFetcher:
                                 _resource == "retry_attempt"
                             ):  # retry_attempt must be an integer
                                 setattr(_job_pbs, attr, int(_resource_value))
+                            elif _resource == "mem":
+                                # PBS reports a unit-suffixed string ("6gb");
+                                # the model stores MiB. A value we cannot read
+                                # is left as None rather than guessed, so the
+                                # validator can say the request was unreadable
+                                # instead of silently validating against 0.
+                                _mem = parse_pbs_memory_to_mib(_resource_value)
+                                _mem_mib = (
+                                    _mem.get("message")
+                                    if _mem.get("success") is True
+                                    else None
+                                )
+                                if _mem_mib is None:
+                                    logger.warning(
+                                        f"Unable to read mem={_resource_value!r} for "
+                                        f"{_job_pbs.job_id}; treating as unset"
+                                    )
+                                _job_pbs.mem_mib = _mem_mib
                             elif _resource == "error_message":
                                 _job_pbs.error_message = re.findall(
                                     r"ERROR_(.*?)_END_OF_ERROR", _resource_value
@@ -1204,6 +1347,8 @@ class SocaHpcJobFetcher:
                 _job_pbs.pbs_comment = _v.get("comment", None)
                 _job_pbs.pbs_etime = _v.get("etime", None)
                 _job_pbs.pbs_submit_arguments = _v.get("Submit_arguments", None)
+                _job_pbs.pbs_depend = _v.get("depend", None)
+                _job_pbs.pbs_exit_status = _v.get("Exit_status", None)
                 _job_pbs.pbs_executable = _v.get("executable", None)
                 _job_pbs.pbs_argument_list = _v.get("argument_list", None)
                 _job_pbs.pbs_project = _v.get("project", None)

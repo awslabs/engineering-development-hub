@@ -19,7 +19,7 @@ def describe_file_systems(
 ) -> SocaResponse:
     logger.info(f"Running describe_file_systems with {filesystem_ids=}")
     try:
-        _describe_filesystem = client_fsx.describe_instances(
+        _describe_filesystem = client_fsx.describe_file_systems(
             FileSystemIds=filesystem_ids
         )
         logger.debug(f"describe_filesystem Results: {_describe_filesystem}")

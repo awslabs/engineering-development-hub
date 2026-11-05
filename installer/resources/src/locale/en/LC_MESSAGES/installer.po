@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-04-30 15:55-0500\n"
+"POT-Creation-Date: 2026-10-05 11:36-0500\n"
 "PO-Revision-Date: 2026-04-30 16:05-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,11 +18,53 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid VPCs in region {region}. Please "
+"see the VPC Table for specific errors."
+msgstr ""
+
+msgid "Choose the VPC you want to use?"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid Analytics engines in region "
+"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
+"select 'new' to create a new one."
+msgstr ""
+
+msgid "Choose the OpenSearch Cluster you want to use?"
+msgstr ""
+
+msgid "Choose the directory you want to use?"
+msgstr ""
+
+msgid "How many of these subnets do you want to use?"
+msgstr ""
+
+msgid ""
+"Your security groups may not be configured correctly. Verify them and "
+"determine if the warnings listed above are false-positive.\n"
+" Do you still want to continue with the installation?"
+msgstr ""
+
 msgid "[italic #8a9bb8]Press Ctrl+C to exit at any time[/]"
 msgstr ""
 
 msgid "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
 msgstr "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
+
+#, python-brace-format
+msgid "Select an S3 bucket ({count} found; type to filter):"
+msgstr ""
+
+msgid "Enter a row number from the table above"
+msgstr ""
+
+#, python-brace-format
+msgid "Enter a row number between 1 and {row_count}"
+msgstr ""
 
 #, python-brace-format
 msgid ""
@@ -31,10 +73,21 @@ msgid ""
 "Make sure you have read, reviewed and updated them (if needed). Continue?"
 msgstr ""
 
+msgid "Continue"
+msgstr ""
+
+msgid "Abort"
+msgstr ""
+
 msgid "[yellow]Aborted by user.[/yellow]"
 msgstr ""
 
 msgid "Select the region where you want to deploy your EDH cluster:"
+msgstr ""
+
+msgid ""
+"(Your data will reside in the region you select. Country code [CC] is "
+"shown to help with data-residency.)"
 msgstr ""
 
 msgid "Validating EC2 Prefix List ID ... "
@@ -48,25 +101,71 @@ msgstr ""
 msgid "Checking if name is available on Cloudformation"
 msgstr ""
 
+msgid "Email address for cluster notifications:"
+msgstr ""
+
+msgid "How would you like to configure the HTTPS certificate?"
+msgstr ""
+
+msgid "Let EDH create a self-signed certificate"
+msgstr ""
+
+msgid "Use an existing ACM certificate"
+msgstr ""
+
+msgid "Select the ACM certificate to use:"
+msgstr ""
+
+msgid "PREVIEW"
+msgstr ""
+
+msgid "Preview release. Not for production use."
+msgstr ""
+
+#, python-brace-format
+msgid "Unsupported roles run on another OS: {substitutions}."
+msgstr ""
+
 msgid ""
 "Select the default operating system for your EDH cluster (this can be "
 "changed post deployment):"
 msgstr ""
 
-msgid "Email address for cluster notifications:"
+msgid ""
+"Client IPv4 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
 msgstr ""
 
 msgid ""
-"Client IPv4/IPv6 or CIDR range authorized to access EDH on TCP ports "
-"443/22:"
+"Client IPv6 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
+msgstr ""
+
+msgid ""
+"How should EDH be deployed?\n"
+"  Public: Load balancers are placed in public subnets, with ingress "
+"restricted to the authorized sources listed above (this can be changed "
+"post-install).\n"
+"  Private: Load balancers are placed in private subnets. Requires a VPN "
+"or Direct Connect for access."
+msgstr ""
+
+msgid ""
+"Public (Recommended) - Internet-facing load balancers, access restricted "
+"by firewall rules"
+msgstr ""
+
+msgid ""
+"Private - Internal load balancers, requires VPN/Direct Connect. Not "
+"internet routable."
 msgstr ""
 
 msgid "Choose the SSH keypair to use: "
 msgstr ""
 
 msgid ""
-"Enter the name of an S3 bucket you own in the target region to be used "
-"for cluster state storage:"
+"Enter the name of an S3 bucket that the application will use to store "
+"cluster data (or type '?' to list buckets you own):"
 msgstr ""
 
 msgid "VPC configuration:"
@@ -90,12 +189,94 @@ msgstr ""
 msgid "Select at least 2 private subnets:"
 msgstr ""
 
-msgid ""
-"Select the filesystem provider for /apps (where applications will be "
-"installed):"
+msgid "where applications will be installed"
 msgstr ""
 
-msgid "Select the filesystem provider for /data (where user data will be stored):"
+msgid "where user data will be stored"
+msgstr ""
+
+#, python-brace-format
+msgid "Filesystem for /{mount_point} ({purpose}):"
+msgstr ""
+
+msgid "Create a new filesystem"
+msgstr ""
+
+msgid "Re-use an existing filesystem in this VPC"
+msgstr ""
+
+#, python-brace-format
+msgid "Row number of the filesystem to mount as /{mount_point}:"
+msgstr ""
+
+#, python-brace-format
+msgid "Mount {fs_id} as /{mount_point} as well?"
+msgstr ""
+
+msgid "Pick a different filesystem"
+msgstr ""
+
+msgid "Yes, share this filesystem"
+msgstr ""
+
+#, python-brace-format
+msgid "NFS access for /{mount_point}:"
+msgstr ""
+
+msgid "Re-check now"
+msgstr ""
+
+msgid "Continue anyway, deployment may fail"
+msgstr ""
+
+#, python-brace-format
+msgid "Select the filesystem provider for /{mount_point} ({purpose}):"
+msgstr ""
+
+msgid "Analytics back-end (OpenSearch):"
+msgstr ""
+
+msgid "Create a new OpenSearch domain"
+msgstr ""
+
+msgid "Re-use an existing OpenSearch domain in this VPC"
+msgstr ""
+
+msgid "Row number of the OpenSearch domain to re-use:"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"EDH download required external resources (Python, DCV, EFA, GPU drivers, "
+"etc.) from trusted sources such as python.org, github.com, nodejs.org, "
+"efa-installer.amazonaws.com.\n"
+"  You can mirror these resources to your own in-account S3 bucket so EDH "
+"nodes download from S3 instead of the internet.\n"
+"  This is recommended for reliability and faster provisioning.\n"
+"  All external resources can be found on {config_file}, section "
+"'Parameters'.\n"
+"  How would you like to handle external resources (~5GB)?"
+msgstr ""
+
+msgid ""
+"Mirror resources to S3 automatically via Lambda (running in EDH VPC) at "
+"install time (Recommended)"
+msgstr ""
+
+msgid ""
+"Mirror resources to S3 automatically via Lambda (not running in VPC) at "
+"install time"
+msgstr ""
+
+msgid ""
+"Mirror resources to S3 via this host (download+upload) before deploying "
+"EDH"
+msgstr ""
+
+msgid "No S3 Mirroring (EDH nodes will download from the internet directly)"
+msgstr ""
+
+msgid "Generating resource mirror manifest ..."
 msgstr ""
 
 msgid "Bootstrapping CDK environment ..."
@@ -117,9 +298,6 @@ msgid "[red] Installation cancelled.[/red]"
 msgstr ""
 
 msgid "What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16"
-msgstr ""
-
-msgid "Select the AWS PCS cluster to link to"
 msgstr ""
 
 msgid "Username of a domain user with  admin permissions?"
@@ -162,7 +340,16 @@ msgstr ""
 msgid "AWS CDK Custom Permissions Boundary"
 msgstr ""
 
-msgid "AWS CDK Termination Protection setting"
+msgid ""
+"Do not pass --termination-protection to 'cdk bootstrap'. Bootstrapping an"
+" already-bootstrapped environment is an UpdateStack on CDKToolkit, so the"
+" flag changes that setting on a toolkit stack EDH does not own."
+msgstr ""
+
+msgid ""
+"Do not run 'cdk bootstrap' even when the environment version cannot be "
+"confirmed. Use when the deploy identity cannot read /cdk-"
+"bootstrap/<qualifier>/version but the environment is known good."
 msgstr ""
 
 msgid ""
@@ -259,37 +446,6 @@ msgstr ""
 msgid "Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22"
 msgstr ""
 
-#, python-brace-format
-msgid ""
-"FATAL ERROR: Unable to locate any valid VPCs in region {region}. Please "
-"see the VPC Table for specific errors."
-msgstr ""
-
-msgid "Choose the VPC you want to use?"
-msgstr ""
-
-#, python-brace-format
-msgid ""
-"FATAL ERROR: Unable to locate any valid Analytics engines in region "
-"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
-"select 'new' to create a new one."
-msgstr ""
-
-msgid "Choose the OpenSearch Cluster you want to use?"
-msgstr ""
-
-msgid "Choose the directory you want to use?"
-msgstr ""
-
-msgid "How many of these subnets do you want to use?"
-msgstr ""
-
-msgid ""
-"Your security groups may not be configured correctly. Verify them and "
-"determine if the warnings listed above are false-positive.\n"
-" Do you still want to continue with the installation?"
-msgstr ""
-
 msgid ""
 "Create EDH installer. Visit https://awslabs.github.io/engineering-"
 "development-hub-documentation/documentation/01-install-edh-cluster/ if "
@@ -299,13 +455,34 @@ msgstr ""
 msgid "AWS CDK Bootstrap Profile"
 msgstr ""
 
+msgid ""
+"CDK deployment method (only used when --cdk-cmd is deploy/create/update)."
+" 'direct' (default) calls CreateStack/UpdateStack directly; faster, "
+"simpler progress display, recommended for SOCA which is install-only. "
+"SOCA references existing AWS resources (VPC, subnets, certificates, key "
+"pairs) via synth-time lookups, which are unaffected by deploy method. "
+"'change-set' creates and executes a CFN change set; use this if you need "
+"a CloudFormation change set audit record for compliance, want to preview "
+"replacement risk on incremental updates, or are forking the installer to "
+"use 'cdk deploy --import-existing-resources' (which requires change-set)."
+msgstr ""
+
 msgid "Skip the configuration review prompt"
 msgstr ""
 
 msgid "AWS region to deploy EDH in"
 msgstr ""
 
-msgid "Base OS for EDH controller and login nodes"
+#, python-brace-format
+msgid ""
+"Base OS for EDH controller and login nodes. Values in {preview} are "
+"preview releases, not for production use."
+msgstr ""
+
+msgid ""
+"Show preview base OS releases in the interactive selection list. --base-"
+"os accepts a preview value with or without this flag; it only controls "
+"whether the interactive list offers one."
 msgstr ""
 
 msgid "EDH cluster name (e.g. edh-mycluster)"
@@ -356,4 +533,50 @@ msgstr ""
 
 msgid "Existing OpenSearch domain endpoint URL"
 msgstr ""
+
+msgid ""
+"TLS certificate for the cluster ALB. Pass 'auto' to reuse the EDH default"
+" ACM cert (creating a self-signed one if absent -- not for production), "
+"or an ACM certificate ARN. Omit to use the interactive prompt."
+msgstr ""
+
+msgid ""
+"Decide where to deploy the Elastic and Network Load Balancer (public "
+"-recommended- or private subnets). If private, ensure you have a VPN or "
+"Direct Connect set up to access the cluster from your client machines."
+msgstr ""
+
+msgid "Skip Customer Managed KMS Key policy validation checks"
+msgstr ""
+
+#~ msgid ""
+#~ "Client IPv4/IPv6 or CIDR range "
+#~ "authorized to access EDH on TCP "
+#~ "ports 443/22:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Enter the name of an S3 bucket "
+#~ "you own in the target region to"
+#~ " be used for cluster state storage:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Select the filesystem provider for /apps"
+#~ " (where applications will be installed):"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Select the filesystem provider for /data"
+#~ " (where user data will be stored):"
+#~ msgstr ""
+
+#~ msgid "Select the AWS PCS cluster to link to"
+#~ msgstr ""
+
+#~ msgid "AWS CDK Termination Protection setting"
+#~ msgstr ""
+
+#~ msgid "Base OS for EDH controller and login nodes"
+#~ msgstr ""
 

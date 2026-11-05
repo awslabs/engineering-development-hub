@@ -1,0 +1,268 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Begin: Stage the EFA installer for Apptainer container builds
+#
+# Separate from templates/linux/containers/apptainer.sh.j2 purely because of
+# ORDERING. Apptainer itself is installed in 02_setup, which is the right place
+# for a software install, but EFA is installed in 03_setup_post_reboot (after the
+# reboot, gated on efa_support). So at the time the Apptainer template runs the
+# EFA installer does not exist yet, and staging it from there silently did
+# nothing -- the EFA sample then failed with
+# "no EFA installer staged at /apps/containers/efa-installer".
+#
+# This include therefore runs from 03, immediately after efa.sh.j2, inside the
+# same efa_support guard.
+#
+# Why stage it at all: MPI over EFA from inside a container requires the
+# container's libfabric and OpenMPI to ABI-match the host launcher's, and the
+# reliable way to get that is to build the image from the SAME installer this
+# node used. The bootstrap original lives under /root and a job running as an
+# ordinary user cannot read it, so a readable copy goes on shared storage.
+# Deriving the container's packages from the separately pinned EFA version
+# instead reintroduces the skew this removes, because the live EFA version moves
+# independently of the pin in default_config.yml.
+#
+# CONCURRENCY. The destination is shared storage and every node of a multi-node
+# job runs this at the same time, so no node may ever write into a path a reader
+# can see. Three rules follow, and together they replace what used to be an
+# unguarded recursive copy straight into the published path:
+#
+#   1. The published directory is keyed by EFA version. Nothing is ever written
+#      in place, so a version bump cannot have nodes copying over each other
+#      while a job reads the tree.
+#   2. Each node copies into a unique hidden staging directory and renames it
+#      into place when it is complete. rename() is atomic and fails when the
+#      destination already exists, so the first node to finish publishes and
+#      every other node discards its copy. No lock is needed, and none is used:
+#      flock over NFS is a weaker guarantee than the rename this relies on.
+#   3. EFA_VERSION is written LAST inside the staging directory, so its presence
+#      in the published directory proves the whole tree landed. Testing for the
+#      directory alone would accept a copy that died halfway -- the same trap
+#      openmpi.sh.j2 warns about in its own comments.
+#
+# 03_setup_post_reboot.sh includes common.sh.j2 at the top of the script, so
+# file_download and packages_install are in scope here exactly as they are in 02,
+# and the download below goes through file_download to inherit its multi-URL
+# fallback and checksum verification.
+
+{#- The set of values accepted here MUST match utils.cast.SocaCastEngine.cast_as(bool),
+    which is what soca_samples.py._apptainer_is_enabled() uses to decide whether to
+    seed the two sample Application Profiles. The two gates read the same key from
+    opposite ends: if one accepts a value the other rejects, a cluster gets WebUI
+    entries whose runtime was never installed, or a runtime with no entries.
+    Kept byte-identical with the gate in apptainer.sh.j2, and both are checked
+    against the cast engine by tests/apptainer_samples.
+
+    Two forms are deliberately NOT used. Plain Jinja truthiness is wrong because
+    the string "false" is truthy. The previous `in (True, "true", "True")` was
+    wrong because `1 in (True, ...)` is True, so an integer 1 enabled the install
+    while the cast engine rejects it as a non-boolean. -#}
+{% set APPTAINER_CFG = context.get("/configuration/HPC/containers/apptainer", {}) %}
+{% set APPTAINER_ENABLED = APPTAINER_CFG.get("enabled", False) %}
+{% if APPTAINER_ENABLED is true or (APPTAINER_ENABLED is string and APPTAINER_ENABLED | lower in ["true", "yes", "on", "enabled"]) %}
+
+# Return 0 only when ${1} holds a completed staging of EFA version ${2}.
+function edh_apptainer_efa_is_published () {
+  local PUBLISHED_DIR="${1}"
+  local WANT_VERSION="${2}"
+  local HAVE_VERSION
+
+  [[ -f "${PUBLISHED_DIR}/EFA_VERSION" ]] || return 1
+  HAVE_VERSION="$(cat "${PUBLISHED_DIR}/EFA_VERSION" 2>/dev/null)" || return 1
+  [[ "${HAVE_VERSION}" == "${WANT_VERSION}" ]]
+}
+
+# Point the unversioned path ${1} at the version-keyed directory name ${2}.
+#
+# This link exists only for the two places that carry the unversioned path as a
+# literal: the EFA sample's runner fallback and edh-efa.def's EFA_SRC default.
+# EDH_EFA_INSTALLER_DIR is the authoritative path and is set to the immutable
+# version-keyed directory, so a job that resolved it cannot have the tree swapped
+# underneath it mid-build. That is also why failing to publish the link warns
+# rather than failing the node: the primary path still works.
+function edh_apptainer_efa_publish_link () {
+  local LINK="${1}"
+  local TARGET="${2}"
+  local LINK_DIR LINK_TMP LEGACY_DIR
+
+  if [[ -L "${LINK}" ]] && [[ "$(readlink "${LINK}" 2>/dev/null)" == "${TARGET}" ]]; then
+    return 0
+  fi
+
+  LINK_DIR="$(dirname "${LINK}")"
+
+  # A real directory here is the unversioned layout an earlier build of this
+  # template wrote. A symlink cannot be renamed over a directory, so move it
+  # aside under a unique name rather than deleting a tree a running job may
+  # still be reading from. The name is unique per attempt, so this cannot wedge
+  # on a second pass, and a node that loses the race simply finds the directory
+  # already gone.
+  if [[ -d "${LINK}" ]] && [[ ! -L "${LINK}" ]]; then
+    if LEGACY_DIR="$(mktemp -u "${LINK}.unversioned.XXXXXXXX")"; then
+      mv -T "${LINK}" "${LEGACY_DIR}" 2>/dev/null \
+        && log_warning "Moved the unversioned EFA installer copy ${LINK} aside to ${LEGACY_DIR}" \
+        || true
+    fi
+  fi
+
+  LINK_TMP="$(mktemp -u "${LINK_DIR}/.efa-installer.link.XXXXXXXX")" || {
+    log_warning "Unable to allocate a temporary name in ${LINK_DIR}, ${LINK} will not point at ${TARGET}"
+    return 0
+  }
+
+  if ! ln -s "${TARGET}" "${LINK_TMP}" 2>/dev/null; then
+    log_warning "Unable to create ${LINK_TMP}, ${LINK} will not point at ${TARGET}"
+    return 0
+  fi
+
+  # rename() replaces an existing symlink atomically, so a reader resolving
+  # ${LINK} sees either the previous target or this one, never a missing path.
+  if ! mv -T "${LINK_TMP}" "${LINK}" 2>/dev/null; then
+    rm -f "${LINK_TMP}" 2>/dev/null || true
+    log_warning "Unable to point ${LINK} at ${TARGET}, jobs using the unversioned path will not see this version"
+    return 0
+  fi
+
+  log_info "${LINK} now points at ${TARGET}"
+}
+
+function edh_apptainer_stage_efa_installer () {
+  local IMAGES_PATH="{{ APPTAINER_CFG.get("images_path") }}"
+  local INSTALL_PREFIX="{{ APPTAINER_CFG.get("install_prefix") }}"
+  local EFA_VERSION="{{ context.get("/system/efa/version") }}"
+  local EFA_URL="{{ context.get("/system/efa/url") }}"
+  local EFA_SHA256="{{ context.get("/system/efa/sha256") }}"
+  local EFA_SRC="${EDH_BOOTSTRAP_ASSETS_FOLDER}/efa/aws-efa-installer"
+  local EFA_DEST EFA_LINK EFA_LINK_NAME EFA_STAGE EFA_REFETCH_DIR
+
+  log_info "[BEGIN] edh_apptainer_stage_efa_installer"
+
+  # -- Runtime gate. `enabled` being true is NOT sufficient: apptainer.sh.j2 can
+  #    decline to install on this node and still return 0, which is a clean skip
+  #    rather than a failure. Its unsupported_platforms gate does exactly that
+  #    (amazonlinux2023:aarch64 is excluded by default and is reachable with EFA
+  #    on Graviton), and so does an unsupported architecture. Without this check
+  #    the staging below would run anyway on such a node: it would publish a tree
+  #    and set EDH_EFA_INSTALLER_DIR for a runtime that is not there, and its
+  #    exit_fail paths could take down a node the install deliberately skipped.
+  #
+  #    The test is the SAME one apptainer.sh.j2 uses to detect an existing
+  #    install, and it is deliberately not a second copy of the
+  #    unsupported_platforms list: reading the artefact covers every reason the
+  #    runtime is absent, where a duplicated list covers only one of them and can
+  #    drift from the original. It does not test PATH, because the profile.d
+  #    drop-in is not sourced into this bootstrap shell.
+  if [[ ! -x "${INSTALL_PREFIX}/bin/apptainer" ]]; then
+    log_warning "Apptainer is not installed at ${INSTALL_PREFIX} on this node, skipping the EFA installer staging. This is expected when the platform is excluded by Config.containers.apptainer.unsupported_platforms"
+    log_info "[COMPLETED] edh_apptainer_stage_efa_installer (nothing staged)"
+    return 0
+  fi
+
+  # An empty images_path would resolve the destination to the filesystem root,
+  # and an empty version would collapse every release onto one directory name.
+  if [[ -z "${IMAGES_PATH}" ]] || [[ -z "${EFA_VERSION}" ]]; then
+    exit_fail "images_path or /system/efa/version is not configured, so the EFA installer cannot be staged for container builds"
+  fi
+
+  EFA_LINK_NAME="efa-installer-${EFA_VERSION}"
+  EFA_DEST="${IMAGES_PATH}/${EFA_LINK_NAME}"
+  EFA_LINK="${IMAGES_PATH}/efa-installer"
+
+  if edh_apptainer_efa_is_published "${EFA_DEST}" "${EFA_VERSION}"; then
+    log_info "EFA installer ${EFA_VERSION} is already staged at ${EFA_DEST}"
+    edh_apptainer_efa_publish_link "${EFA_LINK}" "${EFA_LINK_NAME}"
+    set_environment_variable "EDH_EFA_INSTALLER_DIR" "${EFA_DEST}"
+    log_info "[COMPLETED] Staged the EFA installer for container builds at ${EFA_DEST}"
+    return 0
+  fi
+
+  # efa.sh.j2 only downloads and extracts the tarball INSIDE efa_install, and
+  # that call is guarded by `if ! verify_package_installed efa`. So on a node
+  # where EFA is already present -- a pre-baked or custom AMI, which is exactly
+  # the case the Apptainer install itself optimizes for -- the bootstrap copy was
+  # never created and this directory does not exist. Re-fetch rather than skip,
+  # otherwise the EFA sample fails with "no EFA installer staged" on precisely
+  # the AMIs the rest of this feature is tuned for. The re-fetch lands under
+  # EDH_BOOTSTRAP_ASSETS_FOLDER, which is node-local, so it races with nothing.
+  if [[ ! -d "${EFA_SRC}" ]]; then
+    log_info "No EFA installer at ${EFA_SRC} (EFA was already installed, so efa_install did not run); re-fetching the pinned tarball"
+
+    if [[ -z "${EFA_URL}" ]] || [[ -z "${EFA_SHA256}" ]]; then
+      exit_fail "EFA url or sha256 is not configured under /system/efa, so the EFA installer cannot be staged for container builds"
+    fi
+
+    EFA_REFETCH_DIR="${EDH_BOOTSTRAP_ASSETS_FOLDER}/efa/apptainer-restage"
+    mkdir -p "${EFA_REFETCH_DIR}" || exit_fail "Unable to create ${EFA_REFETCH_DIR}"
+
+    # file_download verifies the checksum and exits on mismatch, so an unverified
+    # tarball is never extracted -- the sample trusts this copy for ABI matching.
+    file_download --download-url="${EFA_URL}" \
+      --save-as="${EFA_REFETCH_DIR}/efa_installer_${EFA_VERSION}.tgz" \
+      --sha256-checksum="${EFA_SHA256}"
+
+    rm -rf "${EFA_REFETCH_DIR}/aws-efa-installer"
+    tar xzf "${EFA_REFETCH_DIR}/efa_installer_${EFA_VERSION}.tgz" -C "${EFA_REFETCH_DIR}" \
+      || exit_fail "Unable to extract the re-fetched EFA installer"
+
+    [[ -d "${EFA_REFETCH_DIR}/aws-efa-installer" ]] \
+      || exit_fail "The re-fetched EFA tarball did not contain an aws-efa-installer directory"
+
+    log_info "Re-fetched and verified the pinned EFA installer ${EFA_VERSION}"
+    EFA_SRC="${EFA_REFETCH_DIR}/aws-efa-installer"
+  fi
+
+  mkdir -p "${IMAGES_PATH}" || exit_fail "Unable to create ${IMAGES_PATH}"
+
+  # Hidden and uniquely named, so a concurrent node never writes here and the
+  # unversioned-path readers never resolve it. A node that dies mid-copy leaves
+  # this directory behind; it is inert, and the next node publishes regardless.
+  EFA_STAGE="$(mktemp -d "${IMAGES_PATH}/.efa-installer-${EFA_VERSION}.stage.XXXXXXXX")" \
+    || exit_fail "Unable to create a staging directory for the EFA installer under ${IMAGES_PATH}"
+
+  if ! cp -rf "${EFA_SRC}/." "${EFA_STAGE}/"; then
+    rm -rf "${EFA_STAGE}"
+    exit_fail "Unable to copy the EFA installer from ${EFA_SRC} into ${EFA_STAGE}"
+  fi
+
+  if ! chmod -R a+rX "${EFA_STAGE}"; then
+    rm -rf "${EFA_STAGE}"
+    exit_fail "Unable to make ${EFA_STAGE} readable, a job user could not build from it"
+  fi
+
+  # Written last: this file is what makes the staging complete, and the sample
+  # also prints it so an ABI mismatch is diagnosable from the job output.
+  if ! echo "${EFA_VERSION}" > "${EFA_STAGE}/EFA_VERSION"; then
+    rm -rf "${EFA_STAGE}"
+    exit_fail "Unable to record the EFA version in ${EFA_STAGE}"
+  fi
+  chmod 644 "${EFA_STAGE}/EFA_VERSION" 2>/dev/null || true
+
+  if ! mv -T "${EFA_STAGE}" "${EFA_DEST}" 2>/dev/null; then
+    # rename() is the only writer of ${EFA_DEST}, so the overwhelmingly likely
+    # cause is another node of this job having published the same version first.
+    # Drop this copy and accept theirs -- but only after confirming it is a
+    # complete staging, so a genuine rename failure is still fatal rather than
+    # leaving the sample to fail later with a missing installer.
+    rm -rf "${EFA_STAGE}"
+    if ! edh_apptainer_efa_is_published "${EFA_DEST}" "${EFA_VERSION}"; then
+      if [[ -e "${EFA_DEST}" ]]; then
+        exit_fail "${EFA_DEST} exists but does not hold a complete EFA ${EFA_VERSION} staging; move it aside to let this node republish it"
+      fi
+      exit_fail "Unable to publish the EFA installer to ${EFA_DEST}"
+    fi
+    log_info "EFA installer ${EFA_VERSION} was published concurrently by another node, using ${EFA_DEST}"
+  fi
+
+  chmod 755 "${IMAGES_PATH}" 2>/dev/null || true
+  edh_apptainer_efa_publish_link "${EFA_LINK}" "${EFA_LINK_NAME}"
+  set_environment_variable "EDH_EFA_INSTALLER_DIR" "${EFA_DEST}"
+  log_info "[COMPLETED] Staged the EFA installer for container builds at ${EFA_DEST}"
+}
+
+edh_apptainer_stage_efa_installer
+
+{% else %}
+log_info "Apptainer is disabled, skipping the EFA installer staging for container builds"
+{% endif %}
+# End: Stage the EFA installer for Apptainer container builds

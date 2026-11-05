@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# A job ARRAY: one submission, {{array_indices}} independent subjobs.
+# LSF expresses the array in the job NAME rather than as a separate option:
+# "name[1-100]", with an optional "%N" concurrency cap.
+#BSUB -J "{{job_name}}[{{array_indices}}]"
+#BSUB -q {{queue}}
+#BSUB -n {{ncpus_per_subjob}}
+# Requested explicitly because subjobs PACK: several can run on one instance,
+# and without a memory request they are scheduled on CPU alone.
+#BSUB -R "rusage[mem={{mem_per_subjob}}]"
+# https://awslabs.github.io/scale-out-computing-on-aws-documentation/tutorials/integration-ec2-job-parameters/
+#BSUB -Jd "instance_type = {{instance_type}}"
+
+# LSB_JOBINDEX is this subjob's index (PBS calls it PBS_ARRAY_INDEX).
+echo "Subjob ${LSB_JOBINDEX} of array ${LSB_JOBID} running on $(hostname)"
+
+{{user_pre_exec}}
+
+# Example: one input file per subjob
+# INPUT_FILE="input_${LSB_JOBINDEX}.dat"
+# ./my_solver --input "${INPUT_FILE}" --output "result_${LSB_JOBINDEX}.dat"
+
+echo "Job array subjob ${LSB_JOBINDEX} submitted via the web interface"
+
+{{user_post_exec}}
+
+## [Begin: Commands to be added after the solver. This cannot be changed by the users]
+# Compress output, send output to S3 etc ...
+## [End: Commands to be added after the solver. This cannot be changed by the users]

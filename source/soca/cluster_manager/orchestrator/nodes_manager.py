@@ -264,7 +264,7 @@ if __name__ == "__main__":
                 jobs_in_queues=_jobs_in_queues,
             )
 
-        elif _scheduler.provider == SocaHpcSchedulerProvider.SLURM:
+        elif _scheduler.provider in [SocaHpcSchedulerProvider.SLURM, SocaHpcSchedulerProvider.AWS_PCS]:
             # errors/warnings are automatically forwarded to nodes_manager.log
             SocaSchedulerSlurmNodesManager(scheduler_info=_scheduler).sync_config(
                 provisioned_ec2_nodes=_provisioned_ec2_nodes,

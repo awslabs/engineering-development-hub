@@ -113,6 +113,11 @@ from installer.resources.src.prompt import get_input as get_input
 from installer.resources.src.find_existing_resources import FindExistingResource
 from rich.console import Console
 from helpers.installer.i18n import _
+from helpers.installer.cdk_bootstrap import (
+    CDK_BOOTSTRAP_MIN_VERSION,
+    build_bootstrap_command,
+    cdk_bootstrap_is_current,
+)
 
 urllib3.disable_warnings()
 
@@ -375,6 +380,8 @@ def detect_customer_ip(address_family: Literal["ipv4", "ipv6"]) -> str:
 
 def build_lambda_dependency(install_directory: str):
     logger.info("Building Lambda dependency")
+    from cdk_construct import LAMBDA_PYTHON_VERSION
+
     lambda_functions_folders = f"{install_directory}/../functions/"
     for _dir in os.scandir(lambda_functions_folders):
         if _dir.is_file():
@@ -386,7 +393,7 @@ def build_lambda_dependency(install_directory: str):
                     "pip3",
                     "install",
                     "--python-version",
-                    f"{os.environ['SOCA_PYTHON_VERSION']}",
+                    LAMBDA_PYTHON_VERSION,
                     "-r",
                     f"{_dir.path}/requirements.txt",
                     "--platform",
@@ -416,6 +423,15 @@ def upload_objects(install_directory: str, bucket: str, cluster_id: str):
         )
         shutil.rmtree(dist_directory)
     os.makedirs(dist_directory)
+
+    # Stamp the integrity baseline BEFORE archiving, or it never reaches a node.
+    # Release builds already carry one and it is left untouched.
+    from helpers.installer.helpers import generate_dev_manifest_if_needed
+
+    generate_dev_manifest_if_needed(
+        source_soca_directory=f"{install_directory}/../../../source/soca",
+        repo_root=f"{install_directory}/../../..",
+    )
 
     # Move required file to dist/ directory
     make_archive(
@@ -2300,9 +2316,27 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--cdk-termination-protection",
-        type=bool,
-        help=_("AWS CDK Termination Protection setting"),
+        "--cdk-no-termination-protection",
+        action="store_const",
+        const=True,
+        default=False,
+        help=_(
+            "Do not pass --termination-protection to 'cdk bootstrap'. Bootstrapping an "
+            "already-bootstrapped environment is an UpdateStack on CDKToolkit, so the "
+            "flag changes that setting on a toolkit stack EDH does not own."
+        ),
+    )
+
+    parser.add_argument(
+        "--cdk-skip-bootstrap",
+        action="store_const",
+        const=True,
+        default=False,
+        help=_(
+            "Do not run 'cdk bootstrap' even when the environment version cannot be "
+            "confirmed. Use when the deploy identity cannot read "
+            "/cdk-bootstrap/<qualifier>/version but the environment is known good."
+        ),
     )
 
     parser.add_argument(
@@ -2507,7 +2541,11 @@ if __name__ == "__main__":
     os.chdir(path=_install_directory)
 
     # Append Solution ID to Boto3 Construct
-    aws_solution_user_agent = {"user_agent_extra": "AwsSolution/SO0072/26.8.0"}
+    from helpers.installer.helpers import get_edh_version
+
+    aws_solution_user_agent = {
+        "user_agent_extra": f"AwsSolution/SO0072/{get_edh_version()}"
+    }
     boto_extra_config = config.Config(**aws_solution_user_agent)
 
     splash_info = f"""
@@ -3260,8 +3298,17 @@ if __name__ == "__main__":
             f" --custom-permissions-boundary {args.cdk_custom_permissions_boundary}"
         )
 
-    # --termination-protection is bootstrap-only (cdk deploy rejects it); app-stack protection comes from the Stack construct. Applied to cmd_bootstrap below.
-    logger.info(":lock: [green]CDK Bootstrap Stack Termination protection is enabled")
+    # --termination-protection is bootstrap-only (cdk deploy rejects it); app-stack
+    # protection comes from the Stack construct. Bootstrapping an environment that is
+    # already bootstrapped is an UpdateStack on CDKToolkit, so passing this flag changes
+    # the setting on a toolkit stack EDH does not own. Applied by
+    # build_bootstrap_command below.
+    if args.cdk_no_termination_protection:
+        logger.warning(
+            "CDK Bootstrap Stack Termination protection is disabled by --cdk-no-termination-protection"
+        )
+    else:
+        logger.info(":lock: [green]CDK Bootstrap Stack Termination protection is enabled")
 
     if args.debug:
         _cdk_common_args += " --debug -v -v -v"
@@ -3285,7 +3332,27 @@ if __name__ == "__main__":
         cdk_cmd = args.cdk_cmd
 
     cmd = f"cdk {cdk_cmd} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)} --require-approval never"
-    cmd_bootstrap = f"cdk bootstrap --termination-protection {_cdk_common_args} aws://{install_parameters['account_id']}/{install_parameters['region']} -c {' -c '.join('{}={}'.format(key,val) for (key,val) in install_parameters.items() if val is not None)}"
+    cmd_bootstrap = build_bootstrap_command(
+        common_args=_cdk_common_args,
+        context=f"-c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)}",
+        account_id=install_parameters["account_id"],
+        region=install_parameters["region"],
+        termination_protection=not args.cdk_no_termination_protection,
+    )
+    # _cdk_common_args carries the global CDK options (--profile, --output,
+    # --role-arn, --strict, --debug), so the teardown must include it: it is the only
+    # invocation of the destroy path, and without it a teardown requested with
+    # --profile would run under the default credentials. The CLI warns and ignores
+    # the bootstrap-only options the string may also hold.
+    cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} {_cdk_common_args} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
+
+    # --cdk-cmd bootstrap and --cdk-cmd destroy both run the one command their own
+    # path needs, rather than a second differently-shaped one. Set before the history
+    # write so the log records the command that actually runs.
+    if cdk_cmd == "bootstrap":
+        cmd = cmd_bootstrap
+    elif cdk_cmd == "destroy":
+        cmd = cmd_destroy
 
     # Adding --debug flag will output the cdk deploy command. This is helpful for troubleshooting.
     if args.debug:
@@ -3300,9 +3367,29 @@ if __name__ == "__main__":
 ============================="""
         )
 
-    # First, Bootstrap the environment. This will create a staging S3 bucket if needed
-    logger.info("\n====== Running CDK Bootstrap ======\n")
-    stream_subprocess(command=shlex.split(cmd_bootstrap))
+    # First, Bootstrap the environment. This will create a staging S3 bucket if needed.
+    # Bootstrap on deploy only, and only when the environment is not already at a version
+    # this app accepts. synth/ls/destroy must not mutate CDKToolkit, and --cdk-cmd
+    # bootstrap runs cmd_bootstrap as cmd rather than running it twice.
+    if cdk_cmd == "deploy":
+        _bootstrap_ok, _bootstrap_version = cdk_bootstrap_is_current(ssm_client=ssm)
+        _detected = _bootstrap_version if _bootstrap_version is not None else "unknown"
+
+        if _bootstrap_ok:
+            logger.info(
+                f"CDK environment already bootstrapped at version {_bootstrap_version}, skipping bootstrap"
+            )
+        elif args.cdk_skip_bootstrap:
+            logger.warning(
+                f"Bootstrap skipped by --cdk-skip-bootstrap, detected version {_detected}. "
+                f"Deployment fails if the environment is below version {CDK_BOOTSTRAP_MIN_VERSION}."
+            )
+        else:
+            logger.info("\n====== Running CDK Bootstrap ======\n")
+            logger.debug(
+                f"Bootstrapping CDK environment, detected version {_detected}, required {CDK_BOOTSTRAP_MIN_VERSION}"
+            )
+            stream_subprocess(command=shlex.split(cmd_bootstrap))
 
     # Increase SSM Throughput if needed (https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-throughput.html)
     # Settings will be restored if needed post deployment
@@ -3476,12 +3563,25 @@ if __name__ == "__main__":
                 logger.error(
                     f"Unable to retrieve {install_parameters['cluster_id']} stack outputs, probably due to a permission error (your IAM account do not have permission to run cloudformation:Describe*. Log in to AWS console to view your stack connection endpoints"
                 )
+        else:
+            # Everything above this branch is success reporting, so without the
+            # exit a failed deploy prints nothing and still returns 0.
+            logger.error(f"cdk {cdk_cmd} failed")
+            sys.exit(1)
 
     elif args.cdk_cmd == "destroy":
-        # Destroy stack if known
-        cmd_destroy = f"cdk destroy {install_parameters['cluster_id']} -c {' -c '.join('{}={}'.format(key, val) for (key, val) in install_parameters.items() if val is not None)} --require-approval never"
-        logger.info(f"Deleting stack, running {cmd_destroy}")
-        delete_stack = os.system(cmd_destroy)  # nosec
+        # cmd IS cmd_destroy here, so the teardown has already run once above. It
+        # used to run again from this branch, which is why its status could not be
+        # checked: the second invocation could fail precisely because the first one
+        # succeeded and the stack was already gone.
+        if int(launch_installer) != 0:
+            logger.error(f"cdk {cdk_cmd} failed")
+            sys.exit(1)
     else:
-        # synth, ls etc.
-        pass
+        # bootstrap, synth, ls. Nothing runs after this branch, so without a
+        # check the exit status of cmd is discarded and a failed cdk run still
+        # exits 0. deploy and destroy carry the same check in their own branches
+        # above.
+        if int(launch_installer) != 0:
+            logger.error(f"cdk {cdk_cmd} failed")
+            sys.exit(1)

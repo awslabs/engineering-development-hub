@@ -17,7 +17,6 @@ import re
 import stat
 import pwd
 import json
-import subprocess
 from base64 import b64encode as encode
 from email.utils import parseaddr
 import config
@@ -25,21 +24,93 @@ from flask_restful import Resource, reqparse
 import logging
 from flask import request
 from flask_babel import gettext as _
-from decorators import private_api, admin_api, feature_flag
+from decorators import private_api, admin_api, feature_flag, directory_writable
 import sys
 import shutil
 from datetime import datetime, timezone
 from utils.identity_provider_client import SocaIdentityProviderClient
 import struct
-from utils.subprocess_client import SocaSubprocessClient
+from utils.subprocess_client import SocaSubprocessClient, subprocess_message_as_dict
 from utils.http_client import SocaHttpClient
 from utils.error import SocaError
 from utils.response import SocaResponse
+from utils.validators import Validators
+from utils.token_service import revoke_all_user_tokens
+from models import db, ApiKeys
 import grp
 import ldap
+from ldap.filter import escape_filter_chars
+from ldap.dn import escape_dn_chars
 
 logger = logging.getLogger("soca_logger")
 import time
+
+
+def _resolve_windows_home_unc(user: str) -> tuple[str | None, str]:
+    """
+    Build the UNC path for a user's Windows home.
+
+    Returns (unc, reason). ``unc`` is None when no path could be built; the
+    caller treats the reasons differently:
+
+      ok                -- derived from the fsx_ontap filesystem backing the home
+      template          -- taken from windows_home_unc_template
+      bad_template      -- windows_home_unc_template is set but not a UNC
+      config_unreadable -- the FileSystems config could not be read
+      no_ontap_home     -- no fsx_ontap filesystem backs the UNIX home. Expected
+                           on an EFS-only cluster, so the caller logs it at info.
+      ontap_incomplete  -- smb_dns or cifs_share_name is missing. A real gap:
+                           smb_dns is published after the SVM's domain join.
+
+    AD defines homeDirectory as the WINDOWS home folder. The UNIX home belongs
+    in unixHomeDirectory, which SSSD's ad provider and ONTAP's LDAP schemas
+    read, so homeDirectory never affects a POSIX login.
+    """
+    from utils.config import SocaConfig
+
+    _template = config.Config.DIRECTORY_WINDOWS_HOME_UNC_TEMPLATE
+    if _template:
+        # A UNC always starts with two backslashes. Anything else is not a
+        # template -- most importantly the literal string "None", which is what
+        # an unset value becomes if it is ever written to SSM via str(None).
+        if not str(_template).startswith("\\\\"):
+            return None, "bad_template"
+        return str(_template).replace("{username}", user), "template"
+
+    _home = str(config.Config.USER_HOME).rstrip("/")
+    _prefix = "/configuration/FileSystems/"
+    _tree_read = SocaConfig(key=_prefix).get_value(return_as=dict)
+    if not _tree_read.success:
+        return None, "config_unreadable"
+    _flat = _tree_read.message or {}
+    if not Validators.is_dict(_flat):
+        return None, "config_unreadable"
+
+    _tree = {}
+    for _key, _value in _flat.items():
+        _parts = str(_key).split(_prefix, 1)[-1].strip("/").split("/")
+        if Validators.is_list_length_not_equal_of(_parts, 2):
+            continue
+        _tree.setdefault(_parts[0], {})[_parts[1]] = _value
+
+    _reason = "no_ontap_home"
+    for _entry in _tree.values():
+        if _entry.get("provider") != "fsx_ontap":
+            continue
+        _mount_path = str(_entry.get("mount_path", "")).rstrip("/")
+        if not _mount_path or not _home.startswith(_mount_path + "/"):
+            continue
+        _smb_dns = _entry.get("smb_dns")
+        _share = _entry.get("cifs_share_name")
+        if not _smb_dns or not _share:
+            # This filesystem does back the home, so the cluster DOES want a
+            # Windows home -- it just is not fully provisioned yet.
+            _reason = "ontap_incomplete"
+            continue
+        _relative = _home[len(_mount_path) + 1 :].replace("/", "\\")
+        return f"\\\\{_smb_dns}\\{_share}\\{_relative}\\{user}", "ok"
+
+    return None, _reason
 
 
 def populate_ssh_keys(username: str, user_path: str) -> bool:
@@ -123,20 +194,26 @@ def populate_ssh_keys(username: str, user_path: str) -> bool:
     return True
 
 
-def _chown_with_lookup_retry(path: str, user: str, group=None,
-                             max_attempts: int = 3, delay: float = 2.0,
-                             telemetry=None) -> bool:
+def _chown_with_lookup_retry(
+    path: str,
+    user: str,
+    group=None,
+    max_attempts: int = 3,
+    delay: float = 2.0,
+    telemetry=None,
+) -> bool:
     """
     shutil.chown wrapper that retries on LookupError (raised when sssd
     hasn't yet caught up to the AD add and pwd.getpwnam fails).
 
-    Bounded by `max_attempts * delay` — default 6s — so a slow sssd
+    Bounded by `max_attempts * delay` -- default 6s -- so a slow sssd
     refresh recovers without permanently blocking the request.
     Returns True on success, False if all attempts exhausted.
 
     `telemetry`: optional _CreateUserTelemetry for retry-count tracking.
     """
     import time as _time
+
     for _attempt in range(max_attempts):
         try:
             if group is None:
@@ -150,20 +227,30 @@ def _chown_with_lookup_retry(path: str, user: str, group=None,
             if _attempt == max_attempts - 1:
                 logger.error(
                     "chown %s -> %s:%s still failing after %d attempts: %s",
-                    path, user, group, max_attempts, _err,
+                    path,
+                    user,
+                    group,
+                    max_attempts,
+                    _err,
                 )
                 return False
             logger.warning(
                 "chown %s -> %s:%s LookupError attempt %d/%d (sssd lag): %s; "
                 "retrying in %.1fs",
-                path, user, group, _attempt + 1, max_attempts, _err, delay,
+                path,
+                user,
+                group,
+                _attempt + 1,
+                max_attempts,
+                _err,
+                delay,
             )
             _time.sleep(delay)
     return False
 
 
 # ---------------------------------------------------------------------------
-# Per-request telemetry — counts loops/retries + emits structured log line
+# Per-request telemetry -- counts loops/retries + emits structured log line
 # and best-effort CloudWatch metrics. Critical for scale validation: lets
 # us see "did sssd take 1 poll or 14?" across many users.
 # ---------------------------------------------------------------------------
@@ -171,10 +258,10 @@ class _CreateUserTelemetry:
     """Accumulates per-create telemetry for one POST /api/ldap/user call.
 
     Counters tracked:
-      sssd_polls       — # iterations of the visibility loop until success (1..15)
-      chown_retries    — # LookupError retries during create_home chown calls
-      sss_cache_rc     — return code of `sss_cache -E` (0 = OK, None = skipped/error)
-      home_dir_status  — "ok" | "fail" | "skipped"
+      sssd_polls       -- # iterations of the visibility loop until success (1..15)
+      chown_retries    -- # LookupError retries during create_home chown calls
+      sss_cache_rc     -- return code of `sss_cache -E` (0 = OK, None = skipped/error)
+      home_dir_status  -- "ok" | "fail" | "skipped"
 
     Timings (milliseconds since start of post()):
       ad_add_ms, sss_cache_ms, sssd_visible_ms, home_dir_ms, group_add_ms,
@@ -185,13 +272,13 @@ class _CreateUserTelemetry:
         self.username = username
         self._t0 = time.monotonic()
         self.counters: dict = {
-            "sssd_polls":      0,
-            "chown_retries":   0,
-            "sss_cache_rc":    None,
+            "sssd_polls": 0,
+            "chown_retries": 0,
+            "sss_cache_rc": None,
             "home_dir_status": "skipped",
         }
-        self.timings: dict = {}     # name -> elapsed_ms
-        self.outcome: str = "ok"    # ok | soft | fail
+        self.timings: dict = {}  # name -> elapsed_ms
+        self.outcome: str = "ok"  # ok | soft | fail
 
     def mark(self, name: str) -> None:
         """Record elapsed-since-start in milliseconds for a named milestone."""
@@ -204,7 +291,7 @@ class _CreateUserTelemetry:
         self.counters[name] = value
 
     def emit(self, cluster_id: str = "", outcome: str = None) -> None:
-        """Final emission — INFO-level structured log line. Safe to call
+        """Final emission -- INFO-level structured log line. Safe to call
         exactly once at end of request. Single-line JSON so CloudWatch
         Logs Insights / `awk` / `jq` can parse it without ceremony."""
         if outcome is not None:
@@ -308,10 +395,14 @@ def create_home(username: str, group: str, telemetry=None):
                     logger.warning(
                         f"Unable to detect group name for {username} ,group membership won't be set. Change it afterwards if needed."
                     )
-                    if not _chown_with_lookup_retry(_path, username, telemetry=telemetry):
+                    if not _chown_with_lookup_retry(
+                        _path, username, telemetry=telemetry
+                    ):
                         return False
                 else:
-                    if not _chown_with_lookup_retry(_path, username, group, telemetry=telemetry):
+                    if not _chown_with_lookup_retry(
+                        _path, username, group, telemetry=telemetry
+                    ):
                         return False
             else:
                 logger.warning(f"Unable to chown {_path}, path does not exist")
@@ -325,7 +416,11 @@ def create_home(username: str, group: str, telemetry=None):
         _authorized_keys_file = f"{user_path}/.ssh/authorized_keys"
         os.makedirs(os.path.dirname(_authorized_keys_file), exist_ok=True)
         # O_NOFOLLOW: never append through a symlink planted at authorized_keys.
-        _ak_fd = os.open(_authorized_keys_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+        _ak_fd = os.open(
+            _authorized_keys_file,
+            os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+            0o600,
+        )
         with os.fdopen(_ak_fd, "a") as authorized_keys_file:
             for filename in os.listdir(f"{user_path}/.ssh"):
                 if filename.endswith(".pub"):
@@ -343,10 +438,12 @@ def create_home(username: str, group: str, telemetry=None):
                 logger.info(f"Changing permissions for {_file_path}")
                 os.chmod(_file_path, stat.S_IRUSR | stat.S_IWUSR)
                 # By the time we get here, the first chown loop has
-                # already resolved sssd → user. A LookupError here
+                # already resolved sssd to a user. A LookupError here
                 # would be unexpected, but the helper still costs nothing
                 # for the success case.
-                if not _chown_with_lookup_retry(_file_path, username, group, telemetry=telemetry):
+                if not _chown_with_lookup_retry(
+                    _file_path, username, group, telemetry=telemetry
+                ):
                     return False
 
         return True
@@ -358,6 +455,58 @@ def create_home(username: str, group: str, telemetry=None):
             f"Error while trying to create home directory for  {username}, {exc_type} {fname}, {exc_tb.tb_lineno}"
         )
         return False
+
+
+def check_ad_authentication_groups(username: str) -> SocaResponse:
+    """
+    Verify the user is a member of AT LEAST one of /configuration/UserDirectory/ad_authentication_groups.
+    Only enforced for existing_active_directory and aws_ds_managed_activedirectory. Returns success=True when no group is configured.
+    Nested membership is supported via LDAP_MATCHING_RULE_IN_CHAIN.
+    """
+    _auth_groups = config.Config.DIRECTORY_AD_AUTHENTICATION_GROUPS
+    if config.Config.DIRECTORY_AUTH_PROVIDER not in [
+        "existing_active_directory",
+        "aws_ds_managed_activedirectory",
+    ]:
+        return SocaResponse(
+            success=True,
+            message=f"Authentication group restriction is enforced only for existing_active_directory and aws_ds_managed_activedirectory. Detected {config.Config.DIRECTORY_AUTH_PROVIDER=}.",
+        )
+    if not _auth_groups:
+        return SocaResponse(success=True, message="No authentication group restriction")
+
+    logger.debug(f"Checking if {username=} is a member of any of {_auth_groups=}")
+
+    _groups_filter = "".join(
+        f"(memberOf:1.2.840.113556.1.4.1941:={escape_filter_chars(_group)})"
+        for _group in _auth_groups
+    )
+    _filter = f"(&(objectClass=user)(sAMAccountName={escape_filter_chars(username)})(|{_groups_filter}))"
+
+    _soca_identity_client = SocaIdentityProviderClient()
+    _soca_identity_client.initialize()
+    _soca_identity_client.bind_as_service_account()
+    _search_user = _soca_identity_client.search(
+        base=config.Config.DIRECTORY_PEOPLE_SEARCH_BASE,
+        filter=_filter,
+        attr_list=["sAMAccountName"],
+    )
+
+    if not _search_user.success:
+        return SocaResponse(
+            success=False,
+            message=f"Unable to verify authentication group membership because of {_search_user.message}",
+        )
+
+    if not _search_user.message:
+        return SocaResponse(
+            success=False,
+            message=f"{username} is not a member of any authentication group ({_auth_groups})",
+        )
+
+    return SocaResponse(
+        success=True, message=f"{username} belongs to an authentication group"
+    )
 
 
 class User(Resource):
@@ -400,7 +549,7 @@ class User(Resource):
                       items:
                         type: array
                         description: LDAP entry data
-                      example: [["cn=john.doe,ou=people,dc=soca,dc=local", {"uid": ["john.doe"]}]]
+                      example: [["cn=john.doe,ou=people,dc=edh-test,dc=internal", {"uid": ["john.doe"]}]]
           '203':
             description: User not found
             content:
@@ -466,13 +615,13 @@ class User(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _filter = f"(&(objectClass=person)(uid={user}))"
+                _filter = f"(&(objectClass=person)(uid={escape_filter_chars(user)}))"
                 _attrs = ["uid"]
             else:
                 if config.Config.DIRECTORY_PEOPLE_SEARCH_BASE.lower() in user.lower():
-                    _filter = f"(&(objectClass=user)(distinguishedName={user}))"
+                    _filter = f"(&(objectClass=user)(distinguishedName={escape_filter_chars(user)}))"
                 else:
-                    _filter = f"(&(objectClass=user)(sAMAccountName={user}))"
+                    _filter = f"(&(objectClass=user)(sAMAccountName={escape_filter_chars(user)}))"
                 # Attrs is important otherwise response will contains non-utf8 char (sID etc)
                 _attrs = ["sAMAccountName"]
 
@@ -503,6 +652,7 @@ class User(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def post(self):
         """
         Create new user
@@ -629,6 +779,11 @@ class User(Resource):
         parser.add_argument("sudoers", type=int, location="form")
         parser.add_argument("email", type=str, location="form")
         parser.add_argument("shell", type=str, location="form")
+        # Optional. Written to AD as givenName/sn, which the user typeahead
+        # (/api/ldap/users?q=) already searches and displays. Omitted entirely
+        # when not supplied: an absent attribute is better than a placeholder.
+        parser.add_argument("first_name", type=str, location="form")
+        parser.add_argument("last_name", type=str, location="form")
         parser.add_argument(
             "uid", type=int, location="form"
         )  # 0 = no value specified, use default one
@@ -654,7 +809,13 @@ class User(Resource):
         _telemetry = _CreateUserTelemetry(username=user)
         try:
             from utils.config import SocaConfig as _SocaConfig
-            _cluster_id = _SocaConfig(key="/configuration/ClusterId").get_value().get("message", "") or ""
+
+            _cluster_id = (
+                _SocaConfig(key="/configuration/ClusterId")
+                .get_value()
+                .get("message", "")
+                or ""
+            )
         except Exception:
             _cluster_id = ""
 
@@ -664,7 +825,17 @@ class User(Resource):
         uid = args["uid"]
         gid = args["gid"]
         shell = args["shell"]
+        first_name = (args.get("first_name") or "").strip()
+        last_name = (args.get("last_name") or "").strip()
         group = f"{args['user']}{config.Config.DIRECTORY_GROUP_NAME_SUFFIX}"
+
+        for _label, _value in (("first_name", first_name), ("last_name", last_name)):
+            if _value and not re.match(
+                config.Config.DIRECTORY_PERSON_NAME_REGEX, _value
+            ):
+                return SocaError.IDENTITY_PROVIDER_ERROR(
+                    helper=f"{_label} {_value} is not valid, must match {config.Config.DIRECTORY_PERSON_NAME_REGEX}"
+                ).as_flask()
 
         people_search_base = config.Config.DIRECTORY_PEOPLE_SEARCH_BASE
 
@@ -708,7 +879,7 @@ class User(Resource):
         # `uid` / `gid` of 0 OR omitted-from-form (None) both mean
         # "auto-assign". Without the None check, an absent uid falls
         # through to the duplicate-check branch, then ships the literal
-        # Python None to LDAP as the string "None" → AD rejects with
+        # Python None to LDAP as the string "None", which AD rejects with
         # "Invalid syntax" (DSID-0C0913EC, attribute conversion error).
         if uid is None or uid == 0:
             uid = current_ldap_ids["proposed_uid"]
@@ -743,8 +914,8 @@ class User(Resource):
                 endpoint="/api/ldap/user",
                 headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
             ).get(params={"user": user})
-            if _is_user_exist.get('success'):
-                if len(_is_user_exist.get('message')) == 0:
+            if _is_user_exist.get("success"):
+                if len(_is_user_exist.get("message")) == 0:
                     pass
                 else:
                     return SocaError.IDENTITY_PROVIDER_ERROR(
@@ -759,7 +930,7 @@ class User(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _dn_user = f"uid={user},{people_search_base}"
+                _dn_user = f"uid={escape_dn_chars(user)},{people_search_base}"
                 enc_passwd = bytes(password, "utf-8")
                 salt = os.urandom(16)
                 sha = hashlib.sha1(enc_passwd)  # nosec
@@ -784,7 +955,9 @@ class User(Resource):
                     ("gidNumber", [str(gid).encode("utf-8")]),
                     ("mail", [str(email).encode("utf-8")]),
                     ("cn", [str(user).encode("utf-8")]),
-                    ("sn", [str(user).encode("utf-8")]),
+                    # inetOrgPerson requires sn, so it falls back to the
+                    # username when no surname was supplied.
+                    ("sn", [(last_name or str(user)).encode("utf-8")]),
                     ("loginShell", [str(shell).encode("utf-8")]),
                     (
                         "homeDirectory",
@@ -793,9 +966,14 @@ class User(Resource):
                     ("userPassword", [passwd.encode("utf-8")]),
                 ]
 
+                # givenName is optional on inetOrgPerson, so it is written
+                # only when supplied.
+                if first_name:
+                    _attrs.append(("givenName", [first_name.encode("utf-8")]))
+
             else:
                 # note: for MAD/SAD, password management is done via LambDa
-                _dn_user = f"cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+                _dn_user = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
                 _attrs = [
                     (
                         "objectClass",
@@ -819,16 +997,67 @@ class User(Resource):
                     ),
                     ("cn", [str(user).encode("utf-8")]),
                     ("uidNumber", [str(uid).encode("utf-8")]),
-                    ("uid", [str(uid).encode("utf-8")]),
+                    ("uid", [str(user).encode("utf-8")]),
                     ("gidNumber", [str(gid).encode("utf-8")]),
                     ("loginShell", [shell.encode("utf-8")]),
                     (
-                        "homeDirectory",
+                        "unixHomeDirectory",
                         (str(config.Config.USER_HOME) + "/" + str(user)).encode(
                             "utf-8"
                         ),
                     ),
                 ]
+
+                # givenName / sn are optional and omitted when not supplied.
+                # displayName uses the real name when both are present.
+                if first_name:
+                    _attrs.append(("givenName", [first_name.encode("utf-8")]))
+                if last_name:
+                    _attrs.append(("sn", [last_name.encode("utf-8")]))
+                if first_name and last_name:
+                    _attrs = [
+                        (
+                            ("displayName", [f"{first_name} {last_name}".encode("utf-8")])
+                            if _a[0] == "displayName"
+                            else _a
+                        )
+                        for _a in _attrs
+                    ]
+
+                _windows_home_drive = config.Config.DIRECTORY_WINDOWS_HOME_DRIVE
+                if _windows_home_drive:
+                    _windows_home, _windows_home_reason = _resolve_windows_home_unc(
+                        user=user
+                    )
+                    if _windows_home is None:
+                        # windows_home_drive has a default, so an EFS-only
+                        # cluster reaches here on every user creation. Not a
+                        # misconfiguration, so do not log it as one.
+                        if _windows_home_reason == "no_ontap_home":
+                            logger.info(
+                                f"No fsx_ontap filesystem backs {config.Config.USER_HOME}, "
+                                f"so there is no Windows share to map {_windows_home_drive} "
+                                f"to for {user}. Writing neither homeDirectory nor homeDrive. "
+                                f"Set windows_home_unc_template to point at storage EDH did "
+                                f"not provision."
+                            )
+                        else:
+                            logger.warning(
+                                f"windows_home_drive is {_windows_home_drive} but no UNC could "
+                                f"be resolved for {user} ({_windows_home_reason}); set "
+                                f"windows_home_unc_template or unset windows_home_drive. "
+                                f"Writing neither homeDirectory nor homeDrive."
+                            )
+                    else:
+                        _attrs.append(
+                            ("homeDirectory", [_windows_home.encode("utf-8")])
+                        )
+                        _attrs.append(
+                            (
+                                "homeDrive",
+                                [str(_windows_home_drive).encode("utf-8")],
+                            )
+                        )
 
             logger.info(f"About to create new account {user}")
 
@@ -887,41 +1116,44 @@ class User(Resource):
                     if _del_result.get("success"):
                         logger.info(f"Rolled back AD user {_dn_user}")
                     else:
-                        logger.error(f"Failed to rollback user {_dn_user}: {_del_result.get('message')}")
-                    _group_dn = f"cn={group},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}"
+                        logger.error(
+                            f"Failed to rollback user {_dn_user}: {_del_result.get('message')}"
+                        )
+                    _group_dn = (
+                        f"cn={escape_dn_chars(group)},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}"
+                    )
                     _del_grp_result = _soca_identity_client.delete(dn=_group_dn)
                     if _del_grp_result.get("success"):
                         logger.info(f"Rolled back AD group {_group_dn}")
                     else:
-                        logger.error(f"Failed to rollback group {_group_dn}: {_del_grp_result.get('message')}")
+                        logger.error(
+                            f"Failed to rollback group {_group_dn}: {_del_grp_result.get('message')}"
+                        )
                     return SocaError.IDENTITY_PROVIDER_ERROR(
                         helper=_pw_reset_error
                     ).as_flask()
 
             # Option B: nudge sssd to invalidate its cache so the next
             # getpwnam goes straight to AD instead of returning a stale
-            # negative-cache entry. Best-effort — failure here is fine,
+            # negative-cache entry. Best-effort -- failure here is fine,
             # we still have the existing 15-attempt poll as a fallback.
             # Tightens typical-case wait from ~5-15s to ~1-3s.
             #
-            # Use subprocess directly: SocaSubprocessClient assumes a
-            # shell-string command, which loses argv-list safety. sss_cache
-            # is a fixed, hard-coded argv with no user input, so the direct
-            # subprocess.run call is correct + simpler here.
-            try:
-                _sss_flush = subprocess.run(
-                    ["sudo", "/usr/sbin/sss_cache", "-E"],
-                    capture_output=True, text=True, timeout=5, check=False,
-                )
-                logger.info(
-                    "sss_cache -E flush after AD add: rc=%s",
-                    _sss_flush.returncode,
-                )
-                _telemetry.set("sss_cache_rc", _sss_flush.returncode)
-            except Exception as _sss_err:
+            # Fixed, hard-coded command with no user input. shell=False so the
+            # client shlex-splits it into an argv list.
+            _sss_flush = SocaSubprocessClient(
+                run_command="sudo /usr/sbin/sss_cache -E"
+            ).run(timeout=5, shell=False)
+            _sss_flush_rc = subprocess_message_as_dict(
+                _sss_flush.get("message")
+            ).get("returncode")
+            if _sss_flush.get("success"):
+                logger.info(f"sss_cache -E flush after AD add: rc={_sss_flush_rc}")
+            else:
                 logger.warning(
-                    "sss_cache -E flush failed (non-fatal): %s", _sss_err,
+                    f"sss_cache -E flush failed (non-fatal): {_sss_flush.get('message')}"
                 )
+            _telemetry.set("sss_cache_rc", _sss_flush_rc)
             _telemetry.mark("sss_cache_ms")
 
             # wait until the user is fully accessible from sssd
@@ -957,17 +1189,6 @@ class User(Resource):
             _telemetry.set("home_dir_status", "ok")
             _telemetry.mark("home_dir_ms")
             logger.info("Home Directory created successfully")
-
-            logger.info("Creating API key for user")
-            try:
-                SocaHttpClient(
-                    endpoint="/api/user/api_key",
-                    headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-                ).get(params={"user": user})
-            except Exception as err:
-                logger.error(
-                    f"User created but unable to create API key. SOCA will try to generate it when user log in for the first time {err}"
-                )
 
             if sudoers == 1:
                 logger.info(f"Granting Sudo permission to {user}")
@@ -1005,7 +1226,7 @@ class User(Resource):
                     # Any file created by the user will be owned by <user> : <user_group>
                     _find_group_sid = _soca_identity_client.search(
                         base=config.Config.DIRECTORY_GROUP_SEARCH_BASE,
-                        filter=f"(&(objectClass=group)(cn={group}))",
+                        filter=f"(&(objectClass=group)(cn={escape_filter_chars(group)}))",
                         attr_list=["objectSid"],
                     )
                     if _find_group_sid.get("success"):
@@ -1062,6 +1283,7 @@ class User(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def delete(self):
         """
         Delete user
@@ -1186,15 +1408,15 @@ class User(Resource):
             ]:
                 group = f"{args['user']}{config.Config.DIRECTORY_GROUP_NAME_SUFFIX}"
                 entries_to_delete = [
-                    f"uid={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}",
-                    f"cn={group},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}",
-                    f"cn={user},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}",
+                    f"uid={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}",
+                    f"cn={escape_dn_chars(group)},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}",
+                    f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_ADMIN_SEARCH_BASE}",
                 ]
             else:
                 group = f"{args['user']}{config.Config.DIRECTORY_GROUP_NAME_SUFFIX}"
                 entries_to_delete = [
-                    f"cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}",
-                    f"cn={group},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}",
+                    f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}",
+                    f"cn={escape_dn_chars(group)},{config.Config.DIRECTORY_GROUP_SEARCH_BASE}",
                 ]
 
             today = datetime.now(timezone.utc).strftime("%s")
@@ -1218,22 +1440,23 @@ class User(Resource):
                         helper=f"Unable to delete {entry} because of {_delete_attempt.message}"
                     ).as_flask()
 
-            _invalidate_api_key = SocaHttpClient(
-                endpoint="/api/user/api_key",
-                headers={"X-EDH-TOKEN": config.Config.API_ROOT_KEY},
-            ).delete(data={"user": user})
-            if _invalidate_api_key.get("success") is False:
-                if (
-                    f"no active token found for {user}".lower()
-                    in _invalidate_api_key.get("message").lower()
-                ):
-                    logger.info(
-                        f"No active token found for {user}. Skipping API key invalidation."
-                    )
-                else:
-                    return SocaError.IDENTITY_PROVIDER_ERROR(
-                        helper=f"User {user} deleted but unable to invalidate API key because of {_invalidate_api_key.message}."
-                    ).as_flask()
+            # Revoke every credential the deleted user held: API tokens (scoped
+            # and web-session) and any legacy API key issued before
+            # MY_API_KEY_MANAGEMENT was disabled. Done in the DB directly
+            # because /api/user/api_key sits behind that feature flag.
+            try:
+                revoke_all_user_tokens(user)
+                for _legacy_key in ApiKeys.query.filter_by(
+                    user=user, is_active=True
+                ).all():
+                    _legacy_key.is_active = False
+                    _legacy_key.deactivated_on = datetime.now(timezone.utc)
+                db.session.commit()
+            except Exception as _revoke_err:
+                db.session.rollback()
+                return SocaError.IDENTITY_PROVIDER_ERROR(
+                    helper=f"User {user} deleted but unable to revoke API tokens/keys because of {_revoke_err}."
+                ).as_flask()
 
             # Best-effort: drop the deleted user's stored preferences so a
             # future username reuse cannot inherit them (decision #7, primary

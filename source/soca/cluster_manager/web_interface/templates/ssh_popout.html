@@ -33,6 +33,10 @@
         <div id="edh-new-tab" class="edh-new-tab" title="{{ _("New terminal tab (Ctrl+Shift+T)") }}">+</div>
     </div>
     <div id="edh-terminals" class="edh-terminal-container">
+        <div id="edh-loading-state" class="edh-loading-state" role="status">
+            <span class="edh-loading-spinner" aria-hidden="true"></span>
+            <span>{{ _("Fetching terminals, please wait ...") }}</span>
+        </div>
         <div id="edh-empty-state" class="edh-empty-state" style="display:none">
             {{ _("No open terminals.") }}<br>
             <button id="edh-new-tab-empty">{{ _("Start a new terminal on an EDH Login Node") }}</button>
@@ -54,6 +58,15 @@
         "detached":       {{ _("Detached")|tojson }},
         "auth_failed":    {{ _("Authentication failed. Close this window and open a new pop-out from the main SSH page.")|tojson }},
         "ws_error":       {{ _("WebSocket error")|tojson }},
+        "paused":         {{ _("Paused (idle)")|tojson }},
+        "ended":          {{ _("Session ended")|tojson }},
+        "detached_hint":  {{ _("This session is still running. Click this tab to reattach.")|tojson }},
+        "paused_hint":    {{ _("Disconnected after a period of inactivity. The session is still running - click this tab to resume.")|tojson }},
+        "ended_hint":     {{ _("This session no longer exists on any login node. Click this tab to start a new one here.")|tojson }},
+        "locating":       {{ _("Locating the login node that holds this session...")|tojson }},
+        "reconnecting":   {{ _("Connection lost - reconnecting...")|tojson }},
+        "reconnect_gave_up": {{ _("Could not reconnect. Click this tab to try again.")|tojson }},
+        "on_node":        {{ _("Login node")|tojson }},
         "detach_tab":     {{ _("Detach (session keeps running)")|tojson }},
         "kill_tab":       {{ _("End session (terminates tmux)")|tojson }},
         "confirm_kill":   {{ _("End this terminal session? The remote tmux will be terminated.")|tojson }},
@@ -83,6 +96,7 @@
             tabBar: document.getElementById('edh-tab-bar'),
             termContainer: document.getElementById('edh-terminals'),
             emptyState: document.getElementById('edh-empty-state'),
+            loadingState: document.getElementById('edh-loading-state'),
             labelPrefix: 'main-',
             storageKey: `edh_popout_tabs_${windowId}`,
             csrfToken: "{{ csrf_token() | safe }}",

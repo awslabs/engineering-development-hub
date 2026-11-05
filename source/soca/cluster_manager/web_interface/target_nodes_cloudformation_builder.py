@@ -28,7 +28,6 @@ from troposphere.ec2 import (
     Placement,
     CapacityReservationSpecification,
     CapacityReservationTarget,
-    Tag,
 )
 import troposphere.ec2 as ec2
 import logging
@@ -36,6 +35,11 @@ from utils.config import SocaConfig
 from utils.response import SocaResponse
 from utils.error import SocaError
 from utils.aws.ec2_helper import describe_images
+from utils.version import __version__
+from utils.aws.cfn_tag_helper import (
+    build_launch_template_tag_specifications,
+    build_tag_specifications,
+)
 
 logger = logging.getLogger("soca_logger")
 
@@ -84,7 +88,7 @@ def main(**launch_parameters):
         t = Template()
         t.set_version("2010-09-09")
         t.set_description(
-            "(SOCA) - Base template to deploy Target nodes version 26.8.0"
+            f"(SOCA) - Base template to deploy Target nodes version {__version__}"
         )
         allow_anonymous_data_collection = launch_parameters["DefaultMetricCollection"]
         # Launch Actual Capacity
@@ -171,12 +175,15 @@ def main(**launch_parameters):
                 ),
             )
 
-        ltd.TagSpecifications = [
-            ec2.TagSpecifications(
-                ResourceType="instance",
-                Tags=[Tag(Key=k, Value=v) for k, v in _base_tags.items()],
-            )
-        ]
+        # Tags. This template defines no NetworkInterfaces, so instance + volume only.
+        _ltd_tag_specifications = build_tag_specifications(
+            base_tags=_base_tags, resource_types=("instance", "volume")
+        )
+        if _ltd_tag_specifications.get("success") is False:
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to build LaunchTemplateData TagSpecifications because of {_ltd_tag_specifications.get('message')}"
+            ).as_flask()
+        ltd.TagSpecifications = _ltd_tag_specifications.get("message")
 
         ltd.MetadataOptions = MetadataOptions(
             HttpEndpoint="enabled", HttpTokens=launch_parameters["metadata_http_tokens"]
@@ -206,6 +213,15 @@ def main(**launch_parameters):
         )
 
         lt.LaunchTemplateData = ltd
+        # Tag the LaunchTemplate resource itself.
+        _lt_tag_specifications = build_launch_template_tag_specifications(
+            base_tags=_base_tags
+        )
+        if _lt_tag_specifications.get("success") is False:
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to build LaunchTemplate TagSpecifications because of {_lt_tag_specifications.get('message')}"
+            ).as_flask()
+        lt.TagSpecifications = _lt_tag_specifications.get("message")
         t.add_resource(lt)
 
         if launch_parameters.get("nested_virtualization") is True:

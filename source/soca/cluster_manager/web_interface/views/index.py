@@ -68,6 +68,7 @@ def api_json():
 
 
 @index.route("/api/doc", methods=["GET"])
+@login_required
 def api_docs():
     _default_api_doc_provider = "rapidoc"
     api_doc_provider = request.args.get("ui", _default_api_doc_provider)

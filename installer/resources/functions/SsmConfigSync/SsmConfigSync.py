@@ -37,8 +37,9 @@ starts with the cluster's prefix to defend against cross-cluster
 contamination if a rule is misconfigured.
 
 Lambda runs in private subnets with SG egress to Valkey (custom port)
-and to AWS APIs (443). Reads Valkey credentials from SecretsManager
-at cold-start, caches the redis connection across warm invocations.
+and to AWS APIs (443). Authenticates to Valkey with an ElastiCache IAM
+SigV4 connect token minted from its execution role, and caches the redis
+connection across warm invocations.
 
 METRICS
 =======
@@ -155,9 +156,8 @@ _redis_conn = None
 
 def _get_redis():
     """Connect to Valkey on demand. The connection is cached at module
-    scope so subsequent warm invocations skip the SecretsManager round-
-    trip and the TLS handshake. SocketTimeout caps tail latency on
-    Valkey hiccups."""
+    scope so subsequent warm invocations skip the TLS handshake.
+    SocketTimeout caps tail latency on Valkey hiccups."""
     global _redis_conn
     if _redis_conn is not None:
         return _redis_conn
@@ -287,8 +287,8 @@ def lambda_handler(event, context):
         }
 
     except ClientError as err:
-        # AWS-side problem (SSM throttle, SecretsManager hiccup,
-        # permissions). Surface to Lambda retry/DLQ.
+        # AWS-side problem (SSM throttle, IAM token minting, permissions).
+        # Surface to Lambda retry/DLQ.
         logger.error(f"ClientError processing {operation} {name}: {err}")
         _emit_metric("EventsFailed", 1)
         raise

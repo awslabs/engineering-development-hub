@@ -1,0 +1,166 @@
+#!/bin/bash -x
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# EDH bootstrap for AWS PCS compute nodes, run as a PCS node lifecycle action at the
+# `nodeBootstrapped` stage (NodeType == pcs_node).
+#
+# WHY A LIFECYCLE ACTION (and not EC2 UserData): on a PCS node EC2 UserData is a MIME multipart
+# doc where PCS appends its OWN node-registration part, so the operator part cannot be gzipped and
+# must fit EC2's 16KB limit -- which forced a minimal fetch-stub + a deferred systemd oneshot
+# ordered After=cloud-final.service just to run the heavy bootstrap after PCS registered the node.
+# The `nodeBootstrapped` stage removes all of that: AWS PCS runs this script as root, AFTER its own
+# node setup (Slurm configured, Hyper-Threading disabled) and BEFORE `slurmd` starts, with the
+# network, Amazon S3, SSM and cron already up. So the node cannot accept jobs until this returns,
+# there is no MIME/16KB limit (scripts can be up to 2 MiB and are fetched from S3), and there is no
+# cloud-init ordering to fight. See:
+#   https://docs.aws.amazon.com/pcs/latest/userguide/cng-node-lifecycle-actions.html
+#
+# NO REBOOTS: AWS PCS forbids rebooting inside a lifecycle action -- "A reboot interrupts the AWS
+# PCS bootstrap sequence, preventing slurmd from starting or causing AWS PCS to terminate the node"
+# (cng-node-lifecycle-actions-best-practices). So everything that would otherwise need a boot-time
+# reboot (current kernel, Lustre client kernel module, GPU/EFA drivers) MUST be pre-baked into the
+# PCS-ready AMI. As a guard, set_reboot_required is compiled to exit_fail on a PCS node (see
+# reboot_management.sh.j2): if any phase still asks for a reboot, this action fails fast with a
+# "pre-bake the AMI" message instead of rebooting, and slurmd never starts on a half-configured node.
+#
+# EVERY_BOOT + done-file: we register this action with executionPolicy EVERY_BOOT (see
+# pcs_client.create_compute_node_group) so it re-runs on later operator/maintenance reboots. Once
+# the sequence completes we drop a done-file, so those re-runs return immediately and let slurmd
+# start without redoing the bootstrap -- the done-file replaces the old `systemctl disable`.
+
+# PCS fetches this from S3 and runs it directly, so it carries its own helpers. There is no 16KB
+# UserData cap here (scripts are fetched from S3, up to 2 MiB), so unlike the old fetch-stub we can
+# just include the standard helper libs -- awscli / aws_ssm_agent below reuse file_download,
+# packages_management and the aws_cli wrapper instead of hand-rolled curl/unzip reimplementations.
+{% include "templates/linux/common/log.sh.j2" %}
+{% include "templates/linux/common/reboot_management.sh.j2" %}
+{% include "templates/linux/dns_resolver.sh.j2" %}
+{% include "templates/linux/http_proxy.sh.j2" %}
+{% include "templates/linux/common/wrapper_imds.sh.j2" %}
+{% include "templates/linux/common/file_download.sh.j2" %}
+{% include "templates/linux/system_packages/packages_management.sh.j2" %}
+{% include "templates/linux/common/wrapper_awscli.sh.j2" %}
+
+log_info "Running Kernel $(uname -r)"
+
+# Fail fast if the AMI is missing the PCS agent + matching Slurm. The PCS agent runs this hook, so
+# the agent itself is guaranteed present; the check mainly surfaces a Slurm-major mismatch clearly.
+{% include "templates/linux/scheduler/aws_pcs/verify_pcs_prerequisites.sh.j2" %}
+
+# Stable across boots (instance_id/hostname do not change), so the same paths and done-file are
+# reused when PCS re-runs this stage after a reboot.
+BOOTSTRAP_ASSETS_PATH="/root/edh_bootstrap_$(instance_id)"
+PRE_FILESYSTEM_MOUNT_LOGS_FOLDER="/root/edh_bootstrap_$(instance_id)/logs"
+POST_FILESYSTEM_MOUNT_LOGS_FOLDER="{{ context.get("/job/BootstrapPath") }}/$(hostname -s)/$(instance_id)"
+EDH_PCS_BOOTSTRAP_DONE="${BOOTSTRAP_ASSETS_PATH}/.edh_pcs_bootstrap_done"
+mkdir -p "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}"
+
+# Fast no-op on any EVERY_BOOT re-run once the bootstrap has fully completed (PCS_IS_FIRST_BOOT=0
+# on such reboots), so we never redo the work and slurmd starts promptly.
+if [[ -f "${EDH_PCS_BOOTSTRAP_DONE}" ]]; then
+    log_info "EDH PCS bootstrap already completed (${EDH_PCS_BOOTSTRAP_DONE} present); nothing to do."
+    exit 0
+fi
+
+# When BootstrapTemplateCache is enabled, SESSION_ENV_S3 points at the per-session prefix holding
+# the small 00_session_env.sh file with all EDH_* exports the cached big scripts read at runtime.
+SESSION_ENV_S3="{{ context.get("/job/SessionEnvS3Location", "") }}"
+
+# awscli.sh.j2 / aws_ssm_agent.sh.j2 self-execute on include and download into the current
+# directory (awscli.sh.j2 pushd's EDH_BOOTSTRAP_ASSETS_FOLDER), so point both at our per-instance
+# assets path first. Both are no-ops on a PCS-ready AMI that already ships awscli v2 + the SSM agent.
+export EDH_BOOTSTRAP_ASSETS_FOLDER="${BOOTSTRAP_ASSETS_PATH}"
+cd "${BOOTSTRAP_ASSETS_PATH}"
+{% include "templates/linux/awscli.sh.j2" %}
+{% include "templates/linux/aws_ssm_agent.sh.j2" %}
+
+# Retrieve the bootstrap bundle from S3.
+{% if context.get("/configuration/Region").startswith("us-gov-")  %}
+    S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+{% elif context.get("/configuration/Region").startswith("cn-")  %}
+    S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com.cn | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+{% elif context.get("/configuration/Region").startswith("eusc-") %}
+    S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.{{ context.get("/configuration/Region") }}.amazonaws.eu | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+{% else %}
+    S3_BUCKET_REGION=$(curl -s --head {{ context.get("/configuration/S3Bucket") }}.s3.amazonaws.com | grep bucket-region | awk '{print $2}' | tr -d '\r\n')
+{% endif %}
+
+# Gate the one-time download on 02_setup.sh so a post-reboot re-run reuses the already-synced
+# bundle instead of re-downloading it.
+if [[ ! -f "${BOOTSTRAP_ASSETS_PATH}/02_setup.sh" ]]; then
+    log_info "First run, downloading bootstrap sequence from {{ context.get("/job/BootstrapScriptsS3Location") }}"
+    aws s3 --region ${S3_BUCKET_REGION} sync {{ context.get("/job/BootstrapScriptsS3Location") }} ${BOOTSTRAP_ASSETS_PATH}
+
+    if [[ -n "${SESSION_ENV_S3}" ]]; then
+        SESSION_ENV_S3_CLEAN="${SESSION_ENV_S3%/}"
+        log_info "Downloading per-session env file from ${SESSION_ENV_S3_CLEAN}/00_session_env.sh"
+        aws s3 --region ${S3_BUCKET_REGION} cp \
+            "${SESSION_ENV_S3_CLEAN}/00_session_env.sh" \
+            "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+        chmod 600 "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+    fi
+fi
+
+# Source the per-session env file (EDH_* exports) so the big scripts resolve ${EDH_*} at runtime.
+if [[ -r "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh" ]]; then
+    log_info "Sourcing per-session env file"
+    set -a
+    # shellcheck disable=SC1090,SC1091
+    source "${BOOTSTRAP_ASSETS_PATH}/00_session_env.sh"
+    set +a
+fi
+
+# 02_setup.sh (and its children) derive EDH_BOOTSTRAP_LOGS_FOLDER from ${EDH_JOB_BOOTSTRAP_PATH} at
+# runtime, which normally comes from 00_session_env.sh above. If that file is missing or empty on a
+# PCS node, EDH_JOB_BOOTSTRAP_PATH is unset -> EDH_BOOTSTRAP_LOGS_FOLDER collapses to "/$(hostname -s)"
+# and 02_setup aborts writing 03_setup_post_reboot.log to a directory that was never created. This
+# script is rendered with /job/BootstrapPath (same value used for POST_FILESYSTEM_MOUNT_LOGS_FOLDER,
+# which we mkdir -p below), so pin it explicitly here -- after the source, so it wins regardless.
+export EDH_JOB_BOOTSTRAP_PATH="{{ context.get("/job/BootstrapPath") }}"
+
+# Clear any stale reboot flag from a previous run so it does not carry over and loop us.
+unset_reboot_required
+
+log_info "EDH PCS nodeBootstrapped started (kernel $(uname -r)). Logs: ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}"
+
+# Install required system packages. PCS forbids rebooting inside a lifecycle action, so a kernel
+# update that needs a reboot must have been pre-baked into the AMI instead -- if this phase calls
+# set_reboot_required it exit_fails (see reboot_management.sh.j2), which surfaces here as a non-zero
+# exit and terminates the action (slurmd stays gated) with a "pre-bake the AMI" message.
+if ! /bin/bash "${BOOTSTRAP_ASSETS_PATH}/install_required_packages.sh" >> "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/install_required_packages.sh.log" 2>&1; then
+    exit_fail "install_required_packages.sh failed, see ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/install_required_packages.sh.log"
+fi
+
+# Mount filesystems. The Lustre client kernel module must be pre-baked into the AMI and loadable
+# without a reboot (a reboot request here exit_fails via set_reboot_required, same as above).
+if ! /bin/bash "${BOOTSTRAP_ASSETS_PATH}/filesystems_automount.sh" >> "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log" 2>&1; then
+    exit_fail "filesystems_automount.sh failed, see ${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/filesystems_mount.log for the failing mount"
+fi
+
+# Preserve pre-mount logs to S3 so they survive a node that fails/terminates before the shared FS
+# path exists.
+cp /var/log/messages "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}" 2>/dev/null || true
+cp /var/log/cloud-init-output.log "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}/cloud-init-output-final-$(date +%s).log" 2>/dev/null || true
+aws s3 --region ${S3_BUCKET_REGION} sync "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}" "s3://{{ context.get("/configuration/S3Bucket") }}/{{ context.get("/configuration/ClusterId") }}/{{ context.get("/configuration/Version") }}/bootstrap_logs_pre_filesystem_mount/pcs_node/{{ context.get("/job/PCSClusterName", "unknown") }}/$(hostname -s)/" 2>&1 || true
+
+# Create the log path in the shared partition & apply permissions.
+mkdir -p "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}"
+chmod 600 "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}"
+cp "${PRE_FILESYSTEM_MOUNT_LOGS_FOLDER}"/* "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}" 2>/dev/null || true
+echo "{{ context.get("/job/BootstrapScriptsS3Location") }}" >> "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/bootstrap_s3_location.log"
+
+# Finish EDH setup. On a PCS node the controller is PCS-managed, so 02_setup skips the SOCA
+# scheduler install and only mounts/customizes, then runs 03_setup_post_reboot inline. Neither may
+# reboot on a PCS node: any set_reboot_required call inside this chain exit_fails (see
+# reboot_management.sh.j2), which we catch below as a non-zero exit and turn into a fatal action
+# failure -- so slurmd never starts on a node that silently needed a reboot. The remedy is always to
+# pre-bake the reboot-requiring bits (GPU/EFA drivers, kernel, Lustre client module) into the AMI.
+if ! /bin/bash "${BOOTSTRAP_ASSETS_PATH}/02_setup.sh" >> "${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/02_setup.log" 2>&1; then
+    exit_fail "02_setup.sh (incl. inline 03_setup_post_reboot.sh) failed, see ${POST_FILESYSTEM_MOUNT_LOGS_FOLDER}/02_setup.log"
+fi
+
+# Fully done: mark it so future EVERY_BOOT re-runs return immediately (replaces `systemctl disable`).
+log_info "EDH PCS nodeBootstrapped completed; marking ${EDH_PCS_BOOTSTRAP_DONE}"
+touch "${EDH_PCS_BOOTSTRAP_DONE}"

@@ -258,26 +258,26 @@ def api_sessions_kill():
     _user = session.get("user", "unknown-user")
     if not re.compile(r"^[a-z_][a-z0-9_-]{0,31}$").match(_user):
         return SocaError.GENERIC_ERROR(
-            helpoer="Invalid User", status_code=400
+            helper="Invalid User", status_code=400
         ).as_flask()
 
     _data = request.get_json(silent=True) or {}
     _label = (_data.get("label") or "").strip()
     if not _label:
         return SocaError.GENERIC_ERROR(
-            helpoer="Label is required", status_code=400
+            helper="Label is required", status_code=400
         ).as_flask()
 
     if not re.compile(r"^[a-zA-Z0-9_-]{1,32}$").match(_label):
         return SocaError.GENERIC_ERROR(
-            helpoer="Invalid Label", status_code=400
+            helper="Invalid Label", status_code=400
         ).as_flask()
 
     _region = SocaConfig(key="/configuration/Region").get_value().get("message")
     _cluster_id = SocaConfig(key="/configuration/ClusterId").get_value().get("message")
     if not _region or not _cluster_id:
         return SocaError.GENERIC_ERROR(
-            helpoer="cluster config not available", status_code=500
+            helper="cluster config not available", status_code=500
         ).as_flask()
 
     _results = execute_ssm_document(
@@ -290,18 +290,28 @@ def api_sessions_kill():
 
     if _results.get("success") is False:
         return SocaError.GENERIC_ERROR(
-            helpoer="No login nodes available", status_code=502
+            helper="No login nodes available", status_code=502
+        ).as_flask()
+
+    _invocations = _results.get("message") or []
+
+    # execute_ssm_document reports success with an EMPTY list when
+    # send_command worked but every GetCommandInvocation call failed, so
+    # there is not always a result to read a status or stderr from.
+    if not _invocations:
+        return SocaError.GENERIC_ERROR(
+            helper="kill could not be confirmed on any login node",
+            status_code=502,
         ).as_flask()
 
     # Success if at least one login node executed the document successfully.
     # The document is idempotent so a Success status on a node where the
     # session didn't exist is still a correct outcome -- the end state
     # ("session is gone") is what the caller wanted.
-    if any(_r["status"] == "Success" for _r in _results.get("message")):
+    if any(_r["status"] == "Success" for _r in _invocations):
         return SocaResponse(success=True, message="killed").as_flask()
 
     # All nodes either failed or timed out. Surface the first one's stderr
     # for diagnostics.
-    _first = _results.get("message")[0]
-    _msg = _first.get("stderr", "").strip() or "kill failed on all nodes"
-    return SocaError.GENERIC_ERROR(helpoer=_msg, status_code=502).as_flask()
+    _msg = _invocations[0].get("stderr", "").strip() or "kill failed on all nodes"
+    return SocaError.GENERIC_ERROR(helper=_msg, status_code=502).as_flask()

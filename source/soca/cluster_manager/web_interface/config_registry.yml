@@ -51,6 +51,11 @@ prefixes:
   /dcv/broker/:
     impact: "restart:dcv-session-manager-broker"
 
+  # Cross-region overlay mesh. The overlay daemon re-reads these on each sync
+  # cycle, so a change is picked up without a restart.
+  /configuration/Overlay/:
+    impact: hot
+
 # Exact-parameter overrides -- take precedence over any prefix rule.
 params:
   # Read at import time in config.py (uwsgi boot) but NOT under a restart-tier
@@ -69,10 +74,70 @@ params:
     description: "Max instance RAM (MiB) for which Windows VDI hibernation is offered."
 
   # Hot: effective on the next read (no restart).
+  /configuration/HPC/containers/apptainer:
+    impact: hot
+    type: json
+    description: "Apptainer container runtime settings for HPC and virtual desktop nodes: enabled, install_prefix, images_path, unsupported_platforms. Read during node bootstrap, so a change takes effect on the next node launch, not on nodes already running."
+  /configuration/services/aws_pcs/auto_onboard_client:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["true", "false"]
+    description: "Onboard new Linux virtual desktop / login nodes as clients of every registered AWS PCS cluster at bootstrap. Takes effect on the next node launch, not on nodes already running."
   /configuration/FeatureFlags/VirtualDesktops/AllowCustomTags:
     impact: hot
     type: bool
     description: "Enable custom tag support for Virtual Desktop instances."
+
+  # VDI root EBS volume defaults, read on every launch (helpers/vdi_root_volume.py).
+  /configuration/dcv/root_volume/default_size_linux:
+    impact: hot
+    type: int
+    value_rules:
+      min: 30
+      max: 65536
+    description: "Root volume size (GB) for a Linux desktop launch that does not specify one. Raised to the software stack minimum when smaller."
+  /configuration/dcv/root_volume/default_size_windows:
+    impact: hot
+    type: int
+    value_rules:
+      min: 30
+      max: 65536
+    description: "Root volume size (GB) for a Windows desktop launch that does not specify one. Raised to the software stack minimum when smaller."
+  /configuration/dcv/root_volume/min_size_linux:
+    impact: hot
+    type: int
+    value_rules:
+      min: 30
+      max: 65536
+    description: "Minimum root volume size (GB) for Linux desktops whose software stack minimum is 0."
+  /configuration/dcv/root_volume/min_size_windows:
+    impact: hot
+    type: int
+    value_rules:
+      min: 30
+      max: 65536
+    description: "Minimum root volume size (GB) for Windows desktops whose software stack minimum is 0."
+  /configuration/dcv/root_volume/volume_type:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["gp3", "gp2", "io1", "io2"]
+    description: "EBS volume type for Virtual Desktop root volumes. First-generation AWS Outposts racks support gp2 only; second-generation racks support gp3 up to 16 TiB, 16000 IOPS and 1000 MiB/s."
+  /configuration/dcv/root_volume/iops:
+    impact: hot
+    type: int
+    value_rules:
+      min: 0
+      max: 256000
+    description: "Provisioned IOPS for gp3/io1/io2 root volumes. 0 uses the type default (3000). Clamped at launch to what the type and disk size allow; ignored for gp2."
+  /configuration/dcv/root_volume/throughput:
+    impact: hot
+    type: int
+    value_rules:
+      min: 0
+      max: 2000
+    description: "Provisioned throughput (MiB/s) for gp3 root volumes. 0 uses the gp3 baseline (125). Clamped at launch to 0.25 MiB/s per IOPS."
 
   # File transfer engine version selector. v1 = Dropzone upload + native browser
   # download; v2 = Uppy/tus resumable upload + parallel ranged download (early
@@ -122,6 +187,19 @@ params:
       regex: '^[1-9][0-9]*$'
     description: "Max finished jobs loaded to the browser per query (newest first). Bounds client payload for large history."
 
+  /configuration/HPC/JobChain/MaxStages:
+    impact: hot
+    type: string
+    value_rules:
+      regex: '^[1-9][0-9]*$'
+    description: "Max jobs one dependency chain may submit. Each stage costs three scheduler calls, so this bounds how long a submit request stays open. Takes effect on the next submission."
+  /configuration/HPC/JobChain/MaxParentsPerStage:
+    impact: hot
+    type: string
+    value_rules:
+      regex: '^[0-9]+$'
+    description: "Max jobs a single chain stage may wait on. 0 means no separate limit, since a stage can only depend on other stages in the same chain and is already bounded by MaxStages."
+
   /configuration/HPC/JobListing/IncludeFinished:
     impact: hot
     type: string
@@ -147,3 +225,43 @@ params:
     value_rules:
       regex: '^[A-Za-z0-9_,:\[\]\{\}" ]*$'
     description: "JSON { arch: [base_os,...] } of copy priority per architecture (base_os leads within its arch)."
+
+  # Cross-region overlay mesh. The /configuration/Overlay/ prefix rule above
+  # already marks the tree hot; these are the individual exceptions.
+
+  # The live peer-to-peer capacity-probe token. This is the shared credential
+  # peer clusters authenticate with, so it must never render in the editor or
+  # appear in key+value search results. Rotation is automatic via Secrets
+  # Manager and the mesh creator's rotation Lambda; operators trigger a manual
+  # rotation from Admin -> Mesh, never by editing this value.
+  /configuration/Overlay/peer_probe_token:
+    hidden: true
+
+  # Mesh identity. Changing either after the cluster has joined orphans it from
+  # its peers: the table names and the peer registry are both derived from
+  # them. Visible for troubleshooting, not editable.
+  /configuration/Overlay/mesh_id:
+    readonly: true
+    description: "UUID of the mesh this cluster belongs to. Set at install time; changing it orphans the cluster from its peers."
+  /configuration/Overlay/mesh_table_prefix:
+    readonly: true
+    description: "Prefix of this mesh's DynamoDB Global Table names. Must be identical on every cluster in the mesh."
+
+  # Operator big-red-buttons. Editable on purpose: the recovery design requires
+  # these to be reachable without AWS console access.
+  /configuration/Overlay/local_read_only:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["true", "false"]
+    description: "Stop applying mesh state changes locally. Existing WireGuard peers and PBS trust keep working."
+  /configuration/Overlay/local_disconnect:
+    impact: hot
+    type: string
+    value_rules:
+      enum: ["true", "false"]
+    description: "Locally disconnect this cluster from the mesh without decommissioning it."
+  /configuration/Overlay/destructive_ceiling_n:
+    impact: hot
+    type: int
+    description: "Maximum destructive peer changes the daemon will apply in one sync cycle before refusing and alerting."

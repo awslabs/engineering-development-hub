@@ -72,6 +72,9 @@
                                     <div class="card-body">
                                          <h3>{{ _("Create a new Workflow Profile") }}
                                         </h3>
+                                          <div class="alert alert-warning">
+                                              <strong>{% trans link='<a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a>'|safe %}Once you have created your Workflow Profile, please ensure that it is {{ link }} Failure to do so will result in your profile remaining hidden from users.{% endtrans %}</strong>
+                                          </div>
                                         <nav>
                                             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                                                 <a class="nav-item nav-link active" id="nav-home-tab"
@@ -88,10 +91,6 @@
 
                                             </div>
                                         </nav>
-                                        <br>
-                                          <div class="alert alert-warning">
-                                              <strong>{% trans link='<a href="/admin/projects" target="_blank">assigned to at least one EDH Project.</a>'|safe %}Once you have created your Workflow Profile, please ensure that it is {{ link }} Failure to do so will result in your profile remaining hidden from users.{% endtrans %}</strong>
-                                          </div>
 
                                         <div class="tab-content" id="nav-tabContent2">
                                             <div class="tab-pane fade show active" id="nav-designform" role="tabpanel"
@@ -106,69 +105,10 @@
                                                     {{ _("We have generated a test template for you, customize it as needed or") }}
                                                     <strong><a style="cursor:pointer;color: #ff5252"
                                                             id="clear-all-fields">{{ _("click here to start from scratch.") }}</a></strong>
-                                                    <hr>                                         
-                                                    
-                                                    <!-- Toggle: EDH Reserved Variables -->
-                                                    <div>
-                                                            <h3 class="mb-0">
-                                                                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProtectedVariable" aria-expanded="true" aria-controls="collapseProtectedVariable">
-                                                                    {{ _("EDH reserved variables") }}
-                                                                </button>
-                                                            </h3>
-                                                            <div id="collapseProtectedVariable" class="collapse show">
-                                                                <div class="card card-body">
-                                                                    <p>{% trans %}You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>{% endtrans %}
-                                                                    </p>
-                                                                        <ul>
-                                                                        <li><code>job_name</code>: {{ _("If present, autofilled with the input file name") }}</li>
-                                                                        <li><code>input_name</code>: {{ _("Auto-filled with the input file path") }}</li>
-                                                                        <li><code>instance_type</code>: {{ _("Used to calculate the number of nodes to provision") }}</li>
-                                                                        <li><code>vcpus</code>: {{ _("Used to calculate the number of node(s) to provision") }}</li>
-                                                                        <li><code>scratch_size</code>, <code>root_size</code>, <code>fsx_size</code>, <code>wall_time</code>: {{ _("Used to estimate cost") }}</li>
-                                                                    </ul>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- Toggle: Node Provision Calculation -->
-                                                        <div class="mt-3">
-                                                            <h3 class="mb-0">
-                                                                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNodes" aria-expanded="false" aria-controls="collapseNodes">
-                                                                    {{ _("Calculate number of nodes to provision automatically") }}
-                                                                </button>
-                                                            </h3>
-                                                            <div id="collapseNodes" class="collapse">
-                                                                <div class="card card-body">
-                                                                    <p>
-                                                                    {% trans it='<code>instance_type</code>'|safe, vc='<code>vcpus</code>'|safe, nd='<code>nodes</code>'|safe %}If {{ it }} and {{ vc }} parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the {{ nd }} resource manually.{% endtrans %}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- Toggle: Job Cost Estimate -->
-                                                        <div class="mt-3">
-                                                            <h3 class="mb-0">
-                                                                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCost" aria-expanded="false" aria-controls="collapseCost">
-                                                                    {{ _("Configure Job Cost Estimate automatically") }}
-                                                                </button>
-                                                            </h3>
-                                                            <div id="collapseCost" class="collapse">
-                                                                <div class="card card-body">
-                                                                    {{ _("Parameters used to estimate the simulation cost:") }}
-                                                                    <ul>
-                                                                        <li><code>instance_type</code>: {{ _("Instance type (default: c5.large)") }}</li>
-                                                                        <li><code>vcpus</code>: {{ _("Number of vCPUs (default: 1)") }}</li>
-                                                                        <li><code>scratch_size</code>: {{ _("/scratch size in GB (default: 0)") }}</li>
-                                                                        <li><code>root_size</code>: {{ _("/root size in GB (default: 10)") }}</li>
-                                                                        <li><code>fsx_size</code>: {{ _("FSx for Lustre size in GB (default: 0)") }}</li>
-                                                                        <li><code>wall_time</code>: {{ _("Max runtime (default: 01:00:00)") }}</li>
-                                                                    </ul>
-                                                                    <p>
-                                                                    {% trans hidden='<code>hidden</code>'|safe %}Use {{ hidden }} fields to hardcode values. Otherwise, defaults will be applied.{% endtrans %}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                    <hr class="my-2">
+                                                    <a href="#" data-bs-toggle="modal" data-bs-target="#workflowAdvancedModal">
+                                                        <i class="fas fa-book"></i> {{ _("Advanced: reserved variables, file picker, multi-select, conditional fields, multi-steps wizard, cost estimate") }}
+                                                    </a>
                                                     </div>
                                                     
                                                     <!-- Form Builder -->
@@ -432,6 +372,9 @@
 
                             {% include 'common/footer.html' %}
     {% include 'common/js_i18n.html' %}
+    <script src="{{ url_for('static', filename='js/edh_workflow_file_picker.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/edh_workflow_form_conditions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/edh_workflow_form_steps.js') }}"></script>
 
 
                             <script>
@@ -457,11 +400,25 @@
                                         disableFields: ['date', 'file'],
                                         disabledActionButtons: ['save', 'clear', 'data'],
                                         disabledAttrs: ['access', 'className', 'multiple'], // https://github.com/kevinchappell/formBuilder/issues/1030
+                                        // EDH file picker field: browse the EDH filesystem and fill the selected path(s)
+                                        // Custom components: File picker + Step (static/js/edh_workflow_*.js)
+                                        fields: [...EDHFilePicker.fields, ...EDHFormSteps.fields],
+                                        templates: Object.assign({}, EDHFilePicker.templates, EDHFormSteps.templates),
+                                        typeUserDisabledAttrs: EDHFormSteps.typeUserDisabledAttrs,
+                                        typeUserEvents: EDHFormSteps.typeUserEvents,
+                                        // "Show only if" (EDHFormConditions, all field types) + file picker attributes
+                                        typeUserAttrs: Object.assign({}, EDHFormConditions.typeUserAttrs, EDHFilePicker.typeUserAttrs),
                                         defaultFields:
                                             {% if action == "edit" %}
                                     {{ profile_form | safe }}
                                     {% else %}
                                     [
+                                        {
+                                            // Designer note: explains the Step component (multi-steps wizard)
+                                            "type": "paragraph",
+                                            "subtype": "p",
+                                            "label": i18n.default_form_steps_tip
+                                        },
                                         {
                                             "type": "header",
                                             "subtype": "h4",
@@ -492,21 +449,38 @@
                                             ]
                                         },
                                         {
+                                            "type": "text",
+                                            "subtype": "email",
+                                            "required": false,
+                                            "label": i18n.notify_email_label + " (notify_email)",
+                                            "placeholder": i18n.notify_email_placeholder,
+                                            "className": "form-control",
+                                            "name": "notify_email",
+                                            "description": i18n.notify_email_desc
+                                        },
+                                        {
+                                            // Conditional field example: only shown once notify_email has a value
                                             "type": "select",
                                             "required": true,
-                                            "label": i18n.force_ri_label + " (force_ri)",
+                                            "label": i18n.notify_events_label + " (notify_events)",
                                             "className": "form-control",
-                                            "name": "force_ri",
-                                            "description": i18n.force_ri_desc,
+                                            "name": "notify_events",
+                                            "description": i18n.notify_events_desc,
+                                            "showIf": "notify_email",
                                             "multiple": false,
                                             "values": [
                                                 {
-                                                    "label": "No",
-                                                    "value": "False"
+                                                    "label": i18n.notify_events_abe,
+                                                    "value": "abe",
+                                                    "selected": true
                                                 },
                                                 {
-                                                    "label": "Yes",
-                                                    "value": "True"
+                                                    "label": i18n.notify_events_ae,
+                                                    "value": "ae"
+                                                },
+                                                {
+                                                    "label": i18n.notify_events_a,
+                                                    "value": "a"
                                                 }
                                             ]
                                         },
@@ -533,15 +507,14 @@
                                             "maxlength": 255
                                         },
                                         {
-                                            "type": "text",
+                                            "type": "edhFilePicker",
                                             "required": true,
                                             "label": i18n.input_file_label + " (input_file)",
                                             "placeholder": i18n.input_file_placeholder,
-                                            "className": "form-control",
                                             "name": "input_file",
                                             "description": i18n.input_file_desc,
-                                            "subtype": "text",
-                                            "maxlength": 255
+                                            "allowMultiple": true,
+                                            "selectType": "file"
                                         },
 
                                         {
@@ -704,6 +677,14 @@
                                 };
 
                                 function handleSubmit(event) {
+                                    // Warn about "Show only if" conditions pointing to a missing field (typo) or
+                                    // to the field itself: such fields would stay hidden for every user.
+                                    const conditionProblems = EDHFormConditions.validate(formBuilder.actions.getData('json'));
+                                    if (conditionProblems.length && !window.confirm(
+                                        i18n.fc_save_warning + "\n\n- " + conditionProblems.join("\n- ") + "\n\n" + i18n.fc_save_anyway)) {
+                                        event.preventDefault();
+                                        return false;
+                                    }
                                     let getJobScriptData = btoa(unescape(encodeURIComponent(window.fileeditor.getValue())));
                                     document.getElementById("submit_job_script").value = getJobScriptData;
                                     document.getElementById("submit_job_interpreter").value = $('#interpreter').val();
@@ -735,7 +716,11 @@
 # https://awslabs.github.io/engineering-development-hub-documentation/documentation/tutorials/integration-ec2-job-parameters/
 #PBS -l instance_type={{instance_type}}
 #PBS -l walltime={{wall_time}}
-#PBS -l force_ri={{force_ri}}
+{% if notify_email %}
+# notify_events is only shown (and sent) once the user enters notify_email
+#PBS -M {{notify_email}}
+#PBS -m {{notify_events}}
+{% endif %}
 #############################
 
 ### EXAMPLE FOR LSF
@@ -753,10 +738,26 @@
 {{user_pre_exec}}
 
 ## [Begin: Actual solver command]
-{{binary_location}} {{input_file}} \\
+# input_file comes from the EDH file picker (multiple selection enabled). It is a single string
+# of absolute paths separated by "," e.g. if the user selected 3 files:
+#   input_file = /data/home/user/file1,/data/home/user/file2,/data/home/user/file3
+{% set input_files = input_file.split(',') %}
+echo "{{ input_files | length }} input file(s) selected"
+
+# Example 1: run the solver once per selected file
+{% for f in input_files %}
+# {{ loop.index }}/{{ input_files | length }} - file name: {{ f.rsplit('/', 1)[-1] }} - folder: {{ f.rsplit('/', 1)[0] }}
+{{binary_location}} "{{ f }}" \\
 --param1 {{param1}} \\
 --param2 {{param2}} \\
---param3 {{param3}} \\
+--param3 {{param3}}
+{% endfor %}
+
+# Example 2: pass all selected files to a single solver command (uncomment to use)
+# {{binary_location}} {% for f in input_files %}"{{ f }}" {% endfor %}--param1 {{param1}}
+
+# Example 3: only use the first selected file
+# {{binary_location}} "{{ input_files[0] }}" --param1 {{param1}}
 # Enter  here any command to be added to the solver command that changed be edited by the users #
 ## [End: Actual solver command]
 
@@ -774,6 +775,183 @@
                                 });
 
                             </script>
+                            <!-- Workflow designer: advanced documentation -->
+                            <script>
+                                // The page layout has unclosed containers, so re-parent the modal to <body>:
+                                // Bootstrap modals misbehave (backdrop / z-index / clipping) when nested.
+                                document.addEventListener("DOMContentLoaded", function () {
+                                    const modal = document.getElementById("workflowAdvancedModal");
+                                    if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+                                });
+                            </script>
+                            <div class="modal fade" id="workflowAdvancedModal" tabindex="-1" aria-labelledby="workflowAdvancedModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-xl">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="workflowAdvancedModalLabel">{{ _("Workflow designer: advanced features") }}</h5>
+                                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                                        </div>
+                                        <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <style>#wfDocTabs .nav-link { cursor: pointer; text-align: left; margin-bottom: .25rem; }</style>
+                                                    <div class="nav flex-column nav-pills" id="wfDocTabs" role="tablist" aria-orientation="vertical">
+                                                        <a href="#wfDocReserved" class="nav-link active" id="wfDocReserved-tab" data-bs-toggle="pill" data-bs-target="#wfDocReserved" role="tab" aria-controls="wfDocReserved" aria-selected="true">{{ _("Reserved variables") }}</a>
+                                                        <a href="#wfDocPicker" class="nav-link" id="wfDocPicker-tab" data-bs-toggle="pill" data-bs-target="#wfDocPicker" role="tab" aria-controls="wfDocPicker" aria-selected="false">{{ _("File picker") }}</a>
+                                                        <a href="#wfDocMulti" class="nav-link" id="wfDocMulti-tab" data-bs-toggle="pill" data-bs-target="#wfDocMulti" role="tab" aria-controls="wfDocMulti" aria-selected="false">{{ _("Multi-select values") }}</a>
+                                                        <a href="#wfDocConditions" class="nav-link" id="wfDocConditions-tab" data-bs-toggle="pill" data-bs-target="#wfDocConditions" role="tab" aria-controls="wfDocConditions" aria-selected="false">{{ _("Conditional fields") }}</a>
+                                                        <a href="#wfDocSteps" class="nav-link" id="wfDocSteps-tab" data-bs-toggle="pill" data-bs-target="#wfDocSteps" role="tab" aria-controls="wfDocSteps" aria-selected="false">{{ _("Multi-steps wizard") }}</a>
+                                                        <a href="#wfDocCost" class="nav-link" id="wfDocCost-tab" data-bs-toggle="pill" data-bs-target="#wfDocCost" role="tab" aria-controls="wfDocCost" aria-selected="false">{{ _("Cost estimate") }}</a>
+                                                        <a href="#wfDocValidation" class="nav-link" id="wfDocValidation-tab" data-bs-toggle="pill" data-bs-target="#wfDocValidation" role="tab" aria-controls="wfDocValidation" aria-selected="false">{{ _("Validation rules") }}</a>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-9">
+                                                    <div class="tab-content">
+
+                                                        <!-- Reserved variables + node calculation -->
+                                                        <div class="tab-pane fade show active" id="wfDocReserved" role="tabpanel">
+                                                            <h5>{{ _("Reserved variables") }}</h5>
+                                                            <p>{% trans %}You can use your own variable names, however note <strong>some automation are pre-configured for you when you use the following variables:</strong>{% endtrans %}</p>
+                                                            <ul>
+                                                                <li><code>input_file</code>: {{ _("Pre-populated with the selected file when the workflow is started from the File Explorer ('Use as Simulation Input')") }}</li>
+                                                                <li><code>job_name</code>: {{ _("If present, autofilled with the input file name") }}</li>
+                                                                <li><code>instance_type</code>, <code>vcpus</code>: {{ _("Used to calculate the number of node(s) to provision") }}</li>
+                                                                <li><code>scratch_size</code>, <code>root_size</code>, <code>fsx_size</code>, <code>wall_time</code>: {{ _("Used to estimate cost") }}</li>
+                                                                <li><code>input_file_path</code>: {{ _("Folder of the input file (or the user's home), available in the job script") }}</li>
+                                                            </ul>
+                                                            <h6 class="mt-3">{{ _("Calculate number of nodes to provision automatically") }}</h6>
+                                                            <p>{% trans it='<code>instance_type</code>'|safe, vc='<code>vcpus</code>'|safe, nd='<code>nodes</code>'|safe %}If {{ it }} and {{ vc }} parameters are specified, EDH will automatically calculate the number of node(s) to provision. Otherwise, you must define the {{ nd }} resource manually.{% endtrans %}</p>
+                                                            <p class="mb-0">{% trans it='<code>instance_type</code>'|safe %}{{ it }} is optional. On AWS PCS, for example, the compute node group defines the instance types: leave it out and request nodes directly in the job script (e.g. #SBATCH --nodes).{% endtrans %}</p>
+                                                        </div>
+
+                                                        <!-- File picker -->
+                                                        <div class="tab-pane fade" id="wfDocPicker" role="tabpanel">
+                                                            <h5>{{ _("Let users select files or folders from EDH") }}</h5>
+                                                            <p>{% trans fp='<strong>📁 File picker</strong>'|safe %}Drag the {{ fp }} component onto your form. Users get a Browse button that opens the EDH file explorer and fills the field with the path(s) they select. Their access permissions apply.{% endtrans %}</p>
+                                                            {{ _("Component options:") }}
+                                                            <ul>
+                                                                <li><strong>{{ _("Allow multiple selection") }}</strong>: {{ _("let users select more than one item") }}</li>
+                                                                <li><strong>{{ _("Selectable items") }}</strong>: {{ _("Files, Folders, or Files and folders") }}</li>
+                                                                <li><strong>{{ _("Start directory") }}</strong>: {{ _("where the explorer opens (default: the user's home)") }}</li>
+                                                            </ul>
+                                                            <p>{% trans comma='<code>,</code>'|safe, sample='<code>/data/home/user/file1,/data/home/user/file2,/data/home/user/file3</code>'|safe %}The value is a single string of absolute paths separated by {{ comma }}, e.g. {{ sample }}. Split it in your job script (if the form input name is <code>input_file</code>):{% endtrans %}</p>
+<pre class="bg-light p-2 mb-2"><code>{% raw %}{% set files = input_file.split(',') %}
+echo "{{ files | length }} item(s) selected"
+{% for f in files %}
+echo "full path : {{ f }}"                       # /data/home/user/file1
+echo "file name : {{ f.rsplit('/', 1)[-1] }}"    # file1
+echo "folder    : {{ f.rsplit('/', 1)[0] }}"     # /data/home/user
+my_solver --input "{{ f }}"
+{% endfor %}
+# first item only           : {{ files[0] }}
+# all items, space-separated: {{ files | join(' ') }}{% endraw %}</code></pre>
+                                                            <small class="text-muted">{{ _("Quote paths in your script: they may contain spaces. Paths containing a comma are not supported.") }}</small>
+                                                        </div>
+
+                                                        <!-- Multi-select values (checkbox groups) -->
+                                                        <div class="tab-pane fade" id="wfDocMulti" role="tabpanel">
+                                                            <h5>{{ _("Multi-select values") }}</h5>
+                                                            <p>{% trans cg='<strong>Checkbox Group</strong>'|safe, comma='<code>,</code>'|safe %}A {{ cg }} lets users tick several options. The job script receives the ticked option values (not the labels) as a single string separated by {{ comma }}, under the field name.{% endtrans %}</p>
+                                                            <p>{% trans name='<code>solver_flags</code>'|safe, sample='<code>gpu,double_precision</code>'|safe %}Example: a checkbox group named {{ name }} where the user ticked two options gives {{ sample }}:{% endtrans %}</p>
+<pre class="bg-light p-2 mb-2"><code>{% raw %}{% set flags = solver_flags.split(',') if solver_flags else [] %}
+{% if 'gpu' in flags %}
+export SOLVER_USE_GPU=1
+{% endif %}
+my_solver {% for f in flags %}--{{ f }} {% endfor %}--input "{{ input_file }}"
+# -> my_solver --gpu --double_precision --input "/data/home/user/file1"{% endraw %}</code></pre>
+                                                            <small class="text-muted">{{ _("Set meaningful option values in the component editor: formBuilder generates values such as option-1 by default.") }}</small>
+                                                        </div>
+
+                                                        <!-- Conditional fields -->
+                                                        <div class="tab-pane fade" id="wfDocConditions" role="tabpanel">
+                                                            <h5>{{ _("Show a field only when another field is set") }}</h5>
+                                                            <p>{% trans attr='<strong>Show only if</strong>'|safe %}Every component has a {{ attr }} option. Leave it empty to always show the field, otherwise use one of:{% endtrans %}</p>
+                                                            <table class="table table-sm table-bordered">
+                                                                <thead><tr><th>{{ _("Show only if") }}</th><th>{{ _("The field is visible when") }}</th></tr></thead>
+                                                                <tbody>
+                                                                    <tr><td><code>notify_email</code></td><td>{{ _("notify_email is checked or has a value") }}</td></tr>
+                                                                    <tr><td><code>!notify_email</code></td><td>{{ _("notify_email is empty (or nothing is checked)") }}</td></tr>
+                                                                    <tr><td><code>queue_name=high</code></td><td>{{ _("queue_name equals high (select, radio, or that checkbox option is checked)") }}</td></tr>
+                                                                    <tr><td><code>queue_name=low|high</code></td><td>{{ _("queue_name equals low or high") }}</td></tr>
+                                                                    <tr><td><code>queue_name!=low|high</code></td><td>{{ _("queue_name is none of the listed values") }}</td></tr>
+                                                                    <tr><td><code>vcpus&gt;16</code> <code>vcpus&gt;=16</code> <code>vcpus&lt;4</code> <code>vcpus&lt;=4</code></td><td>{{ _("numeric comparison; the field stays hidden while the value is empty or not a number") }}</td></tr>
+                                                                    <tr><td><code>solver=fluent &amp;&amp; vcpus&gt;=16</code></td><td>{{ _("AND: both conditions are true") }}</td></tr>
+                                                                    <tr><td><code>queue_name=high || vcpus&gt;64</code></td><td>{{ _("OR: at least one condition is true") }}</td></tr>
+                                                                    <tr><td><code>solver=fluent &amp;&amp; vcpus&gt;=16 || queue_name=high</code></td><td>{{ _("AND is evaluated before OR: (solver=fluent AND vcpus>=16) OR queue_name=high") }}</td></tr>
+                                                                </tbody>
+                                                            </table>
+                                                            <ul>
+                                                                <li>{{ _("Checkbox and select values are compared to the option value, not its label.") }}</li>
+                                                                <li>{{ _("Combine conditions with && (AND) and || (OR). AND is evaluated first and parentheses are not supported. A single | separates alternative values: queue_name=low|high.") }}</li>
+                                                                <li>{{ _("Conditions can be chained: a field depending on a hidden field is hidden too.") }}</li>
+                                                                <li>{{ _("Hidden fields are not required and are sent empty to your job script.") }}</li>
+                                                                <li>{{ _("When you save, EDH warns you about conditions referencing an unknown field, the field itself, a non-numeric comparison, or an empty side of && / ||.") }}</li>
+                                                            </ul>
+                                                            <p>{% trans src='<code>notify_email</code>'|safe, dst='<code>notify_events</code>'|safe %}Example included in the test template: {{ dst }} has Show only if set to {{ src }}, so it only appears once the user enters an email. The test job script guards it with an if block:{% endtrans %}</p>
+<pre class="bg-light p-2 mb-0"><code>{% raw %}{% if notify_email %}
+#PBS -M {{notify_email}}
+#PBS -m {{notify_events}}
+{% endif %}{% endraw %}</code></pre>
+                                                        </div>
+
+                                                        <!-- Steps -->
+                                                        <div class="tab-pane fade" id="wfDocSteps" role="tabpanel">
+                                                            <h5>{{ _("Multi-steps wizard") }}</h5>
+                                                            <p>{% trans step='<strong>Step</strong>'|safe %}Drag a {{ step }} component where a new page should start. Users then fill the form one step at a time with Back / Next, and the Submit button only appears on the last step. A form without Step components stays a single page.{% endtrans %}</p>
+<pre class="bg-light p-2 mb-2"><code>Job name             &lt;- step 1 "General" (components before the first Step)
+Step: Input files
+  input_file         &lt;- step 2 "Input files"
+Step: Resources
+  instance_type      &lt;- step 3 "Resources"
+  vcpus
+Step: Solver options
+  solver_flags       &lt;- step 4 "Solver options" + Submit button
+  user_pre_exec</code></pre>
+                                                            <ul class="mb-0">
+                                                                <li>{{ _("A Step has a title (label) and an optional description shown under it. It is not a field: nothing is sent to your job script.") }}</li>
+                                                                <li>{{ _("Next checks the required fields of the current step. Users can jump back to any previous step from the step list.") }}</li>
+                                                                <li>{{ _("A step whose components are all hidden by Show only if is skipped automatically.") }}</li>
+                                                                <li>{{ _("Show only if is not available on the Step component itself: put the condition on the components of the step.") }}</li>
+                                                            </ul>
+                                                        </div>
+
+                                                        <!-- Cost estimate -->
+                                                        <div class="tab-pane fade" id="wfDocCost" role="tabpanel">
+                                                            <h5>{{ _("Configure Job Cost Estimate automatically") }}</h5>
+                                                            {{ _("Parameters used to estimate the simulation cost:") }}
+                                                            <ul>
+                                                                <li><code>instance_type</code>: {{ _("Instance type (default: c5.large)") }}</li>
+                                                                <li><code>vcpus</code>: {{ _("Number of vCPUs (default: 1)") }}</li>
+                                                                <li><code>scratch_size</code>: {{ _("/scratch size in GB (default: 0)") }}</li>
+                                                                <li><code>root_size</code>: {{ _("/root size in GB (default: 10)") }}</li>
+                                                                <li><code>fsx_size</code>: {{ _("FSx for Lustre size in GB (default: 0)") }}</li>
+                                                                <li><code>wall_time</code>: {{ _("Max runtime (default: 01:00:00)") }}</li>
+                                                            </ul>
+                                                            <p class="mb-0">{% trans hidden='<code>hidden</code>'|safe %}Use {{ hidden }} fields to hardcode values. Otherwise, defaults will be applied.{% endtrans %}</p>
+                                                        </div>
+
+                                                        <!-- Validation rules -->
+                                                        <div class="tab-pane fade" id="wfDocValidation" role="tabpanel">
+                                                            <h5>{{ _("What EDH checks when a user submits the job") }}</h5>
+                                                            <ul class="mb-0">
+                                                                <li>{{ _("The job script and interpreter always come from the saved workflow, never from the browser.") }}</li>
+                                                                <li>{{ _("Values cannot contain line breaks, except in Text Area components (e.g. user_pre_exec). This prevents users from injecting extra scheduler directives or commands.") }}</li>
+                                                                <li>{{ _("File picker paths must be absolute, exist, match the Selectable items option, and be readable by the user. Single selection pickers accept one path only.") }}</li>
+                                                                <li>{{ _("Fields hidden by a Show only if condition are sent empty, even if a value is posted.") }}</li>
+                                                            </ul>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Close") }}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
 </body>
 
 </html>

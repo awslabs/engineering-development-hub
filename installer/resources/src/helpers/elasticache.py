@@ -140,7 +140,7 @@ def setup(
             scope,
             "SOCACacheUserGroup",
             engine="redis",
-            user_group_id=f"socausers-{user_specified_variables.cluster_id.lower()}",
+            user_group_id=f"{user_specified_variables.cluster_id.lower()}-users",
             user_ids=[
                 _cache_admin_user.user_id,
                 _cache_readonly_user.user_id,

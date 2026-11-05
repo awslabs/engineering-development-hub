@@ -89,6 +89,14 @@ function build_openpbs_{{  SCHEDULER_VARS.get("IDENTIFIER") }} {
 
   #   --with-python=DIR       Specify the directory where Python is installed.
 
+{% if context.get("/job/BaseOS") in ["amazonlinux2027"] %}
+  # gcc 16 makes C23 the default, which breaks the build twice: set_allacl's int (*)()
+  # declaration conflicts with its definition, and -Wincompatible-pointer-types is an error
+  # in pbs_tclWrap.c. Add any future base OS shipping gcc 15+ to the gate above.
+  export CFLAGS="${CFLAGS:-} -std=gnu17 -Wno-error=incompatible-pointer-types"
+  log_info "Building OpenPBS with CFLAGS: ${CFLAGS}"
+{% endif %}
+
   # --with-pbs-server-home=DIR. Location of the PBS spool directory. Default is /var/spool/pbs
   if ! LDFLAGS="-Wl,-rpath,${SOCA_PYTHON}/latest/lib" ./configure --prefix="${OPENPBS_INSTALL_DIR}" --with-pbs-server-home="${OPENPBS_PBS_HOME}" --with-python=${SOCA_PYTHON}/latest; then
     exit_fail "Unable to run ./configure --prefix=${OPENPBS_INSTALL_DIR} for OpenPBS. See log for additional details"

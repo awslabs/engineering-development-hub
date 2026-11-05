@@ -39,6 +39,256 @@
       fi
     }
 
+    function fsx_ontap_svm_domain_join () {
+      # Join the SVM to Active Directory from here, not from CloudFormation.
+      # AWS::FSx::StorageVirtualMachine creates the SVM and joins it as one
+      # atomic resource, so session-security-for-ad-ldap cannot be set before
+      # the join. A domain controller that requires LDAP signing refuses the
+      # unsigned bind ONTAP makes at its default of none, so the join fails.
+      #
+      # Idempotent: an already-joined SVM returns immediately.
+      local FSX_SVM_ID="${1}"
+      local FSX_SVM_NAME="${2}"
+      local FSX_SVM_UUID="${3}"
+      local FSX_ENDPOINT="${4}"
+      local FSX_AUTH="${5}"
+      local FS_SSM_BASE="${6}"
+
+      local CURRENT_DOMAIN=$(aws_cli fsx describe-storage-virtual-machines \
+        --storage-virtual-machine-ids "${FSX_SVM_ID}" 2>/dev/null \
+        | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // empty')
+      if [[ -n "${CURRENT_DOMAIN}" ]]; then
+        log_info "SVM ${FSX_SVM_NAME} is already joined to ${CURRENT_DOMAIN}"
+        return 0
+      fi
+
+      # Read at RUNTIME, not from jinja context: this template renders at CDK
+      # time, before the directory's SSM keys exist.
+      local DS_SSM_BASE="/edh/{{ context.get("/configuration/ClusterId") }}/configuration/UserDirectory"
+      local DS_DOMAIN_NAME=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/domain_name" --query "Parameter.Value" --output text 2>/dev/null)
+      local DS_SECRET_ARN=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/service_account_secret_arn" --query "Parameter.Value" --output text 2>/dev/null)
+      local DS_DC_IPS_RAW=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/domain_controller_ips" --query "Parameter.Value" --output text 2>/dev/null)
+
+      for DS_VALUE in "DS_DOMAIN_NAME" "DS_SECRET_ARN" "DS_DC_IPS_RAW"; do
+        if [[ "${!DS_VALUE}" == "None" ]]; then
+          eval "${DS_VALUE}=''"
+        fi
+      done
+
+      if [[ -z "${DS_DOMAIN_NAME}" || -z "${DS_SECRET_ARN}" || -z "${DS_DC_IPS_RAW}" ]]; then
+        exit_fail "Unable to join SVM ${FSX_SVM_NAME}: missing UserDirectory domain_name, service_account_secret_arn or domain_controller_ips under ${DS_SSM_BASE}"
+      fi
+
+      # The SSM value is a Python list repr; single to double quotes makes it
+      # the JSON array the FSx API expects.
+      local DS_DC_IPS=$(echo "${DS_DC_IPS_RAW}" | tr "'" '"')
+      if ! echo "${DS_DC_IPS}" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+        exit_fail "Unable to join SVM ${FSX_SVM_NAME}: domain_controller_ips did not parse as a JSON array (raw value: ${DS_DC_IPS_RAW})"
+      fi
+
+      local SVM_NETBIOS=$(aws_cli ssm get-parameter --name "${FS_SSM_BASE}/svm_netbios_name" --query "Parameter.Value" --output text 2>/dev/null)
+      local SVM_OU=$(aws_cli ssm get-parameter --name "${FS_SSM_BASE}/svm_organizational_unit" --query "Parameter.Value" --output text 2>/dev/null)
+      # Fall back to the directory-wide chain when this filesystem names no OU:
+      # computer_ou/storage, then computer_ou/default. The per-filesystem key
+      # keeps precedence so an existing config does not change meaning.
+      if [[ -z "${SVM_OU}" || "${SVM_OU}" == "None" ]]; then
+        for _OU_KEY in "computer_ou/storage" "computer_ou/default"; do
+          SVM_OU=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/${_OU_KEY}" --query "Parameter.Value" --output text 2>/dev/null)
+          if [[ -n "${SVM_OU}" && "${SVM_OU}" != "None" ]]; then
+            log_info "SVM OU not set for this filesystem; using ${DS_SSM_BASE}/${_OU_KEY} (${SVM_OU})"
+            break
+          fi
+          SVM_OU=""
+        done
+      fi
+      local SVM_ADMIN_GROUP=$(aws_cli ssm get-parameter --name "${FS_SSM_BASE}/svm_file_system_administrators_group" --query "Parameter.Value" --output text 2>/dev/null)
+
+      if [[ -z "${SVM_NETBIOS}" || "${SVM_NETBIOS}" == "None" ]]; then
+        exit_fail "Unable to join SVM ${FSX_SVM_NAME}: ${FS_SSM_BASE}/svm_netbios_name is not set"
+      fi
+
+      local DS_ADMIN_SECRET=$(get_secret "${DS_SECRET_ARN}")
+      local DS_ADMIN_USER=$(echo "${DS_ADMIN_SECRET}" | jq -r ". | fromjson.username // empty")
+      local DS_ADMIN_PASSWORD=$(echo "${DS_ADMIN_SECRET}" | jq -r ". | fromjson.password // empty")
+      # The secret stores the UPN; FSx wants the bare sAMAccountName.
+      DS_ADMIN_USER="${DS_ADMIN_USER%%@*}"
+
+      if [[ -z "${DS_ADMIN_USER}" || -z "${DS_ADMIN_PASSWORD}" ]]; then
+        exit_fail "Unable to join SVM ${FSX_SVM_NAME}: no username/password in ${DS_SECRET_ARN}"
+      fi
+
+      # vserver cifs security modify -vserver <svm> -session-security-for-ad-ldap sign
+      log_info "Setting session-security-for-ad-ldap=sign on ${FSX_SVM_NAME} before the domain join"
+      ontap_rest_wrapper --auth="${FSX_AUTH}" \
+       --endpoint="${FSX_ENDPOINT}" \
+       --method="PATCH" \
+       --resource="/api/protocols/cifs/services/${FSX_SVM_UUID}" \
+       --data="{ \"security\": { \"session_security\": \"sign\" } }" >/dev/null 2>&1
+
+      ontap_rest_wrapper --auth="${FSX_AUTH}" \
+       --endpoint="${FSX_ENDPOINT}" \
+       --method="PATCH" \
+       --resource="/api/private/cli/vserver/cifs/security?vserver=${FSX_SVM_NAME}" \
+       --data="{ \"session_security_for_ad_ldap\": \"sign\" }" >/dev/null 2>&1
+
+      local SIGNING_STATE=$(ontap_rest_wrapper --auth="${FSX_AUTH}" \
+        --endpoint="${FSX_ENDPOINT}" \
+        --method="GET" \
+        --resource="/api/private/cli/vserver/cifs/security?vserver=${FSX_SVM_NAME}&fields=session-security-for-ad-ldap" \
+        | jq -r '.records[0].session_security_for_ad_ldap // "unknown"')
+      log_info "session-security-for-ad-ldap on ${FSX_SVM_NAME} reads back as: ${SIGNING_STATE}"
+      if [[ "${SIGNING_STATE}" != "sign" ]]; then
+        log_warning "session-security-for-ad-ldap is ${SIGNING_STATE}, not sign; the domain join is expected to fail on current ONTAP releases"
+      fi
+
+      # vserver cifs domain discovered-servers reset-servers -vserver <svm>
+      ontap_rest_wrapper --auth="${FSX_AUTH}" \
+       --endpoint="${FSX_ENDPOINT}" \
+       --method="POST" \
+       --resource="/api/private/cli/vserver/cifs/domain/discovered-servers/reset-servers" \
+       --data="{ \"vserver\": \"${FSX_SVM_NAME}\" }" >/dev/null 2>&1
+
+      local JOIN_CONFIG=$(jq -nc \
+        --arg netbios "${SVM_NETBIOS}" \
+        --arg domain "${DS_DOMAIN_NAME}" \
+        --arg ou "${SVM_OU}" \
+        --arg admin_group "${SVM_ADMIN_GROUP}" \
+        --arg user "${DS_ADMIN_USER}" \
+        --arg password "${DS_ADMIN_PASSWORD}" \
+        --argjson dns_ips "${DS_DC_IPS}" \
+        '{
+           NetBiosName: $netbios,
+           SelfManagedActiveDirectoryConfiguration: (
+             {
+               DomainName: $domain,
+               UserName: $user,
+               Password: $password,
+               DnsIps: $dns_ips
+             }
+             + (if $ou == "" or $ou == "None" then {} else {OrganizationalUnitDistinguishedName: $ou} end)
+             + (if $admin_group == "" or $admin_group == "None" then {} else {FileSystemAdministratorsGroup: $admin_group} end)
+           )
+         }')
+
+      # The join is asynchronous and not reliably first-time, so it is retried.
+      # A failed join leaves the SVM MISCONFIGURED, but that is recoverable: a
+      # later update-storage-virtual-machine with the same configuration joins
+      # it. Observed with two SVMs: the second join, issued ~60s after the
+      # first succeeded, went MISCONFIGURED; the identical request on the same
+      # SVM succeeded when re-run later. So MISCONFIGURED backs off and retries.
+      local JOIN_ATTEMPT=0
+      local JOIN_MAX_ATTEMPTS=5
+      local JOIN_BACKOFF
+      # Stays UNKNOWN if every update was rejected or no describe returned a
+      # lifecycle; checked after the loop to report that case distinctly.
+      local SVM_LIFECYCLE="UNKNOWN"
+      while [[ ${JOIN_ATTEMPT} -lt ${JOIN_MAX_ATTEMPTS} ]]; do
+        JOIN_ATTEMPT=$((JOIN_ATTEMPT + 1))
+        log_info "Joining SVM ${FSX_SVM_NAME} (${SVM_NETBIOS}) to ${DS_DOMAIN_NAME}, attempt ${JOIN_ATTEMPT}/${JOIN_MAX_ATTEMPTS}"
+
+        # Called through `aws` directly, NOT aws_cli: that wrapper rebuilds the
+        # command as a single string and re-executes it, so every space in this
+        # JSON becomes an argument boundary. The OU and the administrators group
+        # both contain spaces. This loop has its own retry.
+        local AWS_BIN=$(command -v aws)
+        if [[ -z "${AWS_BIN}" ]]; then
+          exit_fail "Unable to join SVM ${FSX_SVM_NAME}: aws CLI is not on PATH"
+        fi
+        local JOIN_STDERR="/tmp/.edh_svm_join_err.$$"
+        if ! "${AWS_BIN}" --region "{{ context.get("/configuration/Region") }}" fsx update-storage-virtual-machine \
+             --storage-virtual-machine-id "${FSX_SVM_ID}" \
+             --active-directory-configuration "${JOIN_CONFIG}" >/dev/null 2>"${JOIN_STDERR}"; then
+          log_warning "update-storage-virtual-machine was rejected for ${FSX_SVM_NAME} on attempt ${JOIN_ATTEMPT}: $(tr -d '\n' < "${JOIN_STDERR}" | cut -c1-300)"
+          rm -f "${JOIN_STDERR}"
+          sleep 30
+          continue
+        fi
+        rm -f "${JOIN_STDERR}"
+
+        local JOIN_WAITED=0
+        SVM_LIFECYCLE="UNKNOWN"
+        while [[ ${JOIN_WAITED} -lt 600 ]]; do
+          sleep 20
+          JOIN_WAITED=$((JOIN_WAITED + 20))
+          local SVM_STATE=$(aws_cli fsx describe-storage-virtual-machines \
+            --storage-virtual-machine-ids "${FSX_SVM_ID}" 2>/dev/null)
+          SVM_LIFECYCLE=$(echo "${SVM_STATE}" | jq -r '.StorageVirtualMachines[0].Lifecycle // "UNKNOWN"')
+          local SVM_DOMAIN=$(echo "${SVM_STATE}" | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // empty')
+
+          if [[ -n "${SVM_DOMAIN}" ]]; then
+            log_info "SVM ${FSX_SVM_NAME} joined ${SVM_DOMAIN} after ${JOIN_WAITED}s"
+            return 0
+          fi
+
+          if [[ "${SVM_LIFECYCLE}" == "MISCONFIGURED" ]]; then
+            local SVM_REASON=$(echo "${SVM_STATE}" | jq -r '.StorageVirtualMachines[0].LifecycleTransitionReason.Message // "no reason reported"')
+            log_warning "SVM ${FSX_SVM_NAME} (${FSX_SVM_ID}) reached MISCONFIGURED on attempt ${JOIN_ATTEMPT}/${JOIN_MAX_ATTEMPTS}. FSx reported: ${SVM_REASON}"
+            break
+          fi
+        done
+
+        if [[ "${SVM_LIFECYCLE}" != "MISCONFIGURED" ]]; then
+          log_warning "SVM ${FSX_SVM_NAME} did not report a domain after ${JOIN_WAITED}s on attempt ${JOIN_ATTEMPT} (lifecycle=${SVM_LIFECYCLE})"
+        fi
+
+        if [[ ${JOIN_ATTEMPT} -lt ${JOIN_MAX_ATTEMPTS} ]]; then
+          JOIN_BACKOFF=$((JOIN_ATTEMPT * 60))
+          log_info "Retrying the domain join of ${FSX_SVM_NAME} in ${JOIN_BACKOFF}s"
+          sleep ${JOIN_BACKOFF}
+        fi
+      done
+
+      if [[ "${SVM_LIFECYCLE}" == "UNKNOWN" ]]; then
+        exit_fail "Unable to join SVM ${FSX_SVM_NAME} (${FSX_SVM_ID}) to ${DS_DOMAIN_NAME}: its lifecycle was never read after ${JOIN_MAX_ATTEMPTS} attempts. Either every update-storage-virtual-machine call was rejected (see the warnings above) or describe-storage-virtual-machines returned nothing; check the controller IAM role for fsx:UpdateStorageVirtualMachine / fsx:DescribeStorageVirtualMachines and that ${FSX_SVM_ID} still exists."
+      fi
+
+      exit_fail "Unable to join SVM ${FSX_SVM_NAME} to ${DS_DOMAIN_NAME} after ${JOIN_MAX_ATTEMPTS} attempts (last lifecycle=${SVM_LIFECYCLE}). Re-running the filesystem mount retries the join on the same SVM. ONTAP's own reason is in the SVM event log: GET ${FSX_ENDPOINT}/api/support/ems/events?message.name=secd*"
+    }
+
+    # fsx_ontap_validate_directory_attributes lives in
+    # fsx/ontap/validate_directory_attributes.sh.j2 and runs from
+    # controller/03_setup.sh.j2: it needs this host's machine keytab and the
+    # EDH admin user, neither of which exists when this function runs.
+
+    function fsx_ontap_record_provisioned_state () {
+      # Log the SVM's identity configuration as provisioning leaves it.
+      # ontap_rest_wrapper inspects neither the HTTP status nor the async job it
+      # is handed, so every call in this function fails silently.
+      local FSX_SVM_NAME="${1}"
+      local FSX_SVM_UUID="${2}"
+      local FSX_ENDPOINT_MANAGEMENT="${3}"
+      local FSX_ADMIN_USER="${4}"
+      local FSX_ADMIN_PASSWORD="${5}"
+
+      log_info "Recording provisioned ONTAP identity configuration for ${FSX_SVM_NAME}"
+      local REC
+      for RESOURCE in \
+        "/api/name-services/ldap/${FSX_SVM_UUID}?fields=schema,session_security,min_bind_level,bind_as_cifs_server,port,base_dn,status.state" \
+        "/api/protocols/cifs/services/${FSX_SVM_UUID}?fields=name,enabled,default_unix_user,security.smb_signing,security.session_security,security.advertised_kdc_encryptions" \
+        "/api/name-services/name-mappings?svm.uuid=${FSX_SVM_UUID}&fields=direction,index,pattern,replacement" \
+        "/api/svm/svms/${FSX_SVM_UUID}?fields=nsswitch" \
+        "/api/protocols/cifs/shares?svm.uuid=${FSX_SVM_UUID}&fields=name,path" ; do
+        REC=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+          --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+          --method="GET" \
+          --resource="${RESOURCE}" | jq -c . 2>/dev/null)
+        log_info "ONTAP provisioned state ${RESOURCE%%\?*}: ${REC:-<no response>}"
+      done
+
+      # The two commands that prove a name lookup. Not on the documented REST
+      # surface (405 there); both work through the private CLI passthrough as
+      # POST, with the fsxadmin credential this function already holds:
+      #   POST /api/private/cli/vserver/services/name-service/getxxbyyy/getpwbyname
+      #        {"node": "<node>", "vserver": "<svm>", "username": "<user>"}
+      #   POST /api/private/cli/vserver/services/access-check/authentication/show-creds
+      #        {"vserver": "<svm>", "node": "<node>", "win-name": "<DOM>\\<user>", ...}
+      # The node name comes from /api/private/cli/network/interface?fields=curr-node
+      # (/api/cluster/nodes returns num_records 0 to fsxadmin on FSx).
+      # Printed, not run: the EDH admin user does not exist yet.
+      log_info "To confirm end to end, run on the ONTAP CLI at advanced privilege: vserver services name-service getxxbyyy getpwbyname -vserver ${FSX_SVM_NAME} -username <a directory user> -show-source true -use-cache false"
+      log_info "And for Windows-to-UNIX mapping: vserver services access-check authentication show-creds -vserver ${FSX_SVM_NAME} -win-name <DOMAIN>\\<a directory user>"
+    }
+
     function fsx_ontap_first_setup {
       # This function finalize FSxN setup and is executed only once when using a brand new FSx for NetApp ONTAP
       # 1 - Register LDAP/AD Client on the SVM
@@ -95,7 +345,31 @@
         local FSX_ADMIN_PASSWORD=$(echo ${FSX_ADMIN_SECRETMANAGER_ID} | jq -r ". | fromjson.password")
       fi
 
-      # Active Directory information for SVM domain join
+      # Resolve the SVM UUID before the domain join: the join needs it to set
+      # session-security-for-ad-ldap, and every later ONTAP call keys off it.
+      log_info "Retrieve SVM UUID: GET ${FSX_ENDPOINT_MANAGEMENT}/api/svm/svms?name=${FSX_SVM_NAME}"
+      FSX_SVM_UUID=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+        --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+        --method="GET" \
+        --resource="/api/svm/svms?name=${FSX_SVM_NAME}" | jq -r '.records[0].uuid')
+
+      if [[ -z "${FSX_SVM_UUID}" ]]; then
+        exit_fail "Unable to retrieve SVM UUID for ${FSX_SVM_NAME}, are you sure the SVM exists?"
+      fi
+
+      # The SVM is created unjoined by CDK and joined here.
+      fsx_ontap_svm_domain_join \
+        "${FSX_VOLUME_SVM_ID}" \
+        "${FSX_SVM_NAME}" \
+        "${FSX_SVM_UUID}" \
+        "${FSX_ENDPOINT_MANAGEMENT}" \
+        "${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+        "/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems/${FS_NAME_FOR_SSM}"
+
+      # Re-read the SVM now that it carries its AD configuration.
+      FSX_DESCRIBE_SVM=$(aws_cli fsx describe-storage-virtual-machines --storage-virtual-machine-ids ${FSX_VOLUME_SVM_ID})
+
+      # Active Directory information, from the SVM's own joined configuration
       local DS_DOMAIN_NAME=$(echo ${FSX_DESCRIBE_SVM} | jq -r '.StorageVirtualMachines[0].ActiveDirectoryConfiguration.SelfManagedActiveDirectoryConfiguration.DomainName // "NO_VALUE"')
       local DS_DOMAIN_BASE=$(echo "${DS_DOMAIN_NAME}" | sed 's/\./,DC=/g' | sed 's/^/DC=/')
       local DS_SHORT_NAME=$(echo "${DS_DOMAIN_NAME%%.*}" | cut -c1-15 | tr '[:lower:]' '[:upper:]')
@@ -111,30 +385,56 @@
       log_info "About to configure FSxN SVM ${FSX_SVM_NAME} for first launch"
       pushd ${EDH_BOOTSTRAP_ASSETS_FOLDER}
 
-      # First, get the SVM UUID associated to SVM
-      log_info "Retrieve SVM UUID: GET ${FSX_ENDPOINT_MANAGEMENT}/api/svm/svms?name=${FSX_SVM_NAME}"
-      FSX_SVM_UUID=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
-        --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
-        --method="GET" \
-        --resource="/api/svm/svms?name=${FSX_SVM_NAME}" | jq -r '.records[0].uuid')
-
-      if [[ -z "${FSX_SVM_UUID}" ]]; then
-        exit_fail "Unable to retrieve SVM UUID for ${FSX_SVM_NAME}, are you sure the SVM exists?"
-      fi
-
-      # vserver services name-service ldap client create -client-config ldap_config -ad-domain "${DS_DOMAIN_NAME}" -base-dn "${DS_DOMAIN_BASE}" -schema AD-IDMU -vserver "${FSX_SVM_NAME}";
+      # vserver services name-service ldap client create -client-config ldap_config -ad-domain "${DS_DOMAIN_NAME}" -base-dn "${DS_DOMAIN_BASE}" -schema AD-IDMU -session-security sign -vserver "${FSX_SVM_NAME}";
       # vserver services name-service ldap create -vserver "${FSX_SVM_NAME}" -client-config ldap_config;
-      log_info "Configuring LDAP Name Service: POST ${FSX_ENDPOINT_MANAGEMENT}/api/name-services/ldap"
-      ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
-       --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
-       --method="POST" \
-       --resource="/api/name-services/ldap" \
-       --data="{
-            \"svm\": { \"uuid\": \"${FSX_SVM_UUID}\" },
-            \"ad_domain\": \"${DS_DOMAIN_NAME}\",
-            \"base_dn\": \"${DS_DOMAIN_BASE}\",
-            \"schema\": \"AD-IDMU\"
-       }"
+      #
+      # Retried: ontap_rest_wrapper inspects neither HTTP status nor body, so a
+      # rejected POST is silent. ONTAP validates during the POST and that
+      # reaches the DCs, so it fails transiently on a newly joined SVM.
+      #
+      # bind_as_cifs_server is REQUIRED, not optional: the CLI defaults it to
+      # true when -ad-domain is set, the REST POST does not, and without it
+      # session_security=sign is refused ("Neither -bind-dn nor
+      # -bind-as-cifs-server is configured"). It binds via SASL as the SVM's
+      # machine account, so -min-bind-level is ignored.
+      local FSX_LDAP_CREATED="false"
+      local FSX_LDAP_POST_ATTEMPT
+      for FSX_LDAP_POST_ATTEMPT in $(seq 1 4); do
+        log_info "Configuring LDAP Name Service (attempt ${FSX_LDAP_POST_ATTEMPT}/4): POST ${FSX_ENDPOINT_MANAGEMENT}/api/name-services/ldap"
+        local FSX_LDAP_POST_RESULT=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+         --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+         --method="POST" \
+         --resource="/api/name-services/ldap" \
+         --data="{
+              \"svm\": { \"uuid\": \"${FSX_SVM_UUID}\" },
+              \"ad_domain\": \"${DS_DOMAIN_NAME}\",
+              \"base_dn\": \"${DS_DOMAIN_BASE}\",
+              \"schema\": \"{{ context.get("/configuration/UserDirectory/ontap_ldap_schema") or "MS-AD-BIS" }}\",
+              \"session_security\": \"sign\",
+              \"bind_as_cifs_server\": true
+         }")
+
+        # The client either exists now or it does not; that read is the only
+        # trustworthy signal, since "already exists" is success here.
+        local FSX_LDAP_RECORDS=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+          --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+          --method="GET" \
+          --resource="/api/name-services/ldap?svm.uuid=${FSX_SVM_UUID}" \
+          | jq -r '.num_records // 0')
+
+        if [[ "${FSX_LDAP_RECORDS}" =~ ^[0-9]+$ && "${FSX_LDAP_RECORDS}" -ge 1 ]]; then
+          FSX_LDAP_CREATED="true"
+          log_info "LDAP client configuration exists on ${FSX_SVM_NAME}"
+          break
+        fi
+
+        log_warning "LDAP client was not created on attempt ${FSX_LDAP_POST_ATTEMPT}/4. ONTAP said: $(echo "${FSX_LDAP_POST_RESULT}" | tr -d '\n' | cut -c1-300)"
+        sleep 20
+      done
+
+      if [[ "${FSX_LDAP_CREATED}" != "true" ]]; then
+        exit_fail "Unable to create the LDAP client configuration on ${FSX_SVM_NAME} after 4 attempts. Without it the SVM cannot resolve uid/gid, so SMB from Windows will not work. Check: GET ${FSX_ENDPOINT_MANAGEMENT}/api/name-services/ldap?fields=status"
+      fi
 
       # vserver services name-service ns-switch modify -vserver "${FSX_SVM_NAME}" -database passwd,group,namemap -sources ldap;
       log_info "Configuring LDAP Name Service: PATCH ${FSX_ENDPOINT_MANAGEMENT}/api/svm/svms/${FSX_SVM_UUID}"
@@ -171,7 +471,7 @@
             \"direction\": \"unix-win\",
             \"index\": \"1\",
             \"pattern\": \"(.+)\",
-            \"replacement\": \"${DS_SHORT_NAME}\\\(.+)\"
+            \"replacement\": \"${DS_SHORT_NAME}\\\\\\\\1\"
        }"
 
       # vserver nfs modify -vserver "${FSX_SVM_NAME}" -v4-id-domain "${DS_DOMAIN_NAME}";
@@ -183,6 +483,42 @@
        --data="{
             \"protocol\": { \"v4_id_domain\": \"${DS_DOMAIN_NAME}\" }
        }"
+
+      # vserver cifs security modify -vserver "${FSX_SVM_NAME}" -is-signing-required true;
+      log_info "Requiring SMB signing: PATCH ${FSX_ENDPOINT_MANAGEMENT}/api/protocols/cifs/services/${FSX_SVM_UUID}"
+      ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+       --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+       --method="PATCH" \
+       --resource="/api/protocols/cifs/services/${FSX_SVM_UUID}" \
+       --data="{
+            \"security\": { \"smb_signing\": true }
+       }"
+
+      # The LDAP status read is INTERMITTENT on ONTAP: 1 'down' in 5 reads 15s
+      # apart on a client whose lookups worked, so one bad read is not a fault.
+      local FSX_LDAP_STATE="unknown"
+      local FSX_LDAP_ATTEMPT
+      for FSX_LDAP_ATTEMPT in $(seq 1 8); do
+        FSX_LDAP_STATE=$(ontap_rest_wrapper --auth="${FSX_ADMIN_USER}:${FSX_ADMIN_PASSWORD}" \
+          --endpoint="${FSX_ENDPOINT_MANAGEMENT}" \
+          --method="GET" \
+          --resource="/api/name-services/ldap/${FSX_SVM_UUID}?fields=status.state" \
+          | jq -r '.status.state // "unknown"')
+        if [[ "${FSX_LDAP_STATE}" == "up" ]]; then
+          break
+        fi
+        log_info "LDAP name service reported '${FSX_LDAP_STATE}' on attempt ${FSX_LDAP_ATTEMPT}/8, retrying ..."
+        sleep 10
+      done
+
+      if [[ "${FSX_LDAP_STATE}" == "up" ]]; then
+        log_info "LDAP name service on ${FSX_SVM_NAME} is up"
+      else
+        log_warning "LDAP name service on ${FSX_SVM_NAME} read '${FSX_LDAP_STATE}' on all 8 attempts. The client exists, so this may still be the known intermittent status read; confirm with 'vserver services name-service ldap check -vserver ${FSX_SVM_NAME}' and a real lookup: 'getxxbyyy getpwbyname -node <node> -vserver ${FSX_SVM_NAME} -username <user>'"
+      fi
+
+      # fsx_ontap_record_provisioned_state runs at the END of this function, not
+      # here: it dumps the CIFS share list and the share is created below.
 
       # vserver cifs share create -vserver "${FSX_SVM_NAME}" -share-name ${FSX_ONTAP_CIFS_SHARE_NAME} -path \\${FSX_VOLUME_JUNCTION_PATH};
       log_info "Creating CIFS share: POST ${FSX_ENDPOINT_MANAGEMENT}/api/protocols/cifs/shares"
@@ -198,13 +534,15 @@
             \"dir_umask\": \"026\"
       }"
 
-      # Publish the share name EDH just created to SSM so Windows VDIs can auto-mount it
-      # with NO admin input. Only written if not already present, so an admin override
-      # (edhctl filesystems ... -k cifs_share_name) is never clobbered.
+      # Publish the share name to SSM so Windows VDIs auto-mount with no admin
+      # input. Only written if absent, so an admin override is never clobbered.
       if [[ -n "${FS_NAME_FOR_SSM}" ]]; then
         local FS_SSM_BASE="/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems/${FS_NAME_FOR_SSM}"
         local EXISTING_SHARE_NAME=""
-        if EXISTING_SHARE_NAME=$(aws_cli ssm get-parameter --name "${FS_SSM_BASE}/cifs_share_name" --query "Parameter.Value" --output text 2>/dev/null) \
+        # --quiet-error: on a first install this key does not exist and that
+        # miss is the normal path into the else branch. Without the flag the
+        # ParameterNotFound lands in bootstrap_ERROR.log on a healthy install.
+        if EXISTING_SHARE_NAME=$(aws_cli --quiet-error ssm get-parameter --name "${FS_SSM_BASE}/cifs_share_name" --query "Parameter.Value" --output text 2>/dev/null) \
            && [[ -n "${EXISTING_SHARE_NAME}" && "${EXISTING_SHARE_NAME}" != "None" ]]; then
           log_info "cifs_share_name already set (${EXISTING_SHARE_NAME}) for ${FS_NAME_FOR_SSM}; preserving existing/admin-override value."
         else
@@ -213,6 +551,11 @@
             || log_warning "Failed to publish cifs_share_name for ${FS_NAME_FOR_SSM}; Windows auto-mount may require setting it via 'edhctl filesystems update'"
         fi
       fi
+
+      # Record the provisioned state LAST, so the log carries the final
+      # configuration including the CIFS share created above.
+      fsx_ontap_record_provisioned_state "${FSX_SVM_NAME}" "${FSX_SVM_UUID}" \
+        "${FSX_ENDPOINT_MANAGEMENT}" "${FSX_ADMIN_USER}" "${FSX_ADMIN_PASSWORD}"
 
       popd
     }

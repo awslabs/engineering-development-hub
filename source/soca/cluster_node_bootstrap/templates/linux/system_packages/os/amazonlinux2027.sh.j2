@@ -1,0 +1,92 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{% include "templates/linux/system_packages/os/base_packages/rhel_based_distributions.sh.j2" %}
+
+log_info "Customizing Linux packages installation for amazonlinux2027"
+
+# AL2027 is a PUBLIC PREVIEW (os-release VARIANT="Public Preview", SUPPORT_END 2026-12-31).
+# Fedora upstream like AL2023, so the shared EL base list applies unchanged.
+#
+# Every entry below was measured on al2027-preview-ami-2027.0.20260903.0 (x86_64 and
+# arm64 produced identical results). Names are only removed here when NOTHING in the
+# AL2027 repositories Provides them; a name that resolves through a Provides alias is
+# deliberately left in the base list so this file stays as small as the real delta.
+
+# Packages with no provider at all in AL2027
+REMOVE_PKGS=(
+  authselect-compat
+  compat-openldap
+  dejavu-fonts-common
+  http-parser
+  libselinux-python
+  libverto-tevent
+  pcre
+  pcre-devel
+  postgresql
+  postgresql-contrib
+  postgresql-server
+  redhat-lsb
+  system-lsb
+  tcl
+  tcl-devel
+  tcp_wrappers
+  tk
+  tk-devel
+)
+
+# New packages to add (specific to this distro)
+#
+# postgresql16 is chosen as the SMALLEST step from AL2023's postgresql15; AL2027 also
+# offers 17 and 18. Do NOT add postgresql*-server-devel: it requires
+# postgresql*-private-devel, which CONFLICTS with libpq-devel, and libpq-devel is what
+# the base list's postgresql-devel resolves to.
+#
+# Tcl/Tk are swapped to the tcl8/tk8 compat stream, not added alongside: the unversioned
+# names float to 9.0.2 on AL2027, OpenPBS cannot build against Tcl 9, and tcl-devel 9
+# RPM-conflicts with tcl8-devel. Both ship tclConfig.sh at the path configure already probes.
+ADD_PKGS=(
+  authselect
+  dejavu-fonts-all
+  libpq
+  libpq-devel
+  libverto
+  openldap-compat
+  pcre2
+  pcre2-devel
+  postgresql16
+  postgresql16-contrib
+  postgresql16-server
+  python3-libselinux
+  tcl8
+  tcl8-devel
+  tk8
+  tk8-devel
+)
+
+# NOTE on the kernel-pin guard below.
+# AL2027 has NO /etc/yum.conf, and /etc/dnf/dnf.conf ships effectively empty because the
+# vendor defaults now live in /usr/share/dnf5/libdnf.conf.d/amazon-linux-defaults.conf.
+# A measured preview instance carries no exclude directive anywhere, so this guard is
+# correct-but-blind on AL2027: an operator-set kernel exclude placed the modern way (a
+# drop-in under /etc/dnf/libdnf5.conf.d/ or /etc/dnf/repos.override.d/) would not be seen.
+# The extra paths below close that gap without changing behaviour on any other distro.
+if grep -qE "^[[:space:]]*exclude=.*kernel" \
+     /etc/dnf/dnf.conf \
+     /etc/yum.conf \
+     /usr/share/dnf5/libdnf.conf.d/*.conf \
+     /etc/dnf/libdnf5.conf.d/*.conf \
+     /etc/dnf/repos.override.d/*.conf 2>/dev/null; then
+  log_warning "Kernel packages are pinned (exclude directive detected). Removing kernel packages to preserve pinned kernel version"
+  REMOVE_PKGS+=(kernel kernel-devel kernel-headers)
+else
+  # AL2027 ships versioned kernel packages only: kernel7.1, kernel7.1-devel,
+  # kernel7.1-headers, kernel7.1-modules-extra. The unversioned names ARE resolvable via
+  # Provides, so the base list's kernel/kernel-devel/kernel-headers need no change --
+  # but "kernel-devel-$(uname -r)" is an exact name with no provider and would fail, so
+  # the versioned package is named directly instead.
+  ADD_PKGS+=(kernel7.1-devel kernel7.1-modules-extra)
+fi
+
+log_info "Removing packages for AL2027: ${REMOVE_PKGS[*]}"
+log_info "Adding extra packages for AL2027: ${ADD_PKGS[*]}"

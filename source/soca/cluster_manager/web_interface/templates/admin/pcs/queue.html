@@ -1,0 +1,204 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+{% from 'admin/pcs/_status_badge.html' import status_badge %}
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/admin/pcs">{{ _("PCS clusters") }}</a></li>
+                            <li class="breadcrumb-item"><a href="/admin/pcs/detail/{{ cluster_id }}">{{ pcs_cluster_name }}</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ queue.get('name', queue.get('id', '')) }}</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3 mb-0 text-gray-800">{{ _("Queue:") }} {{ queue.get('name', queue.get('id', '')) }}</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                            <a href="/admin/pcs/detail/{{ cluster_id }}#nav-queues" class="btn btn-secondary btn-sm">{{ _("Back to cluster") }}</a>
+                            {# PCS rejects a delete while the resource is still being created or deleted. #}
+                            {% set _delete_in_progress = (queue.get('status') or '') in ['CREATING', 'DELETING'] %}
+                            {% if _delete_in_progress %}
+                            <span class="d-inline-block" tabindex="0" title="{{ _('Not available while the status is') }} {{ queue.get('status') }}">
+                                <button type="button" class="btn btn-danger btn-sm" disabled style="pointer-events: none;">{{ _("Delete queue") }}</button>
+                            </span>
+                            {% else %}
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteQueueModal">{{ _("Delete queue") }}</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <h3>{{ _("Details") }}</h3>
+                            <table class="table">
+                                <tbody>
+                                    {% set _q_created = queue.get('createdAt') %}
+                                    {% set _q_modified = queue.get('modifiedAt') %}
+                                    <tr><th style="width:220px;">{{ _("Name") }}</th><td>{{ queue.get('name') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Queue ID") }}</th><td>{{ queue.get('id') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Status") }}</th><td>{{ status_badge(queue.get('status')) }}</td></tr>
+                                    <tr><th>{{ _("ARN") }}</th><td>{% if queue.get('arn') %}<code>{{ queue.get('arn') }}</code>{% else %}-{% endif %}</td></tr>
+                                    <tr><th>{{ _("Created") }}</th><td title="{{ _q_created or '' }}">{{ _q_created | pcs_datetime if _q_created else '-' }}</td></tr>
+                                    <tr><th>{{ _("Modified") }}</th><td title="{{ _q_modified or '' }}">{{ _q_modified | pcs_datetime if _q_modified else '-' }}</td></tr>
+                                </tbody>
+                            </table>
+                            {% set _err = queue.get('errorInfo') %}
+                            {% if _err %}
+                            <div class="alert alert-danger mb-0">
+                                <strong>{{ _("Error info:") }}</strong>
+                                <pre class="mb-0" style="white-space: pre-wrap;">{{ _err }}</pre>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Compute node groups (attach / detach) -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header">
+                            <h3 class="m-0">{{ _("Compute node groups") }}</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                {{ _("Select the compute node groups this queue should use.") }}
+                            </p>
+                            <form action="/admin/pcs/update_queue" method="post">
+                                <input type="hidden" name="section" value="compute_node_groups">
+                                <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                                <input type="hidden" name="queue_identifier" value="{{ queue.get('id') }}">
+                                {% if compute_node_groups %}
+                                <fieldset class="form-group">
+                                    <legend class="sr-only">{{ _("Compute node groups") }}</legend>
+                                    {# Same field name as the former multi-select: the view reads it with request.form.getlist(). #}
+                                    {% for g in compute_node_groups %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="compute_node_group_ids"
+                                               id="cng_{{ loop.index }}" value="{{ g.get('id') }}"
+                                               {{ 'checked' if g.get('id') in attached_ids else '' }}>
+                                        <label class="form-check-label" for="cng_{{ loop.index }}">
+                                            {{ g.get('name') or g.get('id') }} <span class="text-muted">({{ g.get('id') }})</span>
+                                            {% if g.get('status') %}{{ status_badge(g.get('status')) }}{% endif %}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                    <small class="form-text text-muted">{{ _("Checked compute node groups are currently attached. Uncheck a compute node group to detach it from this queue.") }}</small>
+                                </fieldset>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="d-flex justify-content-end" style="gap: 0.5rem;">
+                                    <button type="submit" class="btn btn-primary">{{ _("Save compute node groups") }}</button>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-warning mb-0">{{ _("No compute node groups exist on this cluster yet. Create one from the cluster's Compute node groups tab first.") }}</div>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Slurm custom settings -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header">
+                            <h3 class="m-0">{{ _("Slurm custom settings") }}</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                {{ _("One setting per line, as parameterName=parameterValue. Submitting replaces the queue's entire custom-settings list; an empty box clears it.") }}
+                            </p>
+                            {% set _slurm_settings = (queue.get('slurmConfiguration') or {}).get('slurmCustomSettings') or [] %}
+                            <form action="/admin/pcs/update_queue" method="post">
+                                <input type="hidden" name="section" value="slurm">
+                                <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                                <input type="hidden" name="queue_identifier" value="{{ queue.get('id') }}">
+                                <div class="form-group">
+                                    <textarea id="slurm_custom_settings" name="slurm_custom_settings" class="form-control" rows="6" style="font-family: monospace;" placeholder="{{ _('e.g. Weight=10') }}">{% for s in _slurm_settings %}{{ s.get('parameterName', '') }}={{ s.get('parameterValue', '') }}
+{% endfor %}</textarea>
+                                </div>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="d-flex justify-content-end" style="gap: 0.5rem;">
+                                    <button type="submit" class="btn btn-primary">{{ _("Save Slurm settings") }}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% include 'common/footer.html' %}
+    </div>
+</div>
+
+<!-- Delete queue confirmation -->
+<div class="modal fade" id="deleteQueueModal" tabindex="-1" aria-labelledby="deleteQueueModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="/admin/pcs/delete_queue" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteQueueModalLabel">{{ _("Delete queue") }} {{ queue.get('name', queue.get('id', '')) }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger">
+                        {{ _("This permanently deletes the queue. This action cannot be undone.") }}
+                    </p>
+                    <div class="form-check">
+                        <input id="confirmDeleteQueue" name="confirm_delete" type="checkbox" class="form-check-input" required>
+                        <label class="form-check-label" for="confirmDeleteQueue">
+                            {{ _("I understand this queue will be permanently deleted.") }}
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                    <input type="hidden" name="queue_identifier" value="{{ queue.get('id') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-danger">{{ _("Delete queue") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Disable the submit button and show a loading state once any form is submitted, so a slow
+    // update/delete round-trip can't be double-clicked (mirrors the PCS detail page behavior).
+    document.addEventListener('submit', function (e) {
+        if (e.target.tagName === 'FORM' && !e.defaultPrevented) {
+            e.preventDefault();
+            var _submitButton = e.target.querySelector('button[type="submit"]');
+            if (_submitButton) {
+                _submitButton.disabled = true;
+                _submitButton.innerHTML = `
+                <span class="icon text-white-50">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+                <span class="text" aria-live="polite">{{ _("Please wait ...") }}</span>`;
+            }
+            setTimeout(function () { e.target.submit(); }, 300);
+        }
+    });
+</script>
+
+</body>
+</html>

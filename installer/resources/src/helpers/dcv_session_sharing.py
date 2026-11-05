@@ -35,6 +35,8 @@ from aws_cdk import aws_lambda as aws_lambda
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_ssm as ssm
 
+from helpers import ec2 as ec2_helper
+
 logger = logging.getLogger("soca_logger")
 
 
@@ -166,9 +168,7 @@ def setup(
         # must run in-VPC. Reuse the screenshot-poller SG, which dcv_backend_nlb_sg
         # already allows on TCP/8443 (see cluster_security_groups.py).
         vpc=soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-        ),
+        vpc_subnets=ec2_helper.private_subnet_type_selection(soca_resources["vpc"]),
         security_groups=[soca_resources["dcv_screenshot_lambda_sg"]],
     )
 

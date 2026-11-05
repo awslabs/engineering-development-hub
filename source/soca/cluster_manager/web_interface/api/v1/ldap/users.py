@@ -79,8 +79,8 @@ class Users(Resource):
                         type: string
                         description: LDAP Distinguished Name
                       example:
-                        "john.doe": "cn=john.doe,ou=people,dc=soca,dc=local"
-                        "jane.smith": "cn=jane.smith,ou=people,dc=soca,dc=local"
+                        "john.doe": "cn=john.doe,ou=people,dc=edh-test,dc=internal"
+                        "jane.smith": "cn=jane.smith,ou=people,dc=edh-test,dc=internal"
           '203':
             description: Invalid username/token pair
             content:

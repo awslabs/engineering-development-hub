@@ -44,6 +44,9 @@ function system_packages_install {
     {% if context.get("/job/BaseOS") == "amazonlinux2023" %}
       {% include "templates/linux/system_packages/os/amazonlinux2023.sh.j2" %}
 
+    {% elif context.get("/job/BaseOS") == "amazonlinux2027" %}
+      {% include "templates/linux/system_packages/os/amazonlinux2027.sh.j2" %}
+
     {% elif context.get("/job/BaseOS") == "amazonlinux2" %}
       {% include "templates/linux/system_packages/os/amazonlinux2.sh.j2" %}
 
@@ -134,7 +137,11 @@ function system_packages_install {
     {% endif %}
 
     if [[ "${CURRENT_KERNEL}" != "${NEXT_BOOT_KERNEL}" ]]; then
-        set_reboot_required "Current kernel ${CURRENT_KERNEL} != next boot kernel ${NEXT_BOOT_KERNEL}"
+        {% if context.get("/job/NodeType") == "pcs_node" %}
+            log_warning "Running kernel ${CURRENT_KERNEL} != next boot kernel ${NEXT_BOOT_KERNEL}, a reboot would be needed to pick it up, skipped on PCS node. Bake the updated kernel into the PCS AMI."
+        {% else %}
+            set_reboot_required "Current kernel ${CURRENT_KERNEL} != next boot kernel ${NEXT_BOOT_KERNEL}"
+        {% endif %}
     else
         log_info "Machine is already running the latest kernel, no update needed"
     fi

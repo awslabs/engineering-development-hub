@@ -98,7 +98,7 @@ def controller(
             key_name="Config.directoryservice.provider"
         ),
         "/configuration/Region": user_specified_variables.region,
-        "/configuration/Version": "26.4.0",
+        "/configuration/Version": get_config_key(key_name="Config.version"),
         "/configuration/CustomAMI": scope.soca_resources["ami_id"],
         "/configuration/S3Bucket": user_specified_variables.bucket,
         "/configuration/Cache/enabled": scope.cache_info.get("enabled"),

@@ -1,30 +1,35 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC
 eu-north-1:
   x86_64:
-    amazonlinux2: ami-07a16c2d14591744a
-    amazonlinux2023: ami-0bbf8de65a0417c7e
-    rhel10: ami-0b8cb197e7b6147db
-    rhel7: ami-0aea71278a41107b2
-    rhel8: ami-09aa20c8cb65610a1
-    rhel9: ami-0568c75b3a5812e80
+    amazonlinux2: ami-0c9a29269d6069923
+    amazonlinux2023: ami-0c0427b4be074f058
+    amazonlinux2027: ami-0e8f24cc4aa3e4aa4
+    rhel10: ami-05ef724ee3f68a8fb
+    rhel8: ami-0318a1b99a3dfb06f
+    rhel9: ami-0b3624e0b2e05fafb
+    rocky10: ami-0e8cf16b6fe193fd1
     rocky8: ami-07b643d404371e8a0
     rocky9: ami-086e0ab189429afee
-    ubuntu2204: ami-03b292fa1437b64db
-    ubuntu2404: ami-0cda11afd45b74b89
+    ubuntu2204: ami-08779225324e8f2d5
+    ubuntu2404: ami-06fb1802e2b757f09
+    ubuntu2604: ami-07949b80dc1f1ff6a
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-0ac2194148e1c5092
-    amazonlinux2023: ami-09a24a579b6e090ff
-    rhel10: ami-0c2d44dc6afa9542e
-    rhel8: ami-01f9642313c03f59e
-    rhel9: ami-0532ed748ae926d5b
+    amazonlinux2: ami-0ce409b2fc51c47ec
+    amazonlinux2023: ami-08fee8a39831c1ceb
+    amazonlinux2027: ami-071daa7f75c88223f
+    rhel10: ami-0cf6ccfbabf790aeb
+    rhel8: ami-02ae878f3841d71da
+    rhel9: ami-054cabde6fe52f798
+    rocky10: ami-003fb1795931b3210
     rocky8: ami-0be44dda7f0613cfe
     rocky9: ami-0268b32f27424538c
-    ubuntu2204: ami-0d8c557df762bad11
-    ubuntu2404: ami-085135ce711ba9ff9
+    ubuntu2204: ami-09ee4bafc6a398f4b
+    ubuntu2404: ami-0335270b14f48b820
+    ubuntu2604: ami-0de82c92f38b35486
   x86_64_mac:
     macos15: ami-0322847b79aa35f47
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC

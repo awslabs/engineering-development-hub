@@ -1581,8 +1581,10 @@ def _sweep_zombie_available_members():
 
     # Resolve EC2 run state so we don't terminate a legitimate Stopped warm
     # member (stale AVAILABLE row, but a parked reserve). Only a RUNNING member
-    # the broker can't serve is a true zombie -> recycle it.
+    # the broker can't serve is a true zombie -> recycle it. Tags come from the
+    # same call (no extra API) so a CLAIMED desktop can be excluded below.
     _state = {}
+    _itags = {}
     try:
         _pg = _ec2.get_paginator("describe_instances")
         for _pager in _pg.paginate(
@@ -1591,6 +1593,9 @@ def _sweep_zombie_available_members():
             for _r in _pager.get("Reservations", []):
                 for _i in _r.get("Instances", []):
                     _state[_i["InstanceId"]] = (_i.get("State") or {}).get("Name", "")
+                    _itags[_i["InstanceId"]] = {
+                        _t.get("Key"): _t.get("Value") for _t in (_i.get("Tags") or [])
+                    }
     except Exception as _e:
         logger.warning(f"zombie sweep: describe_instances failed; skipping: {_e}")
         return
@@ -1599,6 +1604,29 @@ def _sweep_zombie_available_members():
     _cleaned = 0
     for _iid, _row in _candidates:
         _st = _state.get(_iid, "")
+        _tg = _itags.get(_iid) or {}
+        # A CLAIMED member is a user's desktop that was detached at claim. It
+        # reaches this sweep only via a spurious AVAILABLE row (e.g. a
+        # re-announce after a scheduled stop/start), and it is NEVER broker-
+        # ready as a pool member because the user owns its session -- so the
+        # "running" branch below would classify a live desktop as a zombie and
+        # mark it Unhealthy for replacement. Drop the bogus row, never touch
+        # the instance.
+        if _tg.get("edh:DCVSessionUUID"):
+            try:
+                _table.delete_item(Key={"pk": _row["pk"], "sk": _row["sk"]})
+                _cleaned += 1
+                logger.warning(
+                    f"zombie sweep: dropped spurious AVAILABLE row for CLAIMED "
+                    f"desktop {_iid} (session={_tg.get('edh:DCVSessionUUID')}, "
+                    f"pool_origin={_tg.get('edh:pool_origin')}); instance left "
+                    f"untouched"
+                )
+            except Exception as _e:
+                logger.warning(
+                    f"zombie sweep: claimed-row delete failed for {_iid}: {_e}"
+                )
+            continue
         if _st in ("stopped", "stopping"):
             # Legitimate Stopped warm reserve with a STALE AVAILABLE row -- just
             # drop the row so a claim never picks a stopped member. Do NOT
@@ -1623,15 +1651,38 @@ def _sweep_zombie_available_members():
                 _table.delete_item(Key={"pk": _row["pk"], "sk": _row["sk"]})
             except Exception as _e:
                 logger.warning(f"zombie sweep: ledger delete failed for {_iid}: {_e}")
-            try:
-                _asg.set_instance_health(
-                    InstanceId=_iid,
-                    HealthStatus="Unhealthy",
-                    ShouldRespectGracePeriod=False,
+            # SetInstanceHealth only means anything for a current ASG member.
+            # On a detached instance it is at best a no-op and at worst aimed
+            # at a user's desktop, so confirm membership first rather than
+            # relying on the API (or an IAM condition) to refuse it.
+            #
+            # Membership is read from the ASG-managed aws:autoscaling:groupName
+            # tag, which EC2 removes on detach -- verified on edh-stor2: the
+            # detached desktop i-03b9cf883f1c82870 carries no aws:autoscaling:*
+            # tag while the InService member i-02b5a90f70012164e carries
+            # groupName. describe_auto_scaling_instances would be the obvious
+            # check and is NOT used: the controller role holds no
+            # autoscaling:Describe* (simulate-principal-policy returns
+            # implicitDeny), and EDH does not do stack updates, so an
+            # IAM-dependent check would be dead on every installed cluster.
+            _in_asg = bool(_tg.get("aws:autoscaling:groupName"))
+            if _in_asg:
+                try:
+                    _asg.set_instance_health(
+                        InstanceId=_iid,
+                        HealthStatus="Unhealthy",
+                        ShouldRespectGracePeriod=False,
+                    )
+                    _reaped += 1
+                except Exception as _e:
+                    logger.warning(f"zombie sweep: set_instance_health failed for {_iid}: {_e}")
+            else:
+                _cleaned += 1
+                logger.info(
+                    f"zombie sweep: {_iid} carries no aws:autoscaling:groupName "
+                    f"(detached from its ASG); dropped its row only, instance "
+                    f"left untouched"
                 )
-            except Exception as _e:
-                logger.warning(f"zombie sweep: set_instance_health failed for {_iid}: {_e}")
-            _reaped += 1
         else:
             # pending/shutting-down/terminated/unknown: drop the row (not
             # claimable), don't touch the instance.
@@ -1645,6 +1696,275 @@ def _sweep_zombie_available_members():
             f"zombie sweep: recycled {_reaped} running zombie(s), "
             f"cleaned {_cleaned} stale row(s)"
         )
+
+
+def _outstanding_warm_reservation_uuids():
+    """session_uuids that currently hold a warm-claim RESERVED ledger row.
+
+    Used to exempt an in-flight warm promotion from the placing timeout. Fails
+    CLOSED (empty set) on any error: the timeout then applies as it did before
+    this change, which may mark a healthy in-flight claim as error, but will
+    never leave a genuinely dead placement stuck in `placing` forever. A stuck
+    session is worse than an early error, because the early error is visible
+    and retryable.
+    """
+    try:
+        from helpers.vdi_pool_allocator import _ledger_table_name
+        from boto3.dynamodb.conditions import Attr
+    except Exception:
+        return set()
+    _tname = _ledger_table_name()
+    if not _tname:
+        return set()
+    try:
+        _resp = utils_boto3.get_boto(service_name="dynamodb", resource=True)
+        if _resp.get("success") is False:
+            return set()
+        _table = _resp.get("message").Table(_tname)
+        _out = set()
+        _kw = {
+            "FilterExpression": Attr("status").eq("RESERVED"),
+            "ProjectionExpression": "session_uuid",
+        }
+        while True:
+            _r = _table.scan(**_kw)
+            for _row in _r.get("Items", []):
+                if _row.get("session_uuid"):
+                    _out.add(_row["session_uuid"])
+            if "LastEvaluatedKey" not in _r:
+                break
+            _kw["ExclusiveStartKey"] = _r["LastEvaluatedKey"]
+        return _out
+    except Exception as _e:
+        logger.warning(f"warm reservation read failed; placing timeout applies: {_e}")
+        return set()
+
+
+def _bind_warm_reservations():
+    """Bind promoted warm members to the users waiting on them.
+
+    The "bind" third of the warm claim. PoolAllocator.try_claim_warm writes a
+    RESERVED row and asks the reconciler to raise desired capacity; the ASG
+    starts a Warmed:Stopped member, the on-host re-announce agent emits
+    pool-ready, and DcvEventRelay writes its AVAILABLE row. This matches that
+    newly-AVAILABLE member to the oldest waiting reservation, claims it, and
+    registers the broker session -- after which the existing placing->running
+    broker-READY backstop below promotes the session with no change needed
+    there (its own comment already notes pool-claimed sessions emit no
+    session-ready/placed event).
+
+    This is a MATCHING PASS, not a second claim path: the member is claimed
+    with the same AVAILABLE->CLAIMED conditional update, the same
+    _create_broker_session, and the same _bind_claimed_instance the hot path
+    uses. Members within one POOL#stack#type are fungible, so which promoted
+    member satisfies which reservation does not matter -- only that each is
+    used once, which the conditional update guarantees.
+
+    Oldest reservation first (reserved_at), so a queue of waiting users is
+    served in order rather than by DDB scan order.
+
+    Lives in the watcher rather than behind the relay's control-plane callback
+    for simplicity: the watcher already runs this exact ledger every 60s for
+    the zombie sweep and already owns placing->running. The cost is up to one
+    60s poll on top of the ~67s promotion. The relay callback would remove
+    that and is the obvious later optimisation; it is not needed for
+    correctness, and a reservation outlives it either way (the ledger reaper
+    expires one only after connect_abandon_timeout_seconds, 900s by default).
+    """
+    try:
+        from helpers.vdi_pool_allocator import (
+            _ledger_table_name,
+            _bind_claimed_instance,
+            _create_broker_session,
+            broker_ready_instance_ids,
+        )
+        from boto3.dynamodb.conditions import Attr, Key
+    except Exception as _imp_err:
+        logger.warning(f"warm bind: import failed; skipping: {_imp_err}")
+        return
+
+    _tname = _ledger_table_name()
+    if not _tname:
+        return
+
+    try:
+        _ddb_resp = utils_boto3.get_boto(service_name="dynamodb", resource=True)
+        if _ddb_resp.get("success") is False:
+            logger.warning("warm bind: no DynamoDB resource; skipping")
+            return
+        _ddb = _ddb_resp.get("message")
+        _table = _ddb.Table(_tname)
+        _reserved = []
+        _kw = {"FilterExpression": Attr("status").eq("RESERVED")}
+        while True:
+            _r = _table.scan(**_kw)
+            _reserved.extend(_r.get("Items", []))
+            if "LastEvaluatedKey" not in _r:
+                break
+            _kw["ExclusiveStartKey"] = _r["LastEvaluatedKey"]
+    except Exception as _e:
+        logger.warning(f"warm bind: reservation scan failed; skipping: {_e}")
+        return
+    if not _reserved:
+        return
+
+    # Only members the broker can actually serve are bindable. None means the
+    # broker query failed -- skip this cycle rather than claim a member we
+    # cannot register, which would burn the reservation's one chance at it.
+    _ready = broker_ready_instance_ids()
+    if _ready is None:
+        logger.warning(
+            "warm bind: broker unreachable; deferring %d reservation(s) to the "
+            "next cycle", len(_reserved)
+        )
+        return
+
+    _reserved.sort(key=lambda _r: str(_r.get("reserved_at") or ""))
+    _bound = 0
+    for _resv in _reserved:
+        _pid = _resv.get("pk")
+        _suuid = _resv.get("session_uuid")
+        if not _pid or not _suuid:
+            continue
+        try:
+            _avail = _table.query(
+                KeyConditionExpression=Key("pk").eq(_pid),
+                FilterExpression=Attr("status").eq("AVAILABLE"),
+            ).get("Items", [])
+        except Exception as _e:
+            logger.warning(f"warm bind: availability query failed for {_pid}: {_e}")
+            continue
+
+        _candidates = [
+            _row for _row in _avail
+            if (_row.get("instance_id") or _row.get("sk")) in _ready
+        ]
+        if not _candidates:
+            continue  # promotion still in flight; try again next cycle
+
+        _session = VirtualDesktopSessions.query.filter_by(
+            session_uuid=_suuid, is_active=True
+        ).first()
+        if _session is None:
+            # The user deleted the desktop while waiting. Drop the reservation
+            # so the reconcile stops holding desired capacity up for it.
+            logger.info(
+                f"warm bind: session {_suuid} is gone; releasing its reservation"
+            )
+            try:
+                _table.delete_item(Key={"pk": _pid, "sk": _resv["sk"]})
+            except Exception as _e:
+                logger.warning(f"warm bind: stale reservation delete failed: {_e}")
+            continue
+
+        for _row in _candidates:
+            _iid = _row.get("sk")
+            _now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            try:
+                _table.update_item(
+                    Key={"pk": _pid, "sk": _iid},
+                    UpdateExpression=(
+                        "SET #s = :c, claimed_by = :u, claimed_at = :t, "
+                        "session_uuid = :su"
+                    ),
+                    ConditionExpression=Attr("status").eq("AVAILABLE"),
+                    ExpressionAttributeNames={"#s": "status"},
+                    ExpressionAttributeValues={
+                        ":c": "CLAIMED",
+                        ":u": _resv.get("claimed_by") or _session.session_owner,
+                        ":t": _now,
+                        ":su": _suuid,
+                    },
+                )
+            except Exception as _e:
+                # Lost the row to a concurrent hot claim or another binder --
+                # try the next candidate.
+                logger.debug(f"warm bind: {_iid} no longer AVAILABLE: {_e}")
+                continue
+
+            _broker_session_id, _ready_now = _create_broker_session(
+                _iid,
+                _suuid,
+                _resv.get("claimed_by") or _session.session_owner,
+                _session.session_type or "console",
+                _session.instance_base_os,
+            )
+            if not _broker_session_id:
+                # Roll the member back and leave the reservation in place; the
+                # next cycle retries. Same degradation the hot path uses.
+                try:
+                    _table.update_item(
+                        Key={"pk": _pid, "sk": _iid},
+                        UpdateExpression="SET #s = :a",
+                        ConditionExpression=Attr("status").eq("CLAIMED"),
+                        ExpressionAttributeNames={"#s": "status"},
+                        ExpressionAttributeValues={":a": "AVAILABLE"},
+                    )
+                except Exception:
+                    pass
+                logger.info(
+                    f"warm bind: {_iid} not broker-ready yet for {_suuid}; "
+                    f"will retry next cycle"
+                )
+                continue
+
+            _asg_name = _row.get("asg_name") or ""
+            # decrement_desired=True unconditionally here, NOT driven by the
+            # admin's backfill_on_claim setting, because the two mean different
+            # things on this path. The reservation raised desired by one purely
+            # to promote this member, and binding consumes it -- so the
+            # decrement returns the group to its configured size rather than
+            # shrinking it. "Keep pool at depth" is still honoured: the warm
+            # pool rebuilds its own reserve independently (observed on
+            # edh-stor2, "Launching a new EC2 instance into warm pool" fires 3s
+            # after the promotion). Leaving desired raised instead launches a
+            # COLD hot member that nobody receives and the next reconcile
+            # terminates -- measured at ~6 minutes of a c8i-flex.xlarge for
+            # nothing before this was added.
+            _bind_claimed_instance(
+                _iid,
+                _asg_name,
+                _suuid,
+                _resv.get("claimed_by") or _session.session_owner,
+                _session.instance_base_os,
+                _session.session_name,
+                _pid,
+                True,
+            )
+
+            # Point the session at its member. It was written `placing` with no
+            # instance_id (exactly as the cold path does), so this is the first
+            # time the row learns which instance it got. The broker-READY
+            # backstop in the placing loop promotes it to running.
+            _session.instance_id = _iid
+            _session.authentication_token = _broker_session_id
+            _session.session_state_latest_change_time = datetime.now(timezone.utc)
+            try:
+                db.session.commit()
+            except Exception as _e:
+                db.session.rollback()
+                logger.error(
+                    f"warm bind: claimed {_iid} for {_suuid} but the session "
+                    f"write failed: {_e}"
+                )
+                break
+
+            try:
+                _table.delete_item(Key={"pk": _pid, "sk": _resv["sk"]})
+            except Exception as _e:
+                logger.warning(
+                    f"warm bind: reservation delete failed for {_suuid} "
+                    f"(reaper will expire it): {_e}"
+                )
+            _bound += 1
+            logger.info(
+                f"warm bind: {_pid} member {_iid} bound to session {_suuid} "
+                f"(broker ready={_ready_now})"
+            )
+            break
+
+    if _bound:
+        logger.info(f"warm bind: bound {_bound} promoted warm member(s)")
 
 
 def _reap_orphaned_session_stacks(cluster_id: str):
@@ -1749,6 +2069,15 @@ def virtual_desktops_session_state_watcher(app: Flask):
             except Exception as _sw_err:
                 logger.warning(f"zombie sweep failed (non-fatal): {_sw_err}")
 
+            # Warm claim, bind third: match promoted warm members to the users
+            # waiting on them. Runs before the placing loop below so a member
+            # bound on this cycle can be promoted placing->running by the
+            # broker-READY backstop in the SAME cycle rather than the next one.
+            try:
+                _bind_warm_reservations()
+            except Exception as _wb_err:
+                logger.warning(f"warm bind failed (non-fatal): {_wb_err}")
+
         # Orphan-stack reaper: reap per-session VDI stacks whose instance died
         # outside Delete-Desktop (Spot interrupt, Save & Shut Down, manual terminate)
         # and whose session is no longer active. Best-effort; never breaks the watcher.
@@ -1842,6 +2171,10 @@ def virtual_desktops_session_state_watcher(app: Flask):
             VirtualDesktopSessions.session_state == "placing",
         ).all()
         _placing_changed = False
+        # session_uuids with an outstanding warm-claim reservation, read ONCE
+        # for the whole loop rather than per session. Used below to exempt an
+        # in-flight warm promotion from the 5-minute placing timeout.
+        _warm_reserved_uuids = _outstanding_warm_reservation_uuids() if _placing else set()
         for _s in _placing:
             try:
                 from utils.dcv_event_store import recent_events as _recent_events
@@ -1891,6 +2224,22 @@ def virtual_desktops_session_state_watcher(app: Flask):
                 logger.debug(f"Broker backstop check failed for {_s.session_uuid}: {_broker_err}")
             # Backstop: only when the pipeline never responded AND we're past
             # the grace window (genuine Lambda death — no placed/ready event).
+            #
+            # A warm-claim session is exempt while its reservation is still
+            # outstanding. _placing_timeout_min is 5, and a warm promotion is
+            # an EC2 start plus a full boot plus a DCV re-register -- measured
+            # at 67s on a Windows Server 2025 m7i-flex.large, but the on-host
+            # agent alone waits up to 15 min for dcvserver, so a GPU stack with
+            # a slow DCV init would blow a 5-minute budget and this would mark
+            # a perfectly healthy in-flight claim as `error`. The reservation
+            # carries its own bound instead: the ledger reaper expires it past
+            # connect_abandon_timeout_seconds (900s default, per-pool), after
+            # which there is no reservation and this backstop applies normally.
+            # So the wait is bounded by a configured pool setting rather than
+            # unbounded, and a cold session -- which never has a reservation --
+            # is unaffected.
+            if _s.session_uuid in _warm_reserved_uuids:
+                continue
             # Normalize tz-awareness: session_state_latest_change_time comes back
             # from the DB offset-naive while _now is offset-aware (UTC), and a
             # naive>=aware compare raises TypeError -- which crashed the whole

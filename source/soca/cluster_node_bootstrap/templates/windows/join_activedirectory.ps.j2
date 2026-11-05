@@ -89,7 +89,13 @@ function Join-ActiveDirectory {
         # Not joined (clean AMI): join CLEAN as a brand-new unique object, with the retry-hardened
         # helper (handles the intermittent 'directory service is busy' rename transient).
         if (Test-Path $rescueMarker) { Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue }
-        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $JoinCredentials -UniqueName $UniqueName) {
+        {# Windows VDI: vdi.windows, then vdi.default, then the top-level default.
+           Emitted through ps_quote so autoescape cannot mangle a DN containing
+           & " ', which EXPECT_DN_OR_EMPTY permits. #}
+        {%- set _wcou = context.get('/configuration/UserDirectory/computer_ou/vdi/windows')
+                     or context.get('/configuration/UserDirectory/computer_ou/vdi/default')
+                     or context.get('/configuration/UserDirectory/computer_ou/default') -%}
+        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $JoinCredentials -UniqueName $UniqueName -ComputerOU {{ (_wcou if _wcou else '') | ps_quote }}) {
             Log-Info -Message "Domain join staged as $UniqueName, setting requireReboot to true"
             $script:requireReboot=$true
         } else {

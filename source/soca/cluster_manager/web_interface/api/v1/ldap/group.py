@@ -13,12 +13,14 @@
 
 import config
 import ldap
+from ldap.dn import escape_dn_chars
+from ldap.filter import escape_filter_chars
 from flask_restful import Resource, reqparse
 from requests import get, put
 import logging
 from flask import request
 from flask_babel import gettext as _
-from decorators import private_api, admin_api, feature_flag
+from decorators import private_api, admin_api, feature_flag, directory_writable
 import re
 import errors
 import os
@@ -74,7 +76,7 @@ class Group(Resource):
                         group_dn:
                           type: string
                           description: LDAP Distinguished Name of the group
-                          example: "cn=developers,ou=group,dc=soca,dc=local"
+                          example: "cn=developers,ou=group,dc=edh-test,dc=internal"
                         members:
                           type: array
                           items:
@@ -138,10 +140,10 @@ class Group(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _filter = f"(&(objectClass=posixGroup)(cn={group}))"
+                _filter = f"(&(objectClass=posixGroup)(cn={escape_filter_chars(group)}))"
                 _attr_list = ["cn", "memberUid"]
             else:
-                _filter = f"(&(objectClass=group)(cn={group}))"
+                _filter = f"(&(objectClass=group)(cn={escape_filter_chars(group)}))"
                 _attr_list = ["cn", "member"]
 
             _group = _soca_identity_client.search(
@@ -181,6 +183,7 @@ class Group(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def post(self):
         """
         Create new group
@@ -342,7 +345,7 @@ class Group(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                group_dn = f"cn={group},{_group_search_base}"
+                group_dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
                 attrs = [
                     (
                         "objectClass",
@@ -355,7 +358,7 @@ class Group(Resource):
                     ),
                 ]
             else:
-                group_dn = f"cn={group},{_group_search_base}"
+                group_dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
                 attrs = [
                     ("objectClass", ["top".encode("utf-8"), "group".encode("utf-8")]),
                     ("gidNumber", [str(group_id).encode("utf-8")]),
@@ -392,6 +395,7 @@ class Group(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def delete(self):
         """
         Delete group
@@ -488,9 +492,9 @@ class Group(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _dn = f"cn={group},{_group_search_base}"
+                _dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
             else:
-                _dn = f"cn={group},{_group_search_base}"
+                _dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
 
             _delete_req = _soca_identity_client.delete(dn=_dn)
             if _delete_req.success:
@@ -511,6 +515,7 @@ class Group(Resource):
 
     @admin_api
     @feature_flag(flag_name="USERS_GROUPS_MANAGEMENT", mode="api")
+    @directory_writable(mode="api")
     def put(self):
         """
         Modify group membership
@@ -623,7 +628,7 @@ class Group(Resource):
             "aws_ds_managed_activedirectory",
         ]:
             if not config.Config.DIRECTORY_PEOPLE_SEARCH_BASE.lower() in user.lower():
-                user_dn = f"cn={user},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
+                user_dn = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
             else:
                 user_dn = user
         else:
@@ -640,10 +645,10 @@ class Group(Resource):
                 "openldap",
                 "existing_openldap",
             ]:
-                _group_dn = f"cn={group},{_group_search_base}"
+                _group_dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
                 _attr_name = "memberUid"
             else:
-                _group_dn = f"cn={group},{_group_search_base}"
+                _group_dn = f"cn={escape_dn_chars(group)},{_group_search_base}"
                 _attr_name = "member"
 
             _is_user_exist = SocaHttpClient(

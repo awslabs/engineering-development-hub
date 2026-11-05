@@ -6,7 +6,7 @@ edhctl userprefs -- admin tooling for the WebUI user-preferences store
 (DynamoDB table ``{cluster_id}-user-preferences``, PK = username).
 
 Backstop for the user-preferences cleanup lifecycle (see
-web_interface/docs/UserPreferences-Design.md, decision #7 / §10):
+web_interface/docs/UserPreferences-Design.md, decision #7 / section 10):
 
   * PRIMARY cleanup is the in-band hook -- the WebUI user-delete flow calls
     user_pref_store.clear_all() when a user is deprovisioned through EDH.
@@ -167,7 +167,7 @@ def _directory_usernames() -> set:
             "(!(sAMAccountName=krbtgt))(!(sAMAccountName=AWS_*)))"
         )
         _attr = "sAMAccountName"
-    else:  # existing_activedirectory
+    else:  # existing_active_directory
         _filter = (
             "(&(objectClass=user)(!(sAMAccountName=Administrator))"
             "(!(sAMAccountName=krbtgt))(!(sAMAccountName=AWS_*)))"

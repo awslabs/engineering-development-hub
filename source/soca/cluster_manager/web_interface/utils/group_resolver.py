@@ -58,7 +58,7 @@ def _resolve_sudoers(login: str) -> SocaResponse:
     )
 
 
-@soca_cache(prefix="group_resolver", ttl=60)
+@soca_cache(prefix="edh:webui:group_resolver", ttl=60)
 def resolve_membership(login: str, group_ref: str) -> SocaResponse:
     """Resolve whether `login` is a member of `group_ref`.
 
@@ -113,3 +113,26 @@ def resolve_membership(login: str, group_ref: str) -> SocaResponse:
         return SocaError.GENERIC_ERROR(
             helper=f"Membership lookup failed for {group_ref!r}: {err}"
         )
+
+
+@soca_cache(prefix="edh:webui:is_sudoer", ttl=300)
+def _resolve_sudoers_cached(login: str) -> SocaResponse:
+    """_resolve_sudoers with its own 300s cache (feature flags keep the 60s one).
+    Only definitive verdicts are cached, never a lookup failure."""
+    return _resolve_sudoers(login)
+
+
+def is_sudoer(login: str) -> bool:
+    """Cached (300s) sudoer check for the request hot paths (login_required,
+    admin_api / scoped tokens). Fail closed: a lookup failure is NOT a sudoer, and
+    is never cached. Login and user-management keep calling /api/ldap/sudo
+    directly so a change is picked up immediately there.
+    """
+    if not Validators.is_string_not_empty(login):
+        return False
+    try:
+        _member = _resolve_sudoers_cached(login)
+    except Exception as err:
+        logger.warning(f"is_sudoer: sudo lookup failed for {login}: {err}")
+        return False
+    return _member.get("success") is True and _member.get("message") is True

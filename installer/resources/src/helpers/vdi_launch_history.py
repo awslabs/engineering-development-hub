@@ -22,6 +22,8 @@ from aws_cdk import (
     aws_ssm as ssm,
 )
 
+from helpers import ec2 as ec2_helper
+
 
 import logging
 
@@ -214,7 +216,7 @@ def vdi_launch_history(
     scope.soca_resources["placement_result_queue"] = _placement_result_queue
 
     # --- Async Placement Lambdas: IAM roles ---
-    # DcvPlacement: probes subnets, creates ODCR, emits to result queue
+    # DcvPlacement: reserves an ODCR in a candidate AZ, emits to result queue
     _placement_role = iam.Role(
         scope,
         "DcvPlacementRole",
@@ -250,6 +252,14 @@ def vdi_launch_history(
                 sid="SQSReceiveRequest",
                 actions=["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
                 resources=[_placement_request_queue.queue_arn],
+            ),
+            iam.PolicyStatement(
+                sid="SSMReadPlacementSettings",
+                actions=["ssm:GetParameter"],
+                resources=[
+                    f"arn:{Aws.PARTITION}:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:"
+                    f"parameter/edh/{_cluster_id}/configuration/dcv/placement/*"
+                ],
             ),
         ],
     ))
@@ -337,7 +347,7 @@ def vdi_launch_history(
     scope.soca_resources["capacity_executor_role"] = _executor_role
 
     # --- Async Placement Lambdas: functions + SQS event sources ---
-    # DcvPlacement probes capacity in parallel + reserves a real ODCR.
+    # DcvPlacement reserves a real ODCR per candidate AZ to test capacity.
     # Calls only public AWS APIs (EC2, SQS) so it does NOT need VPC
     # attachment. FIFO event source with batch_size=1 preserves
     # per-session ordering; the handler never raises (emits
@@ -346,7 +356,7 @@ def vdi_launch_history(
         scope,
         f"{_cluster_id}-DcvPlacement",
         function_name=f"{_cluster_id}-DcvPlacement",
-        description="Async VDI placement: probe subnets in parallel, reserve a real ODCR, emit result",
+        description="Async VDI placement: reserve a real ODCR across candidate AZs, emit result",
         memory_size=256,
         runtime=typing.cast(aws_lambda.Runtime, get_lambda_runtime_version()),
         timeout=Duration.seconds(60),
@@ -358,6 +368,10 @@ def vdi_launch_history(
         environment={
             "EDH_CLUSTER_ID": _cluster_id,
             "EDH_PLACEMENT_RESULT_QUEUE_URL": _placement_result_queue.queue_url,
+            # Hard ceiling on concurrent reservation attempts. The per-launch
+            # /configuration/dcv/placement/concurrent_az_attempts setting is
+            # clamped to it.
+            "EDH_PLACEMENT_MAX_WORKERS": "8",
         },
         retry_attempts=0,
     )
@@ -369,7 +383,7 @@ def vdi_launch_history(
     scope.soca_resources["dcv_placement_lambda"] = _placement_lambda
 
     # CapacityExecutor reads the placement result, fetches the parked
-    # launch context from DDB, CreateStacks with the Lambda-probed
+    # launch context from DDB, CreateStacks with the Lambda-placed
     # SubnetId + CapacityReservationId as CFN parameters, then POSTs a
     # 'placed' event to the controller (HMAC-signed with the shared
     # relay key) to flip placing->pending. VPC-attached + reusing the
@@ -379,7 +393,7 @@ def vdi_launch_history(
         scope,
         f"{_cluster_id}-CapacityExecutor",
         function_name=f"{_cluster_id}-CapacityExecutor",
-        description="Async VDI placement: CreateStack with probed subnet+ODCR, POST placed event to controller",
+        description="Async VDI placement: CreateStack with placed subnet+ODCR, POST placed event to controller",
         memory_size=256,
         runtime=typing.cast(aws_lambda.Runtime, get_lambda_runtime_version()),
         timeout=Duration.seconds(60),
@@ -396,8 +410,8 @@ def vdi_launch_history(
         },
         retry_attempts=0,
         vpc=scope.soca_resources["vpc"],
-        vpc_subnets=ec2.SubnetSelection(
-            subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        vpc_subnets=ec2_helper.private_subnet_type_selection(
+            scope.soca_resources["vpc"]
         ),
         security_groups=[scope.soca_resources["dcv_event_relay_lambda_sg"]],
     )

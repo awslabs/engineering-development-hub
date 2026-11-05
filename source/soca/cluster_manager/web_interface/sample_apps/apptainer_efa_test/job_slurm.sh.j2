@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# Apptainer + EFA Benchmark wrapper (Slurm)
+# =========================================
+# Slurm equivalent of job_pbs.sh.j2. Dispatches to the same bundled validation
+# script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh
+#
+# --nodes must be at least 2: EFA carries traffic BETWEEN nodes, so a
+# single-node job measures shared memory and proves nothing about the fabric.
+#
+# --comment is NOT read by Slurm. It is how EDH receives the provisioning
+# parameters, which Slurm itself has no concept of -- see
+# utils/hpc/job_controller.py::slurm_update_comment. Without efa_support here the
+# scheduler is never asked for EFA capable capacity at all.
+#
+# FORMAT IS LOAD-BEARING: utils/hpc/job_fetcher.py splits this string on SPACES
+# and then on the first "=" of each part, discarding any part with no "=". So the
+# pairs must be space separated with no spaces around "=". A semicolon separated
+# list parses as ONE pair whose value is the rest of the string, which silently
+# yields a nonexistent instance type.
+#
+#SBATCH --job-name={{job_name}}
+#SBATCH --partition=normal
+#SBATCH --time={{walltime}}
+#SBATCH --nodes={{node_count}}
+#SBATCH --ntasks-per-node={{ncpus_per_node}}
+#SBATCH --comment="instance_type={{instance_type}} efa_support=true base_os={{base_os}}"
+#SBATCH --output={{job_name}}.%j.out
+#SBATCH --error={{job_name}}.%j.err
+
+set -uo pipefail
+
+cd "${SLURM_SUBMIT_DIR:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  SLURM_JOB_ID:    ${SLURM_JOB_ID:-unknown}"
+echo "  SLURM_NODELIST:  ${SLURM_JOB_NODELIST:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+APPTAINER_EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh"
+if [[ ! -x "${APPTAINER_EFA_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_EFA_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "=========================================="
+
+exit ${RESULT}

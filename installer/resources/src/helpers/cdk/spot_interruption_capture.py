@@ -28,6 +28,7 @@ from aws_cdk import aws_lambda
 from aws_cdk import aws_ssm as ssm
 
 from helpers import security_groups as security_groups_helper
+from helpers import ec2 as ec2_helper
 
 logger = logging.getLogger("soca_logger")
 
@@ -136,7 +137,7 @@ def build_spot_interruption_capture(
         log_group=scope.generate_log_group(name="SpotInterruptionCaptureLambda"),
         role=capture_role,
         vpc=vpc,
-        vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+        vpc_subnets=ec2_helper.private_subnet_type_selection(vpc),
         security_groups=[capture_sg],
         environment={
             # Writer endpoint -- the Lambda INSERTs the vdi_saved_images row.

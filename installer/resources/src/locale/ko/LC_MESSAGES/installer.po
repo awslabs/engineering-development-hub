@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-04-30 15:55-0500\n"
+"POT-Creation-Date: 2026-10-05 11:36-0500\n"
 "PO-Revision-Date: 2026-04-30 16:05-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ko\n"
@@ -18,6 +18,40 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid VPCs in region {region}. Please "
+"see the VPC Table for specific errors."
+msgstr "치명적 오류: {region} 지역에서 유효한 VPC를 찾을 수 없습니다.특정 오류는 VPC 표를 참조하십시오."
+
+msgid "Choose the VPC you want to use?"
+msgstr "사용하려는 VPC를 선택하시겠습니까?"
+
+#, python-brace-format
+msgid ""
+"FATAL ERROR: Unable to locate any valid Analytics engines in region "
+"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
+"select 'new' to create a new one."
+msgstr ""
+"치명적 오류: {region} - VPC {vpc_id} 지역에서 유효한 분석 엔진을 찾을 수 없습니다.확인하고 다시 시도하거나, "
+"다시 실행하고 'new'를 선택하여 새 엔진을 생성하십시오."
+
+msgid "Choose the OpenSearch Cluster you want to use?"
+msgstr "사용하려는 오픈서치 클러스터를 선택하시겠습니까?"
+
+msgid "Choose the directory you want to use?"
+msgstr "사용할 디렉터리를 선택하시겠습니까?"
+
+msgid "How many of these subnets do you want to use?"
+msgstr "이러한 서브넷 중 몇 개를 사용하시겠습니까?"
+
+msgid ""
+"Your security groups may not be configured correctly. Verify them and "
+"determine if the warnings listed above are false-positive.\n"
+" Do you still want to continue with the installation?"
+msgstr ""
+"보안 그룹이 제대로 구성되지 않았을 수 있습니다.이를 확인하고 위에 나열된 경고가 잘못된 것인지 확인하십시오.\\n그래도 설치를 "
+"계속하시겠습니까?"
 
 msgid "[italic #8a9bb8]Press Ctrl+C to exit at any time[/]"
 msgstr "[italic #8a9bb8]Ctrl+C를 눌러 언제든지 종료할 수 있습니다.[/]"
@@ -26,11 +60,30 @@ msgid "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
 msgstr "[bold #e8eef7]Engineering Development Hub (EDH)[/]"
 
 #, python-brace-format
+msgid "Select an S3 bucket ({count} found; type to filter):"
+msgstr "S3 버킷 선택 ({count} 개 발견, 필터링할 입력):"
+
+msgid "Enter a row number from the table above"
+msgstr "위 표의 행 번호를 입력합니다."
+
+#, python-brace-format
+msgid "Enter a row number between 1 and {row_count}"
+msgstr "1에서 {row_count} 사이의 행 번호를 입력합니다."
+
+#, python-brace-format
 msgid ""
-"EDH will create AWS resources using the default parameters specified "
-"in {config_file}.\nMake sure you have read, reviewed and updated them "
-"(if needed). Continue?"
-msgstr "EDH는 {config_file} 에 지정된 기본 파라미터를 사용하여 AWS 리소스를 생성합니다.\\n반드시 읽고, 검토하고, 업데이트했는지 확인하십시오 (필요한 경우).계속하시겠습니까?"
+"EDH will create AWS resources using the default parameters specified in "
+"{config_file}.\n"
+"Make sure you have read, reviewed and updated them (if needed). Continue?"
+msgstr ""
+"EDH는 {config_file} 에 지정된 기본 파라미터를 사용하여 AWS 리소스를 생성합니다.\\n반드시 읽고, 검토하고, "
+"업데이트했는지 확인하십시오 (필요한 경우).계속하시겠습니까?"
+
+msgid "Continue"
+msgstr "계속"
+
+msgid "Abort"
+msgstr "중단"
 
 msgid "[yellow]Aborted by user.[/yellow]"
 msgstr "[yellow]사용자가 중단했습니다.[/yellow]"
@@ -38,37 +91,91 @@ msgstr "[yellow]사용자가 중단했습니다.[/yellow]"
 msgid "Select the region where you want to deploy your EDH cluster:"
 msgstr "EDH 클러스터를 배포할 지역을 선택합니다."
 
+msgid ""
+"(Your data will reside in the region you select. Country code [CC] is "
+"shown to help with data-residency.)"
+msgstr "(데이터는 선택한 지역에 위치합니다.데이터 레지던시를 돕기 위해 국가 코드 [CC] 가 표시됩니다.)"
+
 msgid "Validating EC2 Prefix List ID ... "
 msgstr "EC2 접두사 목록 ID 검증 중... "
 
 msgid ""
-"Please provide your EDH environment name (edh- is automatically added "
-"as a prefix):"
+"Please provide your EDH environment name (edh- is automatically added as "
+"a prefix):"
 msgstr "EDH 환경 이름을 입력하십시오 (edh-는 접두사로 자동 추가됨)."
 
 msgid "Checking if name is available on Cloudformation"
 msgstr "클라우드포메이션에서 이름을 사용할 수 있는지 확인"
+
+msgid "Email address for cluster notifications:"
+msgstr "클러스터 알림을 위한 이메일 주소:"
+
+msgid "How would you like to configure the HTTPS certificate?"
+msgstr "HTTPS 인증서를 어떻게 구성하시겠습니까?"
+
+msgid "Let EDH create a self-signed certificate"
+msgstr "EDH가 자체 서명된 인증서를 만들도록 하세요"
+
+msgid "Use an existing ACM certificate"
+msgstr "기존 ACM 인증서 사용"
+
+msgid "Select the ACM certificate to use:"
+msgstr "사용할 ACM 인증서를 선택합니다."
+
+msgid "PREVIEW"
+msgstr "미리 보기"
+
+msgid "Preview release. Not for production use."
+msgstr "프리뷰 릴리즈.프로덕션용이 아닙니다."
+
+#, python-brace-format
+msgid "Unsupported roles run on another OS: {substitutions}."
+msgstr "지원되지 않는 역할은 다른 운영 체제 ({substitutions}) 에서 실행됩니다."
 
 msgid ""
 "Select the default operating system for your EDH cluster (this can be "
 "changed post deployment):"
 msgstr "EDH 클러스터의 기본 운영 체제를 선택합니다 (배포 후 변경 가능)."
 
-msgid "Email address for cluster notifications:"
-msgstr "클러스터 알림을 위한 이메일 주소:"
+msgid ""
+"Client IPv4 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
+msgstr "TCP 포트 443/22에서 EDH에 액세스할 수 있도록 인증된 클라이언트 IPv4 또는 CIDR 범위 (설치 후 변경 가능):"
 
 msgid ""
-"Client IPv4/IPv6 or CIDR range authorized to access EDH on TCP ports "
-"443/22:"
-msgstr "TCP 포트 443/22에서 EDH에 액세스할 수 있도록 인증된 클라이언트 IPv4/IPv6 또는 CIDR 범위:"
+"Client IPv6 or CIDR range authorized to access EDH on TCP ports 443/22 "
+"(this can be changed post-install):"
+msgstr "TCP 포트 443/22에서 EDH에 액세스할 수 있도록 인증된 클라이언트 IPv6 또는 CIDR 범위 (설치 후 변경 가능):"
+
+msgid ""
+"How should EDH be deployed?\n"
+"  Public: Load balancers are placed in public subnets, with ingress "
+"restricted to the authorized sources listed above (this can be changed "
+"post-install).\n"
+"  Private: Load balancers are placed in private subnets. Requires a VPN "
+"or Direct Connect for access."
+msgstr ""
+"EDH는 어떻게 배포해야 할까요?\n"
+" 퍼블릭: 로드 밸런서는 퍼블릭 서브넷에 배치되며, 수신은 위에 나열된 인증된 소스로 제한됩니다 (설치 후 변경 가능).\n"
+" 프라이빗: 로드 밸런서는 프라이빗 서브넷에 배치됩니다.액세스하려면 VPN 또는 다이렉트 커넥트가 필요합니다."
+
+msgid ""
+"Public (Recommended) - Internet-facing load balancers, access restricted "
+"by firewall rules"
+msgstr "공용 (권장) - 인터넷에 연결된 로드 밸런서, 방화벽 규칙에 따라 액세스가 제한됨"
+
+msgid ""
+"Private - Internal load balancers, requires VPN/Direct Connect. Not "
+"internet routable."
+msgstr "프라이빗 - 내부 로드 밸런서, VPN/다이렉트 커넥트가 필요합니다.인터넷 라우팅이 불가능합니다."
 
 msgid "Choose the SSH keypair to use: "
 msgstr "사용할 SSH 키페어를 선택합니다. "
 
 msgid ""
-"Enter the name of an S3 bucket you own in the target region to be used "
-"for cluster state storage:"
-msgstr "대상 지역에서 소유하고 있는 S3 버킷의 이름을 입력하여 클러스터 상태 스토리지에 사용합니다."
+"Enter the name of an S3 bucket that the application will use to store "
+"cluster data (or type '?' to list buckets you own):"
+msgstr "애플리케이션이 클러스터 데이터를 저장하는 데 사용할 S3 버킷의 이름을 입력합니다 (또는 '?' 입력).소유한 버킷을 나열하려면:"
 
 msgid "VPC configuration:"
 msgstr "VPC 구성:"
@@ -91,15 +198,102 @@ msgstr "퍼블릭 서브넷을 2개 이상 선택합니다."
 msgid "Select at least 2 private subnets:"
 msgstr "최소 2개의 프라이빗 서브넷을 선택합니다."
 
+msgid "where applications will be installed"
+msgstr "애플리케이션이 설치될 위치"
+
+msgid "where user data will be stored"
+msgstr "사용자 데이터가 저장되는 위치"
+
+#, python-brace-format
+msgid "Filesystem for /{mount_point} ({purpose}):"
+msgstr "/{mount_point} ({purpose}) 의 파일 시스템:"
+
+msgid "Create a new filesystem"
+msgstr "새 파일 시스템 생성"
+
+msgid "Re-use an existing filesystem in this VPC"
+msgstr "이 VPC의 기존 파일 시스템 재사용"
+
+#, python-brace-format
+msgid "Row number of the filesystem to mount as /{mount_point}:"
+msgstr "/{mount_point} 로 마운트할 파일 시스템의 행 번호:"
+
+#, python-brace-format
+msgid "Mount {fs_id} as /{mount_point} as well?"
+msgstr "{fs_id} 역시 /{mount_point}로 마운트하시겠습니까?"
+
+msgid "Pick a different filesystem"
+msgstr "다른 파일 시스템 선택"
+
+msgid "Yes, share this filesystem"
+msgstr "예, 이 파일 시스템을 공유하세요"
+
+#, python-brace-format
+msgid "NFS access for /{mount_point}:"
+msgstr "/{mount_point}에 대한 NFS 액세스:"
+
+msgid "Re-check now"
+msgstr "지금 다시 확인하세요"
+
+msgid "Continue anyway, deployment may fail"
+msgstr "어쨌든 계속하세요. 배포가 실패할 수 있습니다."
+
+#, python-brace-format
+msgid "Select the filesystem provider for /{mount_point} ({purpose}):"
+msgstr "/{mount_point} ({purpose}) 의 파일 시스템 공급자를 선택합니다."
+
+msgid "Analytics back-end (OpenSearch):"
+msgstr "애널리틱스 백엔드 (OpenSearch):"
+
+msgid "Create a new OpenSearch domain"
+msgstr "새 OpenSearch 도메인 생성"
+
+msgid "Re-use an existing OpenSearch domain in this VPC"
+msgstr "이 VPC에서 기존 OpenSearch 도메인을 재사용하십시오."
+
+msgid "Row number of the OpenSearch domain to re-use:"
+msgstr "재사용할 OpenSearch 도메인의 행 번호:"
+
+#, python-brace-format
 msgid ""
-"Select the filesystem provider for /apps (where applications will be "
-"installed):"
-msgstr "/apps의 파일 시스템 제공자 (애플리케이션이 설치될 위치) 를 선택합니다."
+"EDH download required external resources (Python, DCV, EFA, GPU drivers, "
+"etc.) from trusted sources such as python.org, github.com, nodejs.org, "
+"efa-installer.amazonaws.com.\n"
+"  You can mirror these resources to your own in-account S3 bucket so EDH "
+"nodes download from S3 instead of the internet.\n"
+"  This is recommended for reliability and faster provisioning.\n"
+"  All external resources can be found on {config_file}, section "
+"'Parameters'.\n"
+"  How would you like to handle external resources (~5GB)?"
+msgstr ""
+"EDH 다운로드는 python.org, github.com, nodejs.org, efa-"
+"installer.amazonaws.com과 같은 신뢰할 수 있는 출처에서 필요한 외부 리소스 (파이썬, DCV, EFA, GPU "
+"드라이버 등) 를 다운로드합니다.\n"
+" 이러한 리소스를 계정 내 S3 버킷에 미러링하여 EDH 노드가 인터넷 대신 S3에서 다운로드되도록 할 수 있습니다.\n"
+" 안정성과 빠른 프로비저닝을 위해 권장됩니다.\n"
+" 모든 외부 리소스는 {config_file}, 섹션 '파라미터' 에서 찾을 수 있습니다.\n"
+" 외부 리소스 (~5GB) 를 어떻게 처리하시겠습니까?"
 
 msgid ""
-"Select the filesystem provider for /data (where user data will be "
-"stored):"
-msgstr "/data (사용자 데이터가 저장될 위치) 의 파일 시스템 공급자를 선택합니다."
+"Mirror resources to S3 automatically via Lambda (running in EDH VPC) at "
+"install time (Recommended)"
+msgstr "설치 시 Lambda (EDH VPC에서 실행) 를 통해 S3로 리소스를 자동으로 미러링합니다 (권장)"
+
+msgid ""
+"Mirror resources to S3 automatically via Lambda (not running in VPC) at "
+"install time"
+msgstr "설치 시 Lambda를 통해 (VPC에서 실행되지 않음) 자동으로 리소스를 S3로 미러링합니다."
+
+msgid ""
+"Mirror resources to S3 via this host (download+upload) before deploying "
+"EDH"
+msgstr "EDH를 배포하기 전에 이 호스트를 통해 S3로 리소스 미러링 (다운로드+업로드)"
+
+msgid "No S3 Mirroring (EDH nodes will download from the internet directly)"
+msgstr "S3 미러링 없음 (EDH 노드는 인터넷에서 직접 다운로드)"
+
+msgid "Generating resource mirror manifest ..."
+msgstr "리소스 미러 매니페스트 생성 중..."
 
 msgid "Bootstrapping CDK environment ..."
 msgstr "CDK 환경 부트스트래핑 중..."
@@ -110,9 +304,7 @@ msgstr "SSM 고처리량 모드 활성화 중..."
 msgid "Retrieving EDH Admin credentials from AWS Secrets Manager ..."
 msgstr "AWS 시크릿 매니저에서 EDH 관리자 자격 증명 검색 중..."
 
-msgid ""
-"Waiting for EDH to be fully configured, this can take up to 30 minutes "
-"..."
+msgid "Waiting for EDH to be fully configured, this can take up to 30 minutes ..."
 msgstr "EDH가 완전히 구성되기를 기다리는 동안 최대 30분이 걸릴 수 있습니다..."
 
 msgid "Waiting for EDH Admin user to be created ..."
@@ -123,9 +315,6 @@ msgstr "[red]설치가 취소되었습니다.[/red]"
 
 msgid "What CIDR do you want to use for your VPC? We recommend 10.0.0.0/16"
 msgstr "VPC에 어떤 CIDR을 사용하시겠습니까?10.0.0.0/16을 권장합니다."
-
-msgid "Select the AWS PCS cluster to link to"
-msgstr "연결할 AWS PCS 클러스터를 선택합니다."
 
 msgid "Username of a domain user with  admin permissions?"
 msgstr "관리자 권한이 있는 도메인 사용자의 사용자 이름?"
@@ -140,15 +329,18 @@ msgstr "이 역할은 이전 SOCA 배포에서 생성되었습니까?그렇다�
 
 msgid ""
 "[IMPORTANT] Make sure this role is assumed by 'ec2.amazon.com' and "
-"'ssm.amazonaws.com'\n Type ok to continue ..."
-msgstr "[중요] 'ec2.amazon.com' 및 'ssm.amazonaws.com'이 이 역할을 맡는지 확인하십시오.\\n계속하려면 확인을 입력하십시오..."
+"'ssm.amazonaws.com'\n"
+" Type ok to continue ..."
+msgstr ""
+"[중요] 'ec2.amazon.com' 및 'ssm.amazonaws.com'이 이 역할을 맡는지 확인하십시오.\\n계속하려면 "
+"확인을 입력하십시오..."
 
 msgid "Was this role generated by a previous SOCA deployment?"
 msgstr "이 역할은 이전 SOCA 배포에서 생성되었습니까?"
 
 msgid ""
-"[IMPORTANT] Make sure this role is assumed by "
-"'spotfleet.amazonaws.com'\n Type ok to continue ..."
+"[IMPORTANT] Make sure this role is assumed by 'spotfleet.amazonaws.com'\n"
+" Type ok to continue ..."
 msgstr "[중요] 'spotfleet.amazonaws.com'이 이 역할을 맡는지 확인하십시오.\\n계속하려면 확인을 입력하십시오..."
 
 msgid "Disable CDK --strict setting (Failure on CDK stack warnings)"
@@ -166,13 +358,29 @@ msgstr "AWS CDK 부트스트랩 KMS 키 ID"
 msgid "AWS CDK Custom Permissions Boundary"
 msgstr "AWS CDK 사용자 지정 권한 경계"
 
-msgid "AWS CDK Termination Protection setting"
-msgstr "AWS CDK 종료 보호 설정"
+msgid ""
+"Do not pass --termination-protection to 'cdk bootstrap'. Bootstrapping an"
+" already-bootstrapped environment is an UpdateStack on CDKToolkit, so the"
+" flag changes that setting on a toolkit stack EDH does not own."
+msgstr ""
+"--종료 보호를 'cdk 부트스트랩'에 전달하지 마십시오.이미 부트스트랩된 환경을 부트스트래핑하는 것은 CDKToolkit의 "
+"UpdateStack이므로 EDH가 소유하지 않은 툴킷 스택의 해당 설정을 변경하면 플래그가 갖게 됩니다."
+
+msgid ""
+"Do not run 'cdk bootstrap' even when the environment version cannot be "
+"confirmed. Use when the deploy identity cannot read /cdk-"
+"bootstrap/<qualifier>/version but the environment is known good."
+msgstr ""
+"환경 버전을 확인할 수 없는 경우에도 'cdk bootstrap'을 실행하지 마십시오.배포 ID가 /cdk-"
+"bootstrap/<qualifier>/version 내용을 읽을 수 없지만 환경이 양호할 때 사용하십시오."
 
 msgid ""
 "AWS CLI profile to use. See "
-"https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html"
-msgstr "사용할 AWS CLI 프로파일https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html 을 참조하십시오."
+"https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-"
+"profiles.html"
+msgstr ""
+"사용할 AWS CLI 프로파일https://docs.aws.amazon.com/cli/latest/userguide/cli-"
+"configure-profiles.html 을 참조하십시오."
 
 msgid "AWS region where you want to deploy your SOCA environment."
 msgstr "SOCA 환경을 배포하려는 AWS 지역."
@@ -183,7 +391,9 @@ msgstr "사용자 지정 구성 파일의 경로입니다.기본값은 default_c
 msgid ""
 "(Deprecated) Path of AMI region mapping files. Defaults to various "
 "region_map files. Use --region-map-dir instead!"
-msgstr "(더 이상 사용되지 않음) AMI 지역 매핑 파일의 경로입니다.기본값은 다양한 region_map 파일입니다.대신 --region-map-dir을 사용하세요!"
+msgstr ""
+"(더 이상 사용되지 않음) AMI 지역 매핑 파일의 경로입니다.기본값은 다양한 region_map 파일입니다.대신 --region-"
+"map-dir을 사용하세요!"
 
 msgid "Path of AMI region_map.d directory structure"
 msgstr "AMI 영역_맵의 경로.d 디렉토리 구조"
@@ -199,8 +409,8 @@ msgstr "사용자 지정 이미지 지정"
 
 msgid ""
 "Administrator email address(es) that will be registered for cluster "
-"notifications and alerts. Supports multiple values --email email1 "
-"--email email2 etc."
+"notifications and alerts. Supports multiple values --email email1 --email"
+" email2 etc."
 msgstr "클러스터 알림 및 경고에 등록할 관리자 이메일 주소입니다.여러 값 (이메일 이메일1 --이메일 이메일2 등) 을 지원합니다."
 
 msgid "What IPv4 CIDR do you want to use for your VPC (eg: 10.0.0.0/16)"
@@ -222,19 +432,18 @@ msgid "Prefix list ID with IPv6 authorized to access SOCA on port 22/443"
 msgstr "포트 22/443에서 SOCA에 액세스할 수 있도록 승인된 IPv6이 포함된 접두사 목록 ID"
 
 msgid ""
-"Friendly name for your SOCA cluster. Must be unique in the region. "
-"SOCA will be added as prefix"
+"Friendly name for your SOCA cluster. Must be unique in the region. SOCA "
+"will be added as prefix"
 msgstr "SOCA 클러스터의 친숙한 이름입니다.지역 내에서 고유해야 합니다.SOCA가 접두사로 추가됩니다."
 
 msgid ""
-"Configuration key(s) to override. Syntax is "
-"'<key_name>,<type>,<value>'. You can use multiple --override if "
-"needed."
-msgstr "재정의할 구성 키입니다.<value>구문은 '<key_name>,<type>, '입니다.필요한 경우 --override 를 여러 개 사용할 수 있습니다."
+"Configuration key(s) to override. Syntax is '<key_name>,<type>,<value>'. "
+"You can use multiple --override if needed."
+msgstr ""
+"재정의할 구성 키입니다.<value>구문은 '<key_name>,<type>, '입니다.필요한 경우 --override 를 여러 개"
+" 사용할 수 있습니다."
 
-msgid ""
-"The preferred Linux distribution for the controller and compute "
-"instances"
+msgid "The preferred Linux distribution for the controller and compute instances"
 msgstr "컨트롤러 및 컴퓨팅 인스턴스에 대한 기본 Linux 배포판"
 
 msgid "Storage Provider to specify for /apps"
@@ -243,9 +452,7 @@ msgstr "/apps에 지정할 스토리지 제공자"
 msgid "Storage Provider to specify for /data"
 msgstr "/data에 지정할 스토리지 제공자"
 
-msgid ""
-"Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: "
-"False)"
+msgid "Enable IPv6 for client-ipv6 probe (required for all IPv6) (default: False)"
 msgstr "클라이언트-ipv6 프로브에 IPv6 활성화 (모든 IPv6에 필요) (기본값: False)"
 
 msgid "Enable CDK debug mode"
@@ -258,53 +465,47 @@ msgid "Output CfnOutputs via a text file"
 msgstr "출력 cfn텍스트 파일을 통한 출력"
 
 msgid ""
-"SOCA will create AWS resources using the default parameters specified "
-"in installer/default_config.yml.\n Make sure you have read, reviewed "
-"and updated them (if needed). Enter 'yes' to continue ..."
-msgstr "SOCA는 설치/default_config.yml에 지정된 기본 파라미터를 사용하여 AWS 리소스를 생성합니다.\\n읽고, 검토하고, 업데이트했는지 확인하십시오 (필요한 경우).계속하려면 'yes'를 입력하세요..."
+"SOCA will create AWS resources using the default parameters specified in "
+"installer/default_config.yml.\n"
+" Make sure you have read, reviewed and updated them (if needed). Enter "
+"'yes' to continue ..."
+msgstr ""
+"SOCA는 설치/default_config.yml에 지정된 기본 파라미터를 사용하여 AWS 리소스를 생성합니다.\\n읽고, "
+"검토하고, 업데이트했는지 확인하십시오 (필요한 경우).계속하려면 'yes'를 입력하세요..."
 
 msgid "Client IPv4 /CIDR authorized to access SOCA on TCP ports 443/22"
 msgstr "클라이언트 IPv4/CIDR은 TCP 포트 443/22에서 SOCA에 액세스할 수 있도록 승인되었습니다"
 
-#, python-brace-format
 msgid ""
-"FATAL ERROR: Unable to locate any valid VPCs in region {region}. "
-"Please see the VPC Table for specific errors."
-msgstr "치명적 오류: {region} 지역에서 유효한 VPC를 찾을 수 없습니다.특정 오류는 VPC 표를 참조하십시오."
-
-msgid "Choose the VPC you want to use?"
-msgstr "사용하려는 VPC를 선택하시겠습니까?"
-
-#, python-brace-format
-msgid ""
-"FATAL ERROR: Unable to locate any valid Analytics engines in region "
-"{region} - VPC {vpc_id}. Please confirm and try again or re-run and "
-"select 'new' to create a new one."
-msgstr "치명적 오류: {region} - VPC {vpc_id} 지역에서 유효한 분석 엔진을 찾을 수 없습니다.확인하고 다시 시도하거나, 다시 실행하고 'new'를 선택하여 새 엔진을 생성하십시오."
-
-msgid "Choose the OpenSearch Cluster you want to use?"
-msgstr "사용하려는 오픈서치 클러스터를 선택하시겠습니까?"
-
-msgid "Choose the directory you want to use?"
-msgstr "사용할 디렉터리를 선택하시겠습니까?"
-
-msgid "How many of these subnets do you want to use?"
-msgstr "이러한 서브넷 중 몇 개를 사용하시겠습니까?"
-
-msgid ""
-"Your security groups may not be configured correctly. Verify them and "
-"determine if the warnings listed above are false-positive.\n Do you "
-"still want to continue with the installation?"
-msgstr "보안 그룹이 제대로 구성되지 않았을 수 있습니다.이를 확인하고 위에 나열된 경고가 잘못된 것인지 확인하십시오.\\n그래도 설치를 계속하시겠습니까?"
-
-msgid ""
-"Create EDH installer. Visit "
-"https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ "
-"if you need help"
-msgstr "EDH 설치 프로그램을 생성합니다.도움이 필요하면 https://awslabs.github.io/engineering-development-hub-documentation/documentation/01-install-edh-cluster/ 을 방문하십시오."
+"Create EDH installer. Visit https://awslabs.github.io/engineering-"
+"development-hub-documentation/documentation/01-install-edh-cluster/ if "
+"you need help"
+msgstr ""
+"EDH 설치 프로그램을 생성합니다.도움이 필요하면 https://awslabs.github.io/engineering-"
+"development-hub-documentation/documentation/01-install-edh-cluster/ 을 "
+"방문하십시오."
 
 msgid "AWS CDK Bootstrap Profile"
 msgstr "AWS CDK 부트스트랩 프로필"
+
+msgid ""
+"CDK deployment method (only used when --cdk-cmd is deploy/create/update)."
+" 'direct' (default) calls CreateStack/UpdateStack directly; faster, "
+"simpler progress display, recommended for SOCA which is install-only. "
+"SOCA references existing AWS resources (VPC, subnets, certificates, key "
+"pairs) via synth-time lookups, which are unaffected by deploy method. "
+"'change-set' creates and executes a CFN change set; use this if you need "
+"a CloudFormation change set audit record for compliance, want to preview "
+"replacement risk on incremental updates, or are forking the installer to "
+"use 'cdk deploy --import-existing-resources' (which requires change-set)."
+msgstr ""
+"CDK 배포 방법 (--cdk-cmd가 배포/생성/업데이트인 경우에만 사용됨)'다이렉트' (기본값) 는 "
+"CreateStack/UpdateStack을 직접 호출하므로 진행 상황을 더 빠르고 간단하게 표시할 수 있습니다. 설치 전용인 "
+"SOCA에 권장됩니다.SOCA는 배포 방법에 영향을 받지 않는 동기화 시 조회를 통해 기존 AWS 리소스 (VPC, 서브넷, "
+"인증서, 키 페어) 를 참조합니다.'change-set'은 CFN 변경 세트를 생성하고 실행합니다. 규정 준수를 위한 "
+"CloudFormation 변경 세트 감사 레코드가 필요하거나, 증분 업데이트에 따른 대체 위험을 미리 보고 싶거나, 설치 "
+"프로그램이 'cdk deploy --import-exing-resources' (변경 세트 필요) 를 사용하도록 포크하려는 경우에 "
+"사용하십시오."
 
 msgid "Skip the configuration review prompt"
 msgstr "구성 검토 프롬프트 건너뛰기"
@@ -312,15 +513,24 @@ msgstr "구성 검토 프롬프트 건너뛰기"
 msgid "AWS region to deploy EDH in"
 msgstr "EDH를 배포할 AWS 리전"
 
-msgid "Base OS for EDH controller and login nodes"
-msgstr "EDH 컨트롤러 및 로그인 노드용 기본 OS"
+#, python-brace-format
+msgid ""
+"Base OS for EDH controller and login nodes. Values in {preview} are "
+"preview releases, not for production use."
+msgstr "EDH 컨트롤러 및 로그인 노드용 기본 OS.{preview} 의 값은 프리뷰 릴리스이며 프로덕션용이 아닙니다."
+
+msgid ""
+"Show preview base OS releases in the interactive selection list. --base-"
+"os accepts a preview value with or without this flag; it only controls "
+"whether the interactive list offers one."
+msgstr ""
+"대화형 선택 목록에 미리 보기 기본 OS 릴리스를 표시합니다.--base-os는 이 플래그가 있든 없든 미리 보기 값을 허용하며, "
+"대화형 목록에서 해당 플래그를 제공할지 여부만 제어합니다."
 
 msgid "EDH cluster name (e.g. edh-mycluster)"
 msgstr "EDH 클러스터 이름 (예: edh-mycluster)"
 
-msgid ""
-"Email address for cluster notifications (can be specified multiple "
-"times)"
+msgid "Email address for cluster notifications (can be specified multiple times)"
 msgstr "클러스터 알림을 위한 이메일 주소 (여러 번 지정할 수 있음)"
 
 msgid "S3 bucket for EDH state storage"
@@ -335,35 +545,29 @@ msgstr "새 VPC를 위한 VPC CIDR 블록 (예: 10.0.0.0/16)"
 msgid "Existing VPC ID to deploy into"
 msgstr "배포할 기존 VPC ID"
 
-msgid ""
-"Client IP/CIDR authorized to access EDH (can be specified multiple "
-"times)"
+msgid "Client IP/CIDR authorized to access EDH (can be specified multiple times)"
 msgstr "EDH 액세스 권한이 부여된 클라이언트 IP/CIDR (여러 번 지정 가능)"
 
 msgid ""
-"Public subnet IDs when using an existing VPC. Use + to specify more "
-"than 1 subnet."
+"Public subnet IDs when using an existing VPC. Use + to specify more than "
+"1 subnet."
 msgstr "기존 VPC를 사용할 때의 퍼블릭 서브넷 ID.2개 이상의 서브넷을 지정하려면 +를 사용하십시오."
 
 msgid ""
-"Private subnet IDs when using an existing VPC. Use + to specify more "
-"than 1 subnet."
+"Private subnet IDs when using an existing VPC. Use + to specify more than"
+" 1 subnet."
 msgstr "기존 VPC를 사용할 때의 프라이빗 서브넷 ID.2개 이상의 서브넷을 지정하려면 +를 사용하십시오."
 
 msgid "Select if you want to add Prefix List to your security groups."
 msgstr "보안 그룹에 접두사 목록을 추가하려는 경우 선택합니다."
 
-msgid ""
-"Filesystem provider for /apps (efs, fsx_lustre, fsx_ontap, "
-"fsx_openzfs)"
+msgid "Filesystem provider for /apps (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 msgstr "/apps용 파일 시스템 공급자 (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 
 msgid "Existing filesystem DNS/IP for /apps"
 msgstr "/앱용 기존 파일 시스템 DNS/IP"
 
-msgid ""
-"Filesystem provider for /data (efs, fsx_lustre, fsx_ontap, "
-"fsx_openzfs)"
+msgid "Filesystem provider for /data (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 msgstr "/데이터에 대한 파일 시스템 공급자 (efs, fsx_lustre, fsx_ontap, fsx_openzfs)"
 
 msgid "Existing filesystem DNS/IP for /data"
@@ -371,3 +575,54 @@ msgstr "/데이터에 대한 기존 파일 시스템 DNS/IP"
 
 msgid "Existing OpenSearch domain endpoint URL"
 msgstr "기존 오픈서치 도메인 엔드포인트 URL"
+
+msgid ""
+"TLS certificate for the cluster ALB. Pass 'auto' to reuse the EDH default"
+" ACM cert (creating a self-signed one if absent -- not for production), "
+"or an ACM certificate ARN. Omit to use the interactive prompt."
+msgstr ""
+"클러스터 ALB의 TLS 인증서입니다.EDH 기본 ACM 인증서 (프로덕션용이 아닌 경우 자체 서명된 인증서 생성) 또는 ACM "
+"인증서 ARN을 재사용하려면 'auto'를 전달하십시오.대화형 프롬프트를 사용하려면 생략하십시오."
+
+msgid ""
+"Decide where to deploy the Elastic and Network Load Balancer (public "
+"-recommended- or private subnets). If private, ensure you have a VPN or "
+"Direct Connect set up to access the cluster from your client machines."
+msgstr ""
+"엘라스틱 및 네트워크 로드 밸런서 (퍼블릭 권장 서브넷 또는 프라이빗 서브넷) 를 배포할 위치를 결정합니다.비공개인 경우 클라이언트"
+" 컴퓨터에서 클러스터에 액세스할 수 있도록 VPN 또는 Direct Connect를 설정해야 합니다."
+
+msgid "Skip Customer Managed KMS Key policy validation checks"
+msgstr "고객 관리형 KMS 키 정책 검증 검사 건너뛰기"
+
+#~ msgid ""
+#~ "Client IPv4/IPv6 or CIDR range "
+#~ "authorized to access EDH on TCP "
+#~ "ports 443/22:"
+#~ msgstr "TCP 포트 443/22에서 EDH에 액세스할 수 있도록 인증된 클라이언트 IPv4/IPv6 또는 CIDR 범위:"
+
+#~ msgid ""
+#~ "Enter the name of an S3 bucket "
+#~ "you own in the target region to"
+#~ " be used for cluster state storage:"
+#~ msgstr "대상 지역에서 소유하고 있는 S3 버킷의 이름을 입력하여 클러스터 상태 스토리지에 사용합니다."
+
+#~ msgid ""
+#~ "Select the filesystem provider for /apps"
+#~ " (where applications will be installed):"
+#~ msgstr "/apps의 파일 시스템 제공자 (애플리케이션이 설치될 위치) 를 선택합니다."
+
+#~ msgid ""
+#~ "Select the filesystem provider for /data"
+#~ " (where user data will be stored):"
+#~ msgstr "/data (사용자 데이터가 저장될 위치) 의 파일 시스템 공급자를 선택합니다."
+
+#~ msgid "Select the AWS PCS cluster to link to"
+#~ msgstr "연결할 AWS PCS 클러스터를 선택합니다."
+
+#~ msgid "AWS CDK Termination Protection setting"
+#~ msgstr "AWS CDK 종료 보호 설정"
+
+#~ msgid "Base OS for EDH controller and login nodes"
+#~ msgstr "EDH 컨트롤러 및 로그인 노드용 기본 OS"
+

@@ -94,6 +94,7 @@ _WRITABLE_SPECIAL = (
     "/configuration/CustomTags/",
     "/configuration/HPC/schedulers/",
     "/configuration/HPC/hooks/",
+    "/configuration/Overlay/suspend_peer/",
 )
 
 

@@ -29,10 +29,38 @@ from flask_babel import gettext as _
 import base64
 from sqlalchemy.orm import joinedload
 import re
-import bleach
+import nh3
+import feature_flags
+from utils.validators import Validators
 
 logger = logging.getLogger("soca_logger")
 client_ec2 = utils_boto3.get_boto(service_name="ec2").message
+
+
+def _reject_html_field(fields):
+    """Return the label of the first field whose value contains HTML markup, else None.
+
+    Policy: reject any value that parses as HTML markup (nh3.is_html); plain
+    text is allowed, including bare <, >, & in prose (e.g. "size < 5GB"). Applied
+    at input on plain-text metadata fields already output-encoded at every render
+    sink; encoding them here too would double-encode. Gated by the
+    WEBUI_INPUT_HTML_REJECT feature flag (default enabled). connection_string is
+    exempt and always sanitized separately with nh3.clean (it renders raw HTML).
+    """
+    for _label, _value in fields.items():
+        if _value and nh3.is_html(_value):
+            logger.debug(f"Rejected HTML markup in input field '{_label}'")
+            return _label
+    return None
+
+
+def _input_html_reject_enabled():
+    # WEBUI_INPUT_HTML_REJECT gate; fail-safe strict on read error; never gates connection_string
+    _ff = feature_flags.get_flag("WEBUI_INPUT_HTML_REJECT")
+    if _ff.get("success") is not True:
+        return True
+    _cfg = _ff.get("message")
+    return bool(_cfg.get("enabled", True)) if Validators.is_dict(_cfg) else True
 
 
 def parse_user_data_variables(s: str) -> dict:
@@ -341,10 +369,10 @@ class TargetNodeSoftwareStacksManager(Resource):
         _connection_string = args.get("connection_string", "")
         if _connection_string:
             logger.info("connection_string is specified, sanitize it")
-            # connection_string is received by the user and will be rendered sa HTML, we use bleach to only allow some safe HTML tags (e.g: <script>, <iframe> etc .. will be removed)
-            _connection_string = bleach.clean(
+            # connection_string is received by the user and will be rendered as HTML, we use nh3 to only allow some safe HTML tags (e.g: <script>, <iframe> etc .. will be removed). nh3 always strips disallowed tags.
+            _connection_string = nh3.clean(
                 _connection_string,
-                tags=[
+                tags={
                     "h1",
                     "h2",
                     "h3",
@@ -356,10 +384,9 @@ class TargetNodeSoftwareStacksManager(Resource):
                     "strong",
                     "i",
                     "a",
-                ],  # allow only specific tags
-                attributes={"a": ["href"]},  # allow only href on <a>
-                protocols=["http", "https", "mailto"],  # disallow javascript: URLs
-                strip=True,  # strip disallowed tags (not escape them)
+                },  # allow only specific tags
+                attributes={"a": {"href"}},  # allow only href on <a>
+                url_schemes={"http", "https", "mailto"},  # disallow javascript: URLs
             )
 
         _user = request.headers.get("X-EDH-USER")
@@ -396,6 +423,18 @@ class TargetNodeSoftwareStacksManager(Resource):
                 image_id=_ami_id,
                 image_label=_stack_name,
                 helper="Description is too long, must be less than 500 characters",
+            ).as_flask()
+
+        _html_field = (
+            _reject_html_field({"stack_name": _stack_name, "description": _description})
+            if _input_html_reject_enabled()
+            else None
+        )
+        if _html_field:
+            return SocaError.IMAGE_REGISTER_ERROR(
+                image_id=_ami_id,
+                image_label=_stack_name,
+                helper=f"{_html_field} may not contain HTML markup (plain text is allowed)",
             ).as_flask()
 
         _required_input = [
@@ -832,6 +871,17 @@ class TargetNodeSoftwareStacksManager(Resource):
         _software_stack_id = args.get("software_stack_id", "")
         _ami_id = args.get("ami_id", "")
         _description = "" if not args["description"] else args["description"]
+        _html_field = (
+            _reject_html_field({"description": _description})
+            if _input_html_reject_enabled()
+            else None
+        )
+        if _html_field:
+            return SocaError.IMAGE_REGISTER_ERROR(
+                image_id=_ami_id,
+                image_label=_software_stack_id,
+                helper=f"{_html_field} may not contain HTML markup (plain text is allowed)",
+            ).as_flask()
         _launch_tenancy = args["launch_tenancy"]
         _launch_host = str(args["launch_host"]) if "launch_host" in args else None
         _thumbnail = request.files.get("thumbnail")
@@ -879,10 +929,10 @@ class TargetNodeSoftwareStacksManager(Resource):
         if not _software_stack_id:
             return SocaError.CLIENT_MISSING_PARAMETER(parameter="ami_id").as_flask()
 
-        # connection_string is received by the user and will be rendered sa HTML, we use bleach to only allow some safe HTML tags (e.g: <script>, <iframe> etc .. will be removed)
-        _connection_string = bleach.clean(
+        # connection_string is received by the user and will be rendered as HTML, we use nh3 to only allow some safe HTML tags (e.g: <script>, <iframe> etc .. will be removed). nh3 always strips disallowed tags.
+        _connection_string = nh3.clean(
             _connection_string,
-            tags=[
+            tags={
                 "h1",
                 "h2",
                 "h3",
@@ -894,10 +944,9 @@ class TargetNodeSoftwareStacksManager(Resource):
                 "strong",
                 "i",
                 "a",
-            ],  # allow only specific tags
-            attributes={"a": ["href"]},  # allow only href on <a>
-            protocols=["http", "https", "mailto"],  # disallow javascript: URLs
-            strip=True,  # strip disallowed tags (not escape them)
+            },  # allow only specific tags
+            attributes={"a": {"href"}},  # allow only href on <a>
+            url_schemes={"http", "https", "mailto"},  # disallow javascript: URLs
         )
 
         _user = request.headers.get("X-EDH-USER")

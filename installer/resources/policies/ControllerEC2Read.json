@@ -18,12 +18,20 @@
                 "bedrock:ListAgents",
                 "bedrock-agentcore:ListAgentRuntimes",
                 "bedrock-agentcore:ListTagsForResource",
+                "pcs:GetCluster",
+                "pcs:ListClusters",
+                "pcs:ListQueues",
+                "pcs:ListComputeNodeGroups",
+                "pcs:ListTagsForResource",
+                "pcs:GetComputeNodeGroup",
+                "pcs:GetQueue",
                 "ec2:CreateFleet",
                 "ec2:DescribeFleet*",
                 "ec2:DeleteFleets",
                 "ec2:DescribeInstances",
                 "ec2:DescribeSubnets",
                 "ec2:DescribeSecurityGroups",
+                "ec2:GetSecurityGroupsForVpc",
                 "ec2:DescribeImages",
                 "ec2:DescribeSnapshots",
                 "ec2:DescribeInstanceAttribute",
@@ -37,6 +45,7 @@
                 "ec2:DescribePlacementGroups",
                 "ec2:DescribeKeyPairs",
                 "ec2:DescribeLaunchTemplates",
+                "ec2:DescribeInstanceTypeOfferings",
                 "ec2:DescribeLaunchTemplateVersions",
                 "elasticfilesystem:DescribeAccessPoints",
                 "ec2:DescribeNetworkInterfaces",
@@ -70,9 +79,52 @@
                 "ssm:DescribeInstanceProperties",
                 "ssm:ListCommands",
                 "ssm:GetCommandInvocation",
-                "ssm:DescribeAutomationExecutions"
+                "ssm:DescribeAutomationExecutions",
+                "iam:ListInstanceProfiles"
             ],
             "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "BedrockInferenceProfileResolve",
+            "Action": [
+                "bedrock:GetInferenceProfile"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:bedrock:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:inference-profile/*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "FSxOntapCreateAndTag",
+            "Action": [
+                "fsx:CreateStorageVirtualMachine",
+                "fsx:CreateVolume",
+                "fsx:TagResource"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:file-system/*",
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:storage-virtual-machine/*",
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:volume/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            },
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "FSxOntapSvmUpdate",
+            "Action": [
+                "fsx:UpdateStorageVirtualMachine"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:fsx:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:storage-virtual-machine/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/edh:ClusterId": "%%CLUSTER_ID%%"
+                }
+            },
             "Effect": "Allow"
         }
     ]

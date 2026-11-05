@@ -101,6 +101,17 @@
                 log_info "Skipping Scheduler because SCHEDULER_ID_TO_INSTALL is set and {{ SCHEDULER_VARS.get("IDENTIFIER") }} is not configured for this host. Only ${SCHEDULER_ID_TO_INSTALL} will be installed"
             {% endif %}
 
+        {% elif SCHEDULER_VARS.get("PROVIDER") == "aws_pcs" %}
+            {% if context.get("/configuration/services/aws_pcs/auto_onboard_client", "false") | string | lower == "true"
+                  and context.get("/job/NodeType") in ("dcv_node", "login_node") %}
+                {% if not SCHEDULER_ID_TO_INSTALL or SCHEDULER_ID_TO_INSTALL == SCHEDULER_VARS.get("IDENTIFIER") %}
+                    {% include "templates/linux/scheduler/aws_pcs/configure_client.sh.j2" %}
+                {% else %}
+                    log_info "Skipping Scheduler because SCHEDULER_ID_TO_INSTALL is set and {{ SCHEDULER_VARS.get('IDENTIFIER') }} is not configured for this host. Only ${SCHEDULER_ID_TO_INSTALL} will be installed"
+                {% endif %}
+            {% else %}
+                log_info "[AWS PCS] {{ scheduler_id }}: client auto-onboarding disabled (/configuration/services/aws_pcs/auto_onboard_client) or not a virtual desktop / login node, skipping. Onboard manually from the PCS Connect tab on /admin/pcs"
+            {% endif %}
         {% else %}
           exit_fail "Unsupported scheduler: {{ SCHEDULER_VARS.get('PROVIDER') }}"
         {% endif %}

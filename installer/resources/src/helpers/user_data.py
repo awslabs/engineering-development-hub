@@ -8,14 +8,10 @@ import re
 # returns InvalidUserData.Malformed at deploy time if exceeded.
 EC2_USER_DATA_CAP_BYTES = 16384
 
-# Soft cap used by assert_user_data_size to fail at synth time before AWS
-# rejects. Sized to alarm EARLY (~700 byte headroom above the current
-# controller LT baseline of 12300 bytes after remove_text_aggressive).
-# Tighter than 16384 - small_buffer because we WANT visibility on drift
-# rather than waiting until we're close to the AWS cap. Adjust upward
-# only when there's a deliberate reason for the controller LT to grow,
-# never silently.
-EC2_USER_DATA_SOFT_CAP_BYTES = 13000
+# Raw-size drift alarm for assert_user_data_size. Not the deploy gate: the LT
+# call sites go through encode_for_lt, which gzips, so EC2 measures the encoded
+# size against EC2_USER_DATA_CAP_BYTES.
+EC2_USER_DATA_SOFT_CAP_BYTES = 14336
 
 
 def remove_text(text_to_remove: list, data: str) -> str:
@@ -98,7 +94,7 @@ def assert_user_data_size(data: str, label: str, soft_cap: int = EC2_USER_DATA_S
     return nbytes
 
 
-def encode_for_lt(data: str, label: str, soft_cap: int = EC2_USER_DATA_SOFT_CAP_BYTES) -> str:
+def encode_for_lt(data: str, label: str) -> str:
     """
     Gzip + base64-encode for direct assignment to a CfnLaunchTemplate
     user_data field. cloud-init auto-decompresses gzipped UserData, which

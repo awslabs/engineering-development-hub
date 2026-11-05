@@ -1,0 +1,264 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+{% from 'admin/pcs/_status_badge.html' import status_badge %}
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/admin/pcs">{{ _("PCS clusters") }}</a></li>
+                            <li class="breadcrumb-item"><a href="/admin/pcs/detail/{{ cluster_id }}">{{ pcs_cluster_name }}</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ compute_node_group.get('name', compute_node_group.get('id', '')) }}</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3 mb-0 text-gray-800">{{ _("Compute node group:") }} {{ compute_node_group.get('name', compute_node_group.get('id', '')) }}</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                            <a href="/admin/pcs/detail/{{ cluster_id }}#nav-groups" class="btn btn-secondary btn-sm">{{ _("Back to cluster") }}</a>
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#updateComputeNodeGroupModal">{{ _("Update compute node group") }}</button>
+                            {# PCS rejects a delete while the resource is still being created or deleted. #}
+                            {% set _delete_in_progress = (compute_node_group.get('status') or '') in ['CREATING', 'DELETING'] %}
+                            {% if _delete_in_progress %}
+                            <span class="d-inline-block" tabindex="0" title="{{ _('Not available while the status is') }} {{ compute_node_group.get('status') }}">
+                                <button type="button" class="btn btn-danger btn-sm" disabled style="pointer-events: none;">{{ _("Delete compute node group") }}</button>
+                            </span>
+                            {% else %}
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteComputeNodeGroupModal">{{ _("Delete compute node group") }}</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            {% set _d_scaling = compute_node_group.get('scalingConfiguration') or {} %}
+                            {% set _d_lt = compute_node_group.get('customLaunchTemplate') or {} %}
+                            {% set _d_instance_types = (compute_node_group.get('instanceConfigs') or []) | map(attribute='instanceType') | select | list %}
+                            {% set _d_subnets = compute_node_group.get('subnetIds') or [] %}
+                            {% set _d_created = compute_node_group.get('createdAt') %}
+                            {% set _d_modified = compute_node_group.get('modifiedAt') %}
+                            <h3>{{ _("Details") }}</h3>
+                            <table class="table">
+                                <tbody>
+                                    <tr><th style="width:220px;">{{ _("Name") }}</th><td>{{ compute_node_group.get('name') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Group ID") }}</th><td>{{ compute_node_group.get('id') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Status") }}</th><td>{{ status_badge(compute_node_group.get('status')) }}</td></tr>
+                                    <tr><th>{{ _("ARN") }}</th><td>{% if compute_node_group.get('arn') %}<code>{{ compute_node_group.get('arn') }}</code>{% else %}-{% endif %}</td></tr>
+                                    <tr><th>{{ _("Instance types") }}</th><td>
+                                        {% if _d_instance_types %}
+                                            {% for _it in _d_instance_types %}<code>{{ _it }}</code>{{ ', ' if not loop.last }}{% endfor %}
+                                        {% else %}-{% endif %}
+                                    </td></tr>
+                                    <tr><th>{{ _("Scaling (min / max)") }}</th><td>
+                                        {{ _d_scaling.get('minInstanceCount') if _d_scaling.get('minInstanceCount') is not none else '-' }}
+                                        /
+                                        {{ _d_scaling.get('maxInstanceCount') if _d_scaling.get('maxInstanceCount') is not none else '-' }}
+                                    </td></tr>
+                                    <tr><th>{{ _("Purchase option") }}</th><td>{{ compute_node_group.get('purchaseOption') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Subnets") }}</th><td>
+                                        {% if _d_subnets %}
+                                            {% for _sn in _d_subnets %}<code>{{ _sn }}</code>{{ ', ' if not loop.last }}{% endfor %}
+                                        {% else %}-{% endif %}
+                                    </td></tr>
+                                    <tr><th>{{ _("Launch template") }}</th><td>
+                                        {% if _d_lt.get('id') %}
+                                            <a href="/admin/pcs/launch_template/{{ cluster_id }}/{{ _d_lt.get('id') }}"><code>{{ _d_lt.get('id') }}</code></a>
+                                            <span class="text-muted">({{ _("version") }} {{ _d_lt.get('version') or '-' }})</span>
+                                        {% else %}-{% endif %}
+                                    </td></tr>
+                                    <tr><th>{{ _("Instance profile") }}</th><td>{% if compute_node_group.get('iamInstanceProfileArn') %}<code>{{ compute_node_group.get('iamInstanceProfileArn') }}</code>{% else %}-{% endif %}</td></tr>
+                                    <tr><th>{{ _("AMI ID") }}</th><td>
+                                        {% if compute_node_group.get('amiId') %}
+                                            {{ compute_node_group.get('amiId') }}
+                                        {% elif launch_template_ami_id %}
+                                            {{ launch_template_ami_id }} <span class="text-muted">({{ _("inherited from the launch template") }})</span>
+                                        {% else %}
+                                            {{ _("Inherited from the launch template") }}
+                                        {% endif %}
+                                    </td></tr>
+                                    <tr><th>{{ _("Created") }}</th><td title="{{ _d_created or '' }}">{{ _d_created | pcs_datetime if _d_created else '-' }}</td></tr>
+                                    <tr><th>{{ _("Modified") }}</th><td title="{{ _d_modified or '' }}">{{ _d_modified | pcs_datetime if _d_modified else '-' }}</td></tr>
+                                </tbody>
+                            </table>
+                            {% set _err = compute_node_group.get('errorInfo') %}
+                            {% if _err %}
+                            <div class="alert alert-danger mb-0">
+                                <strong>{{ _("Error info:") }}</strong>
+                                <pre class="mb-0" style="white-space: pre-wrap;">{{ _err }}</pre>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% include 'common/footer.html' %}
+    </div>
+</div>
+
+<!-- Update compute node group -->
+{% set _scaling = compute_node_group.get('scalingConfiguration') or {} %}
+{% set _lt = compute_node_group.get('customLaunchTemplate') or {} %}
+{% set _subnets = compute_node_group.get('subnetIds') or [] %}
+{% set _purchase = compute_node_group.get('purchaseOption', 'ONDEMAND') %}
+<div class="modal fade" id="updateComputeNodeGroupModal" tabindex="-1" aria-labelledby="updateComputeNodeGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form action="/admin/pcs/update_compute_node_group" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="updateComputeNodeGroupModalLabel">{{ _("Update compute node group") }} {{ compute_node_group.get('name', compute_node_group.get('id', '')) }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">
+                        {{ _("Only the fields you change are applied; leave a field as-is to keep its current value. Instance types cannot be changed on an existing compute node group -- create a new one instead.") }}
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="cng_min_instance_count">{{ _("Minimum instance count") }}</label>
+                            <input id="cng_min_instance_count" name="min_instance_count" type="number" min="0" step="1" class="form-control" value="{{ _scaling.get('minInstanceCount', '') }}">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="cng_max_instance_count">{{ _("Maximum instance count") }}</label>
+                            <input id="cng_max_instance_count" name="max_instance_count" type="number" min="1" step="1" class="form-control" value="{{ _scaling.get('maxInstanceCount', '') }}"
+                                   aria-describedby="cng_max_instance_count_feedback">
+                            <div id="cng_max_instance_count_feedback" class="invalid-feedback">{{ _("The maximum instance count must be greater than or equal to the minimum instance count.") }}</div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cng_ami_id">{{ _("AMI ID") }}</label>
+                        <input id="cng_ami_id" name="ami_id" type="text" class="form-control" value="{{ compute_node_group.get('amiId', '') }}" placeholder="{{ _('ami-...') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="cng_launch_template_version">{{ _("Launch template version") }}</label>
+                        <input id="cng_launch_template_version" name="launch_template_version" type="text" class="form-control" value="{{ _lt.get('version', '') }}" placeholder="{{ _('e.g. 3 or $Latest') }}">
+                        {% if _lt.get('id') %}<small class="form-text text-muted">{{ _("Launch template:") }} <code>{{ _lt.get('id') }}</code></small>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label for="cng_purchase_option">{{ _("Purchase option") }}</label>
+                        <select id="cng_purchase_option" name="purchase_option" class="form-control">
+                            {% for _opt in ['ONDEMAND', 'SPOT', 'CAPACITY_BLOCK', 'INTERRUPTIBLE_CAPACITY_RESERVATION'] %}
+                            <option value="{{ _opt }}" {{ 'selected' if _opt == _purchase else '' }}>{{ _opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cng_subnet_ids">{{ _("Subnet IDs") }}</label>
+                        <input id="cng_subnet_ids" name="subnet_ids" type="text" class="form-control" value="{{ _subnets | join(', ') }}" placeholder="{{ _('subnet-aaa, subnet-bbb') }}">
+                        <small class="form-text text-muted">{{ _("Comma-separated.") }}</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                    <input type="hidden" name="compute_node_group_identifier" value="{{ compute_node_group.get('id') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-primary">{{ _("Update compute node group") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete compute node group confirmation -->
+<div class="modal fade" id="deleteComputeNodeGroupModal" tabindex="-1" aria-labelledby="deleteComputeNodeGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="/admin/pcs/delete_compute_node_group" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteComputeNodeGroupModalLabel">{{ _("Delete compute node group") }} {{ compute_node_group.get('name', compute_node_group.get('id', '')) }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger">
+                        {{ _("This permanently deletes the compute node group. Detach it from every queue first, or the delete will fail. This action cannot be undone.") }}
+                    </p>
+                    <div class="form-check">
+                        <input id="confirmDeleteComputeNodeGroup" name="confirm_delete" type="checkbox" class="form-check-input" required>
+                        <label class="form-check-label" for="confirmDeleteComputeNodeGroup">
+                            {{ _("I understand this compute node group will be permanently deleted.") }}
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                    <input type="hidden" name="compute_node_group_identifier" value="{{ compute_node_group.get('id') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-danger">{{ _("Delete compute node group") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Update form: block the submit when max < min (both filled in) and flag the max field.
+    // Runs on the form itself, before the document-level loading-state handler below.
+    (function () {
+        var minInput = document.getElementById('cng_min_instance_count');
+        var maxInput = document.getElementById('cng_max_instance_count');
+        if (!minInput || !maxInput) { return; }
+        function scalingIsValid() {
+            if (minInput.value === '' || maxInput.value === '') { return true; }
+            return parseInt(maxInput.value, 10) >= parseInt(minInput.value, 10);
+        }
+        [minInput, maxInput].forEach(function (input) {
+            input.addEventListener('input', function () {
+                if (scalingIsValid()) { maxInput.classList.remove('is-invalid'); }
+            });
+        });
+        maxInput.form.addEventListener('submit', function (e) {
+            if (!scalingIsValid()) {
+                e.preventDefault();
+                e.stopPropagation();
+                maxInput.classList.add('is-invalid');
+                maxInput.focus();
+            }
+        });
+    })();
+</script>
+<script>
+    // Disable the submit button and show a loading state once any form is submitted, so a slow
+    // update/delete round-trip can't be double-clicked (mirrors the PCS detail page behavior).
+    document.addEventListener('submit', function (e) {
+        if (e.target.tagName === 'FORM' && !e.defaultPrevented) {
+            e.preventDefault();
+            var _submitButton = e.target.querySelector('button[type="submit"]');
+            if (_submitButton) {
+                _submitButton.disabled = true;
+                _submitButton.innerHTML = `
+                <span class="icon text-white-50">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+                <span class="text" aria-live="polite">{{ _("Please wait ...") }}</span>`;
+            }
+            setTimeout(function () { e.target.submit(); }, 300);
+        }
+    });
+</script>
+
+</body>
+</html>

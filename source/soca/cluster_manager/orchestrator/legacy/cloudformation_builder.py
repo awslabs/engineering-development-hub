@@ -40,7 +40,6 @@ from troposphere.ec2 import (
     SpotOptions,
     CpuOptions,
     LaunchTemplateBlockDeviceMapping,
-    Tag,
     Tags
 )
 
@@ -52,18 +51,23 @@ import pathlib
 from utils.config import SocaConfig
 from utils.jinjanizer import SocaJinja2Generator
 from utils.cast import SocaCastEngine
+from utils.version import __version__
 
 import logging
-import boto3
 import uuid
 import json
 import datetime
 
 from utils.response import SocaResponse
+from utils.aws.boto3_wrapper import get_boto
+from utils.aws.cfn_tag_helper import (
+    build_launch_template_tag_specifications,
+    build_tag_specifications,
+)
 from utils.subprocess_client import SocaSubprocessClient
 
 # FIXME TODO - ExtraConfig / API / versioning?
-ec2_client = boto3.client("ec2")
+ec2_client = get_boto(service_name="ec2").message
 logger = logging.getLogger("soca_logger")
 
 
@@ -168,7 +172,7 @@ def main(**params):
         t = Template()
         t.set_version("2010-09-09")
         t.set_description(
-            "(SOCA) - Base template to deploy compute nodes. Version 26.8.0"
+            f"(SOCA) - Base template to deploy compute nodes. Version {__version__}"
         )
 
         _cluster_id: str = params.get("ClusterId", "unknown-cluster")
@@ -254,7 +258,7 @@ def main(**params):
         # Check if using AD, if yes check if we need to auto join the HPC nodes
         if soca_parameters.get("/configuration/UserDirectory/provider") in [
             "aws_ds_managed_activedirectory",
-            "existing_activedirectory",
+            "existing_active_directory",
         ]:
 
             _check_ephemeral_nodes_domain_join = SocaCastEngine(
@@ -519,12 +523,17 @@ def main(**params):
                 )
             )
 
-        ltd.TagSpecifications = [
-            ec2.TagSpecifications(
-                ResourceType="instance",
-                Tags=[Tag(Key=k, Value=v) for k, v in _base_tags.items()],
-            )
-        ]
+        # Tags. Covers instance, volume and network-interface at launch.
+        _ltd_tag_specifications = build_tag_specifications(base_tags=_base_tags)
+        if _ltd_tag_specifications.get("success") is False:
+            # This function's contract is {"success", "output"}; the helper returns
+            # {"success", "message"}. Remap or the caller's cfn_stack_body["output"]
+            # read raises KeyError instead of surfacing the failure.
+            return {
+                "success": False,
+                "output": _ltd_tag_specifications.get("message"),
+            }
+        ltd.TagSpecifications = _ltd_tag_specifications.get("message")
 
         ltd.MetadataOptions = MetadataOptions(
             HttpEndpoint="enabled", HttpTokens=params["MetadataHttpTokens"]
@@ -542,6 +551,16 @@ def main(**params):
         lt = LaunchTemplate("NodeLaunchTemplate")
         lt.LaunchTemplateName = params["ClusterId"] + "-" + str(params["JobId"])
         lt.LaunchTemplateData = ltd
+        # Tag the LaunchTemplate resource itself.
+        _lt_tag_specifications = build_launch_template_tag_specifications(
+            base_tags=_base_tags
+        )
+        if _lt_tag_specifications.get("success") is False:
+            return {
+                "success": False,
+                "output": _lt_tag_specifications.get("message"),
+            }
+        lt.TagSpecifications = _lt_tag_specifications.get("message")
 
         t.add_resource(lt)
         # End Launch Template Resource

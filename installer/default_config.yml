@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 Config:
-  version: "26.8.0" # version automatically populated as part of RELEASE-PIPELINE.sh (see github_release.py)
+  version: "" # populated at load from source/soca/cluster_manager/utils/version.py -- do not edit
   termination_protection: true # Enable (recommended) or Disable Cloudformation Stack termination protection
   admin_user_name: "edhadmin" # The name of the default admin username that will be created.
   metadata_http_tokens: "required" # Supported values are "required" (recommended) for IMDSv2 or "optional" for IMDSv1 (https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-metadataoptions.html#cfn-ec2-launchtemplate-launchtemplatedata-metadataoptions-httptokens)
@@ -67,6 +67,11 @@ Config:
       #  "headers": {"Authorization": "Bearer <token-if-needed>"}
       #   }
 
+    allowed_knowledge_base_ids:
+      ~ # list of Bedrock Knowledge Base IDs the AI assistant may query. Requests for any other ID are rejected.
+      # example format
+      # - "ABCDEFGHIJ"
+
   scheduler:
     # Scheduler(s) to install/configure on the EDH_CONTROLLER host
     # Note:
@@ -79,9 +84,53 @@ Config:
       # - "slurm" # Preview - In Development, not stable, not fully tested and not suitable for production.
       # - "pbspro" # Preview - In Development, not stable, not fully tested and not suitable for production.
 
+  containers:
+    # Container runtime for HPC compute and virtual desktop nodes.
+    apptainer:
+      # Disabled by default. Enabling it adds a source build of Apptainer to the
+      # node bootstrap, which costs build time on every node that is not launched
+      # from a pre-baked AMI.
+      enabled: false
+
+      # Where the apptainer binary is installed on the node. $EDH_CLUSTER_ID is
+      # substituted at install time.
+      install_prefix: "/opt/edh/$EDH_CLUSTER_ID/apptainer"
+
+      # Shared location for container images (SIF files). Images are stored in an
+      # ARCHITECTURE-SCOPED subdirectory, because a SIF built for one architecture
+      # will not run on the other:
+      #   <images_path>/x86_64   (aliased as <images_path>/amd64)
+      #   <images_path>/aarch64  (aliased as <images_path>/arm64)
+      # Reference an image as $EDH_CONTAINER_IMAGES/<name>.sif, or as
+      # <images_path>/$(uname -m)/<name>.sif, so one job script works on either
+      # architecture.
+      images_path: "/apps/containers"
+
+      # Platforms where this runtime is NOT installed, as a comma-separated list.
+      # An entry is either a bare <base_os> (every architecture) or a
+      # <base_os>:<architecture> pair. A node matching an entry logs a warning and
+      # skips the installation rather than failing the bootstrap.
+      #
+      # This list is the gate for platform differences. The install itself uses the
+      # shared packages_install and file_download helpers, which retry and then
+      # fail the bootstrap, so a platform whose package names or toolchain have not
+      # been validated belongs here rather than being discovered as a failed node.
+      #
+      #   amazonlinux2023:aarch64 -- Go's arm64 external link requires the gold
+      #     linker, which Amazon Linux 2023 does not ship and does not package.
+      #   amazonlinux2, centos7, rhel7 -- el7-family. EOL, and the development
+      #     package names this build needs differ there. Not validated.
+      unsupported_platforms: "amazonlinux2023:aarch64,amazonlinux2,centos7,rhel7"
+
   services:
     aws_backup:
       enabled: true # Enable (True) or Disable (False) AWS Backup integration.  WARNING - SETTING THIS TO FALSE WILL DISABLE AUTOMATIC BACKUPS OF YOUR EDH ENVIRONMENT.
+
+    # AWS PCS integration.
+    aws_pcs:
+      # auto_onboard_client: when true, every new Linux virtual desktop / login node is onboarded at
+      # bootstrap as a client of each PCS cluster registered on EDH (edhctl pcs register)
+      auto_onboard_client: true
 
       # Specify your own CMK Arn to encrypt AWS Backup
       # Make sure the access policy of your CMK has proper permission for the services you are using. At a minimum, for any CMK used in EDH, you will need to add the following policy statement to allow EDH to use the key for encryption operations:
@@ -200,6 +249,176 @@ Config:
       retention_policy: "THREE_YEARS" # For valid values see the Enum: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html
       removal_policy: "RETAIN" # RETAIN or DESTROY
 
+    notification:
+      enabled: true # Enable (true) or Disable (false) the cluster notification SNS topic and its CloudWatch alarm actions
+      # The cluster notification topic MUST be encrypted with a CUSTOMER MANAGED key.
+      # The AWS managed key alias/aws/sns does NOT work here: its key policy does not
+      # allow CloudWatch alarms to call kms:Decrypt or kms:GenerateDataKey, and an AWS
+      # managed key policy cannot be edited. A topic on alias/aws/sns accepts alarm
+      # actions and then silently delivers nothing -- CloudWatch records
+      # "CloudWatch Alarms does not have authorization to access the SNS topic
+      # encryption key" in the alarm history and SNS never sees the message.
+      #
+      # Specify your own CMK Arn below to use an existing key. Its key policy must
+      # grant the CloudWatch service principal at least the following, or alarm
+      # notifications will not be delivered:
+      # {
+      #   "Sid": "Allow_CloudWatch_for_CMK",
+      #   "Effect": "Allow",
+      #   "Principal": {
+      #     "Service": "cloudwatch.amazonaws.com"
+      #   },
+      #   "Action": [
+      #     "kms:Decrypt",
+      #     "kms:GenerateDataKey*"
+      #   ],
+      #   "Resource": "*"
+      # }
+      # If unset (~), EDH creates a cluster-owned CMK with that statement already in
+      # place -- see create_kms_key below. Falls back to Config.kms_key_id if that is set.
+      kms_key_id: ~
+      # Create a cluster-owned CMK for the topic when no kms_key_id is set above.
+      # Set to false if the installer principal does not hold kms:CreateKey; you must
+      # then supply kms_key_id yourself, or CloudWatch alarms will not be delivered.
+      # The created key is deleted with the cluster: it protects alarm messages, which
+      # are ephemeral, so there is no ciphertext worth keeping after teardown.
+      create_kms_key: true
+
+    # Cross-region overlay mesh + job routing.
+    #
+    # Joins multiple EDH clusters (optionally across AWS accounts and regions)
+    # into a WireGuard overlay mesh whose shared state lives in DynamoDB Global
+    # Tables, and lets a routing policy steer HPC jobs between them.
+    #
+    # OPT-IN: every resource below is created only when `enabled` is true.
+    # With enabled: false (the default) EDH deploys exactly as it does today.
+    #
+    # See docs/cross_region/README.md for the architecture and the admin
+    # workflow, and docs/cross_region/MultiAccount.md for the cross-account
+    # IAM topology.
+    cross_region:
+      enabled: false # Default off; opt-in feature. When true, provisions the mesh DDB Global Tables + IAM for the WireGuard overlay.
+
+      # mesh_id: UUID shared by every cluster in the mesh. Generate once per
+      # fleet (uuidgen) and reuse the SAME value on every cluster's install.
+      # Two clusters with different mesh_id values never see each other.
+      mesh_id: ~
+
+      # is_mesh_creator: true ONLY for the very first cluster of a NEW mesh.
+      # That cluster creates the DDB Global Tables and the shared alarm/
+      # dashboard resources; every later cluster sets false and joins the
+      # existing tables.
+      is_mesh_creator: false
+
+      # mesh_table_prefix_override: optional human-readable prefix for the
+      # mesh DDB Global Table names (edh_<prefix>_<short_name>). Empty uses
+      # the first 8 hex characters of mesh_id. Constraints: 1-32 chars,
+      # leading lowercase letter, then alphanumerics/underscores. Must be
+      # IDENTICAL on every cluster in the same mesh.
+      mesh_table_prefix_override: ""
+
+      # replica_regions: optional pre-seed of DDB Global Table replica regions,
+      # comma-separated (example: "us-west-2,eu-west-1"). By default replicas
+      # are added automatically when a joiner installs in a new region, which
+      # costs a one-time 5-10 minute wait per region. Set this only when the
+      # fleet's regions are known up front. Admins also manage replicas at
+      # runtime from the WebUI (Admin -> Mesh -> Replicas).
+      replica_regions: ""
+
+      # Pre-deploy preflight: detects mesh resources left behind by a prior
+      # failed deploy and decides import-vs-recreate BEFORE cdk runs.
+      preflight:
+        # action for non-interactive installs:
+        #   "prompt" - ask per resource (default; interactive installs only)
+        #   "abort"  - refuse to deploy when leftover resources are found
+        #   "import" - adopt the existing resources
+        #   "delete" - recreate from scratch. DATA LOSS on a live mesh.
+        action: "prompt"
+        # The installer sets these per resource when the operator chooses
+        # IMPORT during preflight. Leave false for a normal install.
+        import_overlay_secret: false # adopt the existing WG private key, preserving mesh identity
+        import_mesh_tables: false # adopt the existing DDB Global Tables, preserving peer registry + audit log
+
+      # ---- Multi-account mesh (optional) ----------------------------------
+      # Clusters in one mesh may live in different AWS accounts, for example to
+      # bill separate departments. The joiner's overlay daemon assumes a role
+      # the mesh creator deployed. Leave all three empty for a single-account
+      # mesh.
+      #
+      # Set on a JOINING cluster:
+      mesh_role_arn: "" # ARN of <mesh_id>-MeshParticipantRole in the mesh creator's account. The local overlay daemon assumes this before reaching the mesh Global Tables.
+      mesh_role_external_id: "" # Optional shared ExternalId for confused-deputy protection. Must match the mesh creator's value. Recommended in production.
+      #
+      # Set on the MESH CREATOR cluster only:
+      participant_accounts: "" # Optional initial seed for the MeshParticipantRole trust policy: comma-separated AWS account IDs of joining clusters (example: "222222222222,333333333333"). The creator's own account is implicit - do not list it. Admins manage this at runtime from Admin -> Mesh -> Participants with no cdk redeploy.
+      # ---------------------------------------------------------------------
+
+      # Peer-to-peer capacity-probe token, managed automatically via Secrets
+      # Manager: the CDK provisions a KMS-encrypted per-cluster secret and the
+      # mesh creator's rotation Lambda enforces a maximum token lifetime.
+      # The rotation event fires grace_days BEFORE each token's hard deadline
+      # so the replacement can reach every peer while the old token is still
+      # accepted, giving an effective cadence of rotation_days - grace_days.
+      # Operators can monitor and force rotation from Admin -> Mesh.
+      peer_probe_token:
+        rotation_days: 90 # maximum lifetime of any single token
+        grace_days: 7 # overlap window at the end of a token's life
+
+      # Overlay daemon tunables. Every value has a working default inside the
+      # daemon; override only with a specific reason.
+      overlay:
+        listen_port: 51820 # WireGuard UDP listen port
+        mtu: 1280 # conservative for cross-region paths
+        sync_interval_seconds: 30 # how often the daemon reconciles local state against the Global Tables
+        health_interval_seconds: 60 # in-tunnel peer health probe interval
+        auto_decommission_days: 90 # auto-decommission a peer unreachable this long. ~ disables.
+        decommission_to_tombstone_days: 30 # days from decommissioned to tombstoned (permanent)
+        key_rotation_days: 90 # WireGuard key rotation cadence. 0 = manual only.
+        # Initial max_entries for the per-cluster managed prefix list.
+        # AWS charges security-group rule slots as
+        # (rules referencing the list) x max_entries, using max_entries and
+        # NOT the current entry count. With 4 referencing rules and the default
+        # 60-rule SG limit, max_entries must stay <= 15. Starting at 8 uses
+        # 32 of 60 slots and leaves headroom for future rules; the MPL sync
+        # Lambda grows it by 1 on demand up to the hard cap below.
+        # Raising this to a large value WILL break controller SG attachment at
+        # deploy time.
+        prefix_list_max_entries: 8
+        prefix_list_max_entries_hard_cap: 12 # ceiling for the auto-resize: 4 rules x 12 = 48 of 60 slots
+
+      # Joiner-side bootstrap behaviour. 0 (default) is fully hands-free: the
+      # joiner registers itself as PENDING and the controller install does NOT
+      # block on admin approval. The daemon's serve loop brings the tunnel up
+      # within one sync interval of approval in Admin -> Mesh. A positive value
+      # makes the controller bootstrap wait briefly for a fast approval, which
+      # is cosmetic only - the end state is identical either way.
+      bootstrap_wait_seconds: 0
+
+      # Routing loop detection: a DDB Streams consumer counts per-job qmoves
+      # and alarms when a job is being bounced between clusters. Only one
+      # consumer per mesh is needed, so this defaults to the mesh creator.
+      loop_detection:
+        enabled: ~ # ~ means "same as is_mesh_creator"
+        warn_threshold: 5 # qmoves/hour that raise a WARN metric + SNS notice
+        crit_threshold: 10 # qmoves/hour that raise CRIT, auto-lock the job, and notify
+        counter_window_seconds: 3600
+
+      # Mesh health alarms: a per-minute Lambda sweeps the cluster-state table,
+      # emits CloudWatch metrics, and alarms when any cluster's heartbeat goes
+      # stale or its syncs start failing. Mesh creator only.
+      health_alarms:
+        enabled: ~ # ~ means "same as is_mesh_creator"
+        stale_threshold_seconds: 300 # heartbeat older than this counts as stale
+
+      # Per-mesh CloudWatch dashboard. Uses SEARCH() expressions on the
+      # cluster_id dimension so clusters appear without a redeploy.
+      dashboard:
+        enabled: true
+
+      # Optional email address for cross-region alarms (loop detection, peer
+      # health, sync failures). Empty means no subscription is created.
+      alarm_email: ""
+
   # Configure your Network parameters below (CIDR range is configured interactively --vpc-cidr
   network:
     alb_tls_policy: "ELBSecurityPolicy-TLS13-1-2-2021-06" # See https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
@@ -301,6 +520,10 @@ Config:
         storage_capacity: 1024
         junction_path: "/apps"
         netbios_name: "EDHAPPSSVM" # 15 Chars Max, must be unique to your AD
+        # No drive letter by default: /apps holds UNIX/HPC software, which is
+        # of limited use from Windows. Set one if your site installs Windows
+        # applications here.
+        # mount_drive_letter: "Y:"
         file_system_administrators_group: ~ # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
         organizational_unit_distinguished_name: ~ # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
       fsx_lustre:
@@ -338,6 +561,9 @@ Config:
         storage_capacity: 1024
         junction_path: "/data"
         netbios_name: "EDHDATASVM" # 15 Chars Max, must be unique to your AD.
+        # Drive letter Windows VDIs map this share to at user logon. Windows
+        # only; ignored by Linux nodes. Unset means no automatic mapping.
+        mount_drive_letter: "Z:"
         file_system_administrators_group: ~ # Leave default if using AWS DS (will use AWS Delegated FSx Administrators)
         organizational_unit_distinguished_name: ~ # Leave default if using AWS DS (OU=Computers, <BASE_DOMAIN>)
       fsx_lustre:
@@ -483,6 +709,23 @@ Config:
     # EBS PRVI (volume initialization rate) in MiB/s applied to VDI root volumes at launch/resume;
     # eliminates the lazy-load first-touch stall on fresh-lineage AMIs. 0 disables; max 300 (quota-safe).
     volume_initialization_rate: 300
+    # Root EBS volume defaults for Virtual Desktops. The per-OS default size is what the
+    # launch form offers and what an API launch without disk_size gets. Each software
+    # stack has its own minimum root size; a stack minimum of 0 uses min_size_* below.
+    # The default is raised to the minimum when it is smaller. Type/iops/throughput
+    # apply to every VDI launch. All are editable post-deployment under
+    # /configuration/dcv/root_volume/.
+    root_volume:
+      default_size_linux: 100 # GB
+      default_size_windows: 100 # GB
+      min_size_linux: 100 # GB, minimum for stacks whose own minimum is 0
+      min_size_windows: 100 # GB, minimum for stacks whose own minimum is 0
+      volume_type: "gp3" # gp3, gp2, io1 or io2. First-generation AWS Outposts racks support gp2 only; second-generation racks support gp3 up to 16 TiB, 16000 IOPS and 1000 MiB/s
+      # 0 means "use the default for the volume type" (3000 for gp3/io1/io2; ignored for gp2).
+      # Values beyond what the type and disk size allow are clamped at launch.
+      iops: 3000
+      # MiB/s, gp3 only. 0 means the gp3 baseline of 125.
+      throughput: 125
     # Default allowed EC2 instance types for VDI. Can be changed post-deployment via Virtual Desktop Profiles https://awslabs.github.io/engineering-development-hub-documentation/documentation/virtual-desktops/vdi-profiles/
     allowed_instances:
       [
@@ -499,6 +742,7 @@ Config:
         "m8g.*",
         "r8g.*",
         "g7e.*",
+        "g7.*",
         "g6.*",
         "g6f.*",
         "g6e.*",
@@ -521,6 +765,9 @@ Config:
       collision_alarm_pct: 25 # advisory alarm: sustained claim-collision rate (under-provisioned hot)
       collision_alarm_min_attempts: 20 # floor: ignore collision rate below this attempt volume
       asg_count_alarm_pct: 80 # advisory alarm: ASG count vs account limit
+    placement:
+      concurrent_az_attempts: 1 # How many AZs to attempt a reservation in at once, which is how capacity is tested: 1 = serial, N = cap, "all" = every candidate AZ. A wave that finds none falls through to the next, so a low value never loses an AZ. Serial by default: each attempt holds a real reservation.
+      az_order: "random" # Order the candidate AZs are attempted in. "random" spreads launches across AZs instead of starting every one at the first configured subnet. "ordered" walks the configured subnet order, which is what you want when one AZ is preferred, e.g. a single-AZ FSx file system where placing elsewhere costs cross-AZ latency on every read.
     gateway:
       instance_type: [
           "m8i-flex.large",
@@ -643,10 +890,32 @@ Config:
     create_route53_resolver: true # Create (true) the Route53 resolver and rules for the domain in AD mode. This may need to be set to false for shared VPC environments where the downstream AWS account is not able to create the Route53 resolver/rules.
     # Choose the Directory to use on SOCA:
     # 1 - aws_ds_managed_activedirectory (Recommended) - Create a new AWS Directory Service Managed Active Directory -  https://docs.aws.amazon.com/directoryservice/latest/admin-guide/directory_microsoft_ad.html
-    # 2 - existing_active_directory (Experimental) - Connect to an existing Microsoft Active Directory
+    # 2 - existing_active_directory - Connect to an existing Microsoft Active Directory
     # 3 - openldap - Create a new standalone OpenLDAP hosted on the Controller host - https://www.openldap.org/
     # 4 - existing_openldap - Connect to an existing OpenLDAP
     provider: "aws_ds_managed_activedirectory"
+    #
+    # Windows home drive. EDH writes the AD homeDirectory/homeDrive pair at user
+    # creation and Windows maps the drive at logon. Set it to "" to write neither
+    # attribute, which is the right choice when site policy owns home folders.
+    #
+    # Safe to default on: the UNIX home path goes to unixHomeDirectory, which is
+    # the attribute Linux (SSSD's ad provider) and ONTAP read. homeDirectory is
+    # Windows-only and never affects a POSIX login.
+    windows_home_drive: "H:"
+    #
+    # UNC for the Windows home. {username} is substituted per user. Leave unset
+    # to derive it from the fsx_ontap filesystem backing the UNIX home.
+    # Set it when homes live on storage EDH did not provision.
+    # windows_home_unc_template: "\\\\fileserver.example.com\\home\\{username}"
+    #
+    # How the directory stores POSIX identity for the ONTAP SVM's LDAP client.
+    # MS-AD-BIS is NetApp's preferred schema for Windows 2012 and later and is
+    # applied as the default when this key is absent.
+    # An existing directory holding POSIX data in the Services for UNIX attributes (msSFU30UidNumber
+    # and friends) needs AD-SFU instead.
+    # Allowed: MS-AD-BIS | AD-IDMU | AD-SFU | RFC-2307
+    # ontap_ldap_schema: "MS-AD-BIS"
     #
     # Settings for the AWS Managed Active Directory password policy
     #
@@ -658,21 +927,64 @@ Config:
       password_complexity: ~ # AWS default true
       password_reversible: ~ # AWS default false
 
-    # DNS Domain name for your deployment. Automatically populated as <clusterID>.local unless specified here (e.g: soca-test.local)
+    # DNS Domain name for your deployment. Automatically populated as <clusterID>.internal unless specified here (e.g: edh-test.internal)
+    # ICANN reserved .internal for private internal use. Do not use .local: RFC 6762 reserves it for
+    # mDNS, systemd-resolved refuses it by policy, and the Active Directory join fails as a result.
     domain_name: ~
 
-    # Based on your domain name unless specified here (e.g: DC=soca-test,DC=local)
+    # Based on your domain name unless specified here (e.g: DC=edh-test,DC=internal)
     base_dn: ~
 
-    # NetBIOS name (AD only) Automatically populated as the first part of directoryservice.domain_name (e.g. SOCA-TEST if soca-test.local) unless specified here
+    # NetBIOS name (AD only) Automatically populated as the first part of directoryservice.domain_name (e.g. EDH-TEST if edh-test.internal) unless specified here
     # Limit to 15 chars
     short_name: ~
+
+    # Where EDH creates computer objects, per class of node.
+    # Unset uses the directory default container.
+    #
+    # AWS Managed AD does not let you delegate that default container to a
+    # least-privilege account, because Domain Admin is withheld. A scoped
+    # service account must therefore be given an OU here that it has rights on.
+    #
+    # Resolution for any node: its own key, then its group's "default", then the
+    # top-level "default", then the directory default container. So a site with
+    # one OU sets "default" alone; a site whose policy separates Windows desktops
+    # sets vdi.windows and nothing else changes.
+    #
+    # Full DN, or a relative DN with base_dn appended (as with the search bases).
+    computer_ou:
+      default: ~
+
+      controller: ~
+      login_node: ~
+      storage: ~ # FSx ONTAP SVMs. The per-filesystem storage.<fs>.fsx_ontap.organizational_unit_distinguished_name wins over this.
+
+      # Virtual desktops. Keyed by OS family because Group Policy applies to
+      # Windows and not to Linux, so site policy commonly separates them.
+      vdi:
+        default: ~
+        windows: ~
+        linux: ~
+
+      # HPC compute. One key per existing Join*NodesToAD feature flag.
+      hpc:
+        default: ~
+        ephemeral: ~ # per-job nodes that die with the job
+        alwayson: ~ # long-lived capacity on the alwayson queue
+        pcs: ~ # AWS Parallel Computing Service nodes
 
     aws_ds_managed_activedirectory:
       edition: "Standard" # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-edition
       # Note: These are the default settings created by AWS Directory Service which cannot be changed. Displayed for information only.
       # people_search_base: "cn=Users,<base_dn>", group_search_base: "cn=Group,<base_dn>", admins_search_base: "cn=AWS Delegated Administrators,ou=AWS Delegated Groups,<base_dn>"
-      admins_search_base: "cn=socasudoadminsgroup" # Any users created in this group will have Linux SUDO & SOCA Admin permissions
+      admins_search_base: "cn=edhsudoadminsgroup" # Any users created in this group will have Linux SUDO & EDH Admin permissions
+
+      # Optional - Restrict who can log in to SOCA. Users must be in people_search_base AND be a member (direct or nested) of AT LEAST one of these groups.
+      # Specify the full DN of each group. Leave blank (~) to allow every user in people_search_base to log in.
+      # ad_authentication_groups:
+      # - "CN=group1,OU=Users,OU=<short_name>,DC=mycompany,DC=com"
+      # - "CN=group2,OU=Users,OU=<short_name>,DC=mycompany,DC=com"
+      ad_authentication_groups: ~
 
       # Password policy settings applied to the AWS Managed AD PSO during controller bootstrap.
       # Set to ~ (null) to skip password policy configuration entirely.
@@ -750,6 +1062,13 @@ Config:
       group_search_base: ~ # Groups in this OU will be usable in SOCA - (base_dn is automatically added as suffix if not present)
       admins_search_base: ~ # Any users created in this OU will have SUDO permissions https://www.sudo.ws/docs/man/sudoers.ldap.man/ (base_dn is automatically added as suffix if not present)
 
+      # Optional - Restrict who can log in to SOCA. Users must be in people_search_base AND be a member (direct or nested) of AT LEAST one of these groups.
+      # Specify the full DN of each group. Leave blank (~) to allow every user in people_search_base to log in.
+      # ad_authentication_groups:
+      # - "CN=group1,OU=Groups,DC=mycompany,DC=com"
+      # - "CN=group2,OU=Groups,DC=mycompany,DC=com"
+      ad_authentication_groups: ~
+
       # If you change this value, SOCA will !!!NOT!!! create an Active Directory and will connect to the one you have specified.
       #  1. Verify if your Active Directory is reachable from the AWS Environment where you are about to install SOCA
       #  2. Verify the different Search Base above and ensure they match your environment
@@ -801,6 +1120,17 @@ Config:
     MaxRows: "1000"
     IncludeFinished: "true"
 
+  # Job chain (dependency graph) submission limits. MaxStages caps how many jobs one
+  # chain may carry: a chain costs three scheduler calls per stage, so this bounds how
+  # long one submit request stays open rather than anything the scheduler refuses.
+  # MaxParentsPerStage caps fan-in; 0 means no separate limit, since a stage can only
+  # depend on other stages in the same chain and is therefore already bounded by
+  # MaxStages. Runtime-flippable via
+  # `edhctl config set /edh/<cluster>/configuration/HPC/JobChain/<Key> <value>`.
+  hpc_job_chain:
+    MaxStages: "50"
+    MaxParentsPerStage: "0"
+
   # Owned-base AMI acceleration (golden image lineage). When Enabled, EDH copies the region_map
   # base AMIs into the account so snapshot capture is incremental and ids survive AWS retiring the
   # public bases. Cluster-wide; default off. Flip via `edhctl config set
@@ -822,7 +1152,7 @@ Config:
   # List of allowed/denied users can also be managed post-deployment via `edhctl`
   feature_flags:
     RunRemoteCommand: false # When true, /api/user/run_command will be enabled and end user will have the ability to run remote command on the controller.
-    AsyncPlacement: true # When true, VDI creates are routed through the async serverless placement pipeline (SQS -> DcvPlacement -> CapacityExecutor): the create API skips the synchronous ODCR probe and returns fast (~0.9s). Set false to use the synchronous create path.
+    AsyncPlacement: false # When true, VDI creates are routed through the async serverless placement pipeline (SQS -> DcvPlacement -> CapacityExecutor): the create API skips the synchronous ODCR probe and returns fast (~0.9s). Set false to use the synchronous create path.
     EnableCapacityReservation: true # When false, SOCA will try to provision EC2 capacity and ignore capacity reservation request.
     EnforceStrictCapacityReservation: false # When enabled, SOCA enforces strict capacity reservation rules and blocks requests that include multiple subnet IDs or instance types without guaranteed capacity. Because capacity reservations are limited to a single subnet and instance type, SOCA attempts to enforce a 1:1 mapping. Disabling this option allows EC2 Fleet to provision capacity across multiple subnets or instance types for greater flexibility, but you may run into situation where the EC2Fleet cannot provision all capacity due to InsufficientInstanceCapacity. This setting is ignored if EnableCapacityReservation is not True
 
@@ -831,17 +1161,17 @@ Config:
       # before its id is handed to a consumer (EC2Fleet via CapacityReservationTarget,
       # provisioned through CloudFormation). Guards against the reservation being consumed
       # while its pending->active transition
-      ActivationTimeoutSeconds: 120     # Max seconds to wait for a stable 'active' state before giving up.
-      ActivationPollIntervalSeconds: 2  # Seconds between reservation-state polls.
-      ActivationStableChecks: 1         # Consecutive 'active' reads required.
-      ActivationSettleSeconds: auto     # Extra dwell after 'active' is confirmed stable.
+      ActivationTimeoutSeconds: 120 # Max seconds to wait for a stable 'active' state before giving up.
+      ActivationPollIntervalSeconds: 2 # Seconds between reservation-state polls.
+      ActivationStableChecks: 1 # Consecutive 'active' reads required.
+      ActivationSettleSeconds: auto # Extra dwell after 'active' is confirmed stable.
 
     InternalApi:
       # Shared IAM-auth HTTP API (API Gateway v2)
-      AccessLogRetentionDays: 90        # CloudWatch retention (days) for the access-log group. Snapped DOWN to the nearest CloudWatch-allowed value (1,3,5,7,14,30,60,90,120,150,180,365,400,545,731,...); out-of-range falls back to 90.
-      ThrottleRateLimit: 50             # Stage default steady-state requests/sec. Out-of-range falls back to 50.
-      ThrottleBurstLimit: 25            # Stage default burst-bucket size. Out-of-range falls back to 25.
-      DetailedMetricsEnabled: true      # Per-route CloudWatch metrics (4xx/5xx/latency/count) for alarming. Set false to collapse to stage-level metrics only.
+      AccessLogRetentionDays: 90 # CloudWatch retention (days) for the access-log group. Snapped DOWN to the nearest CloudWatch-allowed value (1,3,5,7,14,30,60,90,120,150,180,365,400,545,731,...); out-of-range falls back to 90.
+      ThrottleRateLimit: 50 # Stage default steady-state requests/sec. Out-of-range falls back to 50.
+      ThrottleBurstLimit: 25 # Stage default burst-bucket size. Out-of-range falls back to 25.
+      DetailedMetricsEnabled: true # Per-route CloudWatch metrics (4xx/5xx/latency/count) for alarming. Set false to collapse to stage-level metrics only.
 
     Hpc:
       AllowCustomTags: true
@@ -849,6 +1179,7 @@ Config:
       EnableQuotasCheck: true # Query AWS Service Quotas before trying to provision capacity
       EnableNestedVirtualization: true # When true, users can request nested virtualization for HPC jobs via nested_virtualization=True resource directive
       JoinEphemeralNodesToAD: false # Decide whether you want to join ephemeral HPC nodes to your Active Directory. Ignored if using OpenLDAP. If false, a local dump of your users it deployed as local users on each nodes
+      JoinAlwaysOnNodesToAD: true # Decide whether you want to join alwayson HPC nodes to your Active Directory. Ignored if using OpenLDAP. Defaults to true because the local user dump is append-only (a user removed from AD or from a group is never removed from the node), which accumulates on a long-lived node
 
     Networking:
       EnableIPv6: false # [PREVIEW FEATURE] - Enable IPv6 CIDRs, SG rules. MPLs for newly created VPCs/Subnets
@@ -856,9 +1187,9 @@ Config:
 
     VirtualDesktops:
       AllowCustomTags: true
-      AllowSavedDesktops: false  # When true, enables Saved Desktops: Save & Shut Down capture, Resume-from-saved-image, and Spot interruption auto-capture. Ships dark.
-      AllowSpot: false  # When true, users can request Spot capacity for virtual desktops (advanced launch option). Spot desktops may be interrupted and cannot be stopped/resumed.
-      EnableNestedVirtualization: true  # When true, users can enable nested virtualization for virtual desktops development
+      AllowSavedDesktops: false # When true, enables Saved Desktops: Save & Shut Down capture, Resume-from-saved-image, and Spot interruption auto-capture. Ships dark.
+      AllowSpot: false # When true, users can request Spot capacity for virtual desktops (advanced launch option). Spot desktops may be interrupted and cannot be stopped/resumed.
+      EnableNestedVirtualization: true # When true, users can enable nested virtualization for virtual desktops development
 
     TargetNodes:
       AllowCustomTags: true
@@ -939,6 +1270,10 @@ Parameters:
       supported:
         - "amazonlinux2"
         - "amazonlinux2023"
+        # Public preview. HPC / compute nodes only for now: AL2027 is deliberately
+        # NOT offered for VDI, because Amazon DCV publishes no al2027 package family.
+        # See the AL2027 base-OS support item for the phase-2 gating condition.
+        - "amazonlinux2027"
         - "rhel8"
         - "rhel9"
         - "rocky8"
@@ -968,9 +1303,9 @@ Parameters:
 
     # SOCA Python, installed on all SOCA nodes
     python:
-      version: "3.13.13"
-      url: "https://www.python.org/ftp/python/3.13.13/Python-3.13.13.tgz"
-      sha256: "f9cde7b0e2ec8165d7326e2a0f59ea2686ce9d0c617dbbb3d66a7e54d31b74b9"
+      version: "3.13.15"
+      url: "https://www.python.org/ftp/python/3.13.15/Python-3.13.15.tgz"
+      sha256: "c28d9d213c09b5b5ab2c29812950e12f746999e099b82894231be954b26baed9"
 
     # Scheduler to deploy on all SOCA nodes
     scheduler:
@@ -1027,6 +1362,8 @@ Parameters:
         pbs_exec: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/openpbs" # Default is "/opt/pbs"
         pbs_home: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/openpbs/var/spool/pbs" # Default is "/var/spool/pbs" include spooler dirs, hierarchy will be created at compilation time but use the same tree as install_prefix_path. You can override this setting if needed.
 
+        job_history_duration: "336:00:00" # How long qstat -x keeps a finished job, HH:MM:SS. Upstream PBS default is two weeks. Applied at controller build only
+
         deployment_type: "git" # tgz or git
         tgz: # Download OpenPBS tgz from the URL listed below
           version: "23.06.06"
@@ -1074,6 +1411,8 @@ Parameters:
         pbs_exec: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/pbspro"
         pbs_home: "/opt/edh/$EDH_CLUSTER_ID/schedulers/default/pbspro/var/spool/pbs" # include spooler dirs, hierarchy will be created at compilation time but use the same tree as install_prefix_path. You can override this setting if needed.
 
+        job_history_duration: "336:00:00" # See Parameters.system.scheduler.openpbs.job_history_duration
+
         # Required -  Path to your S3 folder containing PBSPro installer: e.g: s3://mybucket/pbspro/ (IMPORTANT: Must end with a /).
         # Must contain all required installation files + entitlement and fix pack.
         # IMPORTANT: Must use the same bucket as the one specified at install time
@@ -1113,9 +1452,9 @@ Parameters:
     # OpenMPI is automatically installed on /apps partition at the end of the initial Controller setup
     # You can disable it via installer/resources/user_data/controller/03_setup.sh.j2
     openmpi:
-      version: "5.0.9"
-      url: "https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.9.tar.gz"
-      sha256: "be35ac3aae68609dedf56a3c6480cb1b0af9ae40b98cc83ef27bc859084a9aa8"
+      version: "5.0.10"
+      url: "https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.10.tar.gz"
+      sha256: "5692cc80554a7117c99eaa725d35100edd8bbf73423a5e265ff867979192df7d"
 
     # CloudWatch agent is only used if you enable cluster_node_boostrap/templates/linux/aws_cloudwatch_agent.sh.j2
     cloudwatch_agent:
@@ -1148,6 +1487,39 @@ Parameters:
       url: "https://efa-installer.amazonaws.com/aws-efa-installer-1.48.0.tar.gz"
       sha256: "f3a8aadc2b94288694a9b9375bcad84a82f0f843e0eefafda7b158b2200549cc"
 
+    # Apptainer container runtime, installed when
+    # /configuration/HPC/containers/apptainer/enabled is true.
+    # Built from source rather than installed from a package: no distro package
+    # covers the whole base OS matrix (absent from the Amazon Linux 2023 repos,
+    # absent from EPEL 7, not in Ubuntu until 25.10) and upstream publishes no
+    # aarch64 artifact, so the source tarball is the only way to get the same
+    # version on every supported platform.
+    # The Go toolchain is pinned as well and MUST match the go directive in the
+    # Apptainer release's go.mod. A newer Go fails to build 1.5.3 (the vendored
+    # grpc copy does not compile against it).
+    apptainer:
+      version: "1.5.3"
+      url: "https://github.com/apptainer/apptainer/releases/download/v1.5.3/apptainer-1.5.3.tar.gz"
+      sha256: "5a3bf360a5240086324aa7f7005ab7eeee91095e2091078b3f9783eaf6e7288a"
+      go_version: "go1.25.7"
+      go_sha256_amd64: "12e6d6a191091ae27dc31f6efc630e3a3b8ba409baf3573d955b196fdf086005"
+      go_sha256_arm64: "ba611a53534135a81067240eff9508cd7e256c560edd5d8c2fef54f083c07129"
+
+      # squashfuse is what makes "apptainer exec" MOUNT a container image rather
+      # than unpack the whole thing to a temporary sandbox on every launch.
+      # It is built from this pinned source on EVERY distro rather than installed
+      # as a package. Packages exist for rocky/rhel (EPEL) and Ubuntu (universe)
+      # but NOT for Amazon Linux 2023 -- its only enabled repositories are
+      # amazonlinux and kernel-livepatch, EDH deliberately does not enable EPEL
+      # there, and squashfuse is in neither. Since amazonlinux2023 is the DEFAULT
+      # base OS, and since packages_install correctly fails the bootstrap when a
+      # package cannot be resolved, a uniform source build is what removes the
+      # per-distro repository question instead of relying on a non-fatal install.
+      # Architecture-independent: this is a small C autotools project, not Go.
+      squashfuse_version: "0.6.3"
+      squashfuse_url: "https://github.com/vasi/squashfuse/releases/download/0.6.3/squashfuse-0.6.3.tar.gz"
+      squashfuse_sha256: "0c9f582ca488dc5eb450830d72f45a042ef5c0476118502ab5ed86ae9dd8bd46"
+
     # SQLite is installed on the controller host and is the primary DB for SOCA Web UI
     sqlite:
       version: "3.49.1"
@@ -1174,18 +1546,43 @@ Parameters:
             #  https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-driver-instance-type
             # If EC2 Instance Family only supports Tesla, SOCA will install Tesla Drivers
             # If EC2 Instance family supports both Tesla and Grid, SOCA will only install Grid Driver if it's a DCV (Virtual Desktop) machine
-            tesla_drivers_only: "(p3|p4d|p4de|p5|p5e|p5en|p6-b200|p6e-gb200|p6-b300|g5g)"
-            tesla_drivers_ltsb_only: "(p2|g2)" # (Experimental) For Older GPU generation
+            # p2 and g2 are here for their GPU age, not their capability: they are pinned to the
+            # LTSB driver by the version_pins kepler_ltsb group below, which is the only thing
+            # that made them a separate setting before.
+            tesla_drivers_only: "(p2|g2|p3|p4d|p4de|p5|p5e|p5en|p6-b200|p6e-gb200|p6-b300|g5g)"
             grid_drivers:
               s3_bucket_url: "https://ec2-linux-nvidia-drivers.s3.amazonaws.com"
               s3_bucket_path: "s3://ec2-linux-nvidia-drivers"
-              version: "grid-19.4" # Default GRID driver version (validated at release)
+              version: "grid-20.2" # Default GRID driver version (validated at release). G7's RTX PRO 4500 first appears in GRID 20.0
               version_amazonlinux2: "grid-17.1" # ALI2 caps here: 18.1+ needs a newer kernel than 4.14
 
             tesla_drivers:
               public_driver_url_endpoint: "https://us.download.nvidia.com/tesla"
-              production_version: "535.104.05" # Tesla production driver
-              ltsb_version: "470.199.02" # Long Term Servicing Branch, for older GPU generations
+              production_version: "535.104.05" # Tesla production driver, used by any family without a version_pins entry
+              # Public driver version per instance family, for families whose GPU is outside
+              # production_version's supported-device list. Add a group to pin a new family;
+              # no template change is needed, and a single group can be set on a live cluster with
+              # edhctl config set --key "/system/gpu/gpu_settings/nvidia/linux/tesla_drivers/version_pins/<group>/version"
+              #
+              # `instance_families` is one whole family name per list entry -- never a prefix
+              # or a glob, so g7 does not match g7e. One entry per line is deliberate: a list
+              # cannot merge two names the way a dropped separator in a delimited string can.
+              # Keep the groups disjoint; they are a lookup, not an ordered list. On a live
+              # cluster the same value is set space-separated: --value "p2 g2".
+              version_pins:
+                blackwell:
+                  instance_families:
+                    - "p6-b200"
+                    - "p6e-gb200"
+                    - "p6-b300"
+                    - "g7"
+                    - "g7e"
+                  version: "595.91.07" # R595 is the first branch carrying RTX PRO Blackwell, and it drops Volta, so it cannot be the default
+                kepler_ltsb:
+                  instance_families:
+                    - "p2"
+                    - "g2"
+                  version: "470.199.02" # Long Term Servicing Branch, for older GPU generations
 
           windows:
             # Windows is only for VDI instance, so we install only Grid Drivers.
@@ -1193,7 +1590,7 @@ Parameters:
             grid_drivers:
               s3_bucket_url: "https://ec2-windows-nvidia-drivers.s3.amazonaws.com"
               s3_bucket_path: "s3://ec2-windows-nvidia-drivers"
-              version: "grid-19.4" # Default GRID driver version (WS2022 / WS2025)
+              version: "grid-20.2" # Default GRID driver version (WS2022 / WS2025)
               version_server2019: "grid-18.0" # Latest GRID driver providing WS2019 support
 
         amd:
@@ -1295,7 +1692,7 @@ Parameters:
         url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-server-x64-Release-2025.0-20103.msi"
         sha256: "593e2b78cd41b64fac255f303e48b1e7f73129969279ba2eae067e519f962067"
 
-      # DCV Session Manager Broker (noarch — Java-based, one RPM per OS family)
+      # DCV Session Manager Broker (noarch -- Java-based, one RPM per OS family)
       session_manager_broker:
         al2:
           version: "2025.0.561-1"
@@ -1440,7 +1837,7 @@ Parameters:
           url: "https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/SessionManagerAgents/nice-dcv-session-manager-agent-x64-Release-2025.0-902.msi"
           sha256: "b518a5039388c1dabc3bdd359743ce99b0a6e2a2fa3fb70a513813e0b5aa3b09"
 
-      # DCV Session Manager CLI (noarch — Python 3 zip, runs anywhere)
+      # DCV Session Manager CLI (noarch -- Python 3 zip, runs anywhere)
       # Operator/admin tool for the broker. Installed on the broker host so
       # cluster admins can issue session-manager API calls locally without
       # bouncing off the broker REST endpoint.

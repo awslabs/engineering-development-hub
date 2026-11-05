@@ -39,6 +39,13 @@
                                    aria-selected="false">{{ _("Grant/Revoke Admin permissions") }}</a>
                             </div>
                         </nav>
+                        {% if directory_read_only %}
+                            <div class="alert alert-warning" role="alert">
+                                <strong>{{ _("User and group management is not available on this cluster") }}</strong><br>
+                                {{ _("This EDH cluster is connected to an existing directory that it does not manage, so users and groups must be administered in that directory. Detected provider:") }}
+                                <code>{{ directory }}</code>
+                            </div>
+                        {% endif %}
                         <div class="tab-content" id="nav-tabContent">
                             <div class="tab-pane fade show active" id="nav-add" role="tabpanel"
                                  aria-labelledby="nav-home-tab">
@@ -59,6 +66,14 @@
                                             <div class="form-group">
                                                 <input id="user" placeholder="{{ _("User") }}" class="form-control" type="text"
                                                        required name="user">
+                                            </div>
+                                            <div class="form-group">
+                                                <input id="first_name" placeholder="{{ _("First name (optional)") }}"
+                                                       class="form-control" type="text" name="first_name" maxlength="64">
+                                            </div>
+                                            <div class="form-group">
+                                                <input id="last_name" placeholder="{{ _("Last name (optional)") }}"
+                                                       class="form-control" type="text" name="last_name" maxlength="64">
                                             </div>
                                             <div class="form-group">
                                                 <input id="password" placeholder="{{ _("Password") }}" class="form-control"
@@ -101,7 +116,7 @@
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">{{ _("Create Account") }}
+                                                <button type="submit" class="btn btn-primary" {% if directory_read_only %}disabled{% endif %}>{{ _("Create Account") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -138,7 +153,7 @@
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">{{ _("Delete User") }}</button>
+                                                <button type="submit" class="btn btn-danger" {% if directory_read_only %}disabled{% endif %}>{{ _("Delete User") }}</button>
                                             </div>
                                         </form>
                                     </div>
@@ -173,7 +188,7 @@
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <input type="hidden" name="admin_reset" value="yes">
-                                                <button type="submit" class="btn btn-danger">{{ _("Generate temporary password") }}
+                                                <button type="submit" class="btn btn-danger" {% if directory_read_only %}disabled{% endif %}>{{ _("Generate temporary password") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -207,7 +222,7 @@
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-success">{{ _("Grant Admin permission") }}
+                                                        <button type="submit" class="btn btn-success" {% if directory_read_only %}disabled{% endif %}>{{ _("Grant Admin permission") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -237,7 +252,7 @@
                                                         <input type="hidden" name="action" value="revoke">
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-danger">{{ _("Revoke Admin permission") }}
+                                                        <button type="submit" class="btn btn-danger" {% if directory_read_only %}disabled{% endif %}>{{ _("Revoke Admin permission") }}
                                                         </button>
                                                     </div>
                                                 </form>

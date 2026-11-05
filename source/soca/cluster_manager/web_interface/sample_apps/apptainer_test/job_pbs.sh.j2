@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# Apptainer Container Test wrapper (PBS / OpenPBS / PBSPro)
+# ========================================================
+# Renders Jinja variables from the WebUI form, then dispatches to the bundled
+# validation script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh
+#
+# This is the single-node, no-EFA sample. It answers "does the container runtime
+# on this node actually work", including the failure modes that degrade silently
+# rather than erroring. Run it before the EFA sample.
+#
+# {{instance_type}}  is the EC2 instance type from the form.
+# {{job_name}}       is the human-readable job name (no spaces).
+# {{base_os}}        is the base OS for the compute node.
+# {{walltime}}       is HH:MM:SS for the scheduler walltime budget.
+# {{user_pre_exec}}  is optional user-provided shell commands run beforehand.
+#
+#PBS -N {{job_name}}
+#PBS -q normal
+#PBS -k oed
+#PBS -l walltime={{walltime}}
+#PBS -l select=1:ncpus={{ncpus}}
+#PBS -l instance_type={{instance_type}}
+#PBS -l base_os={{base_os}}
+
+set -uo pipefail
+
+cd "${PBS_O_WORKDIR:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer Container Test: {{job_name}}"
+echo "  instance_type: {{instance_type}}"
+echo "  base_os:       {{base_os}}"
+echo "  walltime:      {{walltime}}"
+echo "  PBS_JOBID:     ${PBS_JOBID:-unknown}"
+echo "  Started:       $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+# Locate the bundled validation script
+APPTAINER_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_test/apptainer_test_job.sh"
+if [[ ! -x "${APPTAINER_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer Container Test complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "Output is in $HOME/{{job_name}}.o${PBS_JOBID:-unknown}"
+echo "=========================================="
+
+exit ${RESULT}

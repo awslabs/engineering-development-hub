@@ -10,6 +10,7 @@ from utils.config import SocaConfig
 
 @click.group()
 def config():
+    """Read, change and roll back cluster configuration keys."""
     pass
 
 

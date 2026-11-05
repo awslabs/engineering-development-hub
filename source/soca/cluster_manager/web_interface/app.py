@@ -33,6 +33,7 @@ from urllib.parse import urlparse
 import validators
 
 from api.v1.scheduler.job import Job
+from api.v1.scheduler.job_chain import JobChain
 from api.v1.scheduler.jobs import Jobs
 
 from api.v1.ldap.sudo import Sudo
@@ -175,6 +176,35 @@ from api.v1.containers.batch.job_definition import BatchJobDefinition
 from api.v1.containers.batch.job import BatchJob
 from api.v1.containers.batch.jobs import BatchJobs
 
+# Cross-region overlay mesh, admin-only. Third to eighth CRs of that stack.
+#
+# Imported behind a guard, and the guard is the point. These modules import
+# overlay_daemon, which imports boto3 and the daemon's own model and access
+# layers, so an unguarded module-scope import here would make the ENTIRE web
+# interface fail to start if anything in that chain could not be imported. That
+# would be true on every cluster, including the ones with
+# services.cross_region.enabled set to false, which is the opposite of what a
+# flag-gated feature should cost.
+#
+# Exception rather than ImportError: a missing dependency raises ImportError, but a
+# syntax error raises SyntaxError and a bad module-scope constant raises whatever
+# it raises. CR3's review history is largely a record of enumerating raisable types
+# and missing one, so this catches everything and reports what it caught.
+#
+# What is imported here is the REGISTRAR rather than the resources. It holds its own
+# imports inside its functions, so this line is cheap and the chain above is not
+# walked until the call site. That also means each new mesh CR extends one list
+# inside that module instead of this file's import block, which is what stopped
+# being reliable: the job endpoints were added to both lists and the P2P surface
+# ended up on the load balancer as a result.
+try:
+    from api.v1.mesh import route_registration as _mesh_routes
+
+    _MESH_API_IMPORT_ERROR = None
+except Exception as _mesh_import_error:  # noqa: BLE001 - see the comment above
+    _mesh_routes = None
+    _MESH_API_IMPORT_ERROR = _mesh_import_error
+
 from views.index import index
 from views.ssh import ssh
 from views.web_terminal import web_terminal
@@ -183,6 +213,19 @@ from views.my_api_tokens import my_api_tokens
 from views.admin.users import admin_users
 from views.admin.groups import admin_groups
 from views.admin.applications import admin_applications
+
+# Cross-region mesh admin page. Guarded like the API import above, and registered
+# only when BOTH succeeded: see the registration site, which is where the pairing
+# actually happens. This view imports nothing from the mesh package, so on its own
+# it would essentially always load, and an earlier version of this comment claimed
+# the two blocks failed together when they cannot.
+try:
+    from views.admin.mesh import admin_mesh
+
+    _MESH_VIEW_IMPORT_ERROR = None
+except Exception as _mesh_view_import_error:  # noqa: BLE001
+    admin_mesh = None
+    _MESH_VIEW_IMPORT_ERROR = _mesh_view_import_error
 from views.admin.virtual_desktops.software_stacks import (
     admin_virtual_desktops_software_stacks,
 )
@@ -204,6 +247,7 @@ from views.admin.target_nodes.user_data import admin_target_nodes_user_data
 from views.admin.target_nodes.software_stacks import admin_target_nodes_software_stacks
 from views.admin.target_nodes.profiles import admin_target_nodes_profiles
 from views.admin.token_audit import admin_token_audit
+from views.admin.pcs import admin_pcs
 
 from views.my_jobs import my_jobs
 from views.my_activity import my_activity
@@ -238,6 +282,7 @@ import os
 import stat
 import sys
 from utils.logger import SocaLogger
+from utils.version import __version__
 import json
 
 from extensions import db, scheduler
@@ -548,6 +593,8 @@ app.jinja_env.globals["localized_markdown"] = _localized_markdown
 
 @app.errorhandler(404)
 def page_not_found(_e):
+    if request.path.startswith(("/static/", "/api/")) or not request.accept_mimetypes.accept_html:
+        return make_response("Not Found", 404)
     return redirect("/")
 
 
@@ -560,6 +607,8 @@ def inject_globals():
         "user": session.get("user", ""),
         "languages": LANGUAGES,
         "current_lang": get_locale(),
+        "cluster_name": config.Config.CLUSTER_ID,
+        "edh_version": __version__,
     }
 
 
@@ -577,6 +626,10 @@ def setup_logger(name: str, file_path: str):
 
 
 logger = logging.getLogger("soca_logger")
+
+
+# Shared app-user name used before the app user became cluster-derived.
+_LEGACY_APP_USER = "edh_app"
 
 
 def _ensure_iam_app_user():
@@ -627,7 +680,7 @@ def _ensure_iam_app_user():
     if not _iam_auth:
         return  # password-fallback mode: admin IS the runtime user, no app role
 
-    _app_user = _ssm("/configuration/Database/app_user") or "edh_app"
+    _app_user = _ssm("/configuration/Database/app_user") or _LEGACY_APP_USER
     _endpoint = _ssm("/configuration/Database/endpoint")
     _port = _ssm("/configuration/Database/port")
     _database = _ssm("/configuration/Database/name")
@@ -750,6 +803,37 @@ def _ensure_iam_app_user():
                 f"ALTER DEFAULT PRIVILEGES IN SCHEMA public "
                 f"GRANT ALL ON SEQUENCES TO {_app_user};"
             )
+            # Upgrade case: clusters provisioned before the app user became
+            # cluster-derived own every table and sequence as the shared
+            # 'edh_app' role. Grants alone are not enough -- DDL and migrations
+            # need ownership -- so hand the objects over, then strip rds_iam from
+            # the legacy role so the retired identity can no longer authenticate.
+            if _app_user != _LEGACY_APP_USER:
+                _cur.execute(
+                    f"SELECT 1 FROM pg_roles WHERE rolname = '{_LEGACY_APP_USER}'"
+                )
+                if _cur.fetchone():
+                    # the Aurora admin user is rds_superuser, not a superuser, so
+                    # REASSIGN OWNED is denied until this session holds both roles
+                    _cur.execute(f"GRANT {_LEGACY_APP_USER} TO CURRENT_USER;")
+                    _cur.execute(f"GRANT {_app_user} TO CURRENT_USER;")
+                    try:
+                        _cur.execute(
+                            f"REASSIGN OWNED BY {_LEGACY_APP_USER} TO {_app_user};"
+                        )
+                        _cur.execute(f"REVOKE rds_iam FROM {_LEGACY_APP_USER};")
+                    finally:
+                        # autocommit is on, so the GRANTs above are already durable;
+                        # revoke unconditionally or a failure leaks the memberships
+                        _cur.execute(
+                            f"REVOKE {_LEGACY_APP_USER} FROM CURRENT_USER;"
+                        )
+                        _cur.execute(f"REVOKE {_app_user} FROM CURRENT_USER;")
+                    logger.warning(
+                        f"IAM app-user bootstrap: migrated object ownership from "
+                        f"legacy role '{_LEGACY_APP_USER}' to '{_app_user}' and "
+                        f"revoked its rds_iam membership.\n"
+                    )
         logger.info(
             f"IAM app-user bootstrap: role '{_app_user}' ensured "
             "(rds_iam granted, public schema owned).\n"
@@ -1055,10 +1139,51 @@ with app.app_context():
 
     # Scheduler
     api.add_resource(Job, "/api/scheduler/job")
+    api.add_resource(JobChain, "/api/scheduler/job/chain")
     api.add_resource(Jobs, "/api/scheduler/jobs")
 
     # Login Nodes
     api.add_resource(ListLoginNodes, "/api/login_nodes/list")
+
+    # Cross-region overlay mesh, ADMIN SURFACE ONLY.
+    #
+    # The peer-to-peer routes are deliberately NOT registered here. They are
+    # registered by the mesh sidecar process, which binds to the WireGuard mesh
+    # interface, so a peer-facing route is unreachable through the load balancer by
+    # construction rather than by a check inside the handler. CR-307548143 put the
+    # three job endpoints on this application because it was the only one that
+    # existed, which left code execution on this cluster's scheduler behind the
+    # shared mesh token alone on a public listener. See
+    # api/v1/mesh/route_registration.py.
+    #
+    # Registered unconditionally rather than behind the feature flag, which is CR3's
+    # decision and unchanged: every admin endpoint resolves the mesh id per request
+    # and answers 409 naming an unbound cluster, so enabling the feature does not
+    # need a uwsgi restart before the routes exist.
+    #
+    # The call is guarded as well as the import, because the resource imports live
+    # inside the registrar now. A failure in that chain must still cost the mesh
+    # feature and not the web interface, so the except clause is as wide as the one
+    # on the import above and for the same reason.
+    if _mesh_routes is not None:
+        try:
+            _mesh_routes.register_admin_routes(api)
+        except Exception as _mesh_register_error:  # noqa: BLE001 - see above
+            _MESH_API_IMPORT_ERROR = _mesh_register_error
+
+    if _MESH_API_IMPORT_ERROR is not None:
+        # Logged at error level, not warning. On a cluster with the feature off this
+        # is harmless, but on one that uses it every mesh endpoint is now missing
+        # and the admin UI will report failures with no obvious cause, so the reason
+        # has to be findable in the log rather than inferred.
+        logger.error(
+            "Cross-region mesh API endpoints are NOT registered because their "
+            "modules could not be imported: %s. Peer approval is unavailable on "
+            "this cluster, and the mesh admin page is withheld too rather than "
+            "served against missing endpoints. The rest of the web interface is "
+            "unaffected.",
+            _MESH_API_IMPORT_ERROR,
+        )
 
     # Register views
     app.register_blueprint(index)
@@ -1068,6 +1193,26 @@ with app.app_context():
     app.register_blueprint(admin_users)
     app.register_blueprint(admin_groups)
     app.register_blueprint(admin_applications)
+
+    # Cross-region mesh admin page, at /admin/mesh. Registered only when the API
+    # imported as well, which is the pairing this feature actually needs. The page
+    # renders a shell and fetches everything, so with the endpoints missing it would
+    # load and then fail every request with no cause an operator can see. The view
+    # imports nothing from the mesh package, so its own import is not the fragile
+    # one: the API block is, and gating on both is what makes the page and its
+    # endpoints appear and disappear together.
+    if admin_mesh is not None and _MESH_API_IMPORT_ERROR is None:
+        app.register_blueprint(admin_mesh)
+    else:
+        logger.error(
+            "The cross-region mesh admin page is NOT registered. View import "
+            "error: %s. API import error: %s. Peer approval has no UI on this "
+            "cluster. The page is withheld deliberately when the API could not be "
+            "imported, because a page that renders and then 404s every request is "
+            "harder to diagnose than an absent one.",
+            _MESH_VIEW_IMPORT_ERROR,
+            _MESH_API_IMPORT_ERROR,
+        )
     app.register_blueprint(admin_virtual_desktops_software_stacks)
     app.register_blueprint(admin_base_image_acceleration)
     app.register_blueprint(admin_virtual_desktops_profiles)
@@ -1092,6 +1237,7 @@ with app.app_context():
     app.register_blueprint(admin_target_nodes_software_stacks)
     app.register_blueprint(admin_target_nodes_profiles)
     app.register_blueprint(admin_token_audit)
+    app.register_blueprint(admin_pcs)
     app.register_blueprint(ecr_images)
     app.register_blueprint(containers_batch)
     app.register_blueprint(containers_eks)
@@ -1229,6 +1375,10 @@ with app.app_context():
     soca_samples.insert_default_software_stacks()
     soca_samples.insert_default_test_web_based_job_submission_application()
     soca_samples.insert_default_efa_application()
+    soca_samples.insert_default_apptainer_application()
+    soca_samples.insert_default_apptainer_efa_application()
+    soca_samples.insert_default_job_array_application()
+    soca_samples.insert_default_multi_steps_application()
     soca_samples.insert_default_target_host_user_data()
     soca_samples.insert_default_target_node_profile()
     soca_samples.insert_default_projects()

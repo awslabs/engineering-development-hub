@@ -7,8 +7,8 @@ Shared boto3 Session + client factory for the SOCA installer.
 Centralizes boto3 client/resource creation so that a single
 ``boto3.session.Session`` is reused (per profile) across every caller
 in the installer process. Without this, every caller pays the cost of
-re-running the credential provider chain -- which on Isengard / profile-
-based dev setups means spawning a ``credential_process`` subprocess on
+re-running the credential provider chain -- which on a profile-based dev
+setup backed by a ``credential_process`` means spawning a subprocess on
 every client build (observed: ~500-600 ms per call, ~6s for the
 installer's 10-client warmup batch).
 
@@ -21,8 +21,8 @@ enable, anything else to disable and fall back to per-call
     * Safety valve in case a future feature genuinely needs fresh
       credential resolution per client
 
-Measured win on a typical Isengard developer setup (installer 10-client
-warmup batch):
+Measured win on a typical profile-based developer setup (installer
+10-client warmup batch):
 
     SOCA_BOTO3_SHARED_SESSION=1  ->   0.16 s total (~16 ms/client)
     SOCA_BOTO3_SHARED_SESSION=0  ->   6.11 s total (~611 ms/client)

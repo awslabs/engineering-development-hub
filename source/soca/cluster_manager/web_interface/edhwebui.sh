@@ -86,6 +86,14 @@ UWSGI_OPTIONS+="--threaded-logger "
 UWSGI_OPTIONS+="--log-micros "
 # Needed for proper shutdown
 UWSGI_OPTIONS+="--die-on-term "
+EDH_STATIC_DIR="/opt/edh/${EDH_CLUSTER_ID}/cluster_manager/web_interface/static"
+UWSGI_STATIC_OPTIONS=()
+# --static-expires only exists when uwsgi is built with PCRE: an unknown option would
+# stop uwsgi from starting, so only add the rules when this binary supports them.
+if "$UWSGI_BIN" --help 2>/dev/null | grep -q -- "--static-expires "; then
+    # Browser cache for every static file: 1 day
+    UWSGI_STATIC_OPTIONS=(--static-expires "^${EDH_STATIC_DIR}/ 86400")
+fi
 # Set a sane umask. On --daemonize, uwsgi resets the process umask to 0 unless
 # told otherwise, so files/dirs created by the workers (interpreter __pycache__,
 # the app log files, tmp) were world/group-writable (777 dirs, 666 files).
@@ -168,7 +176,7 @@ case "$1" in
         fi
 
         # Launching process
-        $UWSGI_BIN --master --https $UWSGI_BIND,cert.crt,cert.key --wsgi-file $UWSGI_FILE --processes $UWSGI_PROCESSES --log-maxsize 104857600 --threads $UWSGI_THREADS --daemonize logs/uwsgi.log --enable-threads --buffer-size $BUFFER_SIZE --check-static /opt/edh/${EDH_CLUSTER_ID}/cluster_manager/web_interface/static ${UWSGI_OPTIONS}
+        $UWSGI_BIN --master --https $UWSGI_BIND,cert.crt,cert.key --wsgi-file $UWSGI_FILE --processes $UWSGI_PROCESSES --log-maxsize 104857600 --threads $UWSGI_THREADS --daemonize logs/uwsgi.log --enable-threads --buffer-size $BUFFER_SIZE --check-static ${EDH_STATIC_DIR} "${UWSGI_STATIC_OPTIONS[@]}" ${UWSGI_OPTIONS}
 
     else
        echo 'EDH is already running with PIDs: ' $status_check_process

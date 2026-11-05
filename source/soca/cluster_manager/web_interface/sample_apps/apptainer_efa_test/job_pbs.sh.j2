@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# Apptainer + EFA Benchmark wrapper (PBS / OpenPBS / PBSPro)
+# =========================================================
+# Renders Jinja variables from the WebUI form, then dispatches to the bundled
+# validation script at
+# /apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh
+#
+# This is the multi-node MPI-over-EFA sample. It measures EFA against TCP,
+# because the failure it exists to catch is silent: a container whose MPI does
+# not match the host's still runs, it just falls back to TCP.
+#
+# {{instance_type}}    is the EFA-capable EC2 instance type from the form.
+# {{node_count}}       is the number of nodes. MUST be at least 2: EFA carries
+#                      traffic BETWEEN nodes, so a single-node job measures
+#                      shared memory and proves nothing about the fabric.
+# {{ncpus_per_node}}   is slots per node. 1 is sufficient for the latency probe.
+# {{job_name}}         is the human-readable job name (no spaces).
+# {{base_os}}          is the base OS for the compute nodes.
+# {{walltime}}         is HH:MM:SS for the scheduler walltime budget.
+# {{user_pre_exec}}    is optional user-provided shell commands run beforehand.
+#
+#PBS -N {{job_name}}
+#PBS -q normal
+#PBS -k oed
+#PBS -l walltime={{walltime}}
+#PBS -l select={{node_count}}:ncpus={{ncpus_per_node}}:mpiprocs={{ncpus_per_node}}
+#PBS -l instance_type={{instance_type}}
+#PBS -l efa_support=true
+#PBS -l base_os={{base_os}}
+#PBS -l place=scatter
+
+set -uo pipefail
+
+cd "${PBS_O_WORKDIR:-${HOME}}"
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark: {{job_name}}"
+echo "  instance_type:   {{instance_type}}"
+echo "  node_count:      {{node_count}}"
+echo "  ncpus_per_node:  {{ncpus_per_node}}"
+echo "  base_os:         {{base_os}}"
+echo "  walltime:        {{walltime}}"
+echo "  PBS_JOBID:       ${PBS_JOBID:-unknown}"
+echo "  PBS_NODEFILE:    ${PBS_NODEFILE:-unknown}"
+echo "  Started:         $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "=========================================="
+
+# User-provided pre-exec commands (from form)
+{{user_pre_exec}}
+
+# EDH_CLUSTER_ID is set in /etc/environment on every node but is NOT exported
+# into a scheduler job's environment, so resolve it here rather than assuming it.
+# Without this the reference below aborts the job under `set -u`.
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    EDH_CLUSTER_ID=$(awk -F= '/^EDH_CLUSTER_ID=/{gsub(/"/, "", $2); print $2}' \
+        /etc/environment 2>/dev/null | head -1)
+fi
+if [[ -z "${EDH_CLUSTER_ID:-}" ]]; then
+    echo "ERROR: cannot determine EDH_CLUSTER_ID; unable to locate the sample assets."
+    exit 2
+fi
+
+# Locate the bundled validation script
+APPTAINER_EFA_SCRIPT="/apps/edh/${EDH_CLUSTER_ID}/job_samples/apptainer_efa_test/apptainer_efa_test_job.sh"
+if [[ ! -x "${APPTAINER_EFA_SCRIPT}" ]]; then
+    echo "ERROR: validation script not found or not executable at ${APPTAINER_EFA_SCRIPT}"
+    echo "       This usually indicates the cluster bootstrap did not complete"
+    echo "       successfully, or that Apptainer is disabled on this cluster."
+    exit 2
+fi
+
+bash "${APPTAINER_EFA_SCRIPT}"
+RESULT=$?
+
+echo "=========================================="
+echo "Apptainer EFA Benchmark complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Exit status: ${RESULT}"
+echo "Output is in $HOME/{{job_name}}.o${PBS_JOBID:-unknown}"
+echo "=========================================="
+
+exit ${RESULT}

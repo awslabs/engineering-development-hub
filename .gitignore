@@ -65,6 +65,13 @@ coverage.xml
 *.mo
 *.pot
 
+# Integrity baseline. Generated into source/soca/ by the release tool or, on a
+# dev install, by the installer. Never committed: it is derived from the tree,
+# and a tracked copy would go stale on every commit. Leaving it untracked also
+# keeps the release build's clean-tree guard from tripping over a dev install.
+.edh-integrity-manifest.json
+.edh-installer-manifest.json
+
 # Django stuff:
 *.log
 local_settings.py
@@ -148,3 +155,10 @@ deployment/regional-s3-assets/
 
 # Lambda layer build artifacts
 .lambda_layers/
+
+# Site config overlays, applied over installer/default_config.yml.
+# installer/local_config.example.yml ships with EDH and is NOT ignored.
+# local_config.yml is not a loaded name; ignored so the near miss stays
+# out of untracked files.
+installer/local_config.yml
+installer/local_config_*.yml

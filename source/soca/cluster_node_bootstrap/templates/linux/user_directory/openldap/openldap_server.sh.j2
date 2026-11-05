@@ -61,8 +61,16 @@ function openldap_server_install () {
 
   # Note: you can disable ldap:/// by removing the entry below
   log_info "Preparing ldaps:// listener"
-  {% if context.get("/job/BaseOS") in ("amazonlinux2023") %}
-    log_info "No SLAPD_SERVICES updates needed on AmazonLinux 2023, services ldap:/// ldapi:/// ldaps:/// managed via /usr/lib/systemd/system/slapd.service"
+  {# This was `in ("amazonlinux2023")`. With no trailing comma that is a plain string,
+     so Jinja performed a SUBSTRING test rather than tuple membership, which also matched
+     amazonlinux2 (a substring of amazonlinux2023) while logging "AmazonLinux 2023".
+     amazonlinux2 is kept in this branch DELIBERATELY: the {% raw %}{% else %}{% endraw %} arm below rewrites
+     /etc/sysconfig/slapd and can exit_fail, so dropping AL2 out of here would silently
+     change LDAP server bootstrap for an existing, supported OS. Whether AL2 genuinely
+     belongs here or in the else arm is a real open question, but it is not this change's
+     to answer -- an AL2027 registration must not alter AL2 behaviour. #}
+  {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027") %}
+    log_info "No SLAPD_SERVICES updates needed on Amazon Linux, services ldap:/// ldapi:/// ldaps:/// managed via /usr/lib/systemd/system/slapd.service"
   
   {% elif context.get("/job/BaseOS") in ("ubuntu2204", "ubuntu2404") %}
      ATTEMPT=1
@@ -114,7 +122,7 @@ function openldap_server_install () {
     chmod 600 ${OPENLDAP_PATH_PREFIX}/certs/soca.key ${OPENLDAP_PATH_PREFIX}/certs/soca.crt
   {% endif %}
 
-  {% if context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2","centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9")  %}
+  {% if context.get("/job/BaseOS") in ("amazonlinux2023", "amazonlinux2027", "amazonlinux2","centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9")  %}
       log_info "Adding OpenLDAP self-signed certificate to system CA trust store"
       cp ${OPENLDAP_PATH_PREFIX}/certs/soca.crt /etc/pki/ca-trust/source/anchors/
       log_info "Updating system CA Trust Store"

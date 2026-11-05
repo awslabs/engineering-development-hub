@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-02 14:33+0200\n"
+"POT-Creation-Date: 2026-08-26 12:22-0500\n"
 "PO-Revision-Date: 2026-03-26 11:01-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -16,9 +16,12 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.16.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 msgid " Download file is disabled. Please contact your SOCA cluster administrator"
+msgstr ""
+
+msgid " Virtual Desktops Shared With Me"
 msgstr ""
 
 #, python-format
@@ -50,7 +53,8 @@ msgid ""
 "absolute path of the input file."
 msgstr ""
 
-msgid "(EDH version 26.8.0)"
+#, python-format
+msgid "(EDH version %(version)s)"
 msgstr ""
 
 msgid "(EDH)"
@@ -87,9 +91,6 @@ msgstr ""
 msgid "(Optional) Description for your software stack, maximum 500 characters."
 msgstr ""
 
-msgid "(Optional) Description for your template, maximum 500 characters."
-msgstr ""
-
 msgid "(Optional) User GID"
 msgstr ""
 
@@ -99,13 +100,52 @@ msgstr ""
 msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
 msgstr ""
 
+msgid "(all available)"
+msgstr ""
+
+msgid "(already in pool)"
+msgstr ""
+
 #, python-format
 msgid ""
 "(click %(start_a)shere%(end_a)s to download your Linux private key if "
 "needed)"
 msgstr ""
 
-msgid ", "
+msgid "(disabled)"
+msgstr ""
+
+msgid "(inactive profile)"
+msgstr ""
+
+msgid "(internal note)"
+msgstr ""
+
+msgid "(no NLBs reported)"
+msgstr ""
+
+msgid "(no USB allowlist)"
+msgstr ""
+
+msgid "(no broker instances reported)"
+msgstr ""
+
+msgid "(no cluster lambdas)"
+msgstr ""
+
+msgid "(no gateway instances reported)"
+msgstr ""
+
+msgid "(no servers)"
+msgstr ""
+
+msgid "+ Add instance type"
+msgstr ""
+
+msgid "+ Add window"
+msgstr ""
+
+msgid "-- Select a template or customize below --"
 msgstr ""
 
 msgid "/root size in GB (default: 10)"
@@ -117,13 +157,41 @@ msgstr ""
 msgid "0-9999"
 msgstr ""
 
+msgid "1 hour"
+msgstr ""
+
 msgid "1-10"
 msgstr ""
 
-msgid "100 Customizable"
+#, python-format
+msgid "%(percent)s Customizable"
+msgstr ""
+
+msgid "100 MiB/s (balanced)"
+msgstr ""
+
+msgid "200 MiB/s"
+msgstr ""
+
+msgid "24 hours"
 msgstr ""
 
 msgid "24H"
+msgstr ""
+
+msgid "30 days"
+msgstr ""
+
+msgid "300 MiB/s (fastest)"
+msgstr ""
+
+msgid "7 days"
+msgstr ""
+
+msgid "8 hours"
+msgstr ""
+
+msgid "90 days"
 msgstr ""
 
 msgid ""
@@ -141,16 +209,30 @@ msgid ""
 "supported engineering workflows."
 msgstr ""
 
+msgid ""
+"A unique name to help you identify this token (e.g. CI/CD, monitoring "
+"script)"
+msgstr ""
+
 msgid "ADD"
 msgstr ""
 
+msgid "AI Assistant"
+msgstr ""
+
 msgid "AM/PM"
+msgstr ""
+
+msgid "AMI"
 msgstr ""
 
 msgid "AMI ID"
 msgstr ""
 
 msgid "API Documentation"
+msgstr ""
+
+msgid "API Tokens Audit"
 msgstr ""
 
 msgid "AWS Batch Containers"
@@ -162,7 +244,27 @@ msgstr ""
 msgid "AWS Region of the target node"
 msgstr ""
 
+msgid ""
+"AWS Spot capacity - may be reclaimed at any time; cannot be stopped or "
+"resumed"
+msgstr ""
+
 msgid "AWS Transfer"
+msgstr ""
+
+msgid "AZ"
+msgstr ""
+
+msgid "AZ-ID"
+msgstr ""
+
+msgid "Acceleration DISABLED (fallback to AWS base AMIs)"
+msgstr ""
+
+msgid "Acceleration ENABLED"
+msgstr ""
+
+msgid "Access"
 msgstr ""
 
 msgid "Access denied"
@@ -180,13 +282,34 @@ msgstr ""
 msgid "Access your cluster via SSH"
 msgstr ""
 
+msgid "Across all reporting sessions"
+msgstr ""
+
 msgid "Action"
 msgstr ""
 
 msgid "Actions"
 msgstr ""
 
-msgid "Add"
+msgid "Active"
+msgstr ""
+
+msgid "Active Connections by Transport"
+msgstr ""
+
+msgid "Active Sessions"
+msgstr ""
+
+msgid "Active Shares"
+msgstr ""
+
+msgid "Active Tokens"
+msgstr ""
+
+msgid "Active-hours windows (outside these, hot drains to 0; warm unchanged)"
+msgstr ""
+
+msgid "Actor"
 msgstr ""
 
 msgid "Add Argument"
@@ -204,10 +327,16 @@ msgstr ""
 msgid "Add a user to your group"
 msgstr ""
 
+msgid "Add device (staged)"
+msgstr ""
+
 msgid "Add environment variables for your job"
 msgstr ""
 
 msgid "Add new user"
+msgstr ""
+
+msgid "Add the following tag"
 msgstr ""
 
 #, python-format
@@ -231,6 +360,9 @@ msgid "Add the following tag to onboard your %(link)s to EDH:"
 msgstr ""
 
 msgid "Add to group"
+msgstr ""
+
+msgid "Add to staging"
 msgstr ""
 
 msgid "Add user"
@@ -263,10 +395,21 @@ msgstr ""
 msgid "Admin Section"
 msgstr ""
 
+msgid "Admin comment"
+msgstr ""
+
+msgid ""
+"Admin override: creates a share on behalf of the session owner. The grant"
+" is recorded as created by you (administrator)."
+msgstr ""
+
 msgid "Admin permissions granted"
 msgstr ""
 
 msgid "Admin permissions revoked"
+msgstr ""
+
+msgid "Please note permissions may take up to 10 mn to be synchronized."
 msgstr ""
 
 #, python-format
@@ -276,19 +419,64 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr ""
 
+msgid "Advanced filters"
+msgstr ""
+
+msgid "Advanced options"
+msgstr ""
+
+msgid "Agent"
+msgstr ""
+
+msgid "Agent (Invoke Agent)"
+msgstr ""
+
+msgid "Agent (not selected)"
+msgstr ""
+
+#, python-format
+msgid "Alarm fires above 10%%"
+msgstr ""
+
 msgid "All"
+msgstr ""
+
+msgid "All (history)"
 msgstr ""
 
 msgid "All operations have completed. Page will reload automatically in 5 seconds"
 msgstr ""
 
-msgid "All users"
+msgid "Allow extending this token's expiration before it expires."
+msgstr ""
+
+msgid "Allow guest to connect without the owner present (unsupervised)"
+msgstr ""
+
+msgid ""
+"Allow owners to grant unsupervised access (guest may connect without the "
+"owner present). When OFF, every share is forced supervised cluster-wide, "
+"overriding the per-share toggle and Full Control."
+msgstr ""
+
+msgid ""
+"Allow recycle (return sanitized desktops to the pool — admin risk "
+"acceptance)"
 msgstr ""
 
 msgid "Allowed Groups"
 msgstr ""
 
+msgid "Allowed Sharing Modes"
+msgstr ""
+
 msgid "Allowed Users"
+msgstr ""
+
+msgid "Allowlist name"
+msgstr ""
+
+msgid "Already added — one card per instance type"
 msgstr ""
 
 msgid ""
@@ -299,10 +487,21 @@ msgstr ""
 msgid "Always On"
 msgstr ""
 
+msgid "Always-on instances kept ready for instant assignment"
+msgstr ""
+
 msgid "AlwaysOn"
 msgstr ""
 
 msgid "Amazon DCV"
+msgstr ""
+
+msgid ""
+"Amazon DCV Administrator Guide: Enabling USB remotization (filter string "
+"format)"
+msgstr ""
+
+msgid "Amazon DCV User Guide: Using USB remotization"
 msgstr ""
 
 msgid "Amazon EKS Containers"
@@ -314,7 +513,19 @@ msgstr ""
 msgid "Analytics / Budget"
 msgstr ""
 
+msgid "Analyze"
+msgstr ""
+
+msgid "Analyze with AI Assistant"
+msgstr ""
+
+msgid "Any"
+msgstr ""
+
 msgid "Any script authenticating to SOCA using this key will return"
+msgstr ""
+
+msgid "Any user (type to search)"
 msgstr ""
 
 msgid "Application Imported successfully"
@@ -338,7 +549,54 @@ msgstr ""
 msgid "Applications are loaded in memory and will restart automatically"
 msgstr ""
 
+msgid "Applied"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Apply Filters"
+msgstr ""
+
+msgid "Apply failed"
+msgstr ""
+
+msgid "Apply range"
+msgstr ""
+
+msgid "Apply to list"
+msgstr ""
+
+msgid "Apply updates"
+msgstr ""
+
+msgid ""
+"Apply writes immediately; run the restart from the controller shell. Do "
+"NOT restart the web interface from within the web interface."
+msgstr ""
+
+msgid "Approve"
+msgstr ""
+
+msgid "Approve & Publish"
+msgstr ""
+
+msgid "Approve this nomination and publish the AMI to a software stack."
+msgstr ""
+
+msgid "Approved"
+msgstr ""
+
+msgid "Arch"
+msgstr ""
+
+msgid "Architecture"
+msgstr ""
+
 msgid "Architecture (x86_64/ aarch64) of the target node"
+msgstr ""
+
+msgid "Are you sure you want to revoke"
 msgstr ""
 
 msgid "Array Size"
@@ -347,6 +605,9 @@ msgstr ""
 msgid ""
 "As hostname, enter the following for the Login Node load balancer "
 "endpoint:"
+msgstr ""
+
+msgid "Ask a follow-up question..."
 msgstr ""
 
 msgid "Assign this desktop to an existing capacity reservation id"
@@ -381,7 +642,27 @@ msgstr ""
 msgid "Authorized"
 msgstr ""
 
+msgid "Auto"
+msgstr ""
+
+msgid "Auto 60s"
+msgstr ""
+
+msgid "Auto-captured on interruption"
+msgstr ""
+
 msgid "Auto-filled with the input file path"
+msgstr ""
+
+#, python-format
+msgid "Auto-pause after %(n)s hour of inactivity"
+msgid_plural "Auto-pause after %(n)s hours of inactivity"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"Auto-recycle pool on launch template change (uniform fleet — brief cold "
+"launches during refresh)"
 msgstr ""
 
 msgid "Auto-scroll"
@@ -396,7 +677,46 @@ msgstr ""
 msgid "Automatically start/stop this session based on schedule."
 msgstr ""
 
+msgid "Availability"
+msgstr ""
+
+msgid "Available API Paths:"
+msgstr ""
+
+msgid "Avg over last cycle"
+msgstr ""
+
+msgid "Back to Virtual Desktops"
+msgstr ""
+
+msgid "Backfill on claim (keep pool at depth)"
+msgstr ""
+
+msgid ""
+"Base AMIs copied into this account so snapshot capture is incremental and"
+" image ids survive AWS retiring the public bases. Copies run in the "
+"background; rows show the current state per base OS and architecture."
+msgstr ""
+
+msgid "Base OS"
+msgstr ""
+
+msgid "Based on"
+msgstr ""
+
+msgid "Below 1KB threshold"
+msgstr ""
+
 msgid "Benefits and Features"
+msgstr ""
+
+msgid "Best Performance"
+msgstr ""
+
+msgid "Blank Suppressed"
+msgstr ""
+
+msgid "Bootstrap template cache"
 msgstr ""
 
 msgid ""
@@ -407,10 +727,41 @@ msgstr ""
 msgid "Both commands will return the ID associated to the job you just submitted"
 msgstr ""
 
+msgid "Broker CloudWatch Metrics"
+msgstr ""
+
+msgid "Broker query failed:"
+msgstr ""
+
+msgid "Broker reachability issues:"
+msgstr ""
+
 msgid "Browse Software Stacks"
 msgstr ""
 
+msgid ""
+"Browse and search this cluster's configuration parameters (SSM Parameter "
+"Store). Navigate the tree on the left or use the search box. This is the "
+"read-only browse view; editing arrives in a later step. Secrets are never"
+" shown."
+msgstr ""
+
+msgid "Bucket Objects"
+msgstr ""
+
+msgid "Bucket Size"
+msgstr ""
+
 msgid "Budgets and Cost Management"
+msgstr ""
+
+msgid "Bulk edit / copy…"
+msgstr ""
+
+msgid "By"
+msgstr ""
+
+msgid "CIDR"
 msgstr ""
 
 msgid "CPUs"
@@ -425,10 +776,28 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-msgid "Capacity being provisioned"
+msgid "Capacity"
 msgstr ""
 
-msgid "Capacity provisioning blocked"
+msgid "Capacity Reservation group ARN"
+msgstr ""
+
+msgid "Capacity Reservation id (cr-..., optional)"
+msgstr ""
+
+msgid ""
+"Capacity is currently available in the EDH VDI Pool. Select one of the "
+"available capacity options above, and your desktop will be provisioned "
+"immediately."
+msgstr ""
+
+msgid "Capture a resumable image, then terminate this desktop"
+msgstr ""
+
+msgid "Captured"
+msgstr ""
+
+msgid "Capturing..."
 msgstr ""
 
 msgid "Change group membership"
@@ -450,6 +819,14 @@ msgid "Check group membership"
 msgstr ""
 
 msgid "Check project membership for a given user"
+msgstr ""
+
+msgid ""
+"Check the subnets this profile may launch into. Sorted by Availability "
+"Zone ID."
+msgstr ""
+
+msgid "Checkpoint"
 msgstr ""
 
 #, python-format
@@ -483,6 +860,18 @@ msgstr ""
 msgid "Choose your Software Stack"
 msgstr ""
 
+msgid "Claims"
+msgstr ""
+
+msgid "Class"
+msgstr ""
+
+msgid "Clear / Browse"
+msgstr ""
+
+msgid "Clear all"
+msgstr ""
+
 msgid "Clear the buffer (Ctrl+L)"
 msgstr ""
 
@@ -495,16 +884,36 @@ msgid ""
 "(keep the session running) or &times; to end it."
 msgstr ""
 
+msgid "Click a card to expand: members, full event log, metrics."
+msgstr ""
+
+msgid ""
+"Click a line number to set the start. Shift+click another line number to "
+"set the end. Or use the From/To inputs on the right."
+msgstr ""
+
+msgid "Click again to confirm removal"
+msgstr ""
+
 msgid "Click connect/open to access the cluster"
 msgstr ""
 
 msgid "Click here to Open Terminal in a separate window"
 msgstr ""
 
+msgid "Click here to control your sharing settings"
+msgstr ""
+
 msgid "Click here to learn how to Import/Export your Workflow Profiles"
 msgstr ""
 
 msgid "Click here to learn how to create custom images"
+msgstr ""
+
+msgid "Click the route icon next to a session to see its end-to-end path."
+msgstr ""
+
+msgid "Click to copy"
 msgstr ""
 
 msgid "Close"
@@ -516,13 +925,31 @@ msgstr ""
 msgid "Cluster"
 msgstr ""
 
+msgid "Cluster -- shareable with any user"
+msgstr ""
+
+msgid "Cluster Configuration"
+msgstr ""
+
+msgid "Cluster Lambdas"
+msgstr ""
+
 msgid "Cluster Metrics"
 msgstr ""
 
-msgid "Code Editor"
+msgid "Cluster Status"
 msgstr ""
 
-msgid "Code Editor is taking longer than expected to load."
+msgid "Cluster-Level Sharing Settings"
+msgstr ""
+
+msgid "Cluster:"
+msgstr ""
+
+msgid "Collapse / expand"
+msgstr ""
+
+msgid "Collisions"
 msgstr ""
 
 msgid ""
@@ -545,7 +972,19 @@ msgstr ""
 msgid "Compute rate are retrieved for your running region"
 msgstr ""
 
+msgid "Configuration Parameters"
+msgstr ""
+
+msgid "Configuration tree"
+msgstr ""
+
 msgid "Configure Job Cost Estimate automatically"
+msgstr ""
+
+msgid "Configured Pools"
+msgstr ""
+
+msgid "Confirm"
 msgstr ""
 
 msgid "Confirm Delete"
@@ -565,6 +1004,12 @@ msgid ""
 " via command line such as:"
 msgstr ""
 
+msgid "Connect via Native Client"
+msgstr ""
+
+msgid "Connect-abandon timeout (seconds, blank = cluster default)"
+msgstr ""
+
 msgid "Connected"
 msgstr ""
 
@@ -572,6 +1017,9 @@ msgid "Connecting..."
 msgstr ""
 
 msgid "Connection String"
+msgstr ""
+
+msgid "Connections"
 msgstr ""
 
 msgid "Consumable Resource Override"
@@ -585,10 +1033,62 @@ msgstr ""
 msgid "Container Overrides"
 msgstr ""
 
+msgid ""
+"Content-addressable cache of rendered SOCA bootstrap templates. Hits "
+"eliminate the per-create Jinja render + S3 upload (~1.0-1.5s savings per "
+"VDI/HPC node create)."
+msgstr ""
+
+msgid "Context"
+msgstr ""
+
+msgid "Context info"
+msgstr ""
+
 msgid "Continue to GitHub"
 msgstr ""
 
 msgid "Control AWS resource deployment authorization via AWS Budget"
+msgstr ""
+
+msgid "Control plane health"
+msgstr ""
+
+msgid "Control-plane metrics unavailable."
+msgstr ""
+
+msgid ""
+"Controls who a virtual desktop built from this stack may be shared with "
+"via DCV session sharing"
+msgstr ""
+
+msgid "Conversation"
+msgstr ""
+
+msgid ""
+"Conversations are stored locally in your browser and automatically "
+"deleted after 30 days."
+msgstr ""
+
+msgid "Copied At"
+msgstr ""
+
+msgid "Copy AMI ID"
+msgstr ""
+
+msgid "Copy all"
+msgstr ""
+
+msgid "Copy full key"
+msgstr ""
+
+msgid "Copy to Clipboard"
+msgstr ""
+
+msgid "Copy value"
+msgstr ""
+
+msgid "Copy your token now. It will not be shown again."
 msgstr ""
 
 msgid "Cost Control and Budgets"
@@ -603,6 +1103,11 @@ msgstr ""
 msgid ""
 "Cost estimate is not available because this Workflow will generate a "
 "Linux command and not a qsub file."
+msgstr ""
+
+msgid ""
+"Cost estimation is not available in the GovCloud partition (the AWS "
+"Pricing API is not offered in aws-us-gov)."
 msgstr ""
 
 msgid "Could not check group membership: "
@@ -620,6 +1125,9 @@ msgstr ""
 msgid "Could not locate the directory: "
 msgstr ""
 
+msgid "Create"
+msgstr ""
+
 msgid "Create Account"
 msgstr ""
 
@@ -630,6 +1138,24 @@ msgid "Create Folder"
 msgstr ""
 
 msgid "Create Group"
+msgstr ""
+
+msgid "Create Permission Profile"
+msgstr ""
+
+msgid "Create Profile"
+msgstr ""
+
+msgid "Create Scoped Token"
+msgstr ""
+
+msgid "Create Share"
+msgstr ""
+
+msgid "Create Share (Admin)"
+msgstr ""
+
+msgid "Create Token"
 msgstr ""
 
 msgid "Create User Data template"
@@ -689,6 +1215,9 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
+msgid "Created By"
+msgstr ""
+
 msgid "Created On"
 msgstr ""
 
@@ -697,22 +1226,80 @@ msgid ""
 "refresh the page while EDH is creating a new account."
 msgstr ""
 
+msgid "Current bindings"
+msgstr ""
+
 msgid "Custom"
+msgstr ""
+
+msgid "Custom (edit JSON below)"
 msgstr ""
 
 msgid "Custom Consumable Resources"
 msgstr ""
 
+msgid "Cycle Duration"
+msgstr ""
+
+msgid "D+"
+msgstr ""
+
 msgid "DANGER ZONE - Reset my API key"
 msgstr ""
 
+msgid "DCV / VDI Overview"
+msgstr ""
+
+msgid "DCV Broker fleet"
+msgstr ""
+
+msgid "DCV Gateway fleet"
+msgstr ""
+
+msgid "DCV Permissions"
+msgstr ""
+
+msgid "DCV Servers (live from broker)"
+msgstr ""
+
+msgid "DCV Servers Registered"
+msgstr ""
+
+msgid "DCV Session Sharing"
+msgstr ""
+
+msgid "DCV Session Timeline"
+msgstr ""
+
 msgid "DCV Session Type."
+msgstr ""
+
+msgid "DCV Sessions (live from broker)"
+msgstr ""
+
+msgid "DCV USB remotization"
+msgstr ""
+
+msgid ""
+"DCV high-scale mode is disabled. This dashboard is only meaningful when "
+"DCV is deployed with broker + gateway. Enable via"
+msgstr ""
+
+msgid ""
+"DCV streaming metrics not available yet. Collector needs at least 2 "
+"cycles (~2 min) after VDI bootstrap."
+msgstr ""
+
+msgid "Daily usage"
 msgstr ""
 
 msgid "Data Transfer to/from EDH"
 msgstr ""
 
 msgid "Date"
+msgstr ""
+
+msgid "Days"
 msgstr ""
 
 msgid "Dedicated Host Tenancy"
@@ -727,16 +1314,34 @@ msgstr ""
 msgid "Dedicated Instance Tenancy (instance)"
 msgstr ""
 
+msgid "Default"
+msgstr ""
+
 msgid "Default Tenancy"
 msgstr ""
 
 msgid "Default Tenancy (default)"
 msgstr ""
 
+msgid ""
+"Default profiles cannot be edited or deleted. Use the Enabled toggle to "
+"control whether a profile (including defaults) is offered to users in the"
+" share dropdowns -- disabling hides it without removing it."
+msgstr ""
+
+msgid "Define allowed API paths and HTTP methods."
+msgstr ""
+
 msgid "Define custom consumable resources beyond vCPU and Memory."
 msgstr ""
 
 msgid "Define environment variables as key-value pairs."
+msgstr ""
+
+msgid "Degraded Ratio"
+msgstr ""
+
+msgid "Degraded Sessions"
 msgstr ""
 
 msgid "Delete"
@@ -755,6 +1360,9 @@ msgid "Delete Project"
 msgstr ""
 
 msgid "Delete Queue"
+msgstr ""
+
+msgid "Delete Saved Desktop"
 msgstr ""
 
 msgid "Delete Target Node"
@@ -784,7 +1392,15 @@ msgstr ""
 msgid "Delete a queue"
 msgstr ""
 
+msgid "Delete all saved conversations?"
+msgstr ""
+
 msgid "Delete an existing Workflow Profile"
+msgstr ""
+
+msgid ""
+"Delete every cached bootstrap entry (including pool launch-template "
+"renders); the next VDI/HPC create per stack will re-render fresh."
 msgstr ""
 
 msgid "Delete file"
@@ -800,6 +1416,9 @@ msgid "Delete this file"
 msgstr ""
 
 msgid "Delete user"
+msgstr ""
+
+msgid "Deleted"
 msgstr ""
 
 msgid "Deleted user"
@@ -826,6 +1445,9 @@ msgid ""
 " associated $HOME directory and data"
 msgstr ""
 
+msgid "Denied"
+msgstr ""
+
 msgid "Denied Groups"
 msgstr ""
 
@@ -835,7 +1457,15 @@ msgstr ""
 msgid "Deny takes precedence over allow"
 msgstr ""
 
+msgid ""
+"Describe the software and configuration in this image (e.g. Win2025 + "
+"MATLAB R2025a + Abaqus 2024)"
+msgstr ""
+
 msgid "Description"
+msgstr ""
+
+msgid "Description for your template, maximum 500 characters."
 msgstr ""
 
 msgid "Description of your Project"
@@ -859,7 +1489,40 @@ msgstr ""
 msgid "Detached"
 msgstr ""
 
+msgid "DeviceHunt USB vendor / product ID lookup"
+msgstr ""
+
+msgid "Devices"
+msgstr ""
+
+msgid "Devices in"
+msgstr ""
+
+msgid "Disable & revoke"
+msgstr ""
+
 msgid "Disable Auto-Refresh"
+msgstr ""
+
+msgid "Disable Permission Profile"
+msgstr ""
+
+msgid "Disable only"
+msgstr ""
+
+msgid "Disable sharing (always available as a profile option)"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid ""
+"Disabling hides this profile from new shares. Existing shares keep "
+"working unless you also revoke them. Revoking disconnects those guests "
+"immediately."
+msgstr ""
+
+msgid "Discard changes"
 msgstr ""
 
 msgid "Disclaimer: Baseline numbers"
@@ -891,6 +1554,12 @@ msgid ""
 "transfer or usage of io2 volume (default to gp3)"
 msgstr ""
 
+msgid "Done"
+msgstr ""
+
+msgid "Download"
+msgstr ""
+
 msgid "Download FileZilla"
 msgstr ""
 
@@ -903,13 +1572,13 @@ msgid ""
 "downloaded on step1 to %(fmt)s format"
 msgstr ""
 
-msgid "Download Session File"
-msgstr ""
-
 msgid "Download all"
 msgstr ""
 
 msgid "Download file is disabled. Please contact your cluster administrator"
+msgstr ""
+
+msgid "Download it here."
 msgstr ""
 
 msgid "Download my private key"
@@ -928,16 +1597,26 @@ msgstr ""
 msgid "Download your %(kind)s SSH key"
 msgstr ""
 
-msgid "Download your client here."
-msgstr ""
-
 msgid "Drag & Drop form components based on your own requirements."
 msgstr ""
 
 msgid "Drag and Drop files to upload or click"
 msgstr ""
 
+msgid "Duration"
+msgstr ""
+
+msgid ""
+"EBS fast-restore acceleration for desktops built from this stack. Inherit"
+" = use the cluster default; Off = lazy load; 100-300 MiB/s = pre-fetch "
+"the root volume on launch (faster first boot/resume, higher for larger "
+"stacks)."
+msgstr ""
+
 msgid "EBS/FSx rates as of January 2025 based on us-east-1"
+msgstr ""
+
+msgid "EC2 Instance"
 msgstr ""
 
 msgid ""
@@ -1042,7 +1721,7 @@ msgid "Each line is one argument."
 msgstr ""
 
 msgid ""
-"Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy "
+"Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessly "
 "customize compute, storage and operating systems requirements for your "
 "HPC simulations"
 msgstr ""
@@ -1091,13 +1770,42 @@ msgstr ""
 msgid "Edit this file (text file only)"
 msgstr ""
 
+msgid "Editable here:"
+msgstr ""
+
+msgid ""
+"Editing devices changes the shared allowlist itself — it affects every "
+"Hardware Profile that links it."
+msgstr ""
+
+msgid ""
+"Edits are staged and highlighted. Bool/number/text fields are typed to "
+"the parameter; use 'raw' for freeform. Apply writes each change to SSM "
+"(durable + versioned); Valkey updates via the config sync. Read-only "
+"params show no editor."
+msgstr ""
+
+msgid ""
+"Edits are staged locally. Toggle On/Off, edit the admin comment, add or "
+"remove rows, then click Apply updates to commit everything at once. "
+"Disabled rows are retained for reference but are NOT delivered to VDIs. "
+"Admin comments are internal only and never sent to a VDI or shown to end "
+"users."
+msgstr ""
+
 msgid "Email"
 msgstr ""
 
-msgid "Embeeded Development"
+msgid "Embedded Development"
+msgstr ""
+
+msgid "Enable / disable this instance type"
 msgstr ""
 
 msgid "Enable Auto-Refresh"
+msgstr ""
+
+msgid "Enable Hibernation"
 msgstr ""
 
 msgid "Enable Hibernation Support."
@@ -1111,13 +1819,36 @@ msgstr ""
 msgid "Enable Sudo Access"
 msgstr ""
 
+msgid "Enable pooling for this software stack"
+msgstr ""
+
+msgid ""
+"Enable via edhctl config set "
+"/edh/&lt;cluster&gt;/configuration/BaseImageAcceleration/Enabled true"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid "Encode the payload using Base64:"
+msgstr ""
+
+msgid "End"
+msgstr ""
+
 msgid "End session (terminates tmux)"
 msgstr ""
 
 msgid "End this terminal session? The remote tmux will be terminated."
 msgstr ""
 
+msgid "Ended"
+msgstr ""
+
 msgid "Engineering Development Hub"
+msgstr ""
+
+msgid "Enter a username above to view and manage their tokens."
 msgstr ""
 
 msgid "Enter friendly AMI Name"
@@ -1129,16 +1860,22 @@ msgstr ""
 msgid "Enter shell code here"
 msgstr ""
 
-msgid "Enter value"
+msgid "Enter username..."
 msgstr ""
 
-msgid "Entering the Danger Zone"
+msgid "Enter value"
 msgstr ""
 
 msgid "Entering the danger zone"
 msgstr ""
 
+msgid "Entries"
+msgstr ""
+
 msgid "Environment Variables"
+msgstr ""
+
+msgid "Error"
 msgstr ""
 
 msgid "Error during"
@@ -1174,6 +1911,18 @@ msgstr ""
 msgid "Estimated compute price with RI"
 msgstr ""
 
+msgid "Estimated cost:"
+msgstr ""
+
+msgid "Event Log"
+msgstr ""
+
+msgid "Event Type"
+msgstr ""
+
+msgid "Event log (this pool)"
+msgstr ""
+
 msgid "Example:"
 msgstr ""
 
@@ -1192,10 +1941,25 @@ msgstr ""
 msgid "Execution timeout"
 msgstr ""
 
+msgid "Expected"
+msgstr ""
+
+msgid "Expired"
+msgstr ""
+
+msgid "Expires"
+msgstr ""
+
+msgid "Expires in"
+msgstr ""
+
 msgid "Explore your Filesystem"
 msgstr ""
 
 msgid "Export"
+msgstr ""
+
+msgid "Export CSV"
 msgstr ""
 
 msgid "Export existing Workflow Profile"
@@ -1216,10 +1980,21 @@ msgstr ""
 msgid "FSx for Lustre:"
 msgstr ""
 
+msgid "Failed to load acceleration status."
+msgstr ""
+
 msgid "Failed to load earlier content"
 msgstr ""
 
 msgid "Failure to do so will result in your profile remaining hidden from users."
+msgstr ""
+
+msgid ""
+"Fall back to On-Demand when the reservation is full (unchecked = hard-"
+"fail, enforces the reservation as a cap)"
+msgstr ""
+
+msgid "Fall back to On-Demand when this reservation is full"
 msgstr ""
 
 msgid ""
@@ -1235,10 +2010,16 @@ msgstr ""
 msgid "File Explorer"
 msgstr ""
 
+msgid "File Manager"
+msgstr ""
+
 msgid "File Updated."
 msgstr ""
 
 msgid "File appears to be binary and cannot be tailed"
+msgstr ""
+
+msgid "File content"
 msgstr ""
 
 msgid "File does not exist or is not a regular file"
@@ -1263,10 +2044,26 @@ msgstr ""
 msgid "File(s) will be uploaded under"
 msgstr ""
 
-msgid "Filter"
+msgid "File:"
+msgstr ""
+
+msgid "Filters"
 msgstr ""
 
 msgid "Finally valid your group has been created correctly using"
+msgstr ""
+
+msgid "First time? Get the client app"
+msgstr ""
+
+msgid "Fleet Overview"
+msgstr ""
+
+#, python-format
+msgid "Fleet spread (max-min)/avg. >30%% suggests one broker diverging."
+msgstr ""
+
+msgid "Flush cache"
 msgstr ""
 
 msgid "Folder Name"
@@ -1279,6 +2076,12 @@ msgid "For Linux user data, we recommend starting the script with:"
 msgstr ""
 
 msgid "For Windows user data, we recommend starting the script with:"
+msgstr ""
+
+msgid ""
+"For a single instance type backed by exactly one Capacity Reservation, "
+"set its Capacity Reservation id directly on that instance-type card above"
+" instead."
 msgstr ""
 
 #, python-format
@@ -1299,6 +2102,12 @@ msgstr ""
 msgid "Force your job to run on a specific instance type"
 msgstr ""
 
+msgid "Format:"
+msgstr ""
+
+msgid "Free IPs"
+msgstr ""
+
 msgid "Friendly Name for your project"
 msgstr ""
 
@@ -1306,6 +2115,24 @@ msgid "Friendly Name for your template"
 msgstr ""
 
 msgid "Friendly name for your User Data template"
+msgstr ""
+
+msgid "From"
+msgstr ""
+
+msgid "From / To"
+msgstr ""
+
+msgid "From custom CW namespace"
+msgstr ""
+
+msgid "Full API (all methods)"
+msgstr ""
+
+msgid "Full API (read-only)"
+msgstr ""
+
+msgid "Full timeline"
 msgstr ""
 
 msgid "GPUs"
@@ -1324,6 +2151,12 @@ msgid ""
 msgstr ""
 
 msgid "Get Started"
+msgstr ""
+
+msgid "Globally denied paths"
+msgstr ""
+
+msgid "Golden Images"
 msgstr ""
 
 msgid "Grant Admin permission"
@@ -1368,7 +2201,39 @@ msgstr ""
 msgid "Groups: OU=Group,DC=soca,DC=local"
 msgstr ""
 
+msgid "Guest"
+msgstr ""
+
+msgid "Guest Desktop Thumbnail"
+msgstr ""
+
+msgid "Guest username(s)"
+msgstr ""
+
 msgid "HTTP 401/Unauthorized"
+msgstr ""
+
+msgid "HTTP Methods:"
+msgstr ""
+
+msgid "Hardware Profile"
+msgstr ""
+
+#, python-format
+msgid "Hardware Profile (%(link)s)"
+msgstr ""
+
+msgid "Hardware Profile updated"
+msgstr ""
+
+msgid "Hardware Profiles"
+msgstr ""
+
+msgid ""
+"Hardware Profiles currently bound to Software Stacks and Projects. Set or"
+" change a binding on the Software Stack or Project edit page. When both a"
+" Stack and its Project bind a profile, the Project binding wins at "
+"launch."
 msgstr ""
 
 msgid "Hello"
@@ -1379,10 +2244,22 @@ msgid ""
 "Engineering Development Hub:"
 msgstr ""
 
+msgid "Hibernated (faster resume, larger EBS)"
+msgstr ""
+
 msgid "Hibernation will not cause any data loss"
 msgstr ""
 
+msgid "Hide bulk edit"
+msgstr ""
+
 msgid "High Performance Computing"
+msgstr ""
+
+msgid "Hint"
+msgstr ""
+
+msgid "History"
 msgstr ""
 
 msgid "Home Directory"
@@ -1399,13 +2276,33 @@ msgstr ""
 msgid "Host(s)"
 msgstr ""
 
+msgid "Hostname"
+msgstr ""
+
 msgid ""
 "Hosts in this queue will be provisioned automatically based on the number"
 " of queued jobs. Hosts are restricted to a given job ID and are "
 "automatically terminated as soon as the job complete."
 msgstr ""
 
+msgid "Hot"
+msgstr ""
+
+msgid "Hot InService"
+msgstr ""
+
+msgid "Hot-served"
+msgstr ""
+
+msgid "Hover a permission for details. "
+msgstr ""
+
 msgid "How do you want to name this Workflow Profile?"
+msgstr ""
+
+msgid ""
+"How long this token remains valid. After expiration, the token can no "
+"longer authenticate requests."
 msgstr ""
 
 msgid "How many Virtual CPUs do you want?"
@@ -1464,12 +2361,21 @@ msgstr ""
 msgid "I am sure I want to unregister this Software Stack from SOCA"
 msgstr ""
 
+msgid "I confirm I want to delete this job"
+msgstr ""
+
 msgid ""
 "I understand I will need to update my scripts with the new key to prevent"
 " any outage"
 msgstr ""
 
+msgid "I understand this token will be permanently revoked."
+msgstr ""
+
 msgid "I want to delete this Workflow Profile"
+msgstr ""
+
+msgid "ID"
 msgstr ""
 
 msgid "IMPORTANT"
@@ -1481,6 +2387,9 @@ msgid ""
 "request 8 vCPUs EDH will provision 2 instances. If you need 8 logical "
 "cores, we recommend using ht_support=false and request a single EC2 "
 "machine with 16 vCPUs)"
+msgstr ""
+
+msgid "IP"
 msgstr ""
 
 msgid "Id"
@@ -1500,11 +2409,6 @@ msgid ""
 msgstr ""
 
 msgid "If present, autofilled with the input file name"
-msgstr ""
-
-msgid ""
-"If the page stays blank, the code-server service may not be running on "
-"this cluster."
 msgstr ""
 
 #, python-format
@@ -1527,6 +2431,9 @@ msgstr ""
 msgid "Image"
 msgstr ""
 
+msgid "Image & Settings"
+msgstr ""
+
 msgid "Image Digest"
 msgstr ""
 
@@ -1543,6 +2450,9 @@ msgid "Image Tag"
 msgstr ""
 
 msgid "Image URI"
+msgstr ""
+
+msgid "Impact"
 msgstr ""
 
 msgid "Import"
@@ -1569,14 +2479,37 @@ msgstr ""
 msgid "Important: Active Directory"
 msgstr ""
 
+msgid "In Use"
+msgstr ""
+
 #, python-format
 msgid "In the %(section)s section click %(action)s"
+msgstr ""
+
+msgid "Include finished"
+msgstr ""
+
+msgid ""
+"Include on-behalf-of in User match (show internal/root calls made for the"
+" user)"
 msgstr ""
 
 msgid "Info"
 msgstr ""
 
+msgid "Infrastructure"
+msgstr ""
+
+msgid "Infrastructure data not available yet -- still being assembled."
+msgstr ""
+
+msgid "Inherit cluster default"
+msgstr ""
+
 msgid "Input location"
+msgstr ""
+
+msgid "Instance"
 msgstr ""
 
 msgid "Instance Family"
@@ -1585,10 +2518,16 @@ msgstr ""
 msgid "Instance ID of the target node"
 msgstr ""
 
+msgid "Instance IP - Click to copy"
+msgstr ""
+
 msgid "Instance Type"
 msgstr ""
 
 msgid "Instance Type:"
+msgstr ""
+
+msgid "Instance type"
 msgstr ""
 
 msgid "Instance type (default: c5.large)"
@@ -1597,10 +2536,19 @@ msgstr ""
 msgid "Instance type of the target node"
 msgstr ""
 
+msgid "Instance types"
+msgstr ""
+
 msgid "Instructions for Linux/Mac"
 msgstr ""
 
 msgid "Instructions for Windows"
+msgstr ""
+
+msgid "Interrupted"
+msgstr ""
+
+msgid "Interruptible"
 msgstr ""
 
 msgid "Invalid feature flag configuration"
@@ -1617,10 +2565,15 @@ msgid ""
 "instances due to driver incompatibility"
 msgstr ""
 
-msgid "JOB CANNOT START"
+msgid ""
+"JSON object defining which API paths and HTTP methods this token can "
+"access. Use allow/deny rules."
 msgstr ""
 
 msgid "Jinja templating"
+msgstr ""
+
+msgid "Job Cannot Start"
 msgstr ""
 
 msgid "Job Definition"
@@ -1665,9 +2618,6 @@ msgstr ""
 msgid "Job completed are automatically removed after 1 hour."
 msgstr ""
 
-msgid "Job is finished or in invalid state"
-msgstr ""
-
 msgid "Jump to live (End)"
 msgstr ""
 
@@ -1683,7 +2633,13 @@ msgstr ""
 msgid "Key"
 msgstr ""
 
+msgid "Key + Value"
+msgstr ""
+
 msgid "Key File"
+msgstr ""
+
+msgid "Key only"
 msgstr ""
 
 msgid "Keyboard shortcuts"
@@ -1692,7 +2648,13 @@ msgstr ""
 msgid "Keyboard shortcuts (?)"
 msgstr ""
 
-msgid "LSF"
+msgid "Label"
+msgstr ""
+
+msgid "Label (optional)"
+msgstr ""
+
+msgid "Label is required"
 msgstr ""
 
 msgid "Large (8 vCPUs, 32 GB RAM)"
@@ -1707,7 +2669,13 @@ msgstr ""
 msgid "Last 24 hours"
 msgstr ""
 
+msgid "Last 24h"
+msgstr ""
+
 msgid "Last 30 days"
+msgstr ""
+
+msgid "Last 30d"
 msgstr ""
 
 msgid "Last 6 hours"
@@ -1716,7 +2684,22 @@ msgstr ""
 msgid "Last 7 days"
 msgstr ""
 
+msgid "Last 72h"
+msgstr ""
+
+msgid "Last 7d"
+msgstr ""
+
+msgid "Last Connected"
+msgstr ""
+
 msgid "Last Modified"
+msgstr ""
+
+msgid "Last Used"
+msgstr ""
+
+msgid "Last modified (UTC)"
 msgstr ""
 
 msgid "Launch Batch Job"
@@ -1761,6 +2744,9 @@ msgstr ""
 msgid "Launch new Virtual Desktop"
 msgstr ""
 
+msgid "Launch on Spot (Interruptible)"
+msgstr ""
+
 msgid "Launch your virtual desktop in a specific subnet."
 msgstr ""
 
@@ -1770,16 +2756,34 @@ msgstr ""
 msgid "Leave everything else as default."
 msgstr ""
 
+msgid ""
+"Ledger AVAILABLE rows the broker cannot yet serve (members mid broker-"
+"registration, or stale rows pending the zombie sweep). Not necessarily an"
+" error; should trend to 0."
+msgstr ""
+
 msgid "Let us assume you want to submit a simple job on the default OpenPBS"
+msgstr ""
+
+msgid "Lifetime"
 msgstr ""
 
 msgid "Limitations"
 msgstr ""
 
+msgid "Line selection"
+msgstr ""
+
+msgid "Lineage"
+msgstr ""
+
+msgid "Link an allowlist, Apply, then manage its devices."
+msgstr ""
+
 msgid "Linux"
 msgstr ""
 
-msgid "List all Virtual Desktops"
+msgid "List all VDI"
 msgstr ""
 
 msgid "List all active Virtual Desktops"
@@ -1842,13 +2846,42 @@ msgid ""
 " to your EDH environment that can mount shared or local filers"
 msgstr ""
 
+msgid "Live"
+msgstr ""
+
 msgid "Live file tail"
+msgstr ""
+
+msgid "Live updates via Server-Sent Events. Auto-reconnect on drop."
+msgstr ""
+
+msgid ""
+"Liveness from CloudWatch (AWS/Lambda + relay rejections). Queue backlog +"
+" last-reconcile detail arrive with the persisted event store."
+msgstr ""
+
+msgid "Load Balancers"
 msgstr ""
 
 msgid "Load earlier content (PageUp)"
 msgstr ""
 
+msgid "Loading Local Acceleration Mirror status..."
+msgstr ""
+
 msgid "Loading earlier content..."
+msgstr ""
+
+msgid "Loading file ..."
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Local Acceleration Mirror"
+msgstr ""
+
+msgid "Local Acceleration Mirror -- Owned Base AMIs"
 msgstr ""
 
 msgid "Login"
@@ -1860,7 +2893,19 @@ msgstr ""
 msgid "Logout"
 msgstr ""
 
+msgid "Look up device 0x"
+msgstr ""
+
+msgid "Look up vendor 0x"
+msgstr ""
+
 msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+msgstr ""
+
+msgid "MCP (Tool Use)"
+msgstr ""
+
+msgid "MCP Servers"
 msgstr ""
 
 msgid "MY_ENV"
@@ -1885,6 +2930,9 @@ msgstr ""
 msgid "Malformed file identifier"
 msgstr ""
 
+msgid "Manage"
+msgstr ""
+
 msgid "Manage EDH Projects"
 msgstr ""
 
@@ -1903,13 +2951,31 @@ msgstr ""
 msgid "Manage Virtual Desktop Profiles"
 msgstr ""
 
+msgid "Manage devices in this allowlist →"
+msgstr ""
+
 msgid "Manage your Virtual Desktops"
 msgstr ""
 
 msgid "Manage your Virtual Targets"
 msgstr ""
 
+msgid "Mark for deletion"
+msgstr ""
+
+msgid "Mask Public IPs"
+msgstr ""
+
+msgid "Max lifetime"
+msgstr ""
+
+msgid "Max renewals per token"
+msgstr ""
+
 msgid "Max runtime (default: 01:00:00)"
+msgstr ""
+
+msgid "Max tokens per user"
 msgstr ""
 
 msgid "Maximum EBS Root Disk size (in GB)"
@@ -1931,7 +2997,10 @@ msgstr ""
 msgid "Medium (4 vCPUs, 16 GB RAM)"
 msgstr ""
 
-msgid "Members: (choose all that apply)"
+msgid "Members"
+msgstr ""
+
+msgid "Members:"
 msgstr ""
 
 msgid "Memory (GB)"
@@ -1941,6 +3010,18 @@ msgid "Memory in GB"
 msgstr ""
 
 msgid "Menu"
+msgstr ""
+
+msgid "Method"
+msgstr ""
+
+msgid "Metric window"
+msgstr ""
+
+msgid "Metrics"
+msgstr ""
+
+msgid "Mine"
 msgstr ""
 
 msgid "Missing file identifier"
@@ -1964,6 +3045,18 @@ msgstr ""
 msgid "Missing template_id"
 msgstr ""
 
+msgid "Mode"
+msgstr ""
+
+msgid "Model"
+msgstr ""
+
+msgid "Model (Converse)"
+msgstr ""
+
+msgid "Move"
+msgstr ""
+
 msgid "Must be a valid EDH group"
 msgstr ""
 
@@ -1973,7 +3066,7 @@ msgstr ""
 msgid "My API Key"
 msgstr ""
 
-msgid "My API Key (Developer mode)"
+msgid "My API Tokens"
 msgstr ""
 
 msgid "My AWS Batch Job"
@@ -2030,6 +3123,9 @@ msgstr ""
 msgid "Name for your user data template"
 msgstr ""
 
+msgid "Name is required"
+msgstr ""
+
 msgid "Name of the AWS Batch Job Definition to use"
 msgstr ""
 
@@ -2051,13 +3147,36 @@ msgstr ""
 msgid "Name of your profile"
 msgstr ""
 
+msgid ""
+"Name, description, Enabled, and sub-profile links save together with "
+"Apply. Disabling unbinds any Stack/Project using this profile."
+msgstr ""
+
 msgid "Namespace"
+msgstr ""
+
+msgid "Namespace:"
 msgstr ""
 
 msgid "Navigate file"
 msgstr ""
 
+msgid "Need help analyzing a specific file? Use the"
+msgstr ""
+
+msgid "Nested Virtualization"
+msgstr ""
+
+msgid "New"
+msgstr ""
+
 msgid "New Password"
+msgstr ""
+
+msgid "New conversation"
+msgstr ""
+
+msgid "New screenshots written"
 msgstr ""
 
 msgid "New terminal tab (Ctrl+Shift+T)"
@@ -2078,28 +3197,109 @@ msgstr ""
 msgid "No Description Provided"
 msgstr ""
 
+msgid "No Hardware Profiles yet. Create one above."
+msgstr ""
+
+msgid ""
+"No MCP servers available. Configure MCP servers in Settings before using "
+"this mode."
+msgstr ""
+
+msgid "No MCP servers configured. Add MCP server definitions to SSM parameter"
+msgstr ""
+
 msgid "No Project found"
 msgstr ""
 
 msgid "No Target Node Profiles found"
 msgstr ""
 
+msgid "No USB allowlists yet. Create one above."
+msgstr ""
+
 msgid "No User Data Template Found"
+msgstr ""
+
+msgid ""
+"No VDI pools are configured. Add a pool from a VDI software stack to "
+"populate this tab."
 msgstr ""
 
 msgid "No Virtual Desktop Profiles found"
 msgstr ""
 
+msgid "No active shares"
+msgstr ""
+
+msgid "No active tokens found for this user."
+msgstr ""
+
+msgid "No audit log entries match your filters."
+msgstr ""
+
+msgid "No base images tracked yet."
+msgstr ""
+
+msgid ""
+"No bindings yet. Bind a Hardware Profile from a Software Stack or Project"
+" edit page."
+msgstr ""
+
+msgid ""
+"No changes recorded yet. Applied edits appear here (who, when, old -> "
+"new, version)."
+msgstr ""
+
+msgid "No changes to apply"
+msgstr ""
+
 msgid "No custom AMI found. Create one first"
+msgstr ""
+
+msgid "No dashboard for serverless analytics."
+msgstr ""
+
+msgid "No devices yet. Add one below, then Apply updates."
+msgstr ""
+
+msgid ""
+"No editable parameters at this level -- expand the tree to drill into "
+"sub-sections."
+msgstr ""
+
+msgid "No editor yet for this sub-profile type."
+msgstr ""
+
+msgid "No events recorded yet"
+msgstr ""
+
+msgid ""
+"No events yet -- bootstrap may not have started emitting. Live updates "
+"will appear here."
 msgstr ""
 
 msgid "No files in this directory"
 msgstr ""
 
+msgid "No history."
+msgstr ""
+
 msgid "No image"
 msgstr ""
 
+msgid "No jobs found."
+msgstr ""
+
+msgid "No jobs to plot."
+msgstr ""
+
 msgid "No links have been configured by your EDH Administrators"
+msgstr ""
+
+msgid "No matching parameters."
+msgstr ""
+
+msgid "No members -- ASG retained for reuse (reaper deferred)."
 msgstr ""
 
 msgid "No more than 1 day"
@@ -2117,16 +3317,80 @@ msgstr ""
 msgid "No open terminals."
 msgstr ""
 
+msgid "No parameters here."
+msgstr ""
+
+msgid "No pending nominations."
+msgstr ""
+
+msgid "No recent activity."
+msgstr ""
+
+msgid "No recent scaling activity."
+msgstr ""
+
+msgid "No saved conversations yet. Start a conversation to create one."
+msgstr ""
+
+msgid "No saved conversations yet. Start an analysis to create one."
+msgstr ""
+
+msgid ""
+"No saved desktops yet. Use \"Save & Shut Down\" on a running desktop to "
+"keep a resumable image."
+msgstr ""
+
+msgid "No scoped tokens yet. Create one to get started."
+msgstr ""
+
+msgid "No screenshot metrics yet -- next poller cycle will publish."
+msgstr ""
+
 msgid ""
 "No software stack found. Please verify that you have been added to the "
 "appropriate EDH projects. If the issue persists, contact your EDH "
 "administrator."
 msgstr ""
 
+msgid ""
+"No stacks have been published via Golden Images yet. Use the Nominations "
+"tab to approve and publish, or publish directly from your own saved "
+"desktops."
+msgstr ""
+
 msgid "Nodes Count"
 msgstr ""
 
+msgid "Nominate"
+msgstr ""
+
+msgid "Nominate as Golden Image"
+msgstr ""
+
+msgid ""
+"Nominate this saved desktop as a golden image candidate. An administrator"
+" will review and may publish it as a software stack."
+msgstr ""
+
+msgid "Nominated By"
+msgstr ""
+
+msgid "Nominations"
+msgstr ""
+
+msgid "Non-READY or no image"
+msgstr ""
+
 msgid "None"
+msgstr ""
+
+msgid "None (no hardware profile)"
+msgstr ""
+
+msgid "None -- sharing disabled"
+msgstr ""
+
+msgid "Not a regular file"
 msgstr ""
 
 msgid "Not authorized"
@@ -2157,7 +3421,19 @@ msgstr ""
 msgid "Note: Your Analytics Dashboard URL is"
 msgstr ""
 
+msgid ""
+"Note: token permissions only control which endpoints the token is allowed"
+" to call. EDH still enforces user-level authorization, a regular user "
+"cannot access admin endpoints even if the token permissions include them."
+msgstr ""
+
+msgid "Notes (optional)"
+msgstr ""
+
 msgid "Notes:"
+msgstr ""
+
+msgid "Nothing will provision until you enable pooling above."
 msgstr ""
 
 msgid "Number of CPUs to request for your job"
@@ -2182,6 +3458,30 @@ msgid ""
 "with instance_type to calculate the number of nodes to provision"
 msgstr ""
 
+msgid "OS"
+msgstr ""
+
+msgid "Off (lazy load)"
+msgstr ""
+
+msgid "Old"
+msgstr ""
+
+msgid "Oldest Capture"
+msgstr ""
+
+msgid "On behalf of"
+msgstr ""
+
+msgid "On-Demand"
+msgstr ""
+
+msgid "On-Demand above base"
+msgstr ""
+
+msgid "On-Demand floor"
+msgstr ""
+
 msgid "Once connected, simply drag & drop to upload/download files."
 msgstr ""
 
@@ -2202,6 +3502,16 @@ msgid ""
 "Once you have created your Workflow Profile, please ensure that it is "
 "%(link)s Failure to do so will result in your profile remaining hidden "
 "from users."
+msgstr ""
+
+msgid ""
+"One or more desktops are ready right now. Select to start your desktop "
+"instantly"
+msgstr ""
+
+msgid ""
+"One pattern per line (comma / space / newline separated also work). "
+"Wildcards like t3.* allowed."
 msgstr ""
 
 msgid ""
@@ -2249,22 +3559,29 @@ msgstr ""
 msgid "Open in a separate window"
 msgstr ""
 
-msgid "OpenPBS"
+msgid "Opens in a new tab"
 msgstr ""
 
 msgid "Operating System"
 msgstr ""
 
-msgid "Option1: Browser access"
-msgstr ""
-
-msgid "Option2: Native Application"
-msgstr ""
-
 msgid "Optional"
 msgstr ""
 
+msgid ""
+"Optional Hardware Profile (USB device allowlist) bound to this stack. A "
+"Project binding overrides this Stack binding."
+msgstr ""
+
+msgid ""
+"Optional Hardware Profile (USB device allowlist). A Project binding "
+"overrides a Software Stack binding."
+msgstr ""
+
 msgid "Optional: Enable KeepAlive"
+msgstr ""
+
+msgid "Original"
 msgstr ""
 
 msgid "Other Shells"
@@ -2282,10 +3599,15 @@ msgstr ""
 msgid "Override your container runtime arguments"
 msgstr ""
 
-msgid "Owner"
+msgid ""
+"Overrides the bound Software Stack's hardware profile for desktops "
+"launched under this project."
 msgstr ""
 
-msgid "PENDING"
+msgid "Owned AMI"
+msgstr ""
+
+msgid "Owner"
 msgstr ""
 
 #, python-format
@@ -2293,6 +3615,9 @@ msgid "Page %(current)s of %(total)s"
 msgstr ""
 
 msgid "Parameters used to estimate the simulation cost:"
+msgstr ""
+
+msgid "Parse to fields"
 msgstr ""
 
 msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
@@ -2313,6 +3638,18 @@ msgstr ""
 msgid "Password updated correctly"
 msgstr ""
 
+msgid ""
+"Paste the filter string from the Windows DCV client (dcvusblist.exe) and "
+"Parse to fields, or fill the fields directly, then Add to staging. "
+"Format: Name,BaseClass,SubClass,Protocol,VID,PID,Autoshare,SkipReset. Use"
+" * as a wildcard. Class/VID/PID are DECIMAL -- exactly as the DCV "
+"client's Copy filter string produces them. Hex input with a 0x prefix "
+"(e.g. 0x1050) is accepted and auto-converted to decimal."
+msgstr ""
+
+msgid "Path"
+msgstr ""
+
 msgid "Path to the solver executable/binary"
 msgstr ""
 
@@ -2330,10 +3667,43 @@ msgstr ""
 msgid "Pause Target Node"
 msgstr ""
 
+msgid "Pause auto-refresh"
+msgstr ""
+
 msgid "Pause or resume (Space)"
 msgstr ""
 
+msgid "Pending Nominations"
+msgstr ""
+
+msgid "Pending change"
+msgstr ""
+
 msgid "People: OU=People,DC=soca,DC=local"
+msgstr ""
+
+msgid ""
+"Per-pool cards from live ASG + warm pool + ledger + scaling activities. "
+"Click a card to expand. Reconciler/relay health and durable per-pool "
+"telemetry arrive in later phases."
+msgstr ""
+
+msgid "Per-session loss rate, p95"
+msgstr ""
+
+msgid "Period:"
+msgstr ""
+
+msgid "Permission Profile"
+msgstr ""
+
+msgid "Permission Profiles"
+msgstr ""
+
+msgid "Permission reference"
+msgstr ""
+
+msgid "Permissions"
 msgstr ""
 
 msgid "Pick a simple name to identify your graphical session"
@@ -2342,14 +3712,29 @@ msgstr ""
 msgid "Pick a simple name to identify your target node session"
 msgstr ""
 
+msgid "Pinned - protected from expiry/eviction"
+msgstr ""
+
 #, python-format
 msgid "Please %(warn)s when creating an issue."
+msgstr ""
+
+msgid "Please confirm"
 msgstr ""
 
 msgid "Please fill out the form first"
 msgstr ""
 
+msgid "Please select an agent in Settings before analyzing."
+msgstr ""
+
+msgid "Please select an agent in Settings before sending a message."
+msgstr ""
+
 msgid "Please select an image to run your job"
+msgstr ""
+
+msgid "Please select at least one subnet."
 msgstr ""
 
 msgid "Please wait ..."
@@ -2369,6 +3754,27 @@ msgstr ""
 msgid "Pod(s) IP(s)"
 msgstr ""
 
+msgid "Poller last cycle"
+msgstr ""
+
+msgid "Pool configuration saved (pending apply)."
+msgstr ""
+
+msgid "Pool data not available yet -- still being assembled."
+msgstr ""
+
+msgid "Pooling"
+msgstr ""
+
+msgid "Pooling is disabled for this software stack."
+msgstr ""
+
+msgid "Pools"
+msgstr ""
+
+msgid "Pop out"
+msgstr ""
+
 msgid ""
 "Pop-out window was blocked by the browser. Please allow popups for this "
 "site."
@@ -2377,19 +3783,57 @@ msgstr ""
 msgid "Port"
 msgstr ""
 
+msgid ""
+"Pre-configured permission sets for common use cases. Select one to auto-"
+"fill the permissions JSON below."
+msgstr ""
+
+msgid ""
+"Pre-provision and maintain a fleet of prepared desktops for faster time-"
+"to-desktop. The EDH PoolController provisions the AWS resources "
+"automatically."
+msgstr ""
+
+msgid "Pre-warmed stopped instances; ~30s to start when claimed"
+msgstr ""
+
+msgid "Preference"
+msgstr ""
+
+msgid "Preferences"
+msgstr ""
+
 msgid "Prepare the input"
 msgstr ""
 
 msgid "Prepare the request"
 msgstr ""
 
+msgid "Prev"
+msgstr ""
+
+msgid "Preview"
+msgstr ""
+
 msgid "Previous"
+msgstr ""
+
+msgid "Previous Conversations"
 msgstr ""
 
 msgid "Private DNS of the target node"
 msgstr ""
 
+msgid "Private IP"
+msgstr ""
+
 msgid "Private IP of the target node"
+msgstr ""
+
+msgid "Profile"
+msgstr ""
+
+msgid "Profile Name"
 msgstr ""
 
 msgid "Profile associated to this stack"
@@ -2413,6 +3857,12 @@ msgstr ""
 msgid "Project"
 msgstr ""
 
+msgid "Project -- shareable only within shared projects"
+msgstr ""
+
+msgid "Project ID (opt)"
+msgstr ""
+
 msgid "Project Name"
 msgstr ""
 
@@ -2431,7 +3881,22 @@ msgstr ""
 msgid "Projects and Role Based ACLs"
 msgstr ""
 
+msgid "Proto"
+msgstr ""
+
 msgid "Protocol"
+msgstr ""
+
+msgid "Provisioning timeout (seconds, blank = cluster default)"
+msgstr ""
+
+msgid "Published"
+msgstr ""
+
+msgid "Published By"
+msgstr ""
+
+msgid "Published Stacks"
 msgstr ""
 
 msgid "Query a job"
@@ -2449,13 +3914,43 @@ msgstr ""
 msgid "Queue name"
 msgstr ""
 
+msgid "Quick Access"
+msgstr ""
+
 msgid "REMOVE"
 msgstr ""
 
-msgid "RUNNING"
+msgid "Ready Now (hot)"
+msgstr ""
+
+msgid "Ready-now depth"
+msgstr ""
+
+msgid "Reason"
+msgstr ""
+
+msgid "Reason (optional — will be shown to the user)"
+msgstr ""
+
+msgid "Received"
+msgstr ""
+
+msgid "Recent Activity"
+msgstr ""
+
+msgid "Recent changes (cluster-wide)"
+msgstr ""
+
+msgid "Recent events"
+msgstr ""
+
+msgid "Recently deleted"
 msgstr ""
 
 msgid "Recommended Parameters"
+msgstr ""
+
+msgid "Recover"
 msgstr ""
 
 #, python-format
@@ -2468,8 +3963,17 @@ msgstr ""
 msgid "Refer to %(link)s page for a list of EC2 instances"
 msgstr ""
 
+msgid "Refresh"
+msgstr ""
+
 #, python-format
 msgid "Refresh (%(countdown)ss)"
+msgstr ""
+
+msgid "Refs"
+msgstr ""
+
+msgid "Refusing to follow symlink"
 msgstr ""
 
 msgid "Regenerate new key"
@@ -2487,6 +3991,21 @@ msgstr ""
 msgid "Register a new Target Node Software Stack (AMI) to EDH"
 msgstr ""
 
+msgid "Reject"
+msgstr ""
+
+msgid "Reject Nomination"
+msgstr ""
+
+msgid "Rejected"
+msgstr ""
+
+msgid "Reload from list"
+msgstr ""
+
+msgid "Reloaded"
+msgstr ""
+
 msgid "Remove"
 msgstr ""
 
@@ -2502,6 +4021,9 @@ msgstr ""
 msgid "Remove user to your group"
 msgstr ""
 
+msgid "Remove?"
+msgstr ""
+
 msgid "Removing a software stack will not impact existing virtual desktops"
 msgstr ""
 
@@ -2510,7 +4032,19 @@ msgid ""
 "AWS account"
 msgstr ""
 
+msgid "Rendered DCV string"
+msgstr ""
+
+msgid "Renewable"
+msgstr ""
+
+msgid "Renewal allowed"
+msgstr ""
+
 msgid "Report an issue"
+msgstr ""
+
+msgid "Reported by VDI collectors"
 msgstr ""
 
 msgid "Repository Name"
@@ -2524,7 +4058,21 @@ msgstr ""
 msgid "Requested vCPUs:"
 msgstr ""
 
+msgid "Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)"
+msgstr ""
+
+msgid ""
+"Reserved capacity via a Capacity Reservation group (spans multiple "
+"instance types/AZs)"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
 msgid "Reset Password"
+msgstr ""
+
+msgid "Reset all to defaults"
 msgstr ""
 
 msgid "Reset user password"
@@ -2539,13 +4087,45 @@ msgstr ""
 msgid "Resize Target Node Instance"
 msgstr ""
 
+msgid "Resize fleet"
+msgstr ""
+
+msgid "Resolve preview"
+msgstr ""
+
 msgid "Resource Type (e.g., GPU, FPGA)"
 msgstr ""
 
 msgid "Resources"
 msgstr ""
 
+msgid "Response mode"
+msgstr ""
+
+msgid "Restart required"
+msgstr ""
+
+msgid "Restart required for"
+msgstr ""
+
+msgid "Results per page"
+msgstr ""
+
+msgid "Resume"
+msgstr ""
+
 msgid "Resume streaming"
+msgstr ""
+
+msgid ""
+"Resuming your saved desktop - it will appear shortly as it boots and re-"
+"registers with the broker."
+msgstr ""
+
+msgid "Resuming..."
+msgstr ""
+
+msgid "Retention"
 msgstr ""
 
 msgid ""
@@ -2559,13 +4139,39 @@ msgstr ""
 msgid "Review HPC parameters"
 msgstr ""
 
+msgid ""
+"Review nominations, publish golden images to software stacks, and manage "
+"version history."
+msgstr ""
+
+msgid "Reviewed By"
+msgstr ""
+
+msgid "Revoke"
+msgstr ""
+
 msgid "Revoke Admin permission"
+msgstr ""
+
+msgid "Revoke All Active"
+msgstr ""
+
+msgid "Revoke Selected"
+msgstr ""
+
+msgid "Revoke Token"
 msgstr ""
 
 msgid "Revoke user Admin permission"
 msgstr ""
 
+msgid "Revoked"
+msgstr ""
+
 msgid "Role"
+msgstr ""
+
+msgid "Rollback"
 msgstr ""
 
 msgid "Root Disk Size (in GB)"
@@ -2586,6 +4192,9 @@ msgid ""
 msgstr ""
 
 msgid "Runtime Arguments"
+msgstr ""
+
+msgid "S3 keys under prefix"
 msgstr ""
 
 msgid "SFTP"
@@ -2611,16 +4220,49 @@ msgstr ""
 msgid "SSH Public Key"
 msgstr ""
 
+msgid "Save & Shut Down"
+msgstr ""
+
+msgid "Save Pool Configuration"
+msgstr ""
+
 msgid "Save Schedule"
 msgstr ""
 
+msgid "Save Settings"
+msgstr ""
+
 msgid "Save changes"
+msgstr ""
+
+msgid "Save preferences"
 msgstr ""
 
 msgid "Save the settings and click connect"
 msgstr ""
 
 msgid "Save your session"
+msgstr ""
+
+msgid "Saved"
+msgstr ""
+
+msgid "Saved Conversations"
+msgstr ""
+
+msgid "Saved Desktops"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Saved desktop moved to the recycle bin. You can recover it within {n} "
+"days."
+msgstr ""
+
+msgid "Saved desktop recovered."
+msgstr ""
+
+msgid "Saved desktops"
 msgstr ""
 
 msgid ""
@@ -2632,10 +4274,22 @@ msgstr ""
 msgid "Schedule"
 msgstr ""
 
+msgid "Schedule timezone (blank = no schedule; hot stays constant)"
+msgstr ""
+
+msgid "Scheduled for removal on next Save"
+msgstr ""
+
+msgid "Scheduled for removal on next Save — click to undo"
+msgstr ""
+
 msgid "Scheduler"
 msgstr ""
 
-msgid "Scheduler ID"
+msgid "Scheduler (read-only)"
+msgstr ""
+
+msgid "Scheduler (submit, query, delete)"
 msgstr ""
 
 #, python-format
@@ -2648,10 +4302,25 @@ msgstr ""
 msgid "Scheduling priority"
 msgstr ""
 
+msgid "Scope"
+msgstr ""
+
+msgid ""
+"Scoped tokens let you grant limited access to specific API endpoints. "
+"Each token can be restricted to certain paths and HTTP methods, has a "
+"configurable lifetime, and can be revoked independently."
+msgstr ""
+
 msgid "Scratch Partition:"
 msgstr ""
 
+msgid "Screenshot Pipeline"
+msgstr ""
+
 msgid "Search"
+msgstr ""
+
+msgid "Search (key or value)"
 msgstr ""
 
 msgid ""
@@ -2662,7 +4331,16 @@ msgstr ""
 msgid "Search for a file or a folder"
 msgstr ""
 
+msgid "Search for a job (e.g. name, owner:alice, state:running, queue:normal)"
+msgstr ""
+
 msgid "Search for an image tag, digest ..."
+msgstr ""
+
+msgid "Search instance types"
+msgstr ""
+
+msgid "Search results for"
 msgstr ""
 
 msgid ""
@@ -2670,7 +4348,16 @@ msgid ""
 "workloads and heavy compute tasks."
 msgstr ""
 
+msgid "Security"
+msgstr ""
+
+msgid "See AWS Hibernation documentation"
+msgstr ""
+
 msgid "See Documentation."
+msgstr ""
+
+msgid "See the full list of endpoints and their methods in the API documentation."
 msgstr ""
 
 msgid "Select"
@@ -2694,6 +4381,11 @@ msgstr ""
 msgid "Select %(role)s and use the latest %(policy)s available"
 msgstr ""
 
+msgid ""
+"Select a Hardware Profile on the left to view and edit its details and "
+"sub-profiles."
+msgstr ""
+
 msgid "Select a Project to see details."
 msgstr ""
 
@@ -2704,13 +4396,22 @@ msgstr ""
 msgid "Select a User Data Template to see details."
 msgstr ""
 
+msgid "Select a node or search"
+msgstr ""
+
 msgid "Select a profile to see details."
 msgstr ""
 
 msgid "Select a stack to see details."
 msgstr ""
 
+msgid "Select all"
+msgstr ""
+
 msgid "Select an EDH Project"
+msgstr ""
+
+msgid "Select an agent"
 msgstr ""
 
 msgid "Select an image (jpg or png) to use as thumbnail"
@@ -2765,16 +4466,70 @@ msgstr ""
 msgid "Select your Workflow"
 msgstr ""
 
+msgid "Server IP"
+msgstr ""
+
+msgid "Server Unavailability Reasons"
+msgstr ""
+
+msgid "Server Version"
+msgstr ""
+
 msgid "ServerAliveCountMax 2"
 msgstr ""
 
 msgid "ServerAliveInterval 10"
 msgstr ""
 
+msgid "Servers Available"
+msgstr ""
+
+msgid "Servers by OS Family"
+msgstr ""
+
+msgid "Session"
+msgstr ""
+
+msgid "Session ID"
+msgstr ""
+
 msgid "Session Name"
 msgstr ""
 
+msgid "Session Owner"
+msgstr ""
+
+msgid "Session Path"
+msgstr ""
+
+msgid "Session Shares"
+msgstr ""
+
+msgid "Session Sharing Scope"
+msgstr ""
+
 msgid "Session Type"
+msgstr ""
+
+msgid "Session not found or not owned by user"
+msgstr ""
+
+msgid "Sessions"
+msgstr ""
+
+msgid "Sessions Ready"
+msgstr ""
+
+msgid "Sessions Total"
+msgstr ""
+
+msgid "Sessions by State / Type"
+msgstr ""
+
+msgid "Sessions with no client connected"
+msgstr ""
+
+msgid "Settings"
 msgstr ""
 
 msgid "Setup your AWS Batch Job"
@@ -2783,7 +4538,34 @@ msgstr ""
 msgid "Setup your Amazon EKS Job"
 msgstr ""
 
+msgid "Share Session"
+msgstr ""
+
+msgid "Shareable URL with embedded token (less secure, use for external guests)"
+msgstr ""
+
 msgid "Show"
+msgstr ""
+
+msgid "Show end-to-end session path"
+msgstr ""
+
+msgid ""
+"Show the desktop thumbnail preview on a guest's \"Shared With Me\" tile. "
+"When OFF, guests see the shared-session tile without a screenshot (owners"
+" always see their own)."
+msgstr ""
+
+msgid "Show users an interruptible/lower-cost hint when applicable"
+msgstr ""
+
+msgid "Showing data for the last"
+msgstr ""
+
+msgid "Showing the most recent"
+msgstr ""
+
+msgid "Single-use nonce, token never exposed (recommended)"
 msgstr ""
 
 msgid "Size"
@@ -2795,10 +4577,18 @@ msgstr ""
 msgid "Size of the memory to request for your job"
 msgstr ""
 
-msgid "Slurm"
+msgid "Skipped"
+msgstr ""
+
+msgid "Sleeping Sessions"
 msgstr ""
 
 msgid "Small (2 vCPUs, 8GB RAM)"
+msgstr ""
+
+msgid ""
+"Snapshot &amp; resume - save a desktop and boot back into its previous "
+"state."
 msgstr ""
 
 msgid "Software Stack"
@@ -2843,10 +4633,43 @@ msgid ""
 "archive size authorized."
 msgstr ""
 
+msgid "Source"
+msgstr ""
+
+msgid "Source AMI"
+msgstr ""
+
 msgid "Source Code"
 msgstr ""
 
+msgid "Source Deprecates"
+msgstr ""
+
+msgid "Source Owner"
+msgstr ""
+
 msgid "Specify whether or not your job requires GPUs"
+msgstr ""
+
+msgid "Spot"
+msgstr ""
+
+msgid ""
+"Spot VDI sessions cannot be paused or scheduled - they run until "
+"interrupted or manually terminated"
+msgstr ""
+
+msgid ""
+"Spot capacity - may be interrupted at any time; cannot be stopped or "
+"resumed"
+msgstr ""
+
+msgid ""
+"Spot capacity isn't guaranteed. If it's unavailable the resume will fail "
+"— you can retry On-Demand or a different type."
+msgstr ""
+
+msgid "Stack ID"
 msgstr ""
 
 msgid "Stack Info"
@@ -2855,7 +4678,16 @@ msgstr ""
 msgid "Stack Type"
 msgstr ""
 
+msgid "Stacked over last hour: WebSocket / QUIC / HTTP / DVTC"
+msgstr ""
+
+msgid "Standard"
+msgstr ""
+
 msgid "Standard Launch"
+msgstr ""
+
+msgid "Start"
 msgstr ""
 
 msgid "Start Desktop"
@@ -2867,7 +4699,13 @@ msgstr ""
 msgid "Start a new terminal on an EDH Login Node"
 msgstr ""
 
-msgid "Starting Code Editor..."
+msgid "Start instantly"
+msgstr ""
+
+msgid "Started"
+msgstr ""
+
+msgid "State"
 msgstr ""
 
 msgid "Status"
@@ -2921,6 +4759,9 @@ msgstr ""
 msgid "Stick to bottom when new data arrives"
 msgstr ""
 
+msgid "Stopped (EBS only, default)"
+msgstr ""
+
 msgid "Stopped All Day"
 msgstr ""
 
@@ -2939,6 +4780,21 @@ msgstr ""
 msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
 msgstr ""
 
+msgid "Streaming"
+msgstr ""
+
+msgid "Streaming Health"
+msgstr ""
+
+msgid "Sub"
+msgstr ""
+
+msgid "Sub Status"
+msgstr ""
+
+msgid "Sub-profiles"
+msgstr ""
+
 msgid "Submit AWS Batch Job"
 msgstr ""
 
@@ -2954,10 +4810,22 @@ msgstr ""
 msgid "Submit job"
 msgstr ""
 
-msgid "Subnets must be from the list of private subnets configured on EDH"
+msgid "Submitted"
+msgstr ""
+
+msgid "Submitting..."
+msgstr ""
+
+msgid "Subnet ID"
+msgstr ""
+
+msgid "Success"
 msgstr ""
 
 msgid "Successfully deactivated"
+msgstr ""
+
+msgid "Sum of object sizes"
 msgstr ""
 
 #, python-format
@@ -2977,10 +4845,31 @@ msgstr ""
 msgid "Supported variables (case-sensitive)"
 msgstr ""
 
+msgid "Sysprep"
+msgstr ""
+
+msgid "System prompt"
+msgstr ""
+
+msgid "T+"
+msgstr ""
+
+msgid "TTL"
+msgstr ""
+
+msgid "Table"
+msgstr ""
+
 msgid "Tail"
 msgstr ""
 
 msgid "Tail (live view)"
+msgstr ""
+
+msgid "Takes effect only after restarting"
+msgstr ""
+
+msgid "Target"
 msgstr ""
 
 msgid "Target Node"
@@ -3006,7 +4895,13 @@ msgid ""
 "embedded development."
 msgstr ""
 
+msgid "Target Stack"
+msgstr ""
+
 msgid "Technical Details"
+msgstr ""
+
+msgid "Template"
 msgstr ""
 
 msgid "Template Name"
@@ -3040,6 +4935,12 @@ msgid ""
 "charges. Storage fees continue to apply."
 msgstr ""
 
+msgid ""
+"The guest(s) you select will be able to connect to your live session with"
+" the permissions defined by the chosen profile. Make sure you trust the "
+"people you are sharing with before proceeding."
+msgstr ""
+
 msgid "The maximum size (in GB) of the root disk a user can specify"
 msgstr ""
 
@@ -3058,11 +4959,27 @@ msgstr ""
 msgid "These numbers are just an estimate:"
 msgstr ""
 
+msgid "These settings apply to your account across browsers."
+msgstr ""
+
+msgid ""
+"These settings are enforced by your EDH administrator and apply to all "
+"user-created tokens."
+msgstr ""
+
+msgid ""
+"These settings control what sharing modes are available cluster-wide. VDI"
+" Profile settings cannot exceed these limits."
+msgstr ""
+
 msgid ""
 "These translations were generated with the help of AI and may contain "
 "inaccuracies or unnatural phrasing. If you are a native speaker and would"
 " like to help improve a translation, we would love your contribution! "
 "Please reach out to us."
+msgstr ""
+
+msgid "Thinking..."
 msgstr ""
 
 msgid "This API has been disabled by your Administrator"
@@ -3076,6 +4993,26 @@ msgstr ""
 msgid "This action cannot be reversed."
 msgstr ""
 
+msgid "This action cannot be undone."
+msgstr ""
+
+msgid ""
+"This action cannot be undone. Any script or application using this token "
+"will immediately lose access."
+msgstr ""
+
+msgid ""
+"This captures a resumable image of this desktop and then terminates it. "
+"You can resume it later from Saved Desktops."
+msgstr ""
+
+msgid ""
+"This environment uses Amazon OpenSearch Serverless (AOSS), which does not"
+" expose a browser OpenSearch Dashboards UI. Your activity data is "
+"collected into the analytics collection and surfaced in-app; there is no "
+"external dashboard link to open."
+msgstr ""
+
 msgid "This estimate is based on a simulation time of"
 msgstr ""
 
@@ -3084,11 +5021,6 @@ msgid ""
 "This file is too big and cannot be previewed via the web interface. <br> "
 "Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote "
 "desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
-msgstr ""
-
-msgid ""
-"This file is too big to be compressed via web. Download file separately "
-"or use SFTP."
 msgstr ""
 
 msgid "This folder already exist, choose a different name"
@@ -3117,15 +5049,11 @@ msgid ""
 "desktops changes."
 msgstr ""
 
-#, python-format
-msgid ""
-"This session will automatically pause <strong>after %(n)s hour</strong> "
-"of inactivity."
-msgid_plural ""
-"This session will automatically pause <strong>after %(n)s hours</strong> "
-"of inactivity."
-msgstr[0] ""
-msgstr[1] ""
+msgid "This session is being shared with"
+msgstr ""
+
+msgid "This step as a percentage of total launch time"
+msgstr ""
 
 msgid "This will generate a temporary password for a given user"
 msgstr ""
@@ -3137,6 +5065,30 @@ msgid "Thumbnail to use (150px * 150px)"
 msgstr ""
 
 msgid "Time in seconds"
+msgstr ""
+
+msgid "Time range"
+msgstr ""
+
+msgid "Time since last event"
+msgstr ""
+
+msgid "Time since session was created"
+msgstr ""
+
+msgid "Time since the previous event"
+msgstr ""
+
+msgid "TimeToServe"
+msgstr ""
+
+msgid "TimeToServe: no claims in window"
+msgstr ""
+
+msgid "Timeline"
+msgstr ""
+
+msgid "Timestamp"
 msgstr ""
 
 #, python-brace-format
@@ -3153,32 +5105,113 @@ msgid ""
 "%(ex3)s)"
 msgstr ""
 
+msgid "To"
+msgstr ""
+
 msgid ""
 "To prevent outage, you must update all your scripts (if any) with the new"
 " key"
 msgstr ""
 
+msgid ""
+"Toggle Enabled off + Apply to disable an allowlist (it stays listed and "
+"can be re-enabled). Any Hardware Profile still referencing a disabled "
+"allowlist resolves to no devices. Edits are staged and highlighted until "
+"you Apply."
+msgstr ""
+
+msgid "Toggle Received timezone: UTC / local"
+msgstr ""
+
 msgid "Toggle light/dark theme (T)"
 msgstr ""
 
-msgid ""
-"Token has expired. As a security measure we have refreshed your token. "
-"Please re-submit your request again."
+msgid "Toggle order: oldest first / newest first"
+msgstr ""
+
+msgid "Token"
+msgstr ""
+
+msgid "Token Audit Log"
+msgstr ""
+
+msgid "Token Created Successfully"
+msgstr ""
+
+msgid "Token ID"
+msgstr ""
+
+msgid "Token Name"
+msgstr ""
+
+msgid "Token Permissions"
+msgstr ""
+
+msgid "Token Policy (System Settings)"
 msgstr ""
 
 msgid "Too many active tail sessions. Close one and try again."
 msgstr ""
 
+msgid "Total in subtree:"
+msgstr ""
+
+msgid "Try again"
+msgstr ""
+
 msgid "Type"
+msgstr ""
+
+msgid "Type 2+ characters to search and add users (optional)"
+msgstr ""
+
+msgid "Type 2+ characters to search groups"
+msgstr ""
+
+msgid "Type 2+ characters to search users"
+msgstr ""
+
+msgid "Type 2+ characters to search users, or * for all"
+msgstr ""
+
+msgid "Type at least 2 characters to search users"
 msgstr ""
 
 msgid "Type to search an instance type..."
 msgstr ""
 
+msgid "Type your message..."
+msgstr ""
+
 msgid "Type:"
 msgstr ""
 
+msgid "Typical T+ for this checkpoint (p50 / p95) from launch history"
+msgstr ""
+
 msgid "URI of the Image to deploy on your pod"
+msgstr ""
+
+msgid "USB Allowlists"
+msgstr ""
+
+msgid "USB References"
+msgstr ""
+
+msgid "USB allowlists updated"
+msgstr ""
+
+msgid "USB device lookup"
+msgstr ""
+
+msgid ""
+"USB device remotization allowlists. A Hardware Profile bundles a USB "
+"device allowlist and binds to a Software Stack or Project (Project "
+"overrides Stack). USB remotization is a device compatibility filter, not "
+"a security boundary."
+msgstr ""
+
+msgid "USB-IF defined class codes (BaseClass / SubClass / Protocol)"
 msgstr ""
 
 msgid "Unable to access the file. Please try again:  "
@@ -3188,6 +5221,9 @@ msgid "Unable to create file. Check logs for additional info"
 msgstr ""
 
 msgid "Unable to create new user. API returned error: "
+msgstr ""
+
+msgid "Unable to decode job script template. Check logs for additional details"
 msgstr ""
 
 msgid "Unable to delete "
@@ -3224,6 +5260,10 @@ msgid "Unable to extract profile information. See logs for additional details"
 msgstr ""
 
 #, python-format
+msgid "Unable to find any %(link)s agent onboarded to this EDH environment."
+msgstr ""
+
+#, python-format
 msgid "Unable to find any %(link)s onboarded to this EDH environment."
 msgstr ""
 
@@ -3238,14 +5278,8 @@ msgstr ""
 msgid "Unable to generate download link. Check the logs for more information"
 msgstr ""
 
-msgid "Unable to generate job script. See logs for additional details"
-msgstr ""
-
 #, python-brace-format
 msgid "Unable to list AWS Batch jobs due to {error}"
-msgstr ""
-
-msgid "Unable to list all_users: "
 msgstr ""
 
 msgid "Unable to list applications. See logs for additional details"
@@ -3254,16 +5288,10 @@ msgstr ""
 msgid "Unable to list applications. See logs for additional details."
 msgstr ""
 
-msgid "Unable to list groups: "
-msgstr ""
-
 msgid "Unable to list your clusters images"
 msgstr ""
 
 msgid "Unable to list your container images"
-msgstr ""
-
-msgid "Unable to locate  the download archive, please try again"
 msgstr ""
 
 msgid "Unable to locate the download archive, please try again"
@@ -3287,12 +5315,7 @@ msgstr ""
 msgid "Unable to retrieve API key for user. See logs for additional details."
 msgstr ""
 
-msgid ""
-"Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue "
-"parameters and check logs for more details"
-msgstr ""
-
-msgid "Unable to retrieve this virtual desktop."
+msgid "Unable to retrieve jobs for scheduler(s):"
 msgstr ""
 
 msgid "Unable to stat file"
@@ -3310,6 +5333,9 @@ msgid ""
 " not have permission to access it."
 msgstr ""
 
+msgid "Undo"
+msgstr ""
+
 msgid ""
 "Unique ID of your Amazon image. Must be a valid image, start with ami- "
 "and between 8 to 21 chars"
@@ -3323,10 +5349,22 @@ msgstr ""
 msgid "Unknown session state"
 msgstr ""
 
+msgid "Unlimited (no expiration)"
+msgstr ""
+
+msgid "Unlimited lifetime allowed"
+msgstr ""
+
 msgid "Unregister Software Stack from EDH"
 msgstr ""
 
 msgid "Unregister Software Stack from SOCA"
+msgstr ""
+
+msgid "Unsaved changes"
+msgstr ""
+
+msgid "Unsupervised Access Policy"
 msgstr ""
 
 msgid "Update Password"
@@ -3364,6 +5402,14 @@ msgid ""
 msgstr ""
 
 msgid "Upload your content to EDH"
+msgstr ""
+
+msgid ""
+"Uploads are resumable — you can pause, and a dropped connection continues"
+" where it left off."
+msgstr ""
+
+msgid "Uptime"
 msgstr ""
 
 #, python-format
@@ -3452,6 +5498,9 @@ msgstr ""
 msgid "User Membership"
 msgstr ""
 
+msgid "User Save & Shut Down capture"
+msgstr ""
+
 msgid "User code to be executed AFTER the solver command"
 msgstr ""
 
@@ -3479,6 +5528,11 @@ msgid "User(s) in your group:"
 msgstr ""
 
 msgid "User-Data templates are assigned to EDH Target Nodes"
+msgstr ""
+
+msgid ""
+"User/Path/Source/IP/Reason: multi-tag, prefix ! to exclude. "
+"Method/Status/Actor: click to cycle ✓ include → ✗ exclude → off."
 msgstr ""
 
 msgid "User: "
@@ -3513,6 +5567,9 @@ msgstr ""
 msgid "VALUE"
 msgstr ""
 
+msgid "VDI Pooling"
+msgstr ""
+
 msgid "VDI Profile"
 msgstr ""
 
@@ -3525,7 +5582,21 @@ msgstr ""
 msgid "Value (e.g., 1, 2)"
 msgstr ""
 
+msgid "Value only"
+msgstr ""
+
 msgid "Value:"
+msgstr ""
+
+msgid "Ver"
+msgstr ""
+
+msgid "Version history"
+msgstr ""
+
+msgid ""
+"Version history is from SSM Parameter Store. Editor-attributed 'who "
+"changed it' arrives with the audit trail step."
 msgstr ""
 
 msgid "Via EDH Web Portal"
@@ -3543,7 +5614,10 @@ msgstr ""
 msgid "View HTTP API documentation"
 msgstr ""
 
-msgid "View my jobs"
+msgid "View Timeline"
+msgstr ""
+
+msgid "View available paths"
 msgstr ""
 
 msgid "View/Manage Authorized Application Profiles"
@@ -3565,6 +5639,27 @@ msgid "Virtual Desktop Stacks"
 msgstr ""
 
 msgid "Virtual Desktops"
+msgstr ""
+
+msgid "Virtual Desktops (read-only)"
+msgstr ""
+
+msgid "Virtual Desktops (user)"
+msgstr ""
+
+msgid "Virtual Desktops / DCV"
+msgstr ""
+
+msgid "Volume Acceleration (Fast-Restore)"
+msgstr ""
+
+msgid "Warm"
+msgstr ""
+
+msgid "Warm (pre-stopped)"
+msgstr ""
+
+msgid "Warm pool state"
 msgstr ""
 
 msgid "We have generated a test template for you, customize it as needed or"
@@ -3598,6 +5693,20 @@ msgstr ""
 msgid "What workflow do you want to run?"
 msgstr ""
 
+msgid "When (UTC)"
+msgstr ""
+
+msgid ""
+"When enabled, you can extend the token expiration before it expires "
+"without generating a new secret."
+msgstr ""
+
+msgid "Will be deleted"
+msgstr ""
+
+msgid "Window:"
+msgstr ""
+
 msgid "Windows"
 msgstr ""
 
@@ -3628,6 +5737,9 @@ msgstr ""
 msgid "You are about to be redirected to"
 msgstr ""
 
+msgid "You are about to delete job"
+msgstr ""
+
 msgid "You are about to permanently delete"
 msgstr ""
 
@@ -3639,7 +5751,24 @@ msgstr ""
 msgid "You are about to remove this job from your EKS cluster."
 msgstr ""
 
+msgid "You are about to share your virtual desktop."
+msgstr ""
+
 msgid "You are about to terminate this AWS Batch job:"
+msgstr ""
+
+msgid ""
+"You are an AI assistant for Engineering Development Hub (EDH) specialized"
+" in Computed Aided Engineering workloads. Analyze file contents and "
+"provide helpful insights. For log files, identify errors and suggest "
+"fixes. For config files, check for misconfigurations. For scripts, review"
+" for issues."
+msgstr ""
+
+msgid ""
+"You are an AI assistant for Engineering Development Hub (EDH) specialized"
+" in Computed Aided Engineering workloads. Help the user with their "
+"questions."
 msgstr ""
 
 msgid "You are currently using"
@@ -3668,9 +5797,6 @@ msgstr ""
 msgid ""
 "You are not authorized to upload in this location ({path}). If you "
 "recently changed the permissions, please allow up to 10 minutes for sync"
-msgstr ""
-
-msgid "You are not the job owner"
 msgstr ""
 
 #, python-format
@@ -3775,12 +5901,21 @@ msgstr ""
 msgid "You must specify cpus and instance_type parameters"
 msgstr ""
 
+msgid "You must wait for your target node to finish stopping"
+msgstr ""
+
+msgid "You must wait for your virtual desktop to finish stopping"
+msgstr ""
+
 msgid ""
 "You will also need to pass the Base64 encoded string as payload. See "
 "below for examples:"
 msgstr ""
 
 msgid "You will need to specify three headers:"
+msgstr ""
+
+msgid "You will need to specify two headers:"
 msgstr ""
 
 #, python-format
@@ -3797,6 +5932,9 @@ msgid ""
 msgstr ""
 
 msgid "You won't be charged for the compute time while your session is stopped"
+msgstr ""
+
+msgid "Your API Tokens"
 msgstr ""
 
 msgid "Your API key:"
@@ -3846,6 +5984,11 @@ msgstr ""
 msgid "Your desktop is about to be terminated as requested"
 msgstr ""
 
+msgid ""
+"Your desktop is being saved & shut down - a resumable image is being "
+"captured, then it will terminate."
+msgstr ""
+
 msgid "Your desktop is starting"
 msgstr ""
 
@@ -3882,7 +6025,25 @@ msgstr ""
 msgid "Your project has been updated successfully"
 msgstr ""
 
+msgid "Your quota"
+msgstr ""
+
 msgid "Your schedule has been updated successfully"
+msgstr ""
+
+msgid ""
+"Your session is being interrupted — saving your desktop. It will appear "
+"under Saved Desktops when ready."
+msgstr ""
+
+msgid ""
+"Your session was interrupted — your desktop was saved. Find it under "
+"Saved Desktops to resume."
+msgstr ""
+
+msgid ""
+"Your session was interrupted, but the auto-save did not complete — your "
+"work could not be preserved."
 msgstr ""
 
 #, python-format
@@ -3910,6 +6071,9 @@ msgstr ""
 msgid "Your target node is already stopped"
 msgstr ""
 
+msgid "Your target node is already stopping"
+msgstr ""
+
 msgid "Your target node is being created"
 msgstr ""
 
@@ -3919,7 +6083,13 @@ msgstr ""
 msgid "Your target node is starting"
 msgstr ""
 
+msgid "Your target node is still stopping"
+msgstr ""
+
 msgid "Your target node is stopped."
+msgstr ""
+
+msgid "Your target node is stopping. This may take a few minutes."
 msgstr ""
 
 msgid "Your target node schedule has been updated"
@@ -3946,6 +6116,9 @@ msgstr ""
 msgid "Your virtual desktop is already stopped"
 msgstr ""
 
+msgid "Your virtual desktop is already stopping"
+msgstr ""
+
 msgid "Your virtual desktop is being created"
 msgstr ""
 
@@ -3955,7 +6128,13 @@ msgstr ""
 msgid "Your virtual desktop is starting"
 msgstr ""
 
+msgid "Your virtual desktop is still stopping"
+msgstr ""
+
 msgid "Your virtual desktop is stopped."
+msgstr ""
+
+msgid "Your virtual desktop is stopping. This may take a few minutes."
 msgstr ""
 
 msgid "Your virtual desktop schedule has been updated"
@@ -3967,7 +6146,10 @@ msgid ""
 "You can mount additional filesystems as needed."
 msgstr ""
 
-msgid "__SOCA_CLUSTER__NAME__"
+msgid "across this software stack"
+msgstr ""
+
+msgid "ago -- max age in bucket"
 msgstr ""
 
 msgid "all"
@@ -3976,13 +6158,40 @@ msgstr ""
 msgid "and close it with"
 msgstr ""
 
+msgid "any"
+msgstr ""
+
 msgid "app_profile file is missing."
+msgstr ""
+
+msgid "attention"
+msgstr ""
+
+msgid "auto-removes in"
+msgstr ""
+
+msgid "avg"
 msgstr ""
 
 msgid "base64"
 msgstr ""
 
 msgid "breadcrumb"
+msgstr ""
+
+msgid "by"
+msgstr ""
+
+msgid "capacity"
+msgstr ""
+
+msgid "captured"
+msgstr ""
+
+msgid "changes"
+msgstr ""
+
+msgid "changes to these take effect only after restarting"
 msgstr ""
 
 msgid "clear the buffer"
@@ -4003,7 +6212,13 @@ msgstr ""
 msgid "comma separated list of job ids e,g: 1,2,3"
 msgstr ""
 
+msgid "configured instance type(s) carry capacity"
+msgstr ""
+
 msgid "connecting"
+msgstr ""
+
+msgid "connecting..."
 msgstr ""
 
 msgid "cpus must be a valid integer"
@@ -4018,6 +6233,24 @@ msgid ""
 "automatic AWS Cost Allocation tags."
 msgstr ""
 
+msgid "current"
+msgstr ""
+
+msgid "day(s)"
+msgstr ""
+
+msgid "days"
+msgstr ""
+
+msgid "days, after which it is permanently deleted."
+msgstr ""
+
+msgid "deleted"
+msgstr ""
+
+msgid "desired"
+msgstr ""
+
 msgid "disconnected"
 msgstr ""
 
@@ -4027,7 +6260,19 @@ msgstr ""
 msgid "e.g. /bin/bash"
 msgstr ""
 
+msgid "e.g. CI/CD Pipeline Token"
+msgstr ""
+
+msgid "e.g. MaxProvisioning, c8i.xlarge, /dcv/"
+msgstr ""
+
 msgid "e.g. argument"
+msgstr ""
+
+msgid "e.g. not_sudoer, !path"
+msgstr ""
+
+msgid "e.g. webui, !api, i-0abc"
 msgstr ""
 
 msgid "encode function:"
@@ -4036,7 +6281,21 @@ msgstr ""
 msgid "error"
 msgstr ""
 
+msgid "errors"
+msgstr ""
+
+msgid ""
+"events. The DcvSessionEventLog table retains 24 hours of history per "
+"session."
+msgstr ""
+
 msgid "example: c6g.metal"
+msgstr ""
+
+msgid "failed"
+msgstr ""
+
+msgid "failed cycles in last 60 min."
 msgstr ""
 
 msgid "file rotated, stream ending"
@@ -4048,19 +6307,38 @@ msgstr ""
 msgid "file_path"
 msgstr ""
 
+msgid "finished jobs - narrow the time range to see older ones."
+msgstr ""
+
+#, python-format
+msgid "frame loss > 5%% or latency > 100ms"
+msgstr ""
+
 msgid "from the filesystem."
 msgstr ""
 
 msgid "fsx_capacity"
 msgstr ""
 
+msgid "hardware compatible"
+msgstr ""
+
 msgid "has been uploaded to EDH"
+msgstr ""
+
+msgid "healthy"
+msgstr ""
+
+msgid "hot"
 msgstr ""
 
 msgid "hour"
 msgstr ""
 
 msgid "hour(s) with HyperThreading support set to True"
+msgstr ""
+
+msgid "hours"
 msgstr ""
 
 msgid "idle"
@@ -4078,10 +6356,13 @@ msgstr ""
 msgid "instance_type"
 msgstr ""
 
+msgid "invocations"
+msgstr ""
+
 msgid "is HTML tag for new line"
 msgstr ""
 
-msgid "is running but EDG could not validate your session via"
+msgid "is running but EDH could not validate your session via"
 msgstr ""
 
 msgid "jump to live"
@@ -4090,7 +6371,16 @@ msgstr ""
 msgid "jump to start"
 msgstr ""
 
+msgid "last"
+msgstr ""
+
+msgid "ledger"
+msgstr ""
+
 msgid "live"
+msgstr ""
+
+msgid "live · updates automatically"
 msgstr ""
 
 msgid "load earlier"
@@ -4099,7 +6389,56 @@ msgstr ""
 msgid "loading"
 msgstr ""
 
+msgid ""
+"locked to this stack's AMI — only matching-architecture instance types "
+"are selectable."
+msgstr ""
+
+msgid "member"
+msgstr ""
+
+msgid "min"
+msgstr ""
+
+msgid "minimum guaranteed On-Demand instances; 0 up to the Hot count."
+msgstr ""
+
 msgid "no file specified"
+msgstr ""
+
+msgid "none in window"
+msgstr ""
+
+msgid "not in current private subnets"
+msgstr ""
+
+msgid ""
+"of the capacity above the floor, the portion that is On-Demand (the rest "
+"is Spot). 0 to 100, where 100 means all On-Demand."
+msgstr ""
+
+msgid "on DeviceHunt (opens in a new tab)"
+msgstr ""
+
+msgid "on this exact instance type"
+msgstr ""
+
+msgid "original"
+msgstr ""
+
+msgid "p95 Frame Loss"
+msgstr ""
+
+msgid "p95 Network Latency"
+msgstr ""
+
+msgid "parameter(s) updated"
+msgstr ""
+
+msgid "patterns"
+msgstr ""
+
+msgid "patterns copied"
 msgstr ""
 
 msgid "pause or resume"
@@ -4111,10 +6450,36 @@ msgstr ""
 msgid "pending"
 msgstr ""
 
+msgid ""
+"pre-warmed stopped instances (EBS only); start in ~30s when claimed with "
+"available capacity."
+msgstr ""
+
 msgid "profile_name is missing."
 msgstr ""
 
 msgid "purchasing Reserved Instances"
+msgstr ""
+
+msgid "raw"
+msgstr ""
+
+msgid "read-only"
+msgstr ""
+
+msgid "ready"
+msgstr ""
+
+msgid "reconciler + relay"
+msgstr ""
+
+msgid "region"
+msgstr ""
+
+msgid "rejected"
+msgstr ""
+
+msgid "restart"
 msgstr ""
 
 msgid "root_size"
@@ -4123,7 +6488,13 @@ msgstr ""
 msgid "rotated"
 msgstr ""
 
+msgid "run from the controller shell."
+msgstr ""
+
 msgid "running"
+msgstr ""
+
+msgid "running, broker-registered instances kept idle for instant assignment."
 msgstr ""
 
 #, python-brace-format
@@ -4136,13 +6507,31 @@ msgstr ""
 msgid "scratch_size"
 msgstr ""
 
+msgid "set to"
+msgstr ""
+
+msgid "set to your scoped token (e.g."
+msgstr ""
+
+msgid "similar launches over the last 90 days"
+msgstr ""
+
 msgid "since last mark"
 msgstr ""
 
 msgid "stopped"
 msgstr ""
 
+msgid "stopping"
+msgstr ""
+
 msgid "stream ended"
+msgstr ""
+
+msgid "substring, e.g. /dcv/"
+msgstr ""
+
+msgid "substring, e.g. 10.0"
 msgstr ""
 
 msgid "this user from the group"
@@ -4154,6 +6543,15 @@ msgstr ""
 msgid "this user to the group"
 msgstr ""
 
+msgid "to get detailed troubleshooting and recommendations with file context."
+msgstr ""
+
+msgid "to the AgentCore runtimes you want to use."
+msgstr ""
+
+msgid "to the recycle bin? You can recover it within"
+msgstr ""
+
 msgid "toggle theme"
 msgstr ""
 
@@ -4163,10 +6561,25 @@ msgstr ""
 msgid "toggle wrap"
 msgstr ""
 
+msgid "took"
+msgstr ""
+
+msgid "typed"
+msgstr ""
+
 msgid "upload because of"
 msgstr ""
 
 msgid "upload was canceled"
+msgstr ""
+
+msgid "user"
+msgstr ""
+
+msgid "user(s)"
+msgstr ""
+
+msgid "v#"
 msgstr ""
 
 msgid "vCPUs"
@@ -4175,10 +6588,19 @@ msgstr ""
 msgid "vcpus"
 msgstr ""
 
+msgid "version(s)"
+msgstr ""
+
 msgid "wall_time"
 msgstr ""
 
 msgid "wall_time must use HH:MM:SS format and only use valid numbers"
+msgstr ""
+
+msgid "warm"
+msgstr ""
+
+msgid "working"
 msgstr ""
 
 #, python-brace-format
@@ -5412,5 +7834,151 @@ msgstr ""
 #~ "Your sessions use tmux - closing "
 #~ "tabs or this window leaves them "
 #~ "running so you can resume later."
+#~ msgstr ""
+
+#~ msgid "(EDH version __VERSION__)"
+#~ msgstr ""
+
+#~ msgid "(Optional) Description for your template, maximum 500 characters."
+#~ msgstr ""
+
+#~ msgid ", "
+#~ msgstr ""
+
+#~ msgid "Add"
+#~ msgstr ""
+
+#~ msgid "All users"
+#~ msgstr ""
+
+#~ msgid "Capacity being provisioned"
+#~ msgstr ""
+
+#~ msgid "Capacity provisioning blocked"
+#~ msgstr ""
+
+#~ msgid "Code Editor"
+#~ msgstr ""
+
+#~ msgid "Code Editor is taking longer than expected to load."
+#~ msgstr ""
+
+#~ msgid "Download Session File"
+#~ msgstr ""
+
+#~ msgid "Download your client here."
+#~ msgstr ""
+
+#~ msgid "Entering the Danger Zone"
+#~ msgstr ""
+
+#~ msgid "Filter"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "If the page stays blank, the "
+#~ "code-server service may not be "
+#~ "running on this cluster."
+#~ msgstr ""
+
+#~ msgid "JOB CANNOT START"
+#~ msgstr ""
+
+#~ msgid "Job is finished or in invalid state"
+#~ msgstr ""
+
+#~ msgid "LSF"
+#~ msgstr ""
+
+#~ msgid "List all Virtual Desktops"
+#~ msgstr ""
+
+#~ msgid "Members: (choose all that apply)"
+#~ msgstr ""
+
+#~ msgid "My API Key (Developer mode)"
+#~ msgstr ""
+
+#~ msgid "OpenPBS"
+#~ msgstr ""
+
+#~ msgid "Option1: Browser access"
+#~ msgstr ""
+
+#~ msgid "Option2: Native Application"
+#~ msgstr ""
+
+#~ msgid "PENDING"
+#~ msgstr ""
+
+#~ msgid "RUNNING"
+#~ msgstr ""
+
+#~ msgid "Scheduler ID"
+#~ msgstr ""
+
+#~ msgid "Slurm"
+#~ msgstr ""
+
+#~ msgid "Starting Code Editor..."
+#~ msgstr ""
+
+#~ msgid "Subnets must be from the list of private subnets configured on EDH"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "This file is too big to be "
+#~ "compressed via web. Download file "
+#~ "separately or use SFTP."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "This session will automatically pause "
+#~ "<strong>after %(n)s hour</strong> of "
+#~ "inactivity."
+#~ msgid_plural ""
+#~ "This session will automatically pause "
+#~ "<strong>after %(n)s hours</strong> of "
+#~ "inactivity."
+#~ msgstr[0] ""
+#~ msgstr[1] ""
+
+#~ msgid ""
+#~ "Token has expired. As a security "
+#~ "measure we have refreshed your token."
+#~ " Please re-submit your request again."
+#~ msgstr ""
+
+#~ msgid "Unable to generate job script. See logs for additional details"
+#~ msgstr ""
+
+#~ msgid "Unable to list all_users: "
+#~ msgstr ""
+
+#~ msgid "Unable to list groups: "
+#~ msgstr ""
+
+#~ msgid "Unable to locate  the download archive, please try again"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Unable to retrieve jobs on all "
+#~ "schedulers. Verify user/scheduler/queue parameters"
+#~ " and check logs for more details"
+#~ msgstr ""
+
+#~ msgid "Unable to retrieve this virtual desktop."
+#~ msgstr ""
+
+#~ msgid "View my jobs"
+#~ msgstr ""
+
+#~ msgid "You are not the job owner"
+#~ msgstr ""
+
+#~ msgid "__SOCA_CLUSTER__NAME__"
+#~ msgstr ""
+
+#~ msgid "is running but EDG could not validate your session via"
 #~ msgstr ""
 

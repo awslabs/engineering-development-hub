@@ -16,7 +16,14 @@ function tags_ebs_volumes () {
     local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"${EDH_DCV_SESSION_OWNER}\" Key=edh:JobProject,Value=\"dcv\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
    {% else %}
    local NAME_VALUE="${CLUSTER_ID}-Job-${EDH_JOB_ID}"
-    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\" Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
+   # EDH_JOB_PROJECT is empty when the job was submitted without -P. Leave the tag
+   # off entirely rather than creating it with an empty value, so this path agrees
+   # with the CloudFormation one, which omits the key.
+   local PROJECT_TAG=""
+   if [[ -n "${EDH_JOB_PROJECT:-}" ]]; then
+     PROJECT_TAG="Key=edh:JobProject,Value=\"${EDH_JOB_PROJECT// /_}\""
+   fi
+    local TAGS="Key=Name,Value=\"${NAME_VALUE}\" Key=edh:JobOwner,Value=\"${EDH_JOB_OWNER}\" ${PROJECT_TAG} Key=edh:JobId,Value=\"${EDH_JOB_ID}\" Key=edh:JobQueue,Value=\"${EDH_JOB_QUEUE}\" Key=edh:ClusterId,Value=\"${CLUSTER_ID}\""
   {% endif %}
 
   local CURRENT_ATTEMPT=0

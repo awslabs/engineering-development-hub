@@ -47,12 +47,20 @@ def resolve_launch_spec(stack) -> Tuple[Optional[Dict[str, Any]], Optional[str]]
     # Resolve AMI root device name via describe_images (established pattern:
     # dcv_cloudformation_builder, target_nodes_cloudformation_builder, ec2_helper).
     _root_device_name = None
+    _ami_root_size = None
     try:
         import utils.aws.boto3_wrapper as utils_boto3
 
         _ec2 = utils_boto3.get_boto(service_name="ec2").message
         _img = _ec2.describe_images(ImageIds=[_ami])
-        _root_device_name = (_img.get("Images") or [{}])[0].get("RootDeviceName")
+        _image = (_img.get("Images") or [{}])[0]
+        _root_device_name = _image.get("RootDeviceName")
+        # Root snapshot size is a floor for the pool's root volume, alongside
+        # the stack minimum.
+        for _mapping in _image.get("BlockDeviceMappings") or []:
+            if _mapping.get("DeviceName") == _root_device_name:
+                _ami_root_size = (_mapping.get("Ebs") or {}).get("VolumeSize")
+                break
     except Exception as _e:
         logger.warning("vdi_pool_resolve: describe_images(%s) failed: %s", _ami, _e)
 
@@ -62,6 +70,7 @@ def resolve_launch_spec(stack) -> Tuple[Optional[Dict[str, Any]], Optional[str]]
             "base_os": getattr(stack, "ami_base_os", None),
             "root_size": getattr(stack, "ami_root_disk_size", None),
             "root_device_name": _root_device_name,
+            "ami_root_size": _ami_root_size,
         },
         None,
     )

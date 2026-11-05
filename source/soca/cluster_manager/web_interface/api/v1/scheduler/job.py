@@ -9,6 +9,7 @@ from flask_restful import Resource, reqparse
 import logging
 import base64
 from decorators import private_api, feature_flag
+from feature_flags import is_user_allowed
 import sys
 import os
 import re
@@ -23,12 +24,27 @@ from utils.subprocess_client import SocaSubprocessClient
 from utils.http_client import SocaHttpClient
 from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
+from utils.validators import Validators
 from utils.datamodels.hpc.scheduler import get_schedulers
 from utils.hpc.job_fetcher import SocaHpcJobFetcher
 from utils.hpc.job_controller import SocaHpcJobController
 from utils.hpc.job_submit import SocaHpcJobSubmit, SocaShellScriptSubmit
 
 logger = logging.getLogger("soca_logger")
+
+
+def _shell_interpreter_authorized(user):
+    # Inline shell interpreters run on the controller; gate via HPC_SHELL_INTERPRETER flag (default sudoers). Fail-closed. _root = internal root-key calls.
+    if user == "_root":
+        logger.debug("shell interpreter authorized: internal root-key caller")
+        return True
+    if not Validators.is_string_not_empty(user):
+        logger.debug("shell interpreter denied: no resolvable user")
+        return False
+    _resp = is_user_allowed("HPC_SHELL_INTERPRETER", user)
+    _allowed = _resp.get("success") is True and _resp.get("message") is True
+    logger.debug(f"shell interpreter authorization for {user=}: {_allowed=}")
+    return _allowed
 
 
 class Job(Resource):
@@ -289,6 +305,10 @@ class Job(Resource):
                 ).submit_encoded_payload(payload=_payload)
 
             elif _interpreter in _valid_system_interpreter:
+                if not _shell_interpreter_authorized(_user):
+                    return SocaError.GENERIC_ERROR(
+                        f"System interpreter {_interpreter} executes on the controller and is restricted by the HPC_SHELL_INTERPRETER policy. Submit an HPC job with a scheduler interpreter ({_all_schedulers}) instead."
+                    ).as_flask()
                 _submit_job = SocaShellScriptSubmit(
                     interpreter=_interpreter, user=_user, cwd=f"{config.Config.USER_HOME}/{_user}"
                 ).submit_encoded_payload(payload=_payload)

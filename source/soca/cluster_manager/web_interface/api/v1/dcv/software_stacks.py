@@ -24,6 +24,7 @@ from utils.aws.ssm_helper import get_ami_id_from_alias
 from utils.error import SocaError
 from utils.cast import SocaCastEngine
 from utils.response import SocaResponse
+from helpers.vdi_root_volume import ami_root_snapshot_size
 from flask import request
 from flask_babel import gettext as _
 import base64
@@ -470,7 +471,11 @@ class SoftwareStacksManager(Resource):
                 f"Default Root Disk Name: {_ami_root_disk_name=} with minimal size of {_ami_root_size}GB for AMI {_ami_id}"
             )
             _extra_logging: str = ""
-            if _ami_root_size <= root_size:
+            if root_size == 0:
+                logger.debug(
+                    f"root_size 0 for AMI {_ami_id}: stack uses the cluster minimum, AMI root size ({_ami_root_size}GB) is enforced at launch"
+                )
+            elif _ami_root_size <= root_size:
                 logger.debug(
                     f"AMI {_ami_id} root size requirement ({_ami_root_size}) is <= {root_size}"
                 )
@@ -960,13 +965,17 @@ class SoftwareStacksManager(Resource):
         if _get_image.get("success") is True:
             # Grab the root size from the AMI to make sure our admin-input size is at least that size.
             # This prevents situations where the admin may undersize the AMI setting.
-            # The size is taken from the first (0th) EBS volume within the AMI.
+            # The size is taken from the mapping that matches the AMI's RootDeviceName.
             _image_details = _get_image.get("message")
-            _ami_root_size: int = _image_details["Images"][0].get(
-                "BlockDeviceMappings"
-            )[0]["Ebs"]["VolumeSize"]
+            _ami_root_size: int = (
+                ami_root_snapshot_size(_image_details["Images"][0]).get("message") or 0
+            )
             _extra_logging: str = ""
-            if _ami_root_size <= root_size:
+            if root_size == 0:
+                logger.debug(
+                    f"root_size 0 for AMI {_ami_id}: stack uses the cluster minimum, AMI root size ({_ami_root_size}GB) is enforced at launch"
+                )
+            elif _ami_root_size <= root_size:
                 logger.debug(
                     f"AMI {_ami_id} root size requirement ({_ami_root_size}) is <= {root_size}"
                 )

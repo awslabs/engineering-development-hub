@@ -7,7 +7,7 @@
                         "logs:CreateLogStream",
                         "logs:PutLogEvents"
                     ],
-            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/PlacementGroupCleanerLambda/*",
+            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:log-group:/edh/%%CLUSTER_ID%%/PlacementGroupCleanerLambda*",
             "Effect": "Allow",
             "Sid": "CloudWatchLogsPermissions"
         },

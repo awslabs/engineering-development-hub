@@ -1,9 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import Field
 from utils.response import SocaResponse
+from utils.validators import Validators
 from utils.datamodels.hpc.shared.job_resources import SocaHpcJobResourceModel
 import logging
 
@@ -44,6 +45,11 @@ class SocaHpcQueue(SocaHpcJobResourceModel):
     allowed_security_group_ids: list = Field(default_factory=list)
     allowed_instance_profiles: list = Field(default_factory=list)
 
+    # How many subjobs of ONE array may hold capacity at the same time. The array
+    # may be longer than this; the rest queue and are dispatched as nodes free.
+    # 0 means no limit.
+    max_running_subjobs: Optional[int] = 100
+
     def validate_queue(self) -> SocaResponse:
         errors = []
 
@@ -67,6 +73,11 @@ class SocaHpcQueue(SocaHpcJobResourceModel):
                 errors.append(
                     "max_provisioned_instances must be a non-negative integer"
                 )
+
+        # max_running_subjobs must be a non-negative integer if provided
+        if self.max_running_subjobs is not None:
+            if not Validators.is_non_negative_int(self.max_running_subjobs):
+                errors.append("max_running_subjobs must be a non-negative integer")
 
         # allowed_users and excluded_users must be lists
         if not isinstance(self.allowed_users, list):
@@ -92,6 +103,22 @@ class SocaHpcQueue(SocaHpcJobResourceModel):
         # scaling_mode must be "single_job" or "multiple_jobs"
         if self.scaling_mode not in ["single_job", "multiple_jobs"]:
             errors.append("scaling_mode must be either 'single_job' or 'multiple_jobs'")
+
+        # Warned rather than refused: a cluster carrying this setting today
+        # keeps working, it just does not get shared nodes. The orchestrator
+        # provisions one capacity per job and pins that job to it, so a queue
+        # configured for multiple_jobs still gets one instance per job and is
+        # billed for it. terminate_when_idle is read only for keep_forever
+        # capacity, so it has no effect here either.
+        if self.scaling_mode == "multiple_jobs":
+            logger.warning(
+                "scaling_mode is set to 'multiple_jobs' but the orchestrator "
+                "provisions one instance per job and pins the job to it, so this "
+                "queue still gets single_job behavior and terminate_when_idle is "
+                "not applied. To share one instance across several jobs, provision "
+                "AlwaysOn capacity with 'edhctl nodes create-alwayson "
+                "--terminate-when-idle <minutes>' and submit against it."
+            )
 
         # allowed_security_group_ids and allowed_instance_profiles must be lists
         if not isinstance(self.allowed_security_group_ids, list):

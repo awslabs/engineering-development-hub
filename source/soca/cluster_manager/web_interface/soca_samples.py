@@ -14,7 +14,9 @@ from models import (
 from datetime import datetime, timezone
 import remote_desktop_common as utils_remote_desktop_common
 import utils.aws.ec2_helper as ec2_helper
+from utils.cast import SocaCastEngine
 from utils.config import SocaConfig
+from utils.validators import Validators
 
 import logging
 import config
@@ -23,6 +25,239 @@ from utils.datamodels.hpc.scheduler import get_schedulers, SocaHpcSchedulerProvi
 from sample_apps import load_form, load_job_template, load_thumbnail
 
 logger = logging.getLogger("soca_logger")
+
+
+def _apptainer_is_enabled() -> bool:
+    """Return True when the cluster has the Apptainer container runtime enabled.
+
+    The Apptainer sample apps invoke a runtime that is installed only when
+    Config.containers.apptainer.enabled was true at deployment. Seeding their
+    Application Profiles on a cluster without the runtime would put two entries
+    in the WebUI that can only ever fail, so both seeds are gated on this.
+
+    A missing key means an older cluster whose SSM tree predates the feature,
+    which is the same thing as disabled.
+    """
+    _apptainer_config = (
+        SocaConfig(key="/configuration/HPC/containers/apptainer")
+        .get_value(return_as=dict, default={}, allow_unknown_key=True)
+        .get("message")
+    )
+    if not Validators.is_dict(_apptainer_config):
+        logger.debug(
+            "Apptainer container config is absent or not a mapping, treating the "
+            "runtime as disabled for sample-app seeding."
+        )
+        return False
+
+    # SSM round-trips booleans as strings depending on how they were written, so
+    # the value reaching here is a real bool on a fresh write and "True"/"False"
+    # after a round-trip. The cast engine handles both, and returns a SocaResponse
+    # rather than raising, so an unparseable value cannot escape this function.
+    # Treat a failed cast as disabled: seeding two Application Profiles that can
+    # only fail is worse than not seeding them, and the cast error is logged.
+    _enabled = SocaCastEngine(_apptainer_config.get("enabled", False)).cast_as(bool)
+    if not _enabled.success:
+        logger.debug(
+            "Apptainer container config has an enabled value that is not a "
+            "boolean, treating the runtime as disabled for sample-app seeding."
+        )
+        return False
+    return _enabled.message
+
+
+def _seed_container_sample(
+    app_kind: str, profile_prefix: str, log_label: str
+) -> None:
+    """Seed one container sample Application Profile per available scheduler.
+
+    Shared by the two Apptainer samples, which differ only in their asset
+    directory and profile name. Mirrors insert_default_efa_application: gated by
+    an idempotency check on profile_name, one row per scheduler, and a missing
+    asset skips that scheduler rather than aborting the whole seed.
+
+    Asset files (form.json, job_<scheduler>.sh.j2, thumbnail.png) live on disk
+    under sample_apps/<app_kind>/. The validation script and container
+    definition file alongside them are staged to
+    /apps/edh/${EDH_CLUSTER_ID}/job_samples/<app_kind>/ by the cluster bootstrap
+    so any compute node can invoke them without S3 access.
+
+    IDEMPOTENCY IS PER SCHEDULER, not per prefix. A prefix-wide count() guard
+    would return early as soon as ANY of these profiles existed, and the loop
+    below skips a scheduler whose assets fail to load while still committing the
+    rows that did build -- so one transient read failure would commit the others,
+    satisfy the guard, and leave the skipped scheduler unseeded on every later
+    startup with no way to recover short of a manual insert. Checking each
+    profile_name instead means a later startup fills the gap. It also
+    de-duplicates the two PBS providers, which share the "PBS" label and would
+    otherwise both try to insert the same profile_name.
+    """
+    _SCHED_LABEL = {
+        SocaHpcSchedulerProvider.OPENPBS: "PBS",
+        SocaHpcSchedulerProvider.PBSPRO: "PBS",
+        SocaHpcSchedulerProvider.LSF: "LSF",
+        SocaHpcSchedulerProvider.SLURM: "SLURM",
+    }
+
+    _seeded = 0
+    _claimed: set[str] = set()
+    for _scheduler in get_schedulers():
+        _label = _SCHED_LABEL.get(_scheduler.provider)
+        if _label is None:
+            logger.warning(
+                f"Skipping default {log_label} seed for unsupported scheduler "
+                f"provider {_scheduler.provider!r}"
+            )
+            continue
+
+        _profile_name = f"{profile_prefix} ({_label})"
+        # Two providers can share one label -- OPENPBS and PBSPRO are both "PBS" --
+        # so the name claimed earlier in THIS run has to be tracked explicitly.
+        # The database check below cannot be relied on for it: the earlier row is
+        # still pending, and whether a query sees it depends on session autoflush
+        # rather than on anything this function states.
+        if _profile_name in _claimed:
+            logger.debug(
+                f"{log_label} application {_profile_name!r} was already seeded for "
+                f"another provider sharing that label, skipping."
+            )
+            continue
+
+        _existing = (
+            db.session.query(ApplicationProfiles)
+            .filter(ApplicationProfiles.profile_name == _profile_name)
+            .count()
+        )
+        if _existing != 0:
+            logger.debug(
+                f"{log_label} application {_profile_name!r} already exists in "
+                f"database, skipping seed."
+            )
+            continue
+
+        logger.info(f"Creating Sample {log_label} Application for {_label}")
+        _form_response = load_form(app_kind)
+        _job_response = load_job_template(app_kind, _scheduler.provider)
+        _thumbnail_response = load_thumbnail(app_kind)
+        if (
+            _form_response.get("success") is False
+            or _job_response.get("success") is False
+            or _thumbnail_response.get("success") is False
+        ):
+            logger.error(
+                f"Failed to load {log_label} sample app assets for "
+                f"{_scheduler.provider}. "
+                f"form={_form_response.get('message')!r} "
+                f"job={_job_response.get('message')!r} "
+                f"thumbnail={_thumbnail_response.get('message')!r}. "
+                f"Skipping this scheduler; a later startup will retry it."
+            )
+            continue
+
+        db.session.add(
+            ApplicationProfiles(
+                created_by="SOCA_DEFAULT_INSTALLER",
+                profile_name=_profile_name,
+                profile_form=_form_response.get("message"),
+                profile_job=_job_response.get("message"),
+                profile_interpreter=_scheduler.identifier,
+                profile_thumbnail=_thumbnail_response.get("message"),
+                created_on=datetime.now(timezone.utc),
+            )
+        )
+        _claimed.add(_profile_name)
+        _seeded += 1
+
+    if _seeded:
+        db.session.commit()
+
+
+def insert_default_apptainer_application():
+    """Seed the default 'Container Test (Apptainer)' Application Profile.
+
+    The single-node, no-EFA sample: it validates that the container runtime on a
+    compute node works, including the squashfuse mounting path that otherwise
+    degrades silently. Skipped entirely when Apptainer is not enabled.
+    """
+    logger.debug("Inserting default Apptainer container test application in database")
+    if not _apptainer_is_enabled():
+        logger.debug(
+            "Apptainer is not enabled on this cluster, skipping the container "
+            "test sample app seed."
+        )
+        return
+    _seed_container_sample(
+        app_kind="apptainer_test",
+        profile_prefix="Container Test (Apptainer)",
+        log_label="Apptainer Container Test",
+    )
+
+
+def insert_default_apptainer_efa_application():
+    """Seed the default 'Container EFA Benchmark (Apptainer)' Application Profile.
+
+    The multi-node MPI-over-EFA sample. It measures EFA against TCP because a
+    container whose MPI does not match the host's still runs, it just falls back
+    to TCP, so a pass/fail check alone would not catch it. Skipped entirely when
+    Apptainer is not enabled.
+    """
+    logger.debug("Inserting default Apptainer EFA benchmark application in database")
+    if not _apptainer_is_enabled():
+        logger.debug(
+            "Apptainer is not enabled on this cluster, skipping the container "
+            "EFA benchmark sample app seed."
+        )
+        return
+    _seed_container_sample(
+        app_kind="apptainer_efa_test",
+        profile_prefix="Container EFA Benchmark (Apptainer)",
+        log_label="Apptainer EFA Benchmark",
+    )
+
+
+def insert_default_job_array_application():
+    """Seed the default 'Job Array Test' Application Profile.
+
+    A job array is one submission that runs N independent subjobs differing only
+    by an index. The sample exists because the shape is easy to get wrong from
+    the other samples: `select` describes ONE subjob rather than the whole array,
+    and subjobs PACK onto a shared instance, which is why the form asks for
+    memory per subjob instead of leaving it unset like the other samples do.
+
+    Uses _seed_container_sample, which is generic despite its name: it is the
+    per-profile_name idempotent seeder. insert_default_test_web_based_job_submission_application
+    guards on a table-wide count() instead, which returns early as soon as ANY
+    profile exists -- correct for a sample that has shipped since the first
+    release, but it would mean a sample ADDED later never appears on a cluster
+    that already has profiles.
+    """
+    logger.debug("Inserting default job array test application in database")
+    _seed_container_sample(
+        app_kind="job_array_test",
+        profile_prefix="Job Array Test",
+        log_label="Job Array Test",
+    )
+
+
+def insert_default_multi_steps_application():
+    """Seed the default 'Test Application - Multi Steps' Application Profile.
+
+    Demonstrates the form builder Step component (edhStep, see
+    static/js/edh_workflow_form_steps.js): an intro before the first Step that
+    becomes the "General" page, required fields that block Next, a field made
+    conditional inside a step with "Show only if", a step skipped because all
+    its fields are hidden, and Submit shown on the last step only.
+
+    Seeded per profile_name through _seed_container_sample (see
+    insert_default_job_array_application for why), so it also appears on a
+    cluster that already has profiles.
+    """
+    logger.debug("Inserting default multi steps test application in database")
+    _seed_container_sample(
+        app_kind="test_job_multi_steps",
+        profile_prefix="Test Application - Multi Steps",
+        log_label="Multi Steps Test",
+    )
 
 
 def insert_default_target_host_user_data():
@@ -177,10 +412,10 @@ def insert_default_software_stacks():
                     )
                     _family = "windows" if "windows" in _base_os.lower() else "linux"
 
-                if "windows" in _base_os.lower():
-                    _root_disk_size = 100
-                else:
-                    _root_disk_size = 40
+                # 0 = use the per-OS cluster minimum
+                # (/configuration/dcv/root_volume/min_size_*), so changing that
+                # setting moves every default stack without editing each one.
+                _root_disk_size = 0
                 # Eventually move this out of DB, still lightweight
                 if "amazonlinux" in _base_os.lower():
                     _base_64_encoded_img = "data:image/png;base64,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"
@@ -315,28 +550,23 @@ def insert_default_efa_application():
     """Seed the default 'EFA Benchmark' Application Profile, one row per
     scheduler available in the cluster.
 
-    The EFA sample is gated by an idempotency check on profile_name:
-    if any 'EFA Benchmark*' rows already exist (from a previous install
-    or operator action), the seed is skipped.
-
     Asset files (form.json, job_<scheduler>.sh.j2, thumbnail.png, plus
     the actual benchmark script efa_test_job.sh) live on disk under
     sample_apps/efa_test/. The benchmark script is shipped to
     /apps/edh/${EDH_CLUSTER_ID}/job_samples/efa_test/efa_test_job.sh by the cluster
     bootstrap so any compute node can invoke it without S3 access.
+
+    IDEMPOTENCY IS PER SCHEDULER, not per prefix. A prefix-wide
+    `profile_name LIKE "EFA Benchmark%"` count returned early as soon as ANY of
+    these profiles existed, and the loop below skips a scheduler whose assets fail
+    to load while still committing the rows that did build -- so one transient read
+    failure committed the others, satisfied the guard, and left the skipped
+    scheduler unseeded on every later startup, with the log reporting the seed as
+    already done. Checking each profile_name instead means a later startup fills
+    the gap. It also de-duplicates the two PBS providers, which share the "PBS"
+    label and would otherwise both try to insert the same profile_name.
     """
     logger.debug("Inserting default EFA benchmark application in database")
-
-    _existing = (
-        db.session.query(ApplicationProfiles)
-        .filter(ApplicationProfiles.profile_name.like("EFA Benchmark%"))
-        .count()
-    )
-    if _existing != 0:
-        logger.debug(
-            "EFA Benchmark application already exists in database, skipping seed."
-        )
-        return
 
     _APP_KIND = "efa_test"
     _SCHED_LABEL = {
@@ -346,12 +576,39 @@ def insert_default_efa_application():
         SocaHpcSchedulerProvider.SLURM: "SLURM",
     }
 
+    _seeded = 0
+    _claimed: set[str] = set()
     for _scheduler in get_schedulers():
         _label = _SCHED_LABEL.get(_scheduler.provider)
         if _label is None:
             logger.warning(
                 f"Skipping default EFA Benchmark seed for unsupported scheduler "
                 f"provider {_scheduler.provider!r}"
+            )
+            continue
+
+        _profile_name = f"EFA Benchmark ({_label})"
+        # Two providers can share one label -- OPENPBS and PBSPRO are both "PBS" --
+        # so the name claimed earlier in THIS run has to be tracked explicitly. The
+        # database check below cannot be relied on for it: the earlier row is still
+        # pending, and whether a query sees it depends on session autoflush rather
+        # than on anything this function states.
+        if _profile_name in _claimed:
+            logger.debug(
+                f"EFA Benchmark application {_profile_name!r} was already seeded "
+                f"for another provider sharing that label, skipping."
+            )
+            continue
+
+        _existing = (
+            db.session.query(ApplicationProfiles)
+            .filter(ApplicationProfiles.profile_name == _profile_name)
+            .count()
+        )
+        if _existing != 0:
+            logger.debug(
+                f"EFA Benchmark application {_profile_name!r} already exists in "
+                f"database, skipping seed."
             )
             continue
 
@@ -369,7 +626,7 @@ def insert_default_efa_application():
                 f"form={_form_response.get('message')!r} "
                 f"job={_job_response.get('message')!r} "
                 f"thumbnail={_thumbnail_response.get('message')!r}. "
-                f"Skipping this scheduler."
+                f"Skipping this scheduler; a later startup will retry it."
             )
             continue
 
@@ -380,7 +637,7 @@ def insert_default_efa_application():
         db.session.add(
             ApplicationProfiles(
                 created_by="SOCA_DEFAULT_INSTALLER",
-                profile_name=f"EFA Benchmark ({_label})",
+                profile_name=_profile_name,
                 profile_form=_profile_form,
                 profile_job=_profile_job,
                 profile_interpreter=_scheduler.identifier,
@@ -388,6 +645,8 @@ def insert_default_efa_application():
                 created_on=datetime.now(timezone.utc),
             )
         )
+        _claimed.add(_profile_name)
+        _seeded += 1
 
-    db.session.commit()
-
+    if _seeded:
+        db.session.commit()

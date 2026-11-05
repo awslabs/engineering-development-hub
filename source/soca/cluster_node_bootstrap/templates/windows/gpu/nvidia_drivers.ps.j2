@@ -15,8 +15,7 @@ function Install-NvidiaGpuDrivers {
        $GridVersion = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/version") }}"
     }
     elseif ($operatingSystem -like "*windows server 2025*") {
-        Log-Info -Message "Windows Server 2025 uses the combined server2022/server2025 GRID driver"
-        $keyPrefix = "*_grid_*_server2022_*.exe"
+        $keyPrefix = "*_grid_*_server2025_*.exe"
         $GridVersion = "{{ context.get("/system/gpu/gpu_settings/nvidia/windows/grid_drivers/version") }}"
     }
     else {

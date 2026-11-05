@@ -4,10 +4,13 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
 msgid ""
-msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-06-02 14:33+0200\nPO-Revision-Date: 2026-03-26 17:43-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: hi\nLanguage-Team: hi <LL@li.org>\nPlural-Forms: nplurals=2; plural=(n != 1);\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.16.0\n"
+msgstr "Project-Id-Version: PROJECT VERSION\nReport-Msgid-Bugs-To: EMAIL@ADDRESS\nPOT-Creation-Date: 2026-08-26 12:22-0500\nPO-Revision-Date: 2026-03-26 17:43-0500\nLast-Translator: FULL NAME <EMAIL@ADDRESS>\nLanguage: hi\nLanguage-Team: hi <LL@li.org>\nPlural-Forms: nplurals=2; plural=(n != 1);\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nGenerated-By: Babel 2.18.0\n"
 
 msgid " Download file is disabled. Please contact your SOCA cluster administrator"
 msgstr " डाउनलोड फ़ाइल अक्षम है। कृपया अपने SOCA क्लस्टर एडमिनिस्ट्रेटर से संपर्क करें।"
+
+msgid " Virtual Desktops Shared With Me"
+msgstr " मेरे साथ साझा किए गए वर्चुअल डेस्कटॉप"
 
 #, python-format
 msgid "%(em_prefix)s. If using a new/custom shell, make sure your shell is installed on all compute nodes"
@@ -30,11 +33,12 @@ msgstr "(डिफ़ॉल्ट शेल) /बिन/बैश"
 msgid "(Do not delete) This entry will automatically be pre-populated with the absolute path of the input file."
 msgstr "(डिलीट न करें) यह प्रविष्टि स्वचालित रूप से इनपुट फ़ाइल के निरपेक्ष पथ से पहले से भर जाएगी।"
 
-msgid "(EDH version 26.8.0)"
-msgstr "(EDH संस्करण 26.8.0)"
+#, python-format
+msgid "(EDH version %(version)s)"
+msgstr "(ईडीएच संस्करण %(version)s)"
 
 msgid "(EDH)"
-msgstr "(ईडीएच)"
+msgstr ""
 
 msgid "(Next Day)"
 msgstr "(अगला दिन)"
@@ -63,9 +67,6 @@ msgstr "(वैकल्पिक) आपके सॉफ़्टवेयर �
 msgid "(Optional) Description for your software stack, maximum 500 characters."
 msgstr "(वैकल्पिक) आपके सॉफ़्टवेयर स्टैक के लिए विवरण, अधिकतम 500 वर्ण।"
 
-msgid "(Optional) Description for your template, maximum 500 characters."
-msgstr "(वैकल्पिक) आपके टेम्पलेट के लिए विवरण, अधिकतम 500 वर्ण।"
-
 msgid "(Optional) User GID"
 msgstr "(वैकल्पिक) उपयोगकर्ता GID"
 
@@ -75,12 +76,51 @@ msgstr "(वैकल्पिक) उपयोगकर्ता UID"
 msgid "(Optional) myvar1=myvalue1,myvar2=myvalue2"
 msgstr "(वैकल्पिक) myvar1=myvalue1, myvar2=myvalue2"
 
+msgid "(all available)"
+msgstr "(सभी उपलब्ध)"
+
+msgid "(already in pool)"
+msgstr "(पहले से ही पूल में है)"
+
 #, python-format
 msgid "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
 msgstr "(click %(start_a)shere%(end_a)s to download your Linux private key if needed)"
 
-msgid ", "
-msgstr ", "
+msgid "(disabled)"
+msgstr "(अक्षम)"
+
+msgid "(inactive profile)"
+msgstr "(निष्क्रिय प्रोफ़ाइल)"
+
+msgid "(internal note)"
+msgstr "(आंतरिक नोट)"
+
+msgid "(no NLBs reported)"
+msgstr "(कोई एनएलबी रिपोर्ट नहीं किया गया)"
+
+msgid "(no USB allowlist)"
+msgstr "(कोई USB अनुमति सूची नहीं)"
+
+msgid "(no broker instances reported)"
+msgstr "(कोई ब्रोकर इंस्टेंस रिपोर्ट नहीं किया गया)"
+
+msgid "(no cluster lambdas)"
+msgstr "(कोई क्लस्टर लैम्ब्डा नहीं)"
+
+msgid "(no gateway instances reported)"
+msgstr "(कोई गेटवे इंस्टेंस रिपोर्ट नहीं किया गया)"
+
+msgid "(no servers)"
+msgstr "(कोई सर्वर नहीं)"
+
+msgid "+ Add instance type"
+msgstr "+ उदाहरण प्रकार जोड़ें"
+
+msgid "+ Add window"
+msgstr "+ विंडो जोड़ें"
+
+msgid "-- Select a template or customize below --"
+msgstr "-- एक टेम्पलेट चुनें या नीचे कस्टमाइज़ करें -"
 
 msgid "/root size in GB (default: 10)"
 msgstr "जीबी में/रूट आकार (डिफ़ॉल्ट: 10)"
@@ -91,14 +131,42 @@ msgstr "/ब ्रेच आकार GB में (डिफ़ॉल्ट: 0
 msgid "0-9999"
 msgstr "0-9999"
 
+msgid "1 hour"
+msgstr "1 घंटा"
+
 msgid "1-10"
 msgstr "1-10"
 
-msgid "100 Customizable"
-msgstr "100 अनुकूलन योग्य"
+#, python-format
+msgid "%(percent)s Customizable"
+msgstr "%(percent)s अनुकूलन योग्य"
+
+msgid "100 MiB/s (balanced)"
+msgstr "100 MiB/s (संतुलित)"
+
+msgid "200 MiB/s"
+msgstr "200 एमबी/एस"
+
+msgid "24 hours"
+msgstr "24 घंटे"
 
 msgid "24H"
 msgstr "24 घंटे"
+
+msgid "30 days"
+msgstr "30 दिन"
+
+msgid "300 MiB/s (fastest)"
+msgstr "300 MiB/s (सबसे तेज़)"
+
+msgid "7 days"
+msgstr "7 दिन"
+
+msgid "8 hours"
+msgstr "8 घंटे"
+
+msgid "90 days"
+msgstr "90 दिन"
 
 msgid "A Target Node Profile controls the list of EC2 instance types, maximum storage size as well as approved subnet ids for your"
 msgstr "टारगेट नोड प्रोफ़ाइल आपके लिए EC2 इंस्टेंस प्रकारों की सूची, अधिकतम स्टोरेज आकार और साथ ही स्वीकृत सबनेट आईडी को नियंत्रित करती है"
@@ -109,17 +177,29 @@ msgstr "वर्चुअल डेस्कटॉप प्रोफ़ाइ�
 msgid "A unified platform for cloud workstations, cloud simulations, and AI-supported engineering workflows."
 msgstr "क्लाउड वर्कस्टेशन, क्लाउड सिमुलेशन और एआई-समर्थित इंजीनियरिंग वर्कफ़्लो के लिए एक एकीकृत प्लेटफ़ॉर्म।"
 
+msgid "A unique name to help you identify this token (e.g. CI/CD, monitoring script)"
+msgstr "इस टोकन को पहचानने में आपकी मदद करने के लिए एक अनूठा नाम (जैसे CI/CD, मॉनिटरिंग स्क्रिप्ट)"
+
 msgid "ADD"
 msgstr "जोड़ें"
 
+msgid "AI Assistant"
+msgstr "AI सहायक"
+
 msgid "AM/PM"
 msgstr "पूर्वाह्न/अपराह्न"
+
+msgid "AMI"
+msgstr ""
 
 msgid "AMI ID"
 msgstr "एमी आईडी"
 
 msgid "API Documentation"
 msgstr "API दस्तावेज़ीकरण"
+
+msgid "API Tokens Audit"
+msgstr "API टोकन ऑडिट"
 
 msgid "AWS Batch Containers"
 msgstr "AWS बैच कंटेनर"
@@ -130,8 +210,26 @@ msgstr "AWS डेटा सिंक"
 msgid "AWS Region of the target node"
 msgstr "लक्ष्य नोड का AWS क्षेत्र"
 
+msgid "AWS Spot capacity - may be reclaimed at any time; cannot be stopped or resumed"
+msgstr "AWS स्पॉट क्षमता - किसी भी समय पुनः प्राप्त की जा सकती है; इसे रोका या फिर से शुरू नहीं किया जा सकता है"
+
 msgid "AWS Transfer"
 msgstr "AWS ट्रांसफर"
+
+msgid "AZ"
+msgstr "एजेड"
+
+msgid "AZ-ID"
+msgstr "अज़-आईडी"
+
+msgid "Acceleration DISABLED (fallback to AWS base AMIs)"
+msgstr "एक्सेलेरेशन अक्षम (AWS बेस AMI पर फ़ॉलबैक)"
+
+msgid "Acceleration ENABLED"
+msgstr "त्वरण सक्षम"
+
+msgid "Access"
+msgstr "ऐक्सेस"
 
 msgid "Access denied"
 msgstr "पहुँच अस्वीकृत"
@@ -148,14 +246,35 @@ msgstr "वेब टर्मिनल के माध्यम से क्�
 msgid "Access your cluster via SSH"
 msgstr "SSH के माध्यम से अपने क्लस्टर तक पहुँचें"
 
+msgid "Across all reporting sessions"
+msgstr "सभी रिपोर्टिंग सत्रों में"
+
 msgid "Action"
 msgstr "ऐक्शन"
 
 msgid "Actions"
 msgstr "क्रियाएँ"
 
-msgid "Add"
-msgstr "जोड़ें"
+msgid "Active"
+msgstr "ऐक्टिव"
+
+msgid "Active Connections by Transport"
+msgstr "परिवहन द्वारा सक्रिय कनेक्शन"
+
+msgid "Active Sessions"
+msgstr "सक्रिय सत्र"
+
+msgid "Active Shares"
+msgstr "ऐक्टिव शेयर"
+
+msgid "Active Tokens"
+msgstr "ऐक्टिव टोकन"
+
+msgid "Active-hours windows (outside these, hot drains to 0; warm unchanged)"
+msgstr "सक्रिय घंटे की खिड़कियां (इनके बाहर, 0 तक गर्म नालियां; गर्म अपरिवर्तित)"
+
+msgid "Actor"
+msgstr "ऐक्टर"
 
 msgid "Add Argument"
 msgstr "आर्गुमेंट जोड़ें"
@@ -172,11 +291,17 @@ msgstr "वेरिएबल जोड़ें"
 msgid "Add a user to your group"
 msgstr "अपने ग्रुप में एक यूज़र जोड़ें"
 
+msgid "Add device (staged)"
+msgstr "डिवाइस जोड़ें (चरणबद्ध)"
+
 msgid "Add environment variables for your job"
 msgstr "अपनी नौकरी के लिए पर्यावरण चर जोड़ें"
 
 msgid "Add new user"
 msgstr "नया यूज़र जोड़ें"
+
+msgid "Add the following tag"
+msgstr "निम्नलिखित टैग जोड़ें"
 
 #, python-format
 msgid "Add the following tag %(tag)s to the AWS Batch job definition(s) you want to onboard."
@@ -196,6 +321,9 @@ msgstr "अपने %(link)s को EDH में ऑनबोर्ड कर�
 
 msgid "Add to group"
 msgstr "ग्रुप में जोड़ें"
+
+msgid "Add to staging"
+msgstr "स्टेजिंग में जोड़ें"
 
 msgid "Add user"
 msgstr "यूज़र जोड़ें"
@@ -222,11 +350,20 @@ msgstr "इसके अतिरिक्त, आपकी नौकरी क�
 msgid "Admin Section"
 msgstr "एडमिन सेक्शन"
 
+msgid "Admin comment"
+msgstr "व्यवस्थापक टिप्पणी"
+
+msgid "Admin override: creates a share on behalf of the session owner. The grant is recorded as created by you (administrator)."
+msgstr "एडमिन ओवरराइड: सेशन के मालिक की ओर से शेयर बनाता है। अनुदान को आपके (व्यवस्थापक) द्वारा बनाए गए के रूप में दर्ज किया जाता है।"
+
 msgid "Admin permissions granted"
 msgstr "एडमिन की अनुमतियां दी गईं"
 
 msgid "Admin permissions revoked"
 msgstr "एडमिन की अनुमतियां वापस ली गईं"
+
+msgid "Please note permissions may take up to 10 mn to be synchronized."
+msgstr "कृपया ध्यान दें कि अनुमतियों को सिंक्रनाइज़ होने में 10 मिनट तक लग सकते हैं।"
 
 #, python-format
 msgid "Admin username and password can be found on %(u)s and %(pw)s."
@@ -235,20 +372,60 @@ msgstr "व्यवस्थापक उपयोगकर्ता नाम 
 msgid "Advanced Settings"
 msgstr "एडवांस सेटिंग"
 
+msgid "Advanced filters"
+msgstr "एडवांस फ़िल्टर"
+
+msgid "Advanced options"
+msgstr "एडवांस विकल्प"
+
+msgid "Agent"
+msgstr "एजेंट"
+
+msgid "Agent (Invoke Agent)"
+msgstr "एजेंट (इनवोक एजेंट)"
+
+msgid "Agent (not selected)"
+msgstr "एजेंट (चयनित नहीं)"
+
+#, python-format
+msgid "Alarm fires above 10%%"
+msgstr "10%% से ऊपर अलार्म फायर"
+
 msgid "All"
 msgstr "सभी"
+
+msgid "All (history)"
+msgstr "सभी (इतिहास)"
 
 msgid "All operations have completed. Page will reload automatically in 5 seconds"
 msgstr "सभी ऑपरेशन पूरे हो चुके हैं। पेज 5 सेकंड में अपने आप फिर से लोड हो जाएगा"
 
-msgid "All users"
-msgstr "सभी यूज़र"
+msgid "Allow extending this token's expiration before it expires."
+msgstr "इस टोकन की समय सीमा समाप्त होने से पहले उसे एक्सटेंड करने की अनुमति दें।"
+
+msgid "Allow guest to connect without the owner present (unsupervised)"
+msgstr "मेहमान को मौजूद मालिक के बिना कनेक्ट करने दें (बिना निगरानी के)"
+
+msgid "Allow owners to grant unsupervised access (guest may connect without the owner present). When OFF, every share is forced supervised cluster-wide, overriding the per-share toggle and Full Control."
+msgstr "मालिकों को असुरक्षित पहुंच प्रदान करने की अनुमति दें (अतिथि मौजूद मालिक के बिना कनेक्ट हो सकता है)। बंद होने पर, प्रति-शेयर टॉगल और पूर्ण नियंत्रण को ओवरराइड करते हुए, प्रत्येक शेयर को क्लस्टर-व्यापी सुपरविजन करने के लिए बाध्य किया जाता है।"
+
+msgid "Allow recycle (return sanitized desktops to the pool — admin risk acceptance)"
+msgstr "रीसायकल की अनुमति दें (पूल में सैनिटाइज्ड डेस्कटॉप लौटाएं — व्यवस्थापक जोखिम स्वीकृति)"
 
 msgid "Allowed Groups"
 msgstr "अनुमत समूह"
 
+msgid "Allowed Sharing Modes"
+msgstr "अनुमत शेयरिंग मोड"
+
 msgid "Allowed Users"
 msgstr "अनुमत उपयोगकर्ता"
+
+msgid "Allowlist name"
+msgstr "सूची नाम की अनुमति दें"
+
+msgid "Already added — one card per instance type"
+msgstr "पहले ही जोड़ा जा चुका है — एक कार्ड प्रति उदाहरण प्रकार"
 
 msgid "Alternatively, you can use WinSCP/FileZilla. Refer to the instructions available on this website and use your AWS Transfer endpoint as hostname."
 msgstr "वैकल्पिक रूप से, आप WinSCP/FileZilla का उपयोग कर सकते हैं। इस वेबसाइट पर उपलब्ध निर्देशों का संदर्भ लें और होस्टनाम के रूप में अपने AWS ट्रांसफर एंडपॉइंट का उपयोग करें।"
@@ -256,11 +433,20 @@ msgstr "वैकल्पिक रूप से, आप WinSCP/FileZilla क�
 msgid "Always On"
 msgstr "ऑलवेज ऑन"
 
+msgid "Always-on instances kept ready for instant assignment"
+msgstr "तत्काल असाइनमेंट के लिए हमेशा चालू रहने वाले उदाहरण तैयार रखे जाते हैं"
+
 msgid "AlwaysOn"
 msgstr "ऑलवेज़ ऑन"
 
 msgid "Amazon DCV"
 msgstr "अमेज़ॅन डीसीवी"
+
+msgid "Amazon DCV Administrator Guide: Enabling USB remotization (filter string format)"
+msgstr "Amazon DCV एडमिनिस्ट्रेटर गाइड: USB रिमोटाइजेशन को सक्षम करना (फ़िल्टर स्ट्रिंग प्रारूप)"
+
+msgid "Amazon DCV User Guide: Using USB remotization"
+msgstr "Amazon DCV उपयोगकर्ता मार्गदर्शिका: USB रिमोटाइजेशन का उपयोग करना"
 
 msgid "Amazon EKS Containers"
 msgstr "अमेज़ॅन ईकेएस कंटेनर्स"
@@ -271,8 +457,20 @@ msgstr "Amazon Elastic फ़ाइल सिस्टम क्लाइंट 
 msgid "Analytics / Budget"
 msgstr "एनालिटिक्स/बजट"
 
+msgid "Analyze"
+msgstr "विश्लेषण करें"
+
+msgid "Analyze with AI Assistant"
+msgstr "AI सहायक के साथ विश्लेषण करें"
+
+msgid "Any"
+msgstr "कोई भी"
+
 msgid "Any script authenticating to SOCA using this key will return"
 msgstr "इस कुंजी का उपयोग करके SOCA को प्रमाणित करने वाली कोई भी स्क्रिप्ट वापस आ जाएगी"
+
+msgid "Any user (type to search)"
+msgstr "कोई भी उपयोगकर्ता (खोजने के लिए टाइप करें)"
 
 msgid "Application Imported successfully"
 msgstr "आवेदन सफलतापूर्वक आयात किया गया"
@@ -295,14 +493,62 @@ msgstr "एप्लिकेशन सफलतापूर्वक अपड�
 msgid "Applications are loaded in memory and will restart automatically"
 msgstr "एप्लिकेशन मेमोरी में लोड किए जाते हैं और स्वचालित रूप से पुनः आरंभ होंगे"
 
+msgid "Applied"
+msgstr "एप्लाइड"
+
+msgid "Apply"
+msgstr "अप्लाई करें"
+
+msgid "Apply Filters"
+msgstr "फ़िल्टर लागू करें"
+
+msgid "Apply failed"
+msgstr "लागू करना असफल"
+
+msgid "Apply range"
+msgstr "रेंज लागू करें"
+
+msgid "Apply to list"
+msgstr "सूची में आवेदन करें"
+
+msgid "Apply updates"
+msgstr "अपडेट लागू करें"
+
+msgid "Apply writes immediately; run the restart from the controller shell. Do NOT restart the web interface from within the web interface."
+msgstr "तुरंत लेखन लागू करें; कंट्रोलर शेल से पुनः आरंभ करें। वेब इंटरफेस के अंदर से वेब इंटरफेस को रीस्टार्ट न करें।"
+
+msgid "Approve"
+msgstr "मंजूर करें"
+
+msgid "Approve & Publish"
+msgstr "स्वीकृत करें और प्रकाशित करें"
+
+msgid "Approve this nomination and publish the AMI to a software stack."
+msgstr "इस नामांकन को स्वीकार करें और AMI को सॉफ़्टवेयर स्टैक में प्रकाशित करें।"
+
+msgid "Approved"
+msgstr "स्वीकृत"
+
+msgid "Arch"
+msgstr "मेहराब"
+
+msgid "Architecture"
+msgstr "आर्किटेक्चर"
+
 msgid "Architecture (x86_64/ aarch64) of the target node"
 msgstr "लक्ष्य नोड का आर्किटेक्चर (x86_64/aarch64)"
+
+msgid "Are you sure you want to revoke"
+msgstr "क्या आप वाकई रद्द करना चाहते हैं"
 
 msgid "Array Size"
 msgstr "सरणी का आकार"
 
 msgid "As hostname, enter the following for the Login Node load balancer endpoint:"
 msgstr "होस्टनाम के रूप में, लॉगिन नोड लोड बैलेंसर एंडपॉइंट के लिए निम्नलिखित दर्ज करें:"
+
+msgid "Ask a follow-up question..."
+msgstr "अनुवर्ती प्रश्न पूछें..."
 
 msgid "Assign this desktop to an existing capacity reservation id"
 msgstr "इस डेस्कटॉप को मौजूदा क्षमता आरक्षण आईडी पर असाइन करें"
@@ -334,8 +580,24 @@ msgstr "प्रमाणीकरण असफल। इस विंडो �
 msgid "Authorized"
 msgstr "प्राधिकृत"
 
+msgid "Auto"
+msgstr "अपने आप"
+
+msgid "Auto 60s"
+msgstr "ऑटो 60s"
+
+msgid "Auto-captured on interruption"
+msgstr "रुकावट पर ऑटो-कैप्चर किया गया"
+
 msgid "Auto-filled with the input file path"
 msgstr "इनपुट फ़ाइल पथ से स्वतः भरा हुआ"
+
+#, python-format
+msgid "Auto-pause after %(n)s hour of inactivity"
+msgstr "%(n)s घंटे की निष्क्रियता के बाद ऑटो-पॉज़"
+
+msgid "Auto-recycle pool on launch template change (uniform fleet — brief cold launches during refresh)"
+msgstr "लॉन्च टेम्पलेट परिवर्तन पर ऑटो-रीसायकल पूल (यूनिफ़ॉर्म फ्लीट — रिफ्रेश के दौरान संक्षिप्त कोल्ड लॉन्च)"
 
 msgid "Auto-scroll"
 msgstr "ऑटो-स्क्रॉल"
@@ -349,8 +611,44 @@ msgstr "स्वचालित प्रोविजनिंग (डिफ़
 msgid "Automatically start/stop this session based on schedule."
 msgstr "शेड्यूल के आधार पर इस सत्र को स्वचालित रूप से शुरू/बंद करें।"
 
+msgid "Availability"
+msgstr "उपलब्धता"
+
+msgid "Available API Paths:"
+msgstr "उपलब्ध API पथ:"
+
+msgid "Avg over last cycle"
+msgstr "पिछले चक्र का औसत"
+
+msgid "Back to Virtual Desktops"
+msgstr "वर्चुअल डेस्कटॉप पर वापस जाएं"
+
+msgid "Backfill on claim (keep pool at depth)"
+msgstr "दावे पर बैकफ़िल (पूल को गहराई पर रखें)"
+
+msgid "Base AMIs copied into this account so snapshot capture is incremental and image ids survive AWS retiring the public bases. Copies run in the background; rows show the current state per base OS and architecture."
+msgstr "बेस एएमआई को इस खाते में कॉपी किया जाता है ताकि स्नैपशॉट कैप्चर वृद्धिशील हो और छवि आईडी सार्वजनिक ठिकानों को रिटायर करने वाले एडब्ल्यूएस से बचे रहें। प्रतिलिपियां पृष्ठभूमि में चलती हैं; पंक्तियां प्रति बेस OS और आर्किटेक्चर की वर्तमान स्थिति दिखाती हैं।"
+
+msgid "Base OS"
+msgstr "बेस ओएस"
+
+msgid "Based on"
+msgstr "पर आधारित"
+
+msgid "Below 1KB threshold"
+msgstr "1KB सीमा से नीचे"
+
 msgid "Benefits and Features"
 msgstr "फायदे और सुविधाएं"
+
+msgid "Best Performance"
+msgstr "बेहतरीन परफॉरमेंस"
+
+msgid "Blank Suppressed"
+msgstr "ब्लैंक सप्रेस्ड"
+
+msgid "Bootstrap template cache"
+msgstr "बूटस्ट्रैप टेम्पलेट कैश"
 
 msgid "Both commands will return a JSON object with all information regarding your job."
 msgstr "दोनों कमांड आपके काम से संबंधित सभी जानकारी के साथ JSON ऑब्जेक्ट लौटाएंगे।"
@@ -358,11 +656,38 @@ msgstr "दोनों कमांड आपके काम से संब�
 msgid "Both commands will return the ID associated to the job you just submitted"
 msgstr "दोनों कमांड आपके द्वारा सबमिट की गई नौकरी से जुड़ी आईडी वापस कर देंगे"
 
+msgid "Broker CloudWatch Metrics"
+msgstr "ब्रोकर क्लाउडवॉच मेट्रिक्स"
+
+msgid "Broker query failed:"
+msgstr "ब्रोकर क्वेरी विफल:"
+
+msgid "Broker reachability issues:"
+msgstr "ब्रोकर की पहुंच संबंधी समस्याएं:"
+
 msgid "Browse Software Stacks"
 msgstr "सॉफ़्टवेयर स्टैक्स ब्राउज़ करें"
 
+msgid "Browse and search this cluster's configuration parameters (SSM Parameter Store). Navigate the tree on the left or use the search box. This is the read-only browse view; editing arrives in a later step. Secrets are never shown."
+msgstr "इस क्लस्टर के कॉन्फ़िगरेशन मापदंडों (SSM पैरामीटर स्टोर) को ब्राउज़ करें और खोजें। पेड़ को बाईं ओर नेविगेट करें या खोज बॉक्स का उपयोग करें। यह केवल-पढ़ने के लिए ब्राउज़ करने का दृश्य है; संपादन बाद के चरण में आता है। रहस्य कभी नहीं दिखाए जाते हैं।"
+
+msgid "Bucket Objects"
+msgstr "बकेट ऑब्जेक्ट्स"
+
+msgid "Bucket Size"
+msgstr "बाल्टी का आकार"
+
 msgid "Budgets and Cost Management"
 msgstr "बजट और लागत प्रबंधन"
+
+msgid "Bulk edit / copy…"
+msgstr "थोक संपादित करें/कॉपी करें..."
+
+msgid "By"
+msgstr "द्वारा"
+
+msgid "CIDR"
+msgstr "सिड्र"
 
 msgid "CPUs"
 msgstr "सीपीयू"
@@ -376,11 +701,26 @@ msgstr "स्वचालित रूप से प्रावधान क�
 msgid "Cancel"
 msgstr "कैंसिल करें"
 
-msgid "Capacity being provisioned"
-msgstr "क्षमता का प्रावधान किया जा रहा है"
+msgid "Capacity"
+msgstr "क्षमता"
 
-msgid "Capacity provisioning blocked"
-msgstr "क्षमता प्रोविजनिंग अवरुद्ध"
+msgid "Capacity Reservation group ARN"
+msgstr "क्षमता आरक्षण समूह ARN"
+
+msgid "Capacity Reservation id (cr-..., optional)"
+msgstr "क्षमता आरक्षण आईडी (cr-..., वैकल्पिक)"
+
+msgid "Capacity is currently available in the EDH VDI Pool. Select one of the available capacity options above, and your desktop will be provisioned immediately."
+msgstr "क्षमता वर्तमान में EDH VDI पूल में उपलब्ध है। ऊपर उपलब्ध क्षमता विकल्पों में से एक का चयन करें, और आपके डेस्कटॉप का तुरंत प्रावधान किया जाएगा।"
+
+msgid "Capture a resumable image, then terminate this desktop"
+msgstr "फिर से शुरू करने योग्य छवि कैप्चर करें, फिर इस डेस्कटॉप को समाप्त करें"
+
+msgid "Captured"
+msgstr "कैप्चर किया गया"
+
+msgid "Capturing..."
+msgstr "कैप्चर किया जा रहा है...।"
 
 msgid "Change group membership"
 msgstr "ग्रुप की सदस्यता बदलें"
@@ -402,6 +742,12 @@ msgstr "ग्रुप की सदस्यता जाँचें"
 
 msgid "Check project membership for a given user"
 msgstr "किसी दिए गए उपयोगकर्ता के लिए प्रोजेक्ट सदस्यता की जांच करें"
+
+msgid "Check the subnets this profile may launch into. Sorted by Availability Zone ID."
+msgstr "उन सबनेट की जांच करें जिनमें यह प्रोफ़ाइल लॉन्च हो सकती है। उपलब्धता ज़ोन आईडी के आधार पर सॉर्ट किया गया।"
+
+msgid "Checkpoint"
+msgstr "चेकपॉइंट"
 
 #, python-format
 msgid "Choose %(ep_type)s depending on your setup. It's recommended to use %(vpc)s for IP restrictions via your security groups. %(pub)s means your AWS Transfer endpoint won't be protected by IP safelist."
@@ -431,6 +777,18 @@ msgstr "अपना ऑपरेटिंग सिस्टम चुनें
 msgid "Choose your Software Stack"
 msgstr "अपना सॉफ़्टवेयर स्टैक चुनें"
 
+msgid "Claims"
+msgstr "क्लेम"
+
+msgid "Class"
+msgstr "क्लास"
+
+msgid "Clear / Browse"
+msgstr "साफ़ करें/ब्राउज़ करें"
+
+msgid "Clear all"
+msgstr "सभी को साफ करें"
+
 msgid "Clear the buffer (Ctrl+L)"
 msgstr "बफर साफ़ करें (Ctrl+L)"
 
@@ -441,17 +799,35 @@ msgstr "Click %(start_a)shere%(end_a)s to download it"
 msgid "Click + to add a new terminal tab. Use the &#9208; on a tab to detach (keep the session running) or &times; to end it."
 msgstr "नया टर्मिनल टैब जोड़ने के लिए + पर क्लिक करें। इसे समाप्त करने के लिए टैब पर ⏸ का उपयोग करें (सत्र को चालू रखें) या × का उपयोग करें।"
 
+msgid "Click a card to expand: members, full event log, metrics."
+msgstr "विस्तार करने के लिए कार्ड पर क्लिक करें: सदस्य, पूर्ण ईवेंट लॉग, मेट्रिक्स।"
+
+msgid "Click a line number to set the start. Shift+click another line number to set the end. Or use the From/To inputs on the right."
+msgstr "स्टार्ट सेट करने के लिए लाइन नंबर पर क्लिक करें। अंत सेट करने के लिए किसी अन्य लाइन नंबर को शिफ़्ट+क्लिक करें। या दाईं ओर From/To इनपुट का उपयोग करें।"
+
+msgid "Click again to confirm removal"
+msgstr "हटाने की पुष्टि करने के लिए फिर से क्लिक करें"
+
 msgid "Click connect/open to access the cluster"
 msgstr "क्लस्टर को एक्सेस करने के लिए कनेक्ट/ओपन पर क्लिक करें"
 
 msgid "Click here to Open Terminal in a separate window"
 msgstr "एक अलग विंडो में टर्मिनल खोलने के लिए यहां क्लिक करें"
 
+msgid "Click here to control your sharing settings"
+msgstr "अपनी शेयरिंग सेटिंग को नियंत्रित करने के लिए यहां क्लिक करें"
+
 msgid "Click here to learn how to Import/Export your Workflow Profiles"
 msgstr "अपने वर्कफ़्लो प्रोफाइल को आयात/निर्यात करने का तरीका जानने के लिए यहां क्लिक करें"
 
 msgid "Click here to learn how to create custom images"
 msgstr "कस्टम इमेज बनाने का तरीका जानने के लिए यहां क्लिक करें"
+
+msgid "Click the route icon next to a session to see its end-to-end path."
+msgstr "सत्र के शुरू से अंत तक का रास्ता देखने के लिए उसके बगल में स्थित रूट आइकन पर क्लिक करें।"
+
+msgid "Click to copy"
+msgstr "कॉपी करने के लिए क्लिक करें"
 
 msgid "Close"
 msgstr "बंद करें"
@@ -462,14 +838,32 @@ msgstr "टैब या इस विंडो को बंद करने �
 msgid "Cluster"
 msgstr "क्लस्टर"
 
+msgid "Cluster -- shareable with any user"
+msgstr "क्लस्टर -- किसी भी उपयोगकर्ता के साथ साझा करने योग्य"
+
+msgid "Cluster Configuration"
+msgstr "क्लस्टर कॉन्फ़िगरेशन"
+
+msgid "Cluster Lambdas"
+msgstr "क्लस्टर लैम्ब्डा"
+
 msgid "Cluster Metrics"
 msgstr "क्लस्टर मेट्रिक्स"
 
-msgid "Code Editor"
-msgstr "कोड एडिटर"
+msgid "Cluster Status"
+msgstr "क्लस्टर स्थिति"
 
-msgid "Code Editor is taking longer than expected to load."
-msgstr "कोड एडिटर को लोड होने में उम्मीद से ज्यादा समय लग रहा है।"
+msgid "Cluster-Level Sharing Settings"
+msgstr "क्लस्टर-लेवल शेयरिंग सेटिंग्स"
+
+msgid "Cluster:"
+msgstr "क्लस्टर:"
+
+msgid "Collapse / expand"
+msgstr "संक्षिप्त करें/विस्तृत करें"
+
+msgid "Collisions"
+msgstr "टक्कर/ टकराव"
 
 msgid "Comma separated value of key=value variable that will be replaced in the user data if present."
 msgstr "कुंजी का अल्पविराम से अलग किया गया मान = मान चर जिसे मौजूद होने पर उपयोगकर्ता डेटा में बदल दिया जाएगा।"
@@ -489,8 +883,20 @@ msgstr "संसाधनों की गणना करें"
 msgid "Compute rate are retrieved for your running region"
 msgstr "आपके रनिंग क्षेत्र के लिए गणना दर पुनर्प्राप्त की जाती है"
 
+msgid "Configuration Parameters"
+msgstr "कॉन्फ़िगरेशन पैरामीटर्स"
+
+msgid "Configuration tree"
+msgstr "कॉन्फ़िगरेशन ट्री"
+
 msgid "Configure Job Cost Estimate automatically"
 msgstr "नौकरी की लागत का अनुमान स्वचालित रूप से कॉन्फ़िगर करें"
+
+msgid "Configured Pools"
+msgstr "कॉन्फ़िगर किए गए पूल"
+
+msgid "Confirm"
+msgstr "पुष्टि करें"
 
 msgid "Confirm Delete"
 msgstr "डिलीट की पुष्टि करें"
@@ -507,6 +913,12 @@ msgstr "टर्मिनेट की पुष्टि करें"
 msgid "Connect to your AWS Transfer endpoint using your favorite FTP application via command line such as:"
 msgstr "कमांड लाइन के माध्यम से अपने पसंदीदा FTP एप्लिकेशन का उपयोग करके अपने AWS ट्रांसफर एंडपॉइंट से कनेक्ट करें जैसे:"
 
+msgid "Connect via Native Client"
+msgstr "नेटिव क्लाइंट के माध्यम से कनेक्ट करें"
+
+msgid "Connect-abandon timeout (seconds, blank = cluster default)"
+msgstr "कनेक्ट-परित्याग टाइमआउट (सेकंड, रिक्त = क्लस्टर डिफ़ॉल्ट)"
+
 msgid "Connected"
 msgstr "कनेक्टेड"
 
@@ -515,6 +927,9 @@ msgstr "कनेक्ट हो रहा है..."
 
 msgid "Connection String"
 msgstr "कनेक्शन स्ट्रिंग"
+
+msgid "Connections"
+msgstr "कनेक्शन्स"
 
 msgid "Consumable Resource Override"
 msgstr "कंज्यूमेबल रिसोर्स ओवरराइड"
@@ -525,11 +940,56 @@ msgstr "यदि आप अपने क्लस्टर में Analytics 
 msgid "Container Overrides"
 msgstr "कंटेनर ओवरराइड"
 
+msgid "Content-addressable cache of rendered SOCA bootstrap templates. Hits eliminate the per-create Jinja render + S3 upload (~1.0-1.5s savings per VDI/HPC node create)."
+msgstr "रेंडर किए गए SOCA बूटस्ट्रैप टेम्प्लेट का कंटेंट-एड्रेसेबल कैश। हिट्स प्रति-निर्मित जिंजा रेंडर + S3 अपलोड (~ 1.0-1.5s बचत प्रति VDI/HPC नोड क्रिएट) को समाप्त करते हैं।"
+
+msgid "Context"
+msgstr "कॉन्टेक्स्ट"
+
+msgid "Context info"
+msgstr "कॉन्टेक्स्ट की जानकारी"
+
 msgid "Continue to GitHub"
 msgstr "GitHub पर जारी रखें"
 
 msgid "Control AWS resource deployment authorization via AWS Budget"
 msgstr "AWS बजट के माध्यम से AWS संसाधन परिनियोजन प्राधिकरण को नियंत्रित करें"
+
+msgid "Control plane health"
+msgstr "विमान के स्वास्थ्य को नियंत्रित करें"
+
+msgid "Control-plane metrics unavailable."
+msgstr "कंट्रोल-प्लेन मेट्रिक्स अनुपलब्ध हैं।"
+
+msgid "Controls who a virtual desktop built from this stack may be shared with via DCV session sharing"
+msgstr "नियंत्रित करता है कि इस स्टैक से बनाया गया वर्चुअल डेस्कटॉप किसके साथ DCV सत्र साझाकरण के माध्यम से साझा किया जा सकता है"
+
+msgid "Conversation"
+msgstr "वार्तालाप"
+
+msgid "Conversations are stored locally in your browser and automatically deleted after 30 days."
+msgstr "वार्तालाप आपके ब्राउज़र में स्थानीय रूप से संग्रहीत किए जाते हैं और 30 दिनों के बाद स्वचालित रूप से हटा दिए जाते हैं।"
+
+msgid "Copied At"
+msgstr "पर कॉपी किया गया"
+
+msgid "Copy AMI ID"
+msgstr "AMI ID कॉपी करें"
+
+msgid "Copy all"
+msgstr "सभी को कॉपी करें"
+
+msgid "Copy full key"
+msgstr "पूरी कुंजी कॉपी करें"
+
+msgid "Copy to Clipboard"
+msgstr "क्लिपबोर्ड पर कॉपी करें"
+
+msgid "Copy value"
+msgstr "मूल्य कॉपी करें"
+
+msgid "Copy your token now. It will not be shown again."
+msgstr "अपने टोकन को अभी कॉपी करें। इसे फिर से नहीं दिखाया जाएगा।"
 
 msgid "Cost Control and Budgets"
 msgstr "लागत नियंत्रण और बजट"
@@ -542,6 +1002,9 @@ msgstr "आपकी नौकरी के लिए लागत का अन
 
 msgid "Cost estimate is not available because this Workflow will generate a Linux command and not a qsub file."
 msgstr "लागत का अनुमान उपलब्ध नहीं है क्योंकि यह वर्कफ़्लो एक लिनक्स कमांड उत्पन्न करेगा न कि एक qsub फ़ाइल।"
+
+msgid "Cost estimation is not available in the GovCloud partition (the AWS Pricing API is not offered in aws-us-gov)."
+msgstr "लागत का अनुमान GovCloud विभाजन में उपलब्ध नहीं है (AWS मूल्य निर्धारण API aws-us-gov में पेश नहीं किया गया है)।"
 
 msgid "Could not check group membership: "
 msgstr "समूह सदस्यता की जांच नहीं कर सका: "
@@ -558,6 +1021,9 @@ msgstr "निर्देशिका नहीं ढूँढ सका। �
 msgid "Could not locate the directory: "
 msgstr "निर्देशिका का पता नहीं लगा सका: "
 
+msgid "Create"
+msgstr "बनाएँ"
+
 msgid "Create Account"
 msgstr "अकाउंट बनाएं"
 
@@ -569,6 +1035,24 @@ msgstr "फोल्डर बनाएं"
 
 msgid "Create Group"
 msgstr "ग्रुप बनाएं"
+
+msgid "Create Permission Profile"
+msgstr "अनुमति प्रोफ़ाइल बनाएं"
+
+msgid "Create Profile"
+msgstr "प्रोफ़ाइल बनाएं"
+
+msgid "Create Scoped Token"
+msgstr "स्कोप्ड टोकन बनाएं"
+
+msgid "Create Share"
+msgstr "शेयर बनाएं"
+
+msgid "Create Share (Admin)"
+msgstr "शेयर बनाएं (एडमिन)"
+
+msgid "Create Token"
+msgstr "टोकन बनाएं"
 
 msgid "Create User Data template"
 msgstr "यूज़र डेटा टेम्पलेट बनाएं"
@@ -627,29 +1111,86 @@ msgstr "यह वर्कफ़्लो प्रोफ़ाइल बना
 msgid "Created"
 msgstr "बनाया गया"
 
+msgid "Created By"
+msgstr "द्वारा बनाया गया"
+
 msgid "Created On"
 msgstr "पर बनाया गया"
 
 msgid "Creating a user on Active Directory can take up to 1 minute. Do not refresh the page while EDH is creating a new account."
 msgstr "सक्रिय निर्देशिका पर उपयोगकर्ता बनाने में 1 मिनट तक का समय लग सकता है। EDH नया अकाउंट बनाते समय पेज को रिफ्रेश न करें।"
 
+msgid "Current bindings"
+msgstr "मौज़ूदा बाइंडिंग"
+
 msgid "Custom"
 msgstr "मनपसंद"
+
+msgid "Custom (edit JSON below)"
+msgstr "कस्टम (नीचे JSON संपादित करें)"
 
 msgid "Custom Consumable Resources"
 msgstr "कस्टम उपभोग्य संसाधन"
 
+msgid "Cycle Duration"
+msgstr "साइकिल की अवधि"
+
+msgid "D+"
+msgstr "डी+"
+
 msgid "DANGER ZONE - Reset my API key"
 msgstr "डेंजर ज़ोन - मेरी API कुंजी रीसेट करें"
 
+msgid "DCV / VDI Overview"
+msgstr "DCV/VDI अवलोकन"
+
+msgid "DCV Broker fleet"
+msgstr "DCV ब्रोकर फ्लीट"
+
+msgid "DCV Gateway fleet"
+msgstr "DCV गेटवे फ्लीट"
+
+msgid "DCV Permissions"
+msgstr "DCV अनुमतियां"
+
+msgid "DCV Servers (live from broker)"
+msgstr "DCV सर्वर (ब्रोकर से लाइव)"
+
+msgid "DCV Servers Registered"
+msgstr "DCV सर्वर पंजीकृत"
+
+msgid "DCV Session Sharing"
+msgstr "DCV सत्र साझाकरण"
+
+msgid "DCV Session Timeline"
+msgstr "DCV सेशन टाइमलाइन"
+
 msgid "DCV Session Type."
 msgstr "DCV सत्र का प्रकार।"
+
+msgid "DCV Sessions (live from broker)"
+msgstr "DCV सत्र (ब्रोकर से लाइव)"
+
+msgid "DCV USB remotization"
+msgstr "DCV USB रिमोटाइजेशन"
+
+msgid "DCV high-scale mode is disabled. This dashboard is only meaningful when DCV is deployed with broker + gateway. Enable via"
+msgstr "DCV हाई-स्केल मोड अक्षम है। यह डैशबोर्ड तभी सार्थक होता है जब DCV को ब्रोकर + गेटवे के साथ तैनात किया जाता है। के माध्यम से सक्षम करें"
+
+msgid "DCV streaming metrics not available yet. Collector needs at least 2 cycles (~2 min) after VDI bootstrap."
+msgstr "DCV स्ट्रीमिंग मेट्रिक्स अभी तक उपलब्ध नहीं हैं। VDI बूटस्ट्रैप के बाद कलेक्टर को कम से कम 2 चक्र (~ 2 मिनट) की आवश्यकता होती है।"
+
+msgid "Daily usage"
+msgstr "दैनिक उपयोग"
 
 msgid "Data Transfer to/from EDH"
 msgstr "EDH को/से डेटा ट्रांसफर"
 
 msgid "Date"
 msgstr "तारीख़"
+
+msgid "Days"
+msgstr "डेज़"
 
 msgid "Dedicated Host Tenancy"
 msgstr "समर्पित मेज़बान किरायेदारी"
@@ -663,17 +1204,32 @@ msgstr "डेडिकेटेड इंस्टेंस टेनेंस�
 msgid "Dedicated Instance Tenancy (instance)"
 msgstr "डेडिकेटेड इंस्टेंस टेनेंसी (उदाहरण)"
 
+msgid "Default"
+msgstr "तयशुदा"
+
 msgid "Default Tenancy"
 msgstr "डिफ़ॉल्ट किरायेदारी"
 
 msgid "Default Tenancy (default)"
 msgstr "डिफ़ॉल्ट किरायेदारी (डिफ़ॉल्ट)"
 
+msgid "Default profiles cannot be edited or deleted. Use the Enabled toggle to control whether a profile (including defaults) is offered to users in the share dropdowns -- disabling hides it without removing it."
+msgstr "डिफ़ॉल्ट प्रोफ़ाइल संपादित या हटाई नहीं जा सकतीं। यह नियंत्रित करने के लिए सक्षम टॉगल का उपयोग करें कि शेयर ड्रॉपडाउन में यूज़र को कोई प्रोफ़ाइल (डिफ़ॉल्ट सहित) ऑफ़र की गई है या नहीं -- अक्षम करने से वह हटाए बिना छुप जाती है।"
+
+msgid "Define allowed API paths and HTTP methods."
+msgstr "अनुमत API पथ और HTTP विधियों को परिभाषित करें।"
+
 msgid "Define custom consumable resources beyond vCPU and Memory."
 msgstr "vCPU और मेमोरी से परे कस्टम उपभोग्य संसाधनों को परिभाषित करें।"
 
 msgid "Define environment variables as key-value pairs."
 msgstr "पर्यावरण चर को कुंजी-मूल्य जोड़े के रूप में परिभाषित करें।"
+
+msgid "Degraded Ratio"
+msgstr "अवक्रमित अनुपात"
+
+msgid "Degraded Sessions"
+msgstr "अपमानित सत्र"
 
 msgid "Delete"
 msgstr "मिटाएँ"
@@ -692,6 +1248,9 @@ msgstr "प्रोजेक्ट डिलीट करें"
 
 msgid "Delete Queue"
 msgstr "कतार मिटाएँ"
+
+msgid "Delete Saved Desktop"
+msgstr "सहेजे गए डेस्कटॉप को हटा दें"
 
 msgid "Delete Target Node"
 msgstr "टारगेट नोड मिटाएँ"
@@ -720,8 +1279,14 @@ msgstr "नौकरी डिलीट करें"
 msgid "Delete a queue"
 msgstr "एक कतार मिटाएँ"
 
+msgid "Delete all saved conversations?"
+msgstr "सभी सहेजे गए वार्तालापों को हटाएँ?"
+
 msgid "Delete an existing Workflow Profile"
 msgstr "मौजूदा वर्कफ़्लो प्रोफ़ाइल हटाएं"
+
+msgid "Delete every cached bootstrap entry (including pool launch-template renders); the next VDI/HPC create per stack will re-render fresh."
+msgstr "प्रत्येक कैश्ड बूटस्ट्रैप प्रविष्टि (पूल लॉन्च-टेम्पलेट रेंडर सहित) को हटा दें; प्रति स्टैक अगले VDI/HPC क्रिएट नए सिरे से रेंडर करेगा।"
 
 msgid "Delete file"
 msgstr "फ़ाइल डिलीट करें"
@@ -737,6 +1302,9 @@ msgstr "इस फ़ाइल को डिलीट करें"
 
 msgid "Delete user"
 msgstr "यूज़र डिलीट करें"
+
+msgid "Deleted"
+msgstr "मिटाया गया"
 
 msgid "Deleted user"
 msgstr "मिटाया गया यूज़र"
@@ -754,6 +1322,9 @@ msgstr "ग्रुप हटाने से ऐक्सेस की सम�
 msgid "Deleting user will prevent user to access the cluster but does not remove associated $HOME directory and data"
 msgstr "उपयोगकर्ता को हटाने से उपयोगकर्ता को क्लस्टर तक पहुंचने से रोका जा सकेगा, लेकिन संबद्ध $HOME निर्देशिका और डेटा को नहीं हटाया जाएगा"
 
+msgid "Denied"
+msgstr "अस्वीकृत"
+
 msgid "Denied Groups"
 msgstr "अस्वीकृत समूह"
 
@@ -763,8 +1334,14 @@ msgstr "अस्वीकृत यूज़र"
 msgid "Deny takes precedence over allow"
 msgstr "अनुमति देने पर इनकार को प्राथमिकता दी जाती है"
 
+msgid "Describe the software and configuration in this image (e.g. Win2025 + MATLAB R2025a + Abaqus 2024)"
+msgstr "इस छवि में सॉफ़्टवेयर और कॉन्फ़िगरेशन का वर्णन करें (उदाहरण के लिए Win2025 + MATLAB R2025a + Abaqus 2024)"
+
 msgid "Description"
 msgstr "विवरण"
+
+msgid "Description for your template, maximum 500 characters."
+msgstr "आपके टेम्पलेट के लिए विवरण, अधिकतम 500 अक्षर।"
 
 msgid "Description of your Project"
 msgstr "आपके प्रोजेक्ट का विवरण"
@@ -787,8 +1364,38 @@ msgstr "अलग करें (सत्र चलता रहता है)"
 msgid "Detached"
 msgstr "डिटैच्ड"
 
+msgid "DeviceHunt USB vendor / product ID lookup"
+msgstr "DeviceHunt USB विक्रेता/उत्पाद आईडी लुकअप"
+
+msgid "Devices"
+msgstr "डिवाइसेस"
+
+msgid "Devices in"
+msgstr "डिवाइसेस इन"
+
+msgid "Disable & revoke"
+msgstr "अक्षम करें और रद्द करें"
+
 msgid "Disable Auto-Refresh"
 msgstr "ऑटो-रिफ्रेश अक्षम करें"
+
+msgid "Disable Permission Profile"
+msgstr "अनुमति प्रोफ़ाइल अक्षम करें"
+
+msgid "Disable only"
+msgstr "केवल अक्षम करें"
+
+msgid "Disable sharing (always available as a profile option)"
+msgstr "साझाकरण अक्षम करें (प्रोफ़ाइल विकल्प के रूप में हमेशा उपलब्ध)"
+
+msgid "Disabled"
+msgstr "अक्षम"
+
+msgid "Disabling hides this profile from new shares. Existing shares keep working unless you also revoke them. Revoking disconnects those guests immediately."
+msgstr "अक्षम करने से यह प्रोफ़ाइल नए शेयरों से छिप जाती है। मौजूदा शेयर तब तक काम करते रहते हैं जब तक आप उन्हें रद्द नहीं करते हैं। रद्द करने से वे मेहमान तुरंत डिस्कनेक्ट हो जाते हैं।"
+
+msgid "Discard changes"
+msgstr "परिवर्तनों को त्यागें"
 
 msgid "Disclaimer: Baseline numbers"
 msgstr "अस्वीकरण: बेसलाइन नंबर"
@@ -817,6 +1424,12 @@ msgstr "दस्तावेजीकरण"
 msgid "Does not reflect any additional charges such as network or storage transfer or usage of io2 volume (default to gp3)"
 msgstr "किसी भी अतिरिक्त शुल्क को प्रतिबिंबित नहीं करता है जैसे कि नेटवर्क या स्टोरेज ट्रांसफर या io2 वॉल्यूम का उपयोग (gp3 के लिए डिफ़ॉल्ट)"
 
+msgid "Done"
+msgstr "हो गया"
+
+msgid "Download"
+msgstr "डाउनलोड"
+
 msgid "Download FileZilla"
 msgstr "FileZilla डाउनलोड करें"
 
@@ -827,14 +1440,14 @@ msgstr "PuTTY डाउनलोड करें"
 msgid "Download PuttyGEN from %(puttygen_link)s, then convert the key you have downloaded on step1 to %(fmt)s format"
 msgstr "%(puttygen_link)s से PuTTYgen डाउनलोड करें, फिर चरण 1 पर आपके द्वारा डाउनलोड की गई कुंजी को %(fmt)s प्रारूप में कनवर्ट करें"
 
-msgid "Download Session File"
-msgstr "सत्र फ़ाइल डाउनलोड करें"
-
 msgid "Download all"
 msgstr "सभी डाउनलोड करें"
 
 msgid "Download file is disabled. Please contact your cluster administrator"
 msgstr "डाउनलोड फ़ाइल अक्षम है। कृपया अपने क्लस्टर एडमिनिस्ट्रेटर से संपर्क करें"
+
+msgid "Download it here."
+msgstr "इसे यहां डाउनलोड करें।"
 
 msgid "Download my private key"
 msgstr "मेरी निजी कुंजी डाउनलोड करें"
@@ -852,17 +1465,23 @@ msgstr "इस फ़ाइल को डाउनलोड करें"
 msgid "Download your %(kind)s SSH key"
 msgstr "अपनी %(kind)s SSH कुंजी डाउनलोड करें"
 
-msgid "Download your client here."
-msgstr "अपने क्लाइंट को यहां डाउनलोड करें।"
-
 msgid "Drag & Drop form components based on your own requirements."
 msgstr "अपनी आवश्यकताओं के आधार पर फ़ॉर्म घटकों को खींचें और छोड़ें।"
 
 msgid "Drag and Drop files to upload or click"
 msgstr "अपलोड करने या क्लिक करने के लिए फ़ाइलों को खींचें और छोड़ें"
 
+msgid "Duration"
+msgstr "अवधि"
+
+msgid "EBS fast-restore acceleration for desktops built from this stack. Inherit = use the cluster default; Off = lazy load; 100-300 MiB/s = pre-fetch the root volume on launch (faster first boot/resume, higher for larger stacks)."
+msgstr "इस स्टैक से निर्मित डेस्कटॉप के लिए EBS फास्ट-रिस्टोर एक्सेलेरेशन। इनहेरिट = क्लस्टर डिफॉल्ट का उपयोग करें; ऑफ = आलसी लोड; 100-300 MiB/s = लॉन्च पर रूट वॉल्यूम को प्री-फ़ेच करें (तेज़ पहला बूट/रिज्यूमे, बड़े स्टैक के लिए उच्चतर)।"
+
 msgid "EBS/FSx rates as of January 2025 based on us-east-1"
 msgstr "us-east-1 के आधार पर जनवरी 2025 तक EBS/FSX दरें"
+
+msgid "EC2 Instance"
+msgstr "EC2 इंस्टेंस"
 
 msgid "EC2 Instance Types you are authorized to deploy for this software stack. Manage list via"
 msgstr "EC2 इंस्टेंस प्रकार जिन्हें आप इस सॉफ़्टवेयर स्टैक के लिए परिनियोजित करने के लिए अधिकृत हैं। के माध्यम से सूची प्रबंधित करें"
@@ -949,7 +1568,7 @@ msgstr "अपना काम शुरू करने के लिए EKS Na
 msgid "Each line is one argument."
 msgstr "प्रत्येक पंक्ति एक तर्क है।"
 
-msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessy customize compute, storage and operating systems requirements for your HPC simulations"
+msgid "Easily submit jobs for LSF, OpenPBS, PBSPro, Slurm and seamlessly customize compute, storage and operating systems requirements for your HPC simulations"
 msgstr "LSF, OpenPBS, PBSPro, Slurm के लिए आसानी से नौकरी सबमिट करें और अपने HPC सिमुलेशन के लिए कंप्यूट, स्टोरेज और ऑपरेटिंग सिस्टम आवश्यकताओं को निर्बाध रूप से अनुकूलित करें"
 
 msgid "Edit"
@@ -992,14 +1611,32 @@ msgstr "अपने फ़ॉर्म पर बनाए गए वैरि�
 msgid "Edit this file (text file only)"
 msgstr "इस फ़ाइल को संपादित करें (केवल टेक्स्ट फ़ाइल)"
 
+msgid "Editable here:"
+msgstr "यहां संपादन योग्य है:"
+
+msgid "Editing devices changes the shared allowlist itself — it affects every Hardware Profile that links it."
+msgstr "संपादन डिवाइस साझा अनुमति सूची को ही बदल देता है - यह हर हार्डवेयर प्रोफ़ाइल को प्रभावित करता है जो इसे लिंक करता है।"
+
+msgid "Edits are staged and highlighted. Bool/number/text fields are typed to the parameter; use 'raw' for freeform. Apply writes each change to SSM (durable + versioned); Valkey updates via the config sync. Read-only params show no editor."
+msgstr "संपादन का मंचन किया जाता है और उन पर प्रकाश डाला जाता है। बूल/नंबर/टेक्स्ट फ़ील्ड पैरामीटर में टाइप किए जाते हैं; फ़्रीफ़ॉर्म के लिए 'raw' का उपयोग करें। apply प्रत्येक परिवर्तन को SSM (टिकाऊ + संस्करणित) में लिखता है; कॉन्फ़िगरेशन सिंक के माध्यम से Valkey अपडेट करता है। केवल-पढ़ने के लिए पैराम्स कोई संपादक नहीं दिखाते हैं।"
+
+msgid "Edits are staged locally. Toggle On/Off, edit the admin comment, add or remove rows, then click Apply updates to commit everything at once. Disabled rows are retained for reference but are NOT delivered to VDIs. Admin comments are internal only and never sent to a VDI or shown to end users."
+msgstr "संपादन स्थानीय स्तर पर किए जाते हैं। चालू/बंद करें, व्यवस्थापक टिप्पणी संपादित करें, पंक्तियाँ जोड़ें या निकालें, फिर सब कुछ एक साथ करने के लिए अपडेट लागू करें पर क्लिक करें। अक्षम पंक्तियों को संदर्भ के लिए बनाए रखा जाता है, लेकिन VDI को डिलीवर नहीं किया जाता है। व्यवस्थापक टिप्पणियां केवल आंतरिक होती हैं और कभी भी VDI को नहीं भेजी जाती हैं या अंतिम उपयोगकर्ताओं को नहीं दिखाई जाती हैं।"
+
 msgid "Email"
 msgstr "ईमेल"
 
-msgid "Embeeded Development"
+msgid "Embedded Development"
 msgstr "एम्बेडेड डेवलपमेंट"
+
+msgid "Enable / disable this instance type"
+msgstr "इस इंस्टेंस प्रकार को सक्षम/अक्षम करें"
 
 msgid "Enable Auto-Refresh"
 msgstr "ऑटो-रिफ्रेश सक्षम करें"
+
+msgid "Enable Hibernation"
+msgstr "हाइबरनेशन सक्षम करें"
 
 msgid "Enable Hibernation Support."
 msgstr "हाइबरनेशन समर्थन सक्षम करें।"
@@ -1010,14 +1647,35 @@ msgstr "नेस्टेड वर्चुअलाइजेशन सक्�
 msgid "Enable Sudo Access"
 msgstr "सुडो एक्सेस सक्षम करें"
 
+msgid "Enable pooling for this software stack"
+msgstr "इस सॉफ़्टवेयर स्टैक के लिए पूलिंग सक्षम करें"
+
+msgid "Enable via edhctl config set /edh/&lt;cluster&gt;/configuration/BaseImageAcceleration/Enabled true"
+msgstr "<cluster>edhctl config set /edh/Configuration/baseImageAcceleration/enabled true के माध्यम से सक्षम करें"
+
+msgid "Enabled"
+msgstr "चालू किया गया"
+
+msgid "Encode the payload using Base64:"
+msgstr "Base64 का उपयोग करके पेलोड को एन्कोड करें:"
+
+msgid "End"
+msgstr "अंत"
+
 msgid "End session (terminates tmux)"
 msgstr "सत्र समाप्त करें (tmux को समाप्त करता है)"
 
 msgid "End this terminal session? The remote tmux will be terminated."
 msgstr "इस टर्मिनल सत्र को समाप्त करें? रिमोट tmux को समाप्त कर दिया जाएगा।"
 
+msgid "Ended"
+msgstr "समाप्त हो गया"
+
 msgid "Engineering Development Hub"
 msgstr "इंजीनियरिंग डेवलपमेंट हब"
+
+msgid "Enter a username above to view and manage their tokens."
+msgstr "उनके टोकन देखने और प्रबंधित करने के लिए ऊपर एक उपयोगकर्ता नाम दर्ज करें।"
 
 msgid "Enter friendly AMI Name"
 msgstr "मित्रवत AMI नाम दर्ज करें"
@@ -1028,17 +1686,23 @@ msgstr "KEY=VALUE प्रारूप में प्रति पंक्�
 msgid "Enter shell code here"
 msgstr "यहां शेल कोड दर्ज करें"
 
+msgid "Enter username..."
+msgstr "उपयोगकर्ता नाम दर्ज करें..."
+
 msgid "Enter value"
 msgstr "मान दर्ज करें"
-
-msgid "Entering the Danger Zone"
-msgstr "डेंजर जोन में प्रवेश करना"
 
 msgid "Entering the danger zone"
 msgstr "खतरे के क्षेत्र में प्रवेश करना"
 
+msgid "Entries"
+msgstr "प्रविष्टियाँ"
+
 msgid "Environment Variables"
 msgstr "पर्यावरण चर"
+
+msgid "Error"
+msgstr "एरर"
 
 msgid "Error during"
 msgstr "दौरान त्रुटि"
@@ -1073,6 +1737,18 @@ msgstr "अनुमानित संग्रहण:"
 msgid "Estimated compute price with RI"
 msgstr "RI के साथ अनुमानित गणना मूल्य"
 
+msgid "Estimated cost:"
+msgstr "अनुमानित लागत:"
+
+msgid "Event Log"
+msgstr "इवेंट लॉग"
+
+msgid "Event Type"
+msgstr "इवेंट का प्रकार"
+
+msgid "Event log (this pool)"
+msgstr "इवेंट लॉग (यह पूल)"
+
 msgid "Example:"
 msgstr "उदाहरण:"
 
@@ -1091,11 +1767,26 @@ msgstr "उदाहरण: ऑपरेशन को संशोधित क�
 msgid "Execution timeout"
 msgstr "एक्ज़ीक्यूशन टाइमआउट"
 
+msgid "Expected"
+msgstr "अपेक्षित"
+
+msgid "Expired"
+msgstr "समय सीमा समाप्त"
+
+msgid "Expires"
+msgstr "समय सीमा समाप्त"
+
+msgid "Expires in"
+msgstr "में समाप्त हो रहा है"
+
 msgid "Explore your Filesystem"
 msgstr "अपने फाइलसिस्टम को एक्सप्लोर करें"
 
 msgid "Export"
 msgstr "एक्सपोर्ट करें"
+
+msgid "Export CSV"
+msgstr "CSV एक्सपोर्ट करें"
 
 msgid "Export existing Workflow Profile"
 msgstr "मौजूदा वर्कफ़्लो प्रोफ़ाइल निर्यात करें"
@@ -1115,11 +1806,20 @@ msgstr "GB में लस्टर आकार के लिए FSX (डि�
 msgid "FSx for Lustre:"
 msgstr "चमक के लिए FSX:"
 
+msgid "Failed to load acceleration status."
+msgstr "त्वरण स्थिति लोड करने में विफल।"
+
 msgid "Failed to load earlier content"
 msgstr "पहले का कॉन्टेंट लोड नहीं किया जा सका"
 
 msgid "Failure to do so will result in your profile remaining hidden from users."
 msgstr "ऐसा करने में विफलता के परिणामस्वरूप आपकी प्रोफ़ाइल उपयोगकर्ताओं से छिपी रहेगी।"
+
+msgid "Fall back to On-Demand when the reservation is full (unchecked = hard-fail, enforces the reservation as a cap)"
+msgstr "रिज़र्वेशन पूरा होने पर ऑन-डिमांड पर वापस जाएं (अनचेक = हार्ड-फ़ेल, रिज़र्वेशन को कैप के रूप में लागू करता है)"
+
+msgid "Fall back to On-Demand when this reservation is full"
+msgstr "जब यह रिज़र्वेशन पूरा हो जाए, तो ऑन-डिमांड पर वापस जाएं"
 
 msgid "Feature not available for you on this EDH cluster. Please contact your Administrator to enable it."
 msgstr "इस EDH क्लस्टर पर आपके लिए सुविधा उपलब्ध नहीं है। इसे सक्षम करने के लिए कृपया अपने एडमिनिस्ट्रेटर से संपर्क करें।"
@@ -1130,11 +1830,17 @@ msgstr "इस EDH क्लस्टर पर सुविधा उपलब�
 msgid "File Explorer"
 msgstr "फ़ाइल एक्सप्लोरर"
 
+msgid "File Manager"
+msgstr "फ़ाइल मैनेजर"
+
 msgid "File Updated."
 msgstr "फ़ाइल अपडेट की गई।"
 
 msgid "File appears to be binary and cannot be tailed"
 msgstr "फ़ाइल बाइनरी प्रतीत होती है और इसे टेल्ड नहीं किया जा सकता"
+
+msgid "File content"
+msgstr "फ़ाइल कॉन्टेंट"
 
 msgid "File does not exist or is not a regular file"
 msgstr "फ़ाइल मौजूद नहीं है या नियमित फ़ाइल नहीं है"
@@ -1158,11 +1864,27 @@ msgstr "फ़ाइल को छोटा किया गया"
 msgid "File(s) will be uploaded under"
 msgstr "फ़ाइल (फ़ाइलों) को नीचे अपलोड किया जाएगा"
 
-msgid "Filter"
-msgstr "फ़िल्टर करें"
+msgid "File:"
+msgstr "फ़ाइल:"
+
+msgid "Filters"
+msgstr "फिल्टर्स"
 
 msgid "Finally valid your group has been created correctly using"
 msgstr "अंत में मान्य है कि आपका समूह सही तरीके से उपयोग करके बनाया गया है"
+
+msgid "First time? Get the client app"
+msgstr "पहली बार? क्लायंट ऐप प्राप्त करें"
+
+msgid "Fleet Overview"
+msgstr "फ्लीट अवलोकन"
+
+#, python-format
+msgid "Fleet spread (max-min)/avg. >30%% suggests one broker diverging."
+msgstr "फ्लीट स्प्रेड (अधिकतम न्यूनतम) /औसत > 30 एक ब्रोकर को अलग करने का सुझाव देता है।"
+
+msgid "Flush cache"
+msgstr "फ्लश कैश"
 
 msgid "Folder Name"
 msgstr "फ़ोल्डर का नाम"
@@ -1175,6 +1897,9 @@ msgstr "Linux उपयोगकर्ता डेटा के लिए, ह�
 
 msgid "For Windows user data, we recommend starting the script with:"
 msgstr "Windows उपयोगकर्ता डेटा के लिए, हम स्क्रिप्ट को इसके साथ शुरू करने की सलाह देते हैं:"
+
+msgid "For a single instance type backed by exactly one Capacity Reservation, set its Capacity Reservation id directly on that instance-type card above instead."
+msgstr "ठीक एक क्षमता आरक्षण द्वारा समर्थित एक उदाहरण प्रकार के लिए, इसके बजाय ऊपर दिए गए इंस्टेंस-टाइप कार्ड पर सीधे इसकी क्षमता आरक्षण आईडी सेट करें।"
 
 #, python-format
 msgid "For example, %(ex_var)s on your user data will automatically be replaced with \"test123\" if you configure %(ex_assign)s on the Software Stack associated to this User Data."
@@ -1189,6 +1914,12 @@ msgstr "सर्वश्रेष्ठ प्रदर्शन के लि
 msgid "Force your job to run on a specific instance type"
 msgstr "अपनी नौकरी को एक विशिष्ट उदाहरण प्रकार पर चलाने के लिए बाध्य करें"
 
+msgid "Format:"
+msgstr "फ़ॉर्मेट:"
+
+msgid "Free IPs"
+msgstr "फ्री आईपी"
+
 msgid "Friendly Name for your project"
 msgstr "आपके प्रोजेक्ट के लिए अनुकूल नाम"
 
@@ -1197,6 +1928,24 @@ msgstr "आपके टेम्पलेट के लिए अनुकू�
 
 msgid "Friendly name for your User Data template"
 msgstr "आपके उपयोगकर्ता डेटा टेम्पलेट के लिए अनुकूल नाम"
+
+msgid "From"
+msgstr "से"
+
+msgid "From / To"
+msgstr "से/से"
+
+msgid "From custom CW namespace"
+msgstr "कस्टम CW नेमस्पेस से"
+
+msgid "Full API (all methods)"
+msgstr "पूर्ण API (सभी विधियाँ)"
+
+msgid "Full API (read-only)"
+msgstr "पूर्ण API (केवल पढ़ने के लिए)"
+
+msgid "Full timeline"
+msgstr "पूरी टाइमलाइन"
 
 msgid "GPUs"
 msgstr "जीपीयू"
@@ -1213,6 +1962,12 @@ msgstr "एक नई API कुंजी जेनरेट करने से
 
 msgid "Get Started"
 msgstr "शुरू हो जाओ"
+
+msgid "Globally denied paths"
+msgstr "वैश्विक रूप से अस्वीकृत पथ"
+
+msgid "Golden Images"
+msgstr "गोल्डन इमेजेस"
 
 msgid "Grant Admin permission"
 msgstr "एडमिन की अनुमति दें"
@@ -1256,8 +2011,36 @@ msgstr "समूह अनुमतियां"
 msgid "Groups: OU=Group,DC=soca,DC=local"
 msgstr "समूह: OU = समूह, DC = SOCA, DC = स्थानीय"
 
+msgid "Guest"
+msgstr "गेस्ट"
+
+msgid "Guest Desktop Thumbnail"
+msgstr "गेस्ट डेस्कटॉप थंबनेल"
+
+msgid "Guest username(s)"
+msgstr "अतिथि उपयोगकर्ता नाम"
+
 msgid "HTTP 401/Unauthorized"
 msgstr "HTTP 401/अनधिकृत"
+
+msgid "HTTP Methods:"
+msgstr "HTTP तरीके:"
+
+msgid "Hardware Profile"
+msgstr "हार्डवेयर प्रोफ़ाइल"
+
+#, python-format
+msgid "Hardware Profile (%(link)s)"
+msgstr "हार्डवेयर प्रोफाइल (%(link)s)"
+
+msgid "Hardware Profile updated"
+msgstr "हार्डवेयर प्रोफ़ाइल अपडेट किया गया"
+
+msgid "Hardware Profiles"
+msgstr "हार्डवेयर प्रोफाइल्स"
+
+msgid "Hardware Profiles currently bound to Software Stacks and Projects. Set or change a binding on the Software Stack or Project edit page. When both a Stack and its Project bind a profile, the Project binding wins at launch."
+msgstr "हार्डवेयर प्रोफ़ाइल वर्तमान में सॉफ़्टवेयर स्टैक्स और प्रोजेक्ट्स से जुड़ी हैं। सॉफ़्टवेयर स्टैक या प्रोजेक्ट एडिट पेज पर बाइंडिंग सेट करें या बदलें। जब स्टैक और उसका प्रोजेक्ट दोनों एक प्रोफ़ाइल को बाइंड करते हैं, तो लॉन्च के समय प्रोजेक्ट बाइंडिंग जीत जाता है।"
 
 msgid "Hello"
 msgstr "नमस्ते"
@@ -1265,11 +2048,23 @@ msgstr "नमस्ते"
 msgid "Here are some documentation to help you transfer files from/to Engineering Development Hub:"
 msgstr "इंजीनियरिंग डेवलपमेंट हब से/से फाइल ट्रांसफर करने में आपकी मदद करने के लिए यहां कुछ दस्तावेज दिए गए हैं:"
 
+msgid "Hibernated (faster resume, larger EBS)"
+msgstr "हाइबरनेटेड (तेज़ रिज्यूमे, बड़ा ईबीएस)"
+
 msgid "Hibernation will not cause any data loss"
 msgstr "हाइबरनेशन से किसी भी डेटा हानि का कारण नहीं होगा"
 
+msgid "Hide bulk edit"
+msgstr "बल्क संपादन छिपाएँ"
+
 msgid "High Performance Computing"
 msgstr "हाई परफॉरमेंस कंप्यूटिंग"
+
+msgid "Hint"
+msgstr "संकेत"
+
+msgid "History"
+msgstr "इतिहास"
 
 msgid "Home Directory"
 msgstr "होम डायरेक्टरी"
@@ -1283,11 +2078,29 @@ msgstr "इस कतार में होस्ट तब तक ऑनला
 msgid "Host(s)"
 msgstr "होस्ट (रों)"
 
+msgid "Hostname"
+msgstr "होस्टनाम"
+
 msgid "Hosts in this queue will be provisioned automatically based on the number of queued jobs. Hosts are restricted to a given job ID and are automatically terminated as soon as the job complete."
 msgstr "इस कतार में मौजूद मेज़बानों को कतार में लगी नौकरियों की संख्या के आधार पर स्वचालित रूप से प्रोविज़न किया जाएगा। होस्ट किसी दिए गए जॉब आईडी तक ही सीमित होते हैं और काम पूरा होते ही उन्हें स्वचालित रूप से समाप्त कर दिया जाता है।"
 
+msgid "Hot"
+msgstr "हॉट"
+
+msgid "Hot InService"
+msgstr "हॉट इन सर्विस"
+
+msgid "Hot-served"
+msgstr "हॉट-सर्व्ड"
+
+msgid "Hover a permission for details. "
+msgstr "जानकारी के लिए अनुमति को होवर करें। "
+
 msgid "How do you want to name this Workflow Profile?"
 msgstr "आप इस वर्कफ़्लो प्रोफ़ाइल को कैसे नाम देना चाहते हैं?"
+
+msgid "How long this token remains valid. After expiration, the token can no longer authenticate requests."
+msgstr "यह टोकन कब तक वैध रहेगा। समाप्ति के बाद, टोकन अब अनुरोधों को प्रमाणित नहीं कर सकता है।"
 
 msgid "How many Virtual CPUs do you want?"
 msgstr "आपको कितने वर्चुअल सीपीयू चाहिए?"
@@ -1345,17 +2158,29 @@ msgstr "मुझे यकीन है कि मैं EDH से इस स�
 msgid "I am sure I want to unregister this Software Stack from SOCA"
 msgstr "मुझे यकीन है कि मैं SOCA से इस सॉफ़्टवेयर स्टैक को अपंजीकृत करना चाहता हूं"
 
+msgid "I confirm I want to delete this job"
+msgstr "मैं पुष्टि करता हूं कि मैं इस नौकरी को हटाना चाहता हूं"
+
 msgid "I understand I will need to update my scripts with the new key to prevent any outage"
 msgstr "मैं समझता हूं कि किसी भी आउटेज को रोकने के लिए मुझे अपनी स्क्रिप्ट को नई कुंजी के साथ अपडेट करना होगा"
 
+msgid "I understand this token will be permanently revoked."
+msgstr "मैं समझता हूं कि इस टोकन को स्थायी रूप से रद्द कर दिया जाएगा।"
+
 msgid "I want to delete this Workflow Profile"
 msgstr "मैं इस वर्कफ़्लो प्रोफ़ाइल को हटाना चाहता हूं"
+
+msgid "ID"
+msgstr "आईडी"
 
 msgid "IMPORTANT"
 msgstr "महत्वपूर्ण"
 
 msgid "IMPORTANT: Node Count is based on the number of vCPUs (not CPUs) per machine. (e.g: a c6i.xlarge has 2 physical CPUs but 4 vCPUs. If you request 8 vCPUs EDH will provision 2 instances. If you need 8 logical cores, we recommend using ht_support=false and request a single EC2 machine with 16 vCPUs)"
 msgstr "महत्वपूर्ण: नोड काउंट प्रति मशीन वीसीपीयू (सीपीयू नहीं) की संख्या पर आधारित है। (उदाहरण: a c6i.xlarge में 2 भौतिक CPU होते हैं लेकिन 4 VCPU होते हैं। यदि आप 8 VCPU का अनुरोध करते हैं तो EDH 2 उदाहरणों का प्रावधान करेगा। यदि आपको 8 लॉजिकल कोर की आवश्यकता है, तो हम ht_support=false का उपयोग करने की सलाह देते हैं और 16 VCPU वाली एकल EC2 मशीन का अनुरोध करते हैं)"
+
+msgid "IP"
+msgstr "आईपी"
 
 msgid "Id"
 msgstr "आईडी"
@@ -1370,9 +2195,6 @@ msgstr "यदि force_ri सही है, तो नौकरी केवल
 msgid "If present, autofilled with the input file name"
 msgstr "यदि मौजूद है, तो इनपुट फ़ाइल नाम के साथ स्वतः भर दिया गया है"
 
-msgid "If the page stays blank, the code-server service may not be running on this cluster."
-msgstr "यदि पेज खाली रहता है, तो हो सकता है कि कोड-सर्वर सेवा इस क्लस्टर पर नहीं चल रही हो।"
-
 #, python-format
 msgid "If you do not want your session to be automatically closed after a couple of minutes of inactivity, edit %(cfg)s and add:"
 msgstr "यदि आप नहीं चाहते कि कुछ मिनटों की निष्क्रियता के बाद आपका सत्र स्वचालित रूप से बंद हो जाए, तो %(cfg)s संपादित करें और जोड़ें:"
@@ -1385,6 +2207,9 @@ msgstr "अगर आपको लगता है कि आपकी कुं
 
 msgid "Image"
 msgstr "इमेज"
+
+msgid "Image & Settings"
+msgstr "छवि और सेटिंग"
 
 msgid "Image Digest"
 msgstr "इमेज डाइजेस्ट"
@@ -1403,6 +2228,9 @@ msgstr "इमेज टैग"
 
 msgid "Image URI"
 msgstr "इमेज यूआरआई"
+
+msgid "Impact"
+msgstr "इम्पैक्ट"
 
 msgid "Import"
 msgstr "इम्पोर्ट करें"
@@ -1428,15 +2256,36 @@ msgstr "महत्त्वपूर्ण:"
 msgid "Important: Active Directory"
 msgstr "महत्वपूर्ण: सक्रिय डायरेक्ट्री"
 
+msgid "In Use"
+msgstr "इस्तेमाल में"
+
 #, python-format
 msgid "In the %(section)s section click %(action)s"
 msgstr "%(section)s अनुभाग में %(action)s पर क्लिक करें"
 
+msgid "Include finished"
+msgstr "समाप्त को शामिल करें"
+
+msgid "Include on-behalf-of in User match (show internal/root calls made for the user)"
+msgstr "उपयोगकर्ता मिलान में ऑन-बीहाफ-ऑफ शामिल करें (उपयोगकर्ता के लिए किए गए आंतरिक/रूट कॉल दिखाएं)"
+
 msgid "Info"
 msgstr "जानकारी"
 
+msgid "Infrastructure"
+msgstr "इंफ्रास्ट्रक्चर"
+
+msgid "Infrastructure data not available yet -- still being assembled."
+msgstr "इन्फ्रास्ट्रक्चर डेटा अभी तक उपलब्ध नहीं है - अभी भी इकट्ठा किया जा रहा है।"
+
+msgid "Inherit cluster default"
+msgstr "इनहेरिट क्लस्टर डिफ़ॉल्ट"
+
 msgid "Input location"
 msgstr "इनपुट स्थान"
+
+msgid "Instance"
+msgstr "इंस्टेंस"
 
 msgid "Instance Family"
 msgstr "इंस्टेंस फ़ैमिली"
@@ -1444,11 +2293,17 @@ msgstr "इंस्टेंस फ़ैमिली"
 msgid "Instance ID of the target node"
 msgstr "टारगेट नोड का इंस्टेंस आईडी"
 
+msgid "Instance IP - Click to copy"
+msgstr "इंस्टेंस आईपी - कॉपी करने के लिए क्लिक करें"
+
 msgid "Instance Type"
 msgstr "इंस्टेंस टाइप"
 
 msgid "Instance Type:"
 msgstr "इंस्टेंस टाइप:"
+
+msgid "Instance type"
+msgstr "इंस्टेंस टाइप"
 
 msgid "Instance type (default: c5.large)"
 msgstr "इंस्टेंस टाइप (डिफ़ॉल्ट: c5.large)"
@@ -1456,11 +2311,20 @@ msgstr "इंस्टेंस टाइप (डिफ़ॉल्ट: c5.larg
 msgid "Instance type of the target node"
 msgstr "टारगेट नोड का इंस्टेंस टाइप"
 
+msgid "Instance types"
+msgstr "इंस्टेंस के प्रकार"
+
 msgid "Instructions for Linux/Mac"
 msgstr "लिनक्स/मैक के लिए निर्देश"
 
 msgid "Instructions for Windows"
 msgstr "विंडोज के लिए निर्देश"
+
+msgid "Interrupted"
+msgstr "बाधित"
+
+msgid "Interruptible"
+msgstr "इंटरप्टिबल"
 
 msgid "Invalid feature flag configuration"
 msgstr "अमान्य फीचर फ्लैग कॉन्फ़िगरेशन"
@@ -1474,11 +2338,14 @@ msgstr "अमान्य ग्राफ़िकल सत्र"
 msgid "It is not recommended to upgrade/downgrade between non-GPUs and GPUs instances due to driver incompatibility"
 msgstr "ड्राइवर की असंगति के कारण गैर-GPU और GPU उदाहरणों के बीच अपग्रेड/डाउनग्रेड करने की अनुशंसा नहीं की जाती है"
 
-msgid "JOB CANNOT START"
-msgstr "काम शुरू नहीं हो सकता"
+msgid "JSON object defining which API paths and HTTP methods this token can access. Use allow/deny rules."
+msgstr "JSON ऑब्जेक्ट परिभाषित करता है कि यह टोकन किन API पथ और HTTP विधियों को एक्सेस कर सकता है। अनुमति दें/अस्वीकार करने के नियमों का उपयोग करें।"
 
 msgid "Jinja templating"
 msgstr "जिंजा टेम्पलेटिंग"
+
+msgid "Job Cannot Start"
+msgstr "नौकरी शुरू नहीं हो सकती"
 
 msgid "Job Definition"
 msgstr "नौकरी की परिभाषा"
@@ -1522,9 +2389,6 @@ msgstr "नौकरी के प्रयास"
 msgid "Job completed are automatically removed after 1 hour."
 msgstr "पूरा किया गया कार्य 1 घंटे के बाद स्वचालित रूप से हटा दिया जाता है।"
 
-msgid "Job is finished or in invalid state"
-msgstr "नौकरी समाप्त हो गई है या अमान्य स्थिति में है"
-
 msgid "Jump to live (End)"
 msgstr "जंप टू लाइव (एंड)"
 
@@ -1540,8 +2404,14 @@ msgstr "चाबी"
 msgid "Key"
 msgstr "चाबी"
 
+msgid "Key + Value"
+msgstr "कुंजी + मान"
+
 msgid "Key File"
 msgstr "मुख्य फ़ाइल"
+
+msgid "Key only"
+msgstr "केवल कुंजी"
 
 msgid "Keyboard shortcuts"
 msgstr "कीबोर्ड शॉर्टकट्स"
@@ -1549,8 +2419,14 @@ msgstr "कीबोर्ड शॉर्टकट्स"
 msgid "Keyboard shortcuts (?)"
 msgstr "कीबोर्ड शॉर्टकट (?)"
 
-msgid "LSF"
-msgstr "एलएसएफ"
+msgid "Label"
+msgstr "लेबल"
+
+msgid "Label (optional)"
+msgstr "लेबल (वैकल्पिक)"
+
+msgid "Label is required"
+msgstr "लेबल आवश्यक है"
 
 msgid "Large (8 vCPUs, 32 GB RAM)"
 msgstr "बड़े (8 सीपीयू, 32 जीबी रैम)"
@@ -1564,8 +2440,14 @@ msgstr "पिछले 2 दिन"
 msgid "Last 24 hours"
 msgstr "पिछले 24 घंटे"
 
+msgid "Last 24h"
+msgstr "पिछले 24 घंटे"
+
 msgid "Last 30 days"
 msgstr "पिछले 30 दिन"
+
+msgid "Last 30d"
+msgstr "पिछला 30d"
 
 msgid "Last 6 hours"
 msgstr "पिछले 6 घंटे"
@@ -1573,8 +2455,23 @@ msgstr "पिछले 6 घंटे"
 msgid "Last 7 days"
 msgstr "पिछले 7 दिन"
 
+msgid "Last 72h"
+msgstr "अंतिम 72h"
+
+msgid "Last 7d"
+msgstr "पिछला 7d"
+
+msgid "Last Connected"
+msgstr "पिछली बार कनेक्ट किया गया"
+
 msgid "Last Modified"
 msgstr "पिछली बार संशोधित"
+
+msgid "Last Used"
+msgstr "पिछली बार इस्तेमाल किया गया"
+
+msgid "Last modified (UTC)"
+msgstr "अंतिम बार संशोधित (UTC)"
 
 msgid "Launch Batch Job"
 msgstr "बैच जॉब लॉन्च करें"
@@ -1618,6 +2515,9 @@ msgstr "नया टारगेट नोड लॉन्च करें"
 msgid "Launch new Virtual Desktop"
 msgstr "नया वर्चुअल डेस्कटॉप लॉन्च करें"
 
+msgid "Launch on Spot (Interruptible)"
+msgstr "लॉन्च ऑन स्पॉट (इंटरप्टिबल)"
+
 msgid "Launch your virtual desktop in a specific subnet."
 msgstr "अपने वर्चुअल डेस्कटॉप को एक विशिष्ट सबनेट में लॉन्च करें।"
 
@@ -1627,17 +2527,32 @@ msgstr "ऐक्सेस हटाने के लिए खाली छो�
 msgid "Leave everything else as default."
 msgstr "बाकी सब कुछ डिफ़ॉल्ट के रूप में छोड़ दें।"
 
+msgid "Ledger AVAILABLE rows the broker cannot yet serve (members mid broker-registration, or stale rows pending the zombie sweep). Not necessarily an error; should trend to 0."
+msgstr "लेजर उपलब्ध पंक्तियां जिन्हें ब्रोकर अभी तक सेवा नहीं दे सकता है (सदस्य ब्रोकर-पंजीकरण के बीच में हैं, या ज़ोंबी स्वीप लंबित बासी पंक्तियां)। जरूरी नहीं कि कोई त्रुटि हो; 0 पर ट्रेंड करना चाहिए।"
+
 msgid "Let us assume you want to submit a simple job on the default OpenPBS"
 msgstr "मान लें कि आप डिफ़ॉल्ट OpenPBS पर एक साधारण नौकरी सबमिट करना चाहते हैं"
+
+msgid "Lifetime"
+msgstr "लाइफटाइम"
 
 msgid "Limitations"
 msgstr "सीमाएँ"
 
+msgid "Line selection"
+msgstr "लाइन का चयन"
+
+msgid "Lineage"
+msgstr "वंशावली"
+
+msgid "Link an allowlist, Apply, then manage its devices."
+msgstr "अनुमति सूची लिंक करें, आवेदन करें, फिर उसके डिवाइस प्रबंधित करें।"
+
 msgid "Linux"
 msgstr "लिनक्स"
 
-msgid "List all Virtual Desktops"
-msgstr "सभी वर्चुअल डेस्कटॉप को सूचीबद्ध करें"
+msgid "List all VDI"
+msgstr "सभी VDI को सूचीबद्ध करें"
 
 msgid "List all active Virtual Desktops"
 msgstr "सभी सक्रिय वर्चुअल डेस्कटॉप को सूचीबद्ध करें"
@@ -1693,14 +2608,41 @@ msgstr "के उपयोगकर्ताओं की सूची "
 msgid "List your Windows or Linux Virtual Desktops. Provision machines connected to your EDH environment that can mount shared or local filers"
 msgstr "अपने विंडोज या लिनक्स वर्चुअल डेस्कटॉप को सूचीबद्ध करें। आपके EDH वातावरण से जुड़ी प्रोविज़न मशीनें जो साझा या स्थानीय फ़ाइलरों को माउंट कर सकती हैं"
 
+msgid "Live"
+msgstr "लाइव"
+
 msgid "Live file tail"
 msgstr "लाइव फ़ाइल टेल"
+
+msgid "Live updates via Server-Sent Events. Auto-reconnect on drop."
+msgstr "सर्वर-भेजे गए ईवेंट के माध्यम से लाइव अपडेट। ड्रॉप होने पर ऑटो-रीकनेक्ट करें।"
+
+msgid "Liveness from CloudWatch (AWS/Lambda + relay rejections). Queue backlog + last-reconcile detail arrive with the persisted event store."
+msgstr "क्लाउडवॉच से जीवंतता (AWS/Lambda + रिले रिजेक्शन)। कतार बैकलॉग + अंतिम-मिलान विवरण स्थायी ईवेंट स्टोर के साथ आता है।"
+
+msgid "Load Balancers"
+msgstr "लोड बैलेंसर्स"
 
 msgid "Load earlier content (PageUp)"
 msgstr "पहले की सामग्री लोड करें (PageUp)"
 
+msgid "Loading Local Acceleration Mirror status..."
+msgstr "स्थानीय एक्सेलेरेशन मिरर स्थिति लोड हो रही है..."
+
 msgid "Loading earlier content..."
 msgstr "पहले की सामग्री लोड हो रही है..."
+
+msgid "Loading file ..."
+msgstr "फ़ाइल लोड हो रही है..."
+
+msgid "Loading..."
+msgstr "लोड हो रहा है..."
+
+msgid "Local Acceleration Mirror"
+msgstr "लोकल एक्सेलेरेशन मिरर"
+
+msgid "Local Acceleration Mirror -- Owned Base AMIs"
+msgstr "लोकल एक्सेलेरेशन मिरर -- ओन्ड बेस एएमआई"
 
 msgid "Login"
 msgstr "लॉगइन"
@@ -1711,8 +2653,20 @@ msgstr "लॉगऑन टाइप"
 msgid "Logout"
 msgstr "लॉगआउट"
 
+msgid "Look up device 0x"
+msgstr "डिवाइस 0x देखें"
+
+msgid "Look up vendor 0x"
+msgstr "विक्रेता 0x खोजें"
+
 msgid "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
 msgstr "MC 🇫🇷 🥐 JA 🇺🇸 🌯 WS 🇺🇸 🤖"
+
+msgid "MCP (Tool Use)"
+msgstr "MCP (उपकरण का उपयोग)"
+
+msgid "MCP Servers"
+msgstr "MCP सर्वर"
 
 msgid "MY_ENV"
 msgstr "MY_ENV"
@@ -1729,6 +2683,9 @@ msgstr "सुनिश्चित करें कि आपके Amazon Mach
 
 msgid "Malformed file identifier"
 msgstr "विकृत फ़ाइल पहचानकर्ता"
+
+msgid "Manage"
+msgstr "मैनेज करें"
 
 msgid "Manage EDH Projects"
 msgstr "EDH प्रोजेक्ट प्रबंधित करें"
@@ -1748,14 +2705,32 @@ msgstr "उपयोगकर्ता डेटा टेम्पलेट प
 msgid "Manage Virtual Desktop Profiles"
 msgstr "वर्चुअल डेस्कटॉप प्रोफाइल प्रबंधित करें"
 
+msgid "Manage devices in this allowlist →"
+msgstr "इस अनुमति सूची में डिवाइस प्रबंधित करें →"
+
 msgid "Manage your Virtual Desktops"
 msgstr "अपने वर्चुअल डेस्कटॉप को प्रबंधित करें"
 
 msgid "Manage your Virtual Targets"
 msgstr "अपने वर्चुअल टारगेट को मैनेज करें"
 
+msgid "Mark for deletion"
+msgstr "हटाने के लिए चिह्नित करें"
+
+msgid "Mask Public IPs"
+msgstr "मास्क पब्लिक आईपी"
+
+msgid "Max lifetime"
+msgstr "अधिकतम जीवनकाल"
+
+msgid "Max renewals per token"
+msgstr "प्रति टोकन अधिकतम नवीनीकरण"
+
 msgid "Max runtime (default: 01:00:00)"
 msgstr "अधिकतम रनटाइम (डिफ़ॉल्ट: 01:00:00)"
+
+msgid "Max tokens per user"
+msgstr "अधिकतम टोकन प्रति उपयोगकर्ता"
 
 msgid "Maximum EBS Root Disk size (in GB)"
 msgstr "अधिकतम EBS रूट डिस्क आकार (GB में)"
@@ -1772,8 +2747,11 @@ msgstr "अधिकतम 5 उपभोग्य संसाधनों क�
 msgid "Medium (4 vCPUs, 16 GB RAM)"
 msgstr "मध्यम (4 वीसीपीयू, 16 जीबी रैम)"
 
-msgid "Members: (choose all that apply)"
-msgstr "सदस्य: (लागू होने वाले सभी को चुनें)"
+msgid "Members"
+msgstr "सदस्य"
+
+msgid "Members:"
+msgstr "सदस्य:"
 
 msgid "Memory (GB)"
 msgstr "मेमोरी (GB)"
@@ -1783,6 +2761,18 @@ msgstr "GB में मेमोरी"
 
 msgid "Menu"
 msgstr "मेन्यू"
+
+msgid "Method"
+msgstr "मेथड"
+
+msgid "Metric window"
+msgstr "मेट्रिक विंडो"
+
+msgid "Metrics"
+msgstr "मेट्रिक्स"
+
+msgid "Mine"
+msgstr "मेरा"
 
 msgid "Missing file identifier"
 msgstr "फ़ाइल पहचानकर्ता गुम है"
@@ -1805,6 +2795,18 @@ msgstr "सॉफ्टवेयर_स्टैक_आईडी गुम ह�
 msgid "Missing template_id"
 msgstr "template_id गुम है"
 
+msgid "Mode"
+msgstr "मोड"
+
+msgid "Model"
+msgstr "मॉडल"
+
+msgid "Model (Converse)"
+msgstr "मॉडल (कॉनवर्स)"
+
+msgid "Move"
+msgstr "हटो"
+
 msgid "Must be a valid EDH group"
 msgstr "एक मान्य EDH समूह होना चाहिए"
 
@@ -1814,8 +2816,8 @@ msgstr "एक वैध EDH उपयोगकर्ता होना चा�
 msgid "My API Key"
 msgstr "मेरी API कुंजी"
 
-msgid "My API Key (Developer mode)"
-msgstr "मेरी API कुंजी (डेवलपर मोड)"
+msgid "My API Tokens"
+msgstr "मेरे API टोकन"
 
 msgid "My AWS Batch Job"
 msgstr "मेरा AWS बैच जॉब"
@@ -1871,6 +2873,9 @@ msgstr "आपके टेम्पलेट के लिए नाम"
 msgid "Name for your user data template"
 msgstr "आपके यूज़र डेटा टेम्पलेट का नाम"
 
+msgid "Name is required"
+msgstr "नाम आवश्यक है"
+
 msgid "Name of the AWS Batch Job Definition to use"
 msgstr "उपयोग करने के लिए AWS बैच जॉब परिभाषा का नाम"
 
@@ -1892,14 +2897,35 @@ msgstr "आपकी नौकरी का नाम"
 msgid "Name of your profile"
 msgstr "आपकी प्रोफ़ाइल का नाम"
 
+msgid "Name, description, Enabled, and sub-profile links save together with Apply. Disabling unbinds any Stack/Project using this profile."
+msgstr "नाम, विवरण, सक्षम, और उप-प्रोफ़ाइल लिंक Apply के साथ सहेजे जाते हैं। इस प्रोफ़ाइल का उपयोग करके किसी भी स्टैक/प्रोजेक्ट को अक्षम करना अनबाइंड करता है।"
+
 msgid "Namespace"
 msgstr "नेमस्पेस"
+
+msgid "Namespace:"
+msgstr "नेमस्पेस:"
 
 msgid "Navigate file"
 msgstr "फ़ाइल नेविगेट करें"
 
+msgid "Need help analyzing a specific file? Use the"
+msgstr "किसी विशिष्ट फ़ाइल का विश्लेषण करने में मदद चाहिए? का उपयोग करें"
+
+msgid "Nested Virtualization"
+msgstr "नेस्टेड वर्चुअलाइजेशन"
+
+msgid "New"
+msgstr "नया"
+
 msgid "New Password"
 msgstr "नया पासवर्ड"
+
+msgid "New conversation"
+msgstr "नया वार्तालाप"
+
+msgid "New screenshots written"
+msgstr "नए स्क्रीनशॉट लिखे गए"
 
 msgid "New terminal tab (Ctrl+Shift+T)"
 msgstr "नया टर्मिनल टैब (Ctrl+Shift+T)"
@@ -1919,29 +2945,98 @@ msgstr "कोई बजट नहीं"
 msgid "No Description Provided"
 msgstr "कोई विवरण नहीं दिया गया"
 
+msgid "No Hardware Profiles yet. Create one above."
+msgstr "अभी तक कोई हार्डवेयर प्रोफ़ाइल नहीं है। ऊपर वाला बनाएं।"
+
+msgid "No MCP servers available. Configure MCP servers in Settings before using this mode."
+msgstr "कोई MCP सर्वर उपलब्ध नहीं है। इस मोड का उपयोग करने से पहले सेटिंग्स में MCP सर्वर कॉन्फ़िगर करें।"
+
+msgid "No MCP servers configured. Add MCP server definitions to SSM parameter"
+msgstr "कोई MCP सर्वर कॉन्फ़िगर नहीं किया गया है। SSM पैरामीटर में MCP सर्वर परिभाषाएं जोड़ें"
+
 msgid "No Project found"
 msgstr "कोई प्रोजेक्ट नहीं मिला"
 
 msgid "No Target Node Profiles found"
 msgstr "कोई टारगेट नोड प्रोफ़ाइल नहीं मिली"
 
+msgid "No USB allowlists yet. Create one above."
+msgstr "अभी तक कोई USB अनुमति सूची नहीं है। ऊपर वाला बनाएं।"
+
 msgid "No User Data Template Found"
 msgstr "कोई उपयोगकर्ता डेटा टेम्पलेट नहीं मिला"
+
+msgid "No VDI pools are configured. Add a pool from a VDI software stack to populate this tab."
+msgstr "कोई VDI पूल कॉन्फ़िगर नहीं किया गया है। इस टैब को पॉप्युलेट करने के लिए VDI सॉफ़्टवेयर स्टैक से पूल जोड़ें।"
 
 msgid "No Virtual Desktop Profiles found"
 msgstr "कोई वर्चुअल डेस्कटॉप प्रोफ़ाइल नहीं मिली"
 
+msgid "No active shares"
+msgstr "कोई ऐक्टिव शेयर नहीं"
+
+msgid "No active tokens found for this user."
+msgstr "इस उपयोगकर्ता के लिए कोई सक्रिय टोकन नहीं मिला।"
+
+msgid "No audit log entries match your filters."
+msgstr "कोई भी ऑडिट लॉग प्रविष्टियाँ आपके फ़िल्टर से मेल नहीं खाती हैं।"
+
+msgid "No base images tracked yet."
+msgstr "अभी तक कोई आधार चित्र ट्रैक नहीं किया गया है।"
+
+msgid "No bindings yet. Bind a Hardware Profile from a Software Stack or Project edit page."
+msgstr "अभी तक कोई बाइंडिंग नहीं है। सॉफ़्टवेयर स्टैक या प्रोजेक्ट एडिट पेज से हार्डवेयर प्रोफ़ाइल को बाइंड करें।"
+
+msgid "No changes recorded yet. Applied edits appear here (who, when, old -> new, version)."
+msgstr "अभी तक कोई बदलाव दर्ज नहीं किया गया है। लागू संपादन यहां दिखाई देते हैं (कौन, कब, पुराना -> नया, संस्करण)।"
+
+msgid "No changes to apply"
+msgstr "लागू करने के लिए कोई बदलाव नहीं"
+
 msgid "No custom AMI found. Create one first"
 msgstr "कोई कस्टम AMI नहीं मिला। पहले एक बनाएँ"
+
+msgid "No dashboard for serverless analytics."
+msgstr "सर्वर रहित एनालिटिक्स के लिए कोई डैशबोर्ड नहीं है।"
+
+msgid "No devices yet. Add one below, then Apply updates."
+msgstr "अभी तक कोई डिवाइस नहीं है। नीचे एक जोड़ें, फिर अपडेट लागू करें।"
+
+msgid "No editable parameters at this level -- expand the tree to drill into sub-sections."
+msgstr "इस स्तर पर कोई संपादन योग्य पैरामीटर नहीं है - उप-खंडों में ड्रिल करने के लिए पेड़ का विस्तार करें।"
+
+msgid "No editor yet for this sub-profile type."
+msgstr "इस उप-प्रोफ़ाइल प्रकार के लिए अभी तक कोई संपादक नहीं है।"
+
+msgid "No events recorded yet"
+msgstr "अभी तक कोई इवेंट रिकॉर्ड नहीं किया गया"
+
+msgid "No events yet -- bootstrap may not have started emitting. Live updates will appear here."
+msgstr "अभी तक कोई ईवेंट नहीं है -- हो सकता है कि बूटस्ट्रैप ने उत्सर्जन करना शुरू नहीं किया हो। लाइव अपडेट यहां दिखाई देंगे।"
 
 msgid "No files in this directory"
 msgstr "इस डायरेक्ट्री में कोई फ़ाइल नहीं है"
 
+msgid "No history."
+msgstr "कोई इतिहास नहीं।"
+
 msgid "No image"
 msgstr "कोई छवि नहीं"
 
+msgid "No jobs found."
+msgstr "कोई नौकरी नहीं मिली।"
+
+msgid "No jobs to plot."
+msgstr "प्लॉट करने के लिए कोई नौकरी नहीं।"
+
 msgid "No links have been configured by your EDH Administrators"
 msgstr "आपके EDH व्यवस्थापकों द्वारा कोई लिंक कॉन्फ़िगर नहीं किया गया है"
+
+msgid "No matching parameters."
+msgstr "कोई मेल खाने वाला पैरामीटर नहीं।"
+
+msgid "No members -- ASG retained for reuse (reaper deferred)."
+msgstr "कोई सदस्य नहीं -- ASG को पुन: उपयोग के लिए बनाए रखा गया (काटनेवाला स्थगित)।"
 
 msgid "No more than 1 day"
 msgstr "1 दिन से ज्यादा नहीं"
@@ -1958,14 +3053,71 @@ msgstr "5 घंटे से ज्यादा नहीं"
 msgid "No open terminals."
 msgstr "कोई खुला टर्मिनल नहीं।"
 
+msgid "No parameters here."
+msgstr "यहां कोई पैरामीटर नहीं है।"
+
+msgid "No pending nominations."
+msgstr "कोई नामांकन लंबित नहीं है।"
+
+msgid "No recent activity."
+msgstr "हाल की कोई गतिविधि नहीं।"
+
+msgid "No recent scaling activity."
+msgstr "हाल ही में कोई स्केलिंग गतिविधि नहीं।"
+
+msgid "No saved conversations yet. Start a conversation to create one."
+msgstr "अभी तक कोई भी बातचीत सहेजी नहीं गई है। वार्तालाप बनाने के लिए उसे प्रारंभ करें।"
+
+msgid "No saved conversations yet. Start an analysis to create one."
+msgstr "अभी तक कोई भी बातचीत सहेजी नहीं गई है। एक बनाने के लिए विश्लेषण शुरू करें।"
+
+msgid "No saved desktops yet. Use \"Save & Shut Down\" on a running desktop to keep a resumable image."
+msgstr "अभी तक कोई सहेजा गया डेस्कटॉप नहीं है। फिर से शुरू की जा सकने वाली छवि रखने के लिए चल रहे डेस्कटॉप पर \"सेव एंड शट डाउन\" का उपयोग करें।"
+
+msgid "No scoped tokens yet. Create one to get started."
+msgstr "अभी तक कोई स्कोप्ड टोकन नहीं है। शुरू करने के लिए एक बनाएं।"
+
+msgid "No screenshot metrics yet -- next poller cycle will publish."
+msgstr "अभी तक कोई स्क्रीनशॉट मेट्रिक्स नहीं है -- अगला पोलर चक्र प्रकाशित होगा।"
+
 msgid "No software stack found. Please verify that you have been added to the appropriate EDH projects. If the issue persists, contact your EDH administrator."
 msgstr "कोई सॉफ़्टवेयर स्टैक नहीं मिला। कृपया सत्यापित करें कि आपको उपयुक्त EDH प्रोजेक्ट में जोड़ा गया है। यदि समस्या बनी रहती है, तो अपने EDH व्यवस्थापक से संपर्क करें।"
+
+msgid "No stacks have been published via Golden Images yet. Use the Nominations tab to approve and publish, or publish directly from your own saved desktops."
+msgstr "गोल्डन इमेज के माध्यम से अभी तक कोई स्टैक प्रकाशित नहीं किया गया है। अपने खुद के सेव किए गए डेस्कटॉप से सीधे अनुमोदन और प्रकाशित करने या प्रकाशित करने के लिए नामांकन टैब का उपयोग करें।"
 
 msgid "Nodes Count"
 msgstr "नोड्स की गिनती"
 
+msgid "Nominate"
+msgstr "नामांकित करें"
+
+msgid "Nominate as Golden Image"
+msgstr "गोल्डन इमेज के रूप में नामांकित करें"
+
+msgid "Nominate this saved desktop as a golden image candidate. An administrator will review and may publish it as a software stack."
+msgstr "इस सहेजे गए डेस्कटॉप को गोल्डन इमेज उम्मीदवार के रूप में नामांकित करें। व्यवस्थापक समीक्षा करेगा और उसे सॉफ़्टवेयर स्टैक के रूप में प्रकाशित कर सकता है।"
+
+msgid "Nominated By"
+msgstr "द्वारा नामांकित"
+
+msgid "Nominations"
+msgstr "नामांकनों"
+
+msgid "Non-READY or no image"
+msgstr "गैर-तैयार या कोई छवि नहीं"
+
 msgid "None"
 msgstr "कोई नहीं"
+
+msgid "None (no hardware profile)"
+msgstr "कोई नहीं (कोई हार्डवेयर प्रोफ़ाइल नहीं)"
+
+msgid "None -- sharing disabled"
+msgstr "कोई नहीं -- साझाकरण अक्षम"
+
+msgid "Not a regular file"
+msgstr "नियमित फ़ाइल नहीं"
 
 msgid "Not authorized"
 msgstr "अधिकृत नहीं"
@@ -1991,8 +3143,17 @@ msgstr "नोट: यदि निर्दिष्ट नहीं है, �
 msgid "Note: Your Analytics Dashboard URL is"
 msgstr "ध्यान दें: आपका एनालिटिक्स डैशबोर्ड URL है"
 
+msgid "Note: token permissions only control which endpoints the token is allowed to call. EDH still enforces user-level authorization, a regular user cannot access admin endpoints even if the token permissions include them."
+msgstr "ध्यान दें: टोकन अनुमतियां सिर्फ़ यह नियंत्रित करती हैं कि टोकन को किन एंडपॉइंट पर कॉल करने की अनुमति है। EDH अभी भी उपयोगकर्ता-स्तरीय प्राधिकरण को लागू करता है, एक नियमित उपयोगकर्ता एडमिन एंडपॉइंट तक नहीं पहुंच सकता है, भले ही टोकन अनुमतियों में उन्हें शामिल किया गया हो।"
+
+msgid "Notes (optional)"
+msgstr "नोट्स (वैकल्पिक)"
+
 msgid "Notes:"
 msgstr "नोट:"
+
+msgid "Nothing will provision until you enable pooling above."
+msgstr "जब तक आप उपरोक्त पूलिंग को सक्षम नहीं करते हैं, तब तक कुछ भी प्रावधान नहीं होगा।"
 
 msgid "Number of CPUs to request for your job"
 msgstr "आपकी नौकरी के लिए अनुरोध करने के लिए सीपीयू की संख्या"
@@ -2012,6 +3173,30 @@ msgstr "सिमुलेशन को आवंटित करने के �
 msgid "Number of vCPUs to allocate to the simulation. This will be used along with instance_type to calculate the number of nodes to provision"
 msgstr "सिमुलेशन के लिए आवंटित किए जाने वाले वीसीपीयू की संख्या। इसका उपयोग instance_type के साथ प्रावधान के लिए नोड्स की संख्या की गणना करने के लिए किया जाएगा।"
 
+msgid "OS"
+msgstr "ओएस"
+
+msgid "Off (lazy load)"
+msgstr "ऑफ (आलसी लोड)"
+
+msgid "Old"
+msgstr "पुराना"
+
+msgid "Oldest Capture"
+msgstr "सबसे पुराना कैप्चर"
+
+msgid "On behalf of"
+msgstr "की ओर से"
+
+msgid "On-Demand"
+msgstr "ऑन-डिमांड"
+
+msgid "On-Demand above base"
+msgstr "आधार से ऊपर ऑन-डिमांड"
+
+msgid "On-Demand floor"
+msgstr "ऑन-डिमांड फ्लोर"
+
 msgid "Once connected, simply drag & drop to upload/download files."
 msgstr "एक बार कनेक्ट होने के बाद, फ़ाइलों को अपलोड/डाउनलोड करने के लिए बस खींचें और छोड़ें।"
 
@@ -2026,6 +3211,12 @@ msgstr "एक बार जब आप अपना वर्चुअल डे
 #, python-format
 msgid "Once you have created your Workflow Profile, please ensure that it is %(link)s Failure to do so will result in your profile remaining hidden from users."
 msgstr "एक बार जब आप अपनी वर्कफ़्लो प्रोफ़ाइल बना लेते हैं, तो कृपया सुनिश्चित करें कि यह %(link)s है ऐसा करने में विफलता के परिणामस्वरूप आपकी प्रोफ़ाइल उपयोगकर्ताओं से छिपी रहेगी।"
+
+msgid "One or more desktops are ready right now. Select to start your desktop instantly"
+msgstr "अभी एक या एक से अधिक डेस्कटॉप तैयार हैं। अपने डेस्कटॉप को तुरन्त शुरू करने के लिए चुनें"
+
+msgid "One pattern per line (comma / space / newline separated also work). Wildcards like t3.* allowed."
+msgstr "प्रति पंक्ति एक पैटर्न (कॉमा/स्पेस/न्यूलाइन से अलग भी काम करता है)। t3.* जैसे वाइल्डकार्ड की अनुमति है।"
 
 msgid "Only images that have tags are shown in the repository table. Untagged images are not displayed."
 msgstr "रिपॉजिटरी टेबल में केवल टैग वाले चित्र दिखाए जाते हैं। टैग न किए गए चित्र प्रदर्शित नहीं होते हैं।"
@@ -2061,23 +3252,26 @@ msgstr "ब्राउज़र में खोलें"
 msgid "Open in a separate window"
 msgstr "एक अलग विंडो में खोलें"
 
-msgid "OpenPBS"
-msgstr "ओपनपीबीएस"
+msgid "Opens in a new tab"
+msgstr "नए टैब में खुलता है"
 
 msgid "Operating System"
 msgstr "ऑपरेटिंग सिस्टम"
 
-msgid "Option1: Browser access"
-msgstr "विकल्प 1: ब्राउज़र एक्सेस"
-
-msgid "Option2: Native Application"
-msgstr "विकल्प 2: मूल अनुप्रयोग"
-
 msgid "Optional"
 msgstr "ऐच्छिक"
 
+msgid "Optional Hardware Profile (USB device allowlist) bound to this stack. A Project binding overrides this Stack binding."
+msgstr "वैकल्पिक हार्डवेयर प्रोफ़ाइल (USB डिवाइस की अनुमति सूची) इस स्टैक से जुड़ी है। प्रोजेक्ट बाइंडिंग इस स्टैक बाइंडिंग को ओवरराइड करता है।"
+
+msgid "Optional Hardware Profile (USB device allowlist). A Project binding overrides a Software Stack binding."
+msgstr "वैकल्पिक हार्डवेयर प्रोफ़ाइल (USB डिवाइस अनुमसूची)। प्रोजेक्ट बाइंडिंग सॉफ़्टवेयर स्टैक बाइंडिंग को ओवरराइड करता है।"
+
 msgid "Optional: Enable KeepAlive"
 msgstr "वैकल्पिक: KeepAlive सक्षम करें"
+
+msgid "Original"
+msgstr "ओरिजिनल"
 
 msgid "Other Shells"
 msgstr "अन्य शैल"
@@ -2094,11 +3288,14 @@ msgstr "अपने कंटेनर एंट्रीपॉइंट को
 msgid "Override your container runtime arguments"
 msgstr "अपने कंटेनर रनटाइम तर्कों को ओवरराइड करें"
 
+msgid "Overrides the bound Software Stack's hardware profile for desktops launched under this project."
+msgstr "इस प्रोजेक्ट के तहत लॉन्च किए गए डेस्कटॉप के लिए बाउंड सॉफ़्टवेयर स्टैक की हार्डवेयर प्रोफ़ाइल को ओवरराइड करता है।"
+
+msgid "Owned AMI"
+msgstr "स्वामित्व वाली AMI"
+
 msgid "Owner"
 msgstr "मालिक"
-
-msgid "PENDING"
-msgstr "लंबित"
 
 #, python-format
 msgid "Page %(current)s of %(total)s"
@@ -2106,6 +3303,9 @@ msgstr "%(total)s का पेज %(current)s"
 
 msgid "Parameters used to estimate the simulation cost:"
 msgstr "सिमुलेशन लागत का अनुमान लगाने के लिए उपयोग किए जाने वाले पैरामीटर्स:"
+
+msgid "Parse to fields"
+msgstr "फ़ील्ड में पार्स करें"
 
 msgid "Partial CPUs allowed (e.g. 0.5 = half a CPU)"
 msgstr "आंशिक सीपीयू की अनुमति है (उदाहरण के लिए 0.5 = आधा सीपीयू)"
@@ -2125,6 +3325,12 @@ msgstr "के लिए पासवर्ड "
 msgid "Password updated correctly"
 msgstr "पासवर्ड ठीक से अपडेट किया गया"
 
+msgid "Paste the filter string from the Windows DCV client (dcvusblist.exe) and Parse to fields, or fill the fields directly, then Add to staging. Format: Name,BaseClass,SubClass,Protocol,VID,PID,Autoshare,SkipReset. Use * as a wildcard. Class/VID/PID are DECIMAL -- exactly as the DCV client's Copy filter string produces them. Hex input with a 0x prefix (e.g. 0x1050) is accepted and auto-converted to decimal."
+msgstr "Windows DCV क्लाइंट (dcvusblist.exe) से फ़िल्टर स्ट्रिंग पेस्ट करें और फ़ील्ड में पार्स करें, या सीधे फ़ील्ड भरें, फिर स्टेजिंग में जोड़ें। प्रारूप: नाम, बेसक्लास, सबक्लास, प्रोटोकॉल, वीआईडी, पीआईडी, ऑटोशेयर, स्किपसेट। वाइल्डकार्ड के रूप में * का उपयोग करें। क्लास/वीआईडी/पीआईडी दशमलव हैं - ठीक उसी तरह जैसे डीसीवी क्लाइंट की कॉपी फ़िल्टर स्ट्रिंग उन्हें उत्पन्न करती है। 0x उपसर्ग (जैसे 0x1050) वाला हेक्स इनपुट स्वीकार किया जाता है और दशमलव में स्वतः परिवर्तित हो जाता है।"
+
+msgid "Path"
+msgstr "पथ"
+
 msgid "Path to the solver executable/binary"
 msgstr "सॉल्वर एक्जीक्यूटेबल/बाइनरी के लिए पथ"
 
@@ -2140,11 +3346,41 @@ msgstr "डेस्कटॉप को रोकें"
 msgid "Pause Target Node"
 msgstr "टारगेट नोड को रोकें"
 
+msgid "Pause auto-refresh"
+msgstr "ऑटो-रिफ्रेश रोकें"
+
 msgid "Pause or resume (Space)"
 msgstr "रोकें या फिर से शुरू करें (स्पेस)"
 
+msgid "Pending Nominations"
+msgstr "लंबित नामांकन"
+
+msgid "Pending change"
+msgstr "लंबित परिवर्तन"
+
 msgid "People: OU=People,DC=soca,DC=local"
 msgstr "लोग: ओयू=लोग, डीसी=एसओसीए, डीसी=स्थानीय"
+
+msgid "Per-pool cards from live ASG + warm pool + ledger + scaling activities. Click a card to expand. Reconciler/relay health and durable per-pool telemetry arrive in later phases."
+msgstr "लाइव ASG + वार्म पूल + लेजर + स्केलिंग गतिविधियों से प्रति-पूल कार्ड। विस्तार करने के लिए कार्ड पर क्लिक करें। रीकॉन्सिलर/रिले स्वास्थ्य और टिकाऊ प्रति-पूल टेलीमेट्री बाद के चरणों में आती है।"
+
+msgid "Per-session loss rate, p95"
+msgstr "प्रति सत्र हानि दर, p95"
+
+msgid "Period:"
+msgstr "अवधि:"
+
+msgid "Permission Profile"
+msgstr "अनुमति प्रोफ़ाइल"
+
+msgid "Permission Profiles"
+msgstr "अनुमति प्रोफ़ाइल"
+
+msgid "Permission reference"
+msgstr "अनुमति का संदर्भ"
+
+msgid "Permissions"
+msgstr "अनुमतियां"
 
 msgid "Pick a simple name to identify your graphical session"
 msgstr "अपने ग्राफ़िकल सत्र की पहचान करने के लिए एक सरल नाम चुनें"
@@ -2152,15 +3388,30 @@ msgstr "अपने ग्राफ़िकल सत्र की पहच�
 msgid "Pick a simple name to identify your target node session"
 msgstr "अपने लक्षित नोड सत्र की पहचान करने के लिए एक सरल नाम चुनें"
 
+msgid "Pinned - protected from expiry/eviction"
+msgstr "पिन किया हुआ - समाप्ति/निष्कासन से सुरक्षित"
+
 #, python-format
 msgid "Please %(warn)s when creating an issue."
 msgstr "समस्या बनाते समय कृपया %(warn)s।"
 
+msgid "Please confirm"
+msgstr "कृपया पुष्टि करें"
+
 msgid "Please fill out the form first"
 msgstr "कृपया पहले फॉर्म भरें"
 
+msgid "Please select an agent in Settings before analyzing."
+msgstr "कृपया विश्लेषण करने से पहले सेटिंग में एक एजेंट का चयन करें।"
+
+msgid "Please select an agent in Settings before sending a message."
+msgstr "संदेश भेजने से पहले कृपया सेटिंग में एक एजेंट का चयन करें।"
+
 msgid "Please select an image to run your job"
 msgstr "कृपया अपना काम चलाने के लिए एक छवि चुनें"
+
+msgid "Please select at least one subnet."
+msgstr "कृपया कम से कम एक सबनेट चुनें।"
 
 msgid "Please wait ..."
 msgstr "कृपया प्रतीक्षा करें..."
@@ -2177,11 +3428,47 @@ msgstr "कृपया प्रतीक्षा करें, आपका �
 msgid "Pod(s) IP(s)"
 msgstr "पॉड (एस) आईपी (एस)"
 
+msgid "Poller last cycle"
+msgstr "पोलर अंतिम चक्र"
+
+msgid "Pool configuration saved (pending apply)."
+msgstr "पूल कॉन्फ़िगरेशन सहेजा गया (लागू होने तक)।"
+
+msgid "Pool data not available yet -- still being assembled."
+msgstr "पूल डेटा अभी तक उपलब्ध नहीं है -- अभी भी इकट्ठा किया जा रहा है।"
+
+msgid "Pooling"
+msgstr "पूलिंग"
+
+msgid "Pooling is disabled for this software stack."
+msgstr "इस सॉफ़्टवेयर स्टैक के लिए पूलिंग अक्षम है।"
+
+msgid "Pools"
+msgstr "पूल"
+
+msgid "Pop out"
+msgstr "पॉप आउट"
+
 msgid "Pop-out window was blocked by the browser. Please allow popups for this site."
 msgstr "पॉप-आउट विंडो को ब्राउज़र द्वारा ब्लॉक किया गया था। कृपया इस साइट के लिए पॉपअप की अनुमति दें।"
 
 msgid "Port"
 msgstr "पोर्ट"
+
+msgid "Pre-configured permission sets for common use cases. Select one to auto-fill the permissions JSON below."
+msgstr "सामान्य उपयोग के मामलों के लिए पूर्व-कॉन्फ़िगर किए गए अनुमति सेट। नीचे दी गई JSON अनुमतियों को स्वतः भरने के लिए एक का चयन करें।"
+
+msgid "Pre-provision and maintain a fleet of prepared desktops for faster time-to-desktop. The EDH PoolController provisions the AWS resources automatically."
+msgstr "डेस्कटॉप पर तेज़ी से काम करने के लिए तैयार किए गए डेस्कटॉप के बेड़े का पूर्व-प्रावधान और रखरखाव करें। EDH PoolController स्वचालित रूप से AWS संसाधनों का प्रावधान करता है।"
+
+msgid "Pre-warmed stopped instances; ~30s to start when claimed"
+msgstr "प्री-वार्मड स्टॉप इंस्टेंस; दावा किए जाने पर शुरू करने के लिए ~30s"
+
+msgid "Preference"
+msgstr "प्राथमिकता"
+
+msgid "Preferences"
+msgstr "प्राथमिकताएं"
 
 msgid "Prepare the input"
 msgstr "इनपुट तैयार करें"
@@ -2189,14 +3476,32 @@ msgstr "इनपुट तैयार करें"
 msgid "Prepare the request"
 msgstr "अनुरोध तैयार करें"
 
+msgid "Prev"
+msgstr "पिछला"
+
+msgid "Preview"
+msgstr "पूर्वावलोकन"
+
 msgid "Previous"
 msgstr "पिछला"
+
+msgid "Previous Conversations"
+msgstr "पिछली बातचीत"
 
 msgid "Private DNS of the target node"
 msgstr "लक्ष्य नोड का निजी DNS"
 
+msgid "Private IP"
+msgstr "निजी आईपी"
+
 msgid "Private IP of the target node"
 msgstr "लक्ष्य नोड का निजी IP"
+
+msgid "Profile"
+msgstr "प्रोफ़ाइल"
+
+msgid "Profile Name"
+msgstr "प्रोफ़ाइल का नाम"
 
 msgid "Profile associated to this stack"
 msgstr "इस स्टैक से जुड़ी प्रोफ़ाइल"
@@ -2217,6 +3522,12 @@ msgstr "प्रोफ़ाइल सफलतापूर्वक अपड�
 msgid "Project"
 msgstr "प्रोजेक्ट"
 
+msgid "Project -- shareable only within shared projects"
+msgstr "प्रोजेक्ट -- केवल साझा परियोजनाओं के भीतर ही साझा किया जा सकता है"
+
+msgid "Project ID (opt)"
+msgstr "प्रोजेक्ट आईडी (ऑप्ट)"
+
 msgid "Project Name"
 msgstr "प्रोजेक्ट का नाम"
 
@@ -2235,8 +3546,23 @@ msgstr "परियोजनाएँ"
 msgid "Projects and Role Based ACLs"
 msgstr "परियोजनाएँ और भूमिका आधारित ACL"
 
+msgid "Proto"
+msgstr "प्रोटो"
+
 msgid "Protocol"
 msgstr "नवाचार"
+
+msgid "Provisioning timeout (seconds, blank = cluster default)"
+msgstr "प्रोविजनिंग टाइमआउट (सेकंड, रिक्त = क्लस्टर डिफ़ॉल्ट)"
+
+msgid "Published"
+msgstr "प्रकाशित"
+
+msgid "Published By"
+msgstr "द्वारा प्रकाशित"
+
+msgid "Published Stacks"
+msgstr "प्रकाशित स्टैक्स"
 
 msgid "Query a job"
 msgstr "नौकरी के लिए क्वेरी करें"
@@ -2253,14 +3579,44 @@ msgstr "कतार 2 (उच्च प्राथमिकता)"
 msgid "Queue name"
 msgstr "कतार का नाम"
 
+msgid "Quick Access"
+msgstr "क्विक एक्सेस"
+
 msgid "REMOVE"
 msgstr "हटाना"
 
-msgid "RUNNING"
-msgstr "दौड़ना"
+msgid "Ready Now (hot)"
+msgstr "रेडी नाउ (हॉट)"
+
+msgid "Ready-now depth"
+msgstr "अभी तैयार गहराई"
+
+msgid "Reason"
+msgstr "कारण"
+
+msgid "Reason (optional — will be shown to the user)"
+msgstr "कारण (वैकल्पिक — उपयोगकर्ता को दिखाया जाएगा)"
+
+msgid "Received"
+msgstr "प्राप्त किया गया"
+
+msgid "Recent Activity"
+msgstr "हाल की गतिविधि"
+
+msgid "Recent changes (cluster-wide)"
+msgstr "हाल के बदलाव (क्लस्टर-व्यापी)"
+
+msgid "Recent events"
+msgstr "हाल की घटनाएं"
+
+msgid "Recently deleted"
+msgstr "हाल ही में हटाया गया"
 
 msgid "Recommended Parameters"
 msgstr "अनुशंसित पैरामीटर्स"
+
+msgid "Recover"
+msgstr "पुनर्प्राप्त करें"
 
 #, python-format
 msgid "Refer to %(link)s documentation to learn how to setup a secure, reliable, high‐speed file transfer between your current filers and EDH."
@@ -2270,9 +3626,18 @@ msgstr "अपने वर्तमान फाइलरों और EDH क�
 msgid "Refer to %(link)s page for a list of EC2 instances"
 msgstr "EC2 उदाहरणों की सूची के लिए %(link)s पेज देखें"
 
+msgid "Refresh"
+msgstr "रिफ्रेश करें"
+
 #, python-format
 msgid "Refresh (%(countdown)ss)"
 msgstr "Refresh (%(countdown)ss)"
+
+msgid "Refs"
+msgstr "रेफरी"
+
+msgid "Refusing to follow symlink"
+msgstr "सिमलिंक को फ़ॉलो करने से मना करना"
 
 msgid "Regenerate new key"
 msgstr "नई कुंजी को पुन: उत्पन्न करें"
@@ -2289,6 +3654,21 @@ msgstr "EDH के लिए एक नया सॉफ़्टवेयर स
 msgid "Register a new Target Node Software Stack (AMI) to EDH"
 msgstr "EDH के लिए एक नया टारगेट नोड सॉफ़्टवेयर स्टैक (AMI) रजिस्टर करें"
 
+msgid "Reject"
+msgstr "अस्वीकार करें"
+
+msgid "Reject Nomination"
+msgstr "नामांकन अस्वीकार करें"
+
+msgid "Rejected"
+msgstr "अस्वीकृत"
+
+msgid "Reload from list"
+msgstr "सूची से पुनः लोड करें"
+
+msgid "Reloaded"
+msgstr "रीलोडेड"
+
 msgid "Remove"
 msgstr "हटाएँ"
 
@@ -2304,14 +3684,29 @@ msgstr "यूज़र को हटाएँ"
 msgid "Remove user to your group"
 msgstr "यूज़र को अपने ग्रुप में निकालें"
 
+msgid "Remove?"
+msgstr "हटाएं?"
+
 msgid "Removing a software stack will not impact existing virtual desktops"
 msgstr "सॉफ़्टवेयर स्टैक को हटाने से मौजूदा वर्चुअल डेस्कटॉप प्रभावित नहीं होंगे"
 
 msgid "Removing the Software Stack from EDH will not remove the AMI from your AWS account"
 msgstr "EDH से सॉफ़्टवेयर स्टैक को हटाने से आपके AWS खाते से AMI नहीं हटेगा"
 
+msgid "Rendered DCV string"
+msgstr "रेंडर किया गया DCV स्ट्रिंग"
+
+msgid "Renewable"
+msgstr "नवीकरणीय"
+
+msgid "Renewal allowed"
+msgstr "नवीनीकरण की अनुमति"
+
 msgid "Report an issue"
 msgstr "समस्या की रिपोर्ट करें"
+
+msgid "Reported by VDI collectors"
+msgstr "VDI कलेक्टरों द्वारा रिपोर्ट की गई"
 
 msgid "Repository Name"
 msgstr "रिपॉजिटरी का नाम"
@@ -2322,8 +3717,20 @@ msgstr "नौकरी हटाने का अनुरोध सफल र�
 msgid "Requested vCPUs:"
 msgstr "अनुरोधित सीपीयू:"
 
+msgid "Requires an 8th generation AWS Instance Type Family (e.g. c8i, r8i, m8i)"
+msgstr "8 वीं पीढ़ी के AWS इंस्टेंस टाइप फ़ैमिली (जैसे c8i, r8i, m8i) की आवश्यकता होती है"
+
+msgid "Reserved capacity via a Capacity Reservation group (spans multiple instance types/AZs)"
+msgstr "क्षमता आरक्षण समूह के माध्यम से आरक्षित क्षमता (कई उदाहरण प्रकार/AZs तक फैली हुई है)"
+
+msgid "Reset"
+msgstr "रीसेट करें"
+
 msgid "Reset Password"
 msgstr "पासवर्ड रीसेट करें"
+
+msgid "Reset all to defaults"
+msgstr "सभी को डिफ़ॉल्ट पर रीसेट करें"
 
 msgid "Reset user password"
 msgstr "यूज़र पासवर्ड रीसेट करें"
@@ -2337,14 +3744,44 @@ msgstr "टारगेट नोड का आकार बदलें"
 msgid "Resize Target Node Instance"
 msgstr "टारगेट नोड इंस्टेंस का आकार बदलें"
 
+msgid "Resize fleet"
+msgstr "फ्लीट का आकार बदलें"
+
+msgid "Resolve preview"
+msgstr "पूर्वावलोकन हल करें"
+
 msgid "Resource Type (e.g., GPU, FPGA)"
 msgstr "संसाधन प्रकार (जैसे, GPU, FPGA)"
 
 msgid "Resources"
 msgstr "संसाधन"
 
+msgid "Response mode"
+msgstr "रिस्पांस मोड"
+
+msgid "Restart required"
+msgstr "पुनः आरंभ करना आवश्यक है"
+
+msgid "Restart required for"
+msgstr "के लिए पुनः आरंभ करना आवश्यक है"
+
+msgid "Results per page"
+msgstr "परिणाम प्रति पेज"
+
+msgid "Resume"
+msgstr "रिज्यूमे"
+
 msgid "Resume streaming"
 msgstr "स्ट्रीमिंग फिर से शुरू करें"
+
+msgid "Resuming your saved desktop - it will appear shortly as it boots and re-registers with the broker."
+msgstr "अपने सहेजे गए डेस्कटॉप को फिर से शुरू करना - जैसे ही यह बूट होता है और ब्रोकर के साथ फिर से रजिस्टर होता है, यह दिखाई देगा।"
+
+msgid "Resuming..."
+msgstr "फिर से शुरू हो रहा है..."
+
+msgid "Retention"
+msgstr "रिटेंशन"
 
 msgid "Return a list where each item is the value of one public key assigned to the user (id_rsa.pub, id_edcsa.pub etc ...)."
 msgstr "एक सूची लौटाएं जहां प्रत्येक आइटम उपयोगकर्ता को दी गई एक सार्वजनिक कुंजी का मान है (id_rsa.pub, id_edcsa.pub आदि...)।"
@@ -2355,14 +3792,38 @@ msgstr "समीक्षा"
 msgid "Review HPC parameters"
 msgstr "HPC मापदंडों की समीक्षा करें"
 
+msgid "Review nominations, publish golden images to software stacks, and manage version history."
+msgstr "नामांकन की समीक्षा करें, सॉफ़्टवेयर स्टैक में सुनहरी छवियां प्रकाशित करें और संस्करण इतिहास का प्रबंधन करें।"
+
+msgid "Reviewed By"
+msgstr "द्वारा समीक्षित"
+
+msgid "Revoke"
+msgstr "रद्द करें"
+
 msgid "Revoke Admin permission"
 msgstr "एडमिन की अनुमति रद्द करें"
+
+msgid "Revoke All Active"
+msgstr "ऑल एक्टिव को रिवोक करें"
+
+msgid "Revoke Selected"
+msgstr "चयनित को रद्द करें"
+
+msgid "Revoke Token"
+msgstr "टोकन को रद्द करें"
 
 msgid "Revoke user Admin permission"
 msgstr "यूज़र एडमिन की अनुमति रद्द करें"
 
+msgid "Revoked"
+msgstr "वापस लिया गया"
+
 msgid "Role"
 msgstr "भूमिका"
+
+msgid "Rollback"
+msgstr "रोलबैक"
 
 msgid "Root Disk Size (in GB)"
 msgstr "रूट डिस्क आकार (GB में)"
@@ -2381,6 +3842,9 @@ msgstr "क्लाउड में सीधे एम्बेडेड ई�
 
 msgid "Runtime Arguments"
 msgstr "रनटाइम आर्गुमेंट्स"
+
+msgid "S3 keys under prefix"
+msgstr "उपसर्ग के तहत S3 कुंजियाँ"
 
 msgid "SFTP"
 msgstr "एसएफटीपी"
@@ -2403,11 +3867,23 @@ msgstr "SSH क्लाइंट एक्सेस"
 msgid "SSH Public Key"
 msgstr "SSH सार्वजनिक कुंजी"
 
+msgid "Save & Shut Down"
+msgstr "सेव एंड शट डाउन"
+
+msgid "Save Pool Configuration"
+msgstr "पूल कॉन्फ़िगरेशन सहेजें"
+
 msgid "Save Schedule"
 msgstr "शेड्यूल सेव करें"
 
+msgid "Save Settings"
+msgstr "सेटिंग्स सहेजें"
+
 msgid "Save changes"
 msgstr "परिवर्तन सहेजें"
+
+msgid "Save preferences"
+msgstr "प्राथमिकताएं सहेजें"
 
 msgid "Save the settings and click connect"
 msgstr "सेटिंग्स को सेव करें और कनेक्ट पर क्लिक करें"
@@ -2415,17 +3891,48 @@ msgstr "सेटिंग्स को सेव करें और कने�
 msgid "Save your session"
 msgstr "अपना सत्र सहेजें"
 
+msgid "Saved"
+msgstr "सहेजा गया"
+
+msgid "Saved Conversations"
+msgstr "सहेजी गई बातचीत"
+
+msgid "Saved Desktops"
+msgstr "सहेजे गए डेस्कटॉप"
+
+#, python-brace-format
+msgid "Saved desktop moved to the recycle bin. You can recover it within {n} days."
+msgstr "सहेजे गए डेस्कटॉप को रीसायकल बिन में ले जाया गया। आप इसे {n} दिनों में रिकवर कर सकते हैं।"
+
+msgid "Saved desktop recovered."
+msgstr "सहेजा गया डेस्कटॉप पुनर्प्राप्त किया गया।"
+
+msgid "Saved desktops"
+msgstr "सहेजे गए डेस्कटॉप"
+
 msgid "Scale-Out Computing on AWS uses OpenLDAP and you can interact with your directory using LDIF directly. If you are not familiar with LDIF, you can use our custom wrapper available at"
 msgstr "AWS पर स्केल-आउट कंप्यूटिंग OpenLDAP का उपयोग करती है और आप सीधे LDIF का उपयोग करके अपनी निर्देशिका के साथ बातचीत कर सकते हैं। यदि आप LDIF से परिचित नहीं हैं, तो आप यहां उपलब्ध हमारे कस्टम रैपर का उपयोग कर सकते हैं"
 
 msgid "Schedule"
 msgstr "शेड्यूल"
 
+msgid "Schedule timezone (blank = no schedule; hot stays constant)"
+msgstr "शेड्यूल टाइमज़ोन (रिक्त = कोई शेड्यूल नहीं; हॉट स्थिर रहता है)"
+
+msgid "Scheduled for removal on next Save"
+msgstr "अगले सेव पर हटाने के लिए शेड्यूल किया गया"
+
+msgid "Scheduled for removal on next Save — click to undo"
+msgstr "अगले सेव पर हटाने के लिए शेड्यूल किया गया - पूर्ववत करने के लिए क्लिक करें"
+
 msgid "Scheduler"
 msgstr "अनुसूचक"
 
-msgid "Scheduler ID"
-msgstr "शेड्यूलर आईडी"
+msgid "Scheduler (read-only)"
+msgstr "शेड्यूलर (केवल पढ़ने के लिए)"
+
+msgid "Scheduler (submit, query, delete)"
+msgstr "शेड्यूलर (सबमिट करें, क्वेरी करें, हटाएं)"
 
 #, python-format
 msgid "Scheduler parameters are optional. If not set, your job will use the default settings configured for your queue (if no queue is specified, the job will use %(normal)s queue). Refer to %(more_link)s"
@@ -2434,11 +3941,23 @@ msgstr "शेड्यूलर पैरामीटर वैकल्पि�
 msgid "Scheduling priority"
 msgstr "शेड्यूलिंग प्राथमिकता"
 
+msgid "Scope"
+msgstr "स्कोप"
+
+msgid "Scoped tokens let you grant limited access to specific API endpoints. Each token can be restricted to certain paths and HTTP methods, has a configurable lifetime, and can be revoked independently."
+msgstr "स्कोप्ड टोकन से आप विशिष्ट API एंडपॉइंट तक सीमित पहुंच प्रदान कर सकते हैं। प्रत्येक टोकन को कुछ पथों और HTTP विधियों तक सीमित किया जा सकता है, इसका जीवनकाल कॉन्फ़िगर किया जा सकता है, और इसे स्वतंत्र रूप से रद्द किया जा सकता है।"
+
 msgid "Scratch Partition:"
 msgstr "स्क्रैच पार्टीशन:"
 
+msgid "Screenshot Pipeline"
+msgstr "स्क्रीनशॉट पाइपलाइन"
+
 msgid "Search"
 msgstr "सर्च करें"
+
+msgid "Search (key or value)"
+msgstr "खोज (कुंजी या मान)"
 
 msgid "Search by AMI ID, AMI Name, Operating Systems, Architecture (x86_64 / arm64) ..."
 msgstr "AMI ID, AMI नाम, ऑपरेटिंग सिस्टम, आर्किटेक्चर (x86_64/arm64) द्वारा खोजें..."
@@ -2446,14 +3965,32 @@ msgstr "AMI ID, AMI नाम, ऑपरेटिंग सिस्टम, आ�
 msgid "Search for a file or a folder"
 msgstr "किसी फ़ाइल या फ़ोल्डर के लिए खोजें"
 
+msgid "Search for a job (e.g. name, owner:alice, state:running, queue:normal)"
+msgstr "नौकरी के लिए खोजें (उदाहरण के लिए नाम, मालिक:ऐलिस, राज्य: दौड़ना, कतार: सामान्य)"
+
 msgid "Search for an image tag, digest ..."
 msgstr "इमेज टैग खोजें, डाइजेस्ट करें..."
+
+msgid "Search instance types"
+msgstr "इंस्टेंस के प्रकार खोजें"
+
+msgid "Search results for"
+msgstr "के लिए खोज परिणाम"
 
 msgid "Secure, scalable cloud-based workstations designed for engineering workloads and heavy compute tasks."
 msgstr "इंजीनियरिंग वर्कलोड और भारी कंप्यूट कार्यों के लिए डिज़ाइन किए गए सुरक्षित, स्केलेबल क्लाउड-आधारित वर्कस्टेशन।"
 
+msgid "Security"
+msgstr "सुरक्षा"
+
+msgid "See AWS Hibernation documentation"
+msgstr "AWS हाइबरनेशन दस्तावेज़ देखें"
+
 msgid "See Documentation."
 msgstr "दस्तावेज़ीकरण देखें।"
+
+msgid "See the full list of endpoints and their methods in the API documentation."
+msgstr "API दस्तावेज़ में एंडपॉइंट और उनके तरीकों की पूरी सूची देखें।"
 
 msgid "Select"
 msgstr "चुनें"
@@ -2474,6 +4011,9 @@ msgstr "%(entity)s को विश्वसनीय इकाई प्रक�
 msgid "Select %(role)s and use the latest %(policy)s available"
 msgstr "%(role)s का चयन करें और उपलब्ध नवीनतम %(policy)s का उपयोग करें"
 
+msgid "Select a Hardware Profile on the left to view and edit its details and sub-profiles."
+msgstr "इसके विवरण और उप-प्रोफाइल को देखने और संपादित करने के लिए बाईं ओर एक हार्डवेयर प्रोफ़ाइल चुनें।"
+
 msgid "Select a Project to see details."
 msgstr "विवरण देखने के लिए कोई प्रोजेक्ट चुनें।"
 
@@ -2484,14 +4024,23 @@ msgstr "भूमिका का नाम चुनें (उदाहरण 
 msgid "Select a User Data Template to see details."
 msgstr "विवरण देखने के लिए उपयोगकर्ता डेटा टेम्पलेट का चयन करें।"
 
+msgid "Select a node or search"
+msgstr "एक नोड या खोज का चयन करें"
+
 msgid "Select a profile to see details."
 msgstr "विवरण देखने के लिए प्रोफ़ाइल का चयन करें।"
 
 msgid "Select a stack to see details."
 msgstr "विवरण देखने के लिए स्टैक का चयन करें।"
 
+msgid "Select all"
+msgstr "सभी का चयन करें"
+
 msgid "Select an EDH Project"
 msgstr "एक EDH प्रोजेक्ट चुनें"
+
+msgid "Select an agent"
+msgstr "एजेंट चुनें"
 
 msgid "Select an image (jpg or png) to use as thumbnail"
 msgstr "थंबनेल के रूप में उपयोग करने के लिए एक छवि (jpg या png) का चयन करें"
@@ -2541,17 +4090,71 @@ msgstr "यूज़र चुनें:"
 msgid "Select your Workflow"
 msgstr "अपना वर्कफ़्लो चुनें"
 
+msgid "Server IP"
+msgstr "सर्वर आईपी"
+
+msgid "Server Unavailability Reasons"
+msgstr "सर्वर अनुपलब्धता के कारण"
+
+msgid "Server Version"
+msgstr "सर्वर वर्जन"
+
 msgid "ServerAliveCountMax 2"
 msgstr "सर्वर लाइव काउंट मैक्स 2"
 
 msgid "ServerAliveInterval 10"
 msgstr "सर्वर लाइव इंटरवल 10"
 
+msgid "Servers Available"
+msgstr "सर्वर उपलब्ध"
+
+msgid "Servers by OS Family"
+msgstr "OS परिवार द्वारा सर्वर"
+
+msgid "Session"
+msgstr "सत्र"
+
+msgid "Session ID"
+msgstr "सेशन आईडी"
+
 msgid "Session Name"
 msgstr "सत्र का नाम"
 
+msgid "Session Owner"
+msgstr "सेशन ओनर"
+
+msgid "Session Path"
+msgstr "सत्र पथ"
+
+msgid "Session Shares"
+msgstr "सेशन शेयर"
+
+msgid "Session Sharing Scope"
+msgstr "सेशन शेयरिंग स्कोप"
+
 msgid "Session Type"
 msgstr "सत्र का प्रकार"
+
+msgid "Session not found or not owned by user"
+msgstr "सत्र नहीं मिला या उपयोगकर्ता के स्वामित्व में नहीं है"
+
+msgid "Sessions"
+msgstr "सत्र"
+
+msgid "Sessions Ready"
+msgstr "सत्र तैयार"
+
+msgid "Sessions Total"
+msgstr "कुल सत्र"
+
+msgid "Sessions by State / Type"
+msgstr "राज्य/प्रकार के अनुसार सत्र"
+
+msgid "Sessions with no client connected"
+msgstr "ऐसे सत्र जिनमें कोई क्लाइंट कनेक्ट नहीं है"
+
+msgid "Settings"
+msgstr "सेटिंग्स"
 
 msgid "Setup your AWS Batch Job"
 msgstr "अपना AWS बैच जॉब सेटअप करें"
@@ -2559,8 +4162,32 @@ msgstr "अपना AWS बैच जॉब सेटअप करें"
 msgid "Setup your Amazon EKS Job"
 msgstr "अपने Amazon EKS जॉब को सेटअप करें"
 
+msgid "Share Session"
+msgstr "सत्र साझा करें"
+
+msgid "Shareable URL with embedded token (less secure, use for external guests)"
+msgstr "एम्बेडेड टोकन के साथ साझा करने योग्य URL (कम सुरक्षित, बाहरी मेहमानों के लिए उपयोग)"
+
 msgid "Show"
 msgstr "शो"
+
+msgid "Show end-to-end session path"
+msgstr "शुरू से अंत तक सत्र पथ दिखाएं"
+
+msgid "Show the desktop thumbnail preview on a guest's \"Shared With Me\" tile. When OFF, guests see the shared-session tile without a screenshot (owners always see their own)."
+msgstr "किसी अतिथि के \"मेरे साथ साझा किया गया\" टाइल पर डेस्कटॉप थंबनेल पूर्वावलोकन दिखाएं। बंद होने पर, मेहमानों को बिना स्क्रीनशॉट के शेयर्ड सेशन टाइल दिखाई देती है (मालिक हमेशा अपना खुद का देखते हैं)।"
+
+msgid "Show users an interruptible/lower-cost hint when applicable"
+msgstr "लागू होने पर उपयोगकर्ताओं को एक इंटरप्टिबल/कम लागत वाला संकेत दिखाएं"
+
+msgid "Showing data for the last"
+msgstr "आखिरी के लिए डेटा दिखा रहा है"
+
+msgid "Showing the most recent"
+msgstr "सबसे हाल का दिखा रहा है"
+
+msgid "Single-use nonce, token never exposed (recommended)"
+msgstr "एकल-उपयोग नॉन्स, टोकन कभी उजागर नहीं हुआ (अनुशंसित)"
 
 msgid "Size"
 msgstr "साइज़"
@@ -2571,11 +4198,17 @@ msgstr "आकार (MB)"
 msgid "Size of the memory to request for your job"
 msgstr "आपकी नौकरी के लिए अनुरोध करने के लिए मेमोरी का आकार"
 
-msgid "Slurm"
-msgstr "झुग्गी"
+msgid "Skipped"
+msgstr "छोड़ दिया गया"
+
+msgid "Sleeping Sessions"
+msgstr "स्लीपिंग सेशन"
 
 msgid "Small (2 vCPUs, 8GB RAM)"
 msgstr "छोटा (2 सीपीयू, 8 जीबी रैम)"
+
+msgid "Snapshot &amp; resume - save a desktop and boot back into its previous state."
+msgstr "स्नैपशॉट और रिज्यूमे - एक डेस्कटॉप को सेव करें और अपनी पिछली स्थिति में वापस बूट करें।"
 
 msgid "Software Stack"
 msgstr "सॉफ़्टवेयर स्टैक"
@@ -2609,11 +4242,38 @@ msgstr "क्षमा करें, अधिकतम संग्रह आ�
 msgid "Sorry, the maximum archive size is {max_size:.2f} MB. Your archive was {actual_size:.2f} MB. To avoid this issue, you can create a smaller archive, download files individually, use SFTP or edit the maximum archive size authorized."
 msgstr "क्षमा करें, अधिकतम संग्रह आकार {max_size: .2f} MB है। आपका संग्रह {actual_size: .2f} MB था। इस समस्या से बचने के लिए, आप एक छोटा संग्रह बना सकते हैं, अलग-अलग फ़ाइलें डाउनलोड कर सकते हैं, SFTP का उपयोग कर सकते हैं या अधिकृत अधिकतम संग्रह आकार को संपादित कर सकते हैं।"
 
+msgid "Source"
+msgstr "स्त्रोत"
+
+msgid "Source AMI"
+msgstr "स्रोत एएमआई"
+
 msgid "Source Code"
 msgstr "सोर्स कोड"
 
+msgid "Source Deprecates"
+msgstr "स्रोत बहिष्कृत करता है"
+
+msgid "Source Owner"
+msgstr "स्रोत का मालिक"
+
 msgid "Specify whether or not your job requires GPUs"
 msgstr "निर्दिष्ट करें कि आपकी नौकरी के लिए GPU की आवश्यकता है या नहीं"
+
+msgid "Spot"
+msgstr "स्पॉट"
+
+msgid "Spot VDI sessions cannot be paused or scheduled - they run until interrupted or manually terminated"
+msgstr "स्पॉट VDI सत्रों को रोका या शेड्यूल नहीं किया जा सकता है - वे बाधित या मैन्युअल रूप से समाप्त होने तक चलते हैं"
+
+msgid "Spot capacity - may be interrupted at any time; cannot be stopped or resumed"
+msgstr "स्पॉट क्षमता - किसी भी समय बाधित हो सकती है; इसे रोका या फिर से शुरू नहीं किया जा सकता है"
+
+msgid "Spot capacity isn't guaranteed. If it's unavailable the resume will fail — you can retry On-Demand or a different type."
+msgstr "स्पॉट क्षमता की गारंटी नहीं है। यदि यह अनुपलब्ध है, तो रिज्यूमे विफल हो जाएगा — आप ऑन-डिमांड या किसी अन्य प्रकार का पुन: प्रयास कर सकते हैं।"
+
+msgid "Stack ID"
+msgstr "स्टैक आईडी"
 
 msgid "Stack Info"
 msgstr "स्टैक की जानकारी"
@@ -2621,8 +4281,17 @@ msgstr "स्टैक की जानकारी"
 msgid "Stack Type"
 msgstr "स्टैक टाइप"
 
+msgid "Stacked over last hour: WebSocket / QUIC / HTTP / DVTC"
+msgstr "पिछले घंटे में स्टैक किया गया: WebSocket/QUIC/HTTP/DVTC"
+
+msgid "Standard"
+msgstr "स्टैण्डर्ड"
+
 msgid "Standard Launch"
 msgstr "स्टैंडर्ड लॉन्च"
+
+msgid "Start"
+msgstr "शुरू करें"
 
 msgid "Start Desktop"
 msgstr "डेस्कटॉप शुरू करें"
@@ -2633,8 +4302,14 @@ msgstr "टारगेट नोड शुरू करें"
 msgid "Start a new terminal on an EDH Login Node"
 msgstr "EDH लॉगिन नोड पर एक नया टर्मिनल शुरू करें"
 
-msgid "Starting Code Editor..."
-msgstr "कोड एडिटर शुरू किया जा रहा है..."
+msgid "Start instantly"
+msgstr "तुरन्त शुरू करें"
+
+msgid "Started"
+msgstr "शुरू किया गया"
+
+msgid "State"
+msgstr "राज्य"
 
 msgid "Status"
 msgstr "स्टेटस"
@@ -2687,6 +4362,9 @@ msgstr "चरण 3: लॉगिन नोड (ओं) के माध्य�
 msgid "Stick to bottom when new data arrives"
 msgstr "नया डेटा आने पर नीचे से चिपके रहें"
 
+msgid "Stopped (EBS only, default)"
+msgstr "रुका हुआ (केवल EBS, डिफ़ॉल्ट)"
+
 msgid "Stopped All Day"
 msgstr "पूरे दिन रुका हुआ"
 
@@ -2703,6 +4381,21 @@ msgstr "आपके मुख्य विभाजन के लिए सं�
 msgid "Stream auto-closes after idle/max-duration. Use Pop out for long watches."
 msgstr "निष्क्रिय होने/अधिकतम अवधि के बाद स्ट्रीम स्वतः बंद हो जाती है। लंबी घड़ियों के लिए पॉप आउट का इस्तेमाल करें।"
 
+msgid "Streaming"
+msgstr "स्ट्रीमिंग"
+
+msgid "Streaming Health"
+msgstr "स्ट्रीमिंग हेल्थ"
+
+msgid "Sub"
+msgstr "छोटा"
+
+msgid "Sub Status"
+msgstr "उप स्थिति"
+
+msgid "Sub-profiles"
+msgstr "सब-प्रोफाइल"
+
 msgid "Submit AWS Batch Job"
 msgstr "AWS बैच जॉब सबमिट करें"
 
@@ -2718,11 +4411,23 @@ msgstr "नौकरी सबमिट करें"
 msgid "Submit job"
 msgstr "नौकरी सबमिट करें"
 
-msgid "Subnets must be from the list of private subnets configured on EDH"
-msgstr "सबनेट EDH पर कॉन्फ़िगर किए गए निजी सबनेट की सूची से होने चाहिए"
+msgid "Submitted"
+msgstr "सबमिट किया गया"
+
+msgid "Submitting..."
+msgstr "सबमिट किया जा रहा है..."
+
+msgid "Subnet ID"
+msgstr "सबनेट आईडी"
+
+msgid "Success"
+msgstr "कामयाबी"
 
 msgid "Successfully deactivated"
 msgstr "सफलतापूर्वक निष्क्रिय किया गया"
+
+msgid "Sum of object sizes"
+msgstr "वस्तु आकारों का योग"
 
 #, python-format
 msgid "Support Exact Instance Type (%(example)s)"
@@ -2741,11 +4446,32 @@ msgstr "समर्थित चर (केस-संवेदी)"
 msgid "Supported variables (case-sensitive)"
 msgstr "समर्थित चर (केस-संवेदी)"
 
+msgid "Sysprep"
+msgstr "Sysprep"
+
+msgid "System prompt"
+msgstr "सिस्टम प्रॉम्प्ट"
+
+msgid "T+"
+msgstr "टी+"
+
+msgid "TTL"
+msgstr "टीटीएल"
+
+msgid "Table"
+msgstr "तालिका"
+
 msgid "Tail"
 msgstr "टेल"
 
 msgid "Tail (live view)"
 msgstr "टेल (लाइव व्यू)"
+
+msgid "Takes effect only after restarting"
+msgstr "पुनः आरंभ करने के बाद ही प्रभावी होता है"
+
+msgid "Target"
+msgstr "टारगेट"
 
 msgid "Target Node"
 msgstr "टारगेट नोड"
@@ -2765,8 +4491,14 @@ msgstr "टारगेट नोड्स"
 msgid "Target Nodes are EC2 Amazon Machine Images (AMIs) without any EDH-specific modifications (e.g: no filesystem mount, AD/OpenLDAP join, packages installed ...). These nodes are designed to work with specialized operating systems or hypervisors, such as those used in embedded development."
 msgstr "टारगेट नोड्स EC2 Amazon मशीन इमेज (AMI) हैं, बिना किसी EDH- विशिष्ट संशोधनों के (जैसे: कोई फाइलसिस्टम माउंट नहीं, AD/OpenLDAP जॉइन, पैकेज इंस्टॉल किए गए...)। इन नोड्स को विशिष्ट ऑपरेटिंग सिस्टम या हाइपरविज़र्स के साथ काम करने के लिए डिज़ाइन किया गया है, जैसे कि एम्बेडेड डेवलपमेंट में उपयोग किए जाने वाले।"
 
+msgid "Target Stack"
+msgstr "टारगेट स्टैक"
+
 msgid "Technical Details"
 msgstr "तकनीकी जानकारियां"
+
+msgid "Template"
+msgstr "टैम्प्लेट"
 
 msgid "Template Name"
 msgstr "टेम्पलेट का नाम"
@@ -2795,6 +4527,9 @@ msgstr "चरण 3 के दौरान आपकी SSH सार्वज�
 msgid "The data remains available on the system without incurring compute charges. Storage fees continue to apply."
 msgstr "डेटा गणना शुल्क के बिना सिस्टम पर उपलब्ध रहता है। स्टोरेज शुल्क लागू होते रहेंगे।"
 
+msgid "The guest(s) you select will be able to connect to your live session with the permissions defined by the chosen profile. Make sure you trust the people you are sharing with before proceeding."
+msgstr "आपके द्वारा चुने गए अतिथि चुने गए प्रोफ़ाइल द्वारा परिभाषित अनुमतियों के साथ आपके लाइव सत्र से कनेक्ट हो सकेंगे। आगे बढ़ने से पहले पक्का कर लें कि आप उन लोगों पर भरोसा करें जिनके साथ आप शेयर कर रहे हैं।"
+
 msgid "The maximum size (in GB) of the root disk a user can specify"
 msgstr "उपयोगकर्ता द्वारा निर्दिष्ट रूट डिस्क का अधिकतम आकार (GB में)"
 
@@ -2811,8 +4546,20 @@ msgstr "फिर अपना समूह बनाने के लिए न
 msgid "These numbers are just an estimate:"
 msgstr "ये संख्याएं सिर्फ एक अनुमान हैं:"
 
+msgid "These settings apply to your account across browsers."
+msgstr "ये सेटिंग आपके खाते पर सभी ब्राउज़रों पर लागू होती हैं।"
+
+msgid "These settings are enforced by your EDH administrator and apply to all user-created tokens."
+msgstr "ये सेटिंग्स आपके EDH व्यवस्थापक द्वारा लागू की जाती हैं और सभी उपयोगकर्ता-निर्मित टोकन पर लागू होती हैं।"
+
+msgid "These settings control what sharing modes are available cluster-wide. VDI Profile settings cannot exceed these limits."
+msgstr "ये सेटिंग्स नियंत्रित करती हैं कि क्लस्टर-व्यापी कौन से साझाकरण मोड उपलब्ध हैं। VDI प्रोफ़ाइल सेटिंग इन सीमाओं को पार नहीं कर सकती हैं।"
+
 msgid "These translations were generated with the help of AI and may contain inaccuracies or unnatural phrasing. If you are a native speaker and would like to help improve a translation, we would love your contribution! Please reach out to us."
 msgstr "ये अनुवाद AI की मदद से तैयार किए गए थे और इसमें अशुद्धियाँ या अप्राकृतिक वाक्यांश हो सकते हैं। यदि आप मूल वक्ता हैं और अनुवाद को बेहतर बनाने में मदद करना चाहते हैं, तो हमें आपका योगदान पसंद आएगा! कृपया हमसे संपर्क करें।"
+
+msgid "Thinking..."
+msgstr "सोच रहा है..."
 
 msgid "This API has been disabled by your Administrator"
 msgstr "यह API आपके व्यवस्थापक द्वारा अक्षम कर दिया गया है"
@@ -2823,15 +4570,24 @@ msgstr "यह API कुंजी सिर्फ़ आपके लिए उ
 msgid "This action cannot be reversed."
 msgstr "इस क्रिया को उलटा नहीं किया जा सकता।"
 
+msgid "This action cannot be undone."
+msgstr "यह क्रिया पूर्ववत नहीं की जा सकती।"
+
+msgid "This action cannot be undone. Any script or application using this token will immediately lose access."
+msgstr "यह क्रिया पूर्ववत नहीं की जा सकती। इस टोकन का उपयोग करने वाली कोई भी स्क्रिप्ट या एप्लिकेशन तुरंत ऐक्सेस खो देगा।"
+
+msgid "This captures a resumable image of this desktop and then terminates it. You can resume it later from Saved Desktops."
+msgstr "यह इस डेस्कटॉप की फिर से शुरू करने योग्य छवि को कैप्चर करता है और फिर इसे समाप्त कर देता है। आप इसे बाद में सहेजे गए डेस्कटॉप से फिर से शुरू कर सकते हैं।"
+
+msgid "This environment uses Amazon OpenSearch Serverless (AOSS), which does not expose a browser OpenSearch Dashboards UI. Your activity data is collected into the analytics collection and surfaced in-app; there is no external dashboard link to open."
+msgstr "यह वातावरण Amazon OpenSearch Serverless (AOSS) का उपयोग करता है, जो ब्राउज़र OpenSearch Dashboards UI को उजागर नहीं करता है। आपका गतिविधि डेटा एनालिटिक्स संग्रह में एकत्र किया जाता है और इन-ऐप दिखाई देता है; खोलने के लिए कोई बाहरी डैशबोर्ड लिंक नहीं है।"
+
 msgid "This estimate is based on a simulation time of"
 msgstr "यह अनुमान किस सिमुलेशन समय पर आधारित है"
 
 #, python-format
 msgid "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
 msgstr "This file is too big and cannot be previewed via the web interface. <br> Please %(sftp_a)sdownload a copy%(end_a)s or open it via %(dcv_a)sremote desktop (DCV)%(end_a)s or %(ssh_a)scli (via SSH)%(end_a)s"
-
-msgid "This file is too big to be compressed via web. Download file separately or use SFTP."
-msgstr "यह फ़ाइल वेब के माध्यम से संपीड़ित होने के लिए बहुत बड़ी है। फ़ाइल को अलग से डाउनलोड करें या SFTP का उपयोग करें।"
 
 msgid "This folder already exist, choose a different name"
 msgstr "यह फ़ोल्डर पहले से मौजूद है, एक अलग नाम चुनें"
@@ -2857,9 +4613,11 @@ msgstr "यह स्थान कैश नहीं किया गया ह
 msgid "This page will automatically refresh when the state of your virtual desktops changes."
 msgstr "आपके वर्चुअल डेस्कटॉप की स्थिति बदलने पर यह पेज अपने आप रिफ्रेश हो जाएगा।"
 
-#, python-format
-msgid "This session will automatically pause <strong>after %(n)s hour</strong> of inactivity.This session will automatically pause <strong>after %(n)s hours</strong> of inactivity."
-msgstr "<strong>%(n)s घंटे की निष्क्रियता के बाद यह सत्र स्वचालित रूप से रुक जाएगा. %(n)s घंटों</strong> <strong>की निष्क्रियता के बाद यह सत्र स्वचालित रूप से रुक जाएगा.</strong>"
+msgid "This session is being shared with"
+msgstr "इस सत्र को किसके साथ साझा किया जा रहा है"
+
+msgid "This step as a percentage of total launch time"
+msgstr "कुल लॉन्च समय के प्रतिशत के रूप में यह कदम"
 
 msgid "This will generate a temporary password for a given user"
 msgstr "यह किसी दिए गए उपयोगकर्ता के लिए एक अस्थायी पासवर्ड उत्पन्न करेगा"
@@ -2873,6 +4631,30 @@ msgstr "उपयोग करने के लिए थंबनेल (150px 
 msgid "Time in seconds"
 msgstr "सेकंड में समय"
 
+msgid "Time range"
+msgstr "समय सीमा"
+
+msgid "Time since last event"
+msgstr "पिछली घटना के बाद का समय"
+
+msgid "Time since session was created"
+msgstr "सत्र बनाए जाने के बाद का समय"
+
+msgid "Time since the previous event"
+msgstr "पिछली घटना के बाद का समय"
+
+msgid "TimeToServe"
+msgstr "सेवा करने का समय"
+
+msgid "TimeToServe: no claims in window"
+msgstr "TimeToServe: विंडो में कोई दावा नहीं"
+
+msgid "Timeline"
+msgstr "टाइमलाइन"
+
+msgid "Timestamp"
+msgstr "टाइमस्टैम्प"
+
 #, python-brace-format
 msgid "Timezone {config.Config.TIMEZONE} configured by the admin does not exist. Defaulting to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a full list of supported timezones"
 msgstr "व्यवस्थापक द्वारा कॉन्फ़िगर किया गया टाइमज़ोन {config.config.timezone} मौजूद नहीं है। UTC के लिए डिफ़ॉल्ट किया जा रहा है। समर्थित टाइमज़ोन की पूरी सूची के लिए https://en.wikipedia.org/wiki/List_of_tz_database_time_zones देखें"
@@ -2881,29 +4663,104 @@ msgstr "व्यवस्थापक द्वारा कॉन्फ़ि�
 msgid "Tip: You can use %(and_op)s / %(or_op)s operators (ex: %(ex1)s %(ex2)s %(ex3)s)"
 msgstr "सुझाव: आप %(and_op)s/%(or_op)s ऑपरेटरों (उदा: %(ex1)s %(ex2)s %(ex3)s) का उपयोग कर सकते हैं"
 
+msgid "To"
+msgstr "को"
+
 msgid "To prevent outage, you must update all your scripts (if any) with the new key"
 msgstr "आउटेज को रोकने के लिए, आपको नई कुंजी के साथ अपनी सभी स्क्रिप्ट (यदि कोई हो) को अपडेट करना होगा"
+
+msgid "Toggle Enabled off + Apply to disable an allowlist (it stays listed and can be re-enabled). Any Hardware Profile still referencing a disabled allowlist resolves to no devices. Edits are staged and highlighted until you Apply."
+msgstr "अनुमति सूची को अक्षम करने के लिए सक्षम किया गया है + लागू करें (यह सूचीबद्ध रहती है और इसे फिर से सक्षम किया जा सकता है)। कोई भी हार्डवेयर प्रोफ़ाइल जो अभी भी किसी अक्षम अनुमति सूची को संदर्भित करती है, वह किसी भी डिवाइस पर हल नहीं होती है। जब तक आप आवेदन नहीं करते तब तक संपादन चरणबद्ध और हाइलाइट किए जाते हैं।"
+
+msgid "Toggle Received timezone: UTC / local"
+msgstr "टॉगल रिसीव्ड टाइमज़ोन: UTC/local"
 
 msgid "Toggle light/dark theme (T)"
 msgstr "टॉगल लाइट/डार्क थीम (T)"
 
-msgid "Token has expired. As a security measure we have refreshed your token. Please re-submit your request again."
-msgstr "टोकन की समय सीमा समाप्त हो गई है। सुरक्षा उपाय के तौर पर हमने आपका टोकन रीफ़्रेश कर दिया है। कृपया अपना अनुरोध फिर से सबमिट करें।"
+msgid "Toggle order: oldest first / newest first"
+msgstr "टॉगल ऑर्डर: सबसे पुराना पहला/सबसे नया पहला"
+
+msgid "Token"
+msgstr "टोकन"
+
+msgid "Token Audit Log"
+msgstr "टोकन ऑडिट लॉग"
+
+msgid "Token Created Successfully"
+msgstr "टोकन सफलतापूर्वक बनाया गया"
+
+msgid "Token ID"
+msgstr "टोकन आईडी"
+
+msgid "Token Name"
+msgstr "टोकन का नाम"
+
+msgid "Token Permissions"
+msgstr "टोकन अनुमतियां"
+
+msgid "Token Policy (System Settings)"
+msgstr "टोकन पॉलिसी (सिस्टम सेटिंग्स)"
 
 msgid "Too many active tail sessions. Close one and try again."
 msgstr "बहुत सारे सक्रिय टेल सेशन। एक को बंद करें और फिर से कोशिश करें।"
 
+msgid "Total in subtree:"
+msgstr "सबट्री में कुल:"
+
+msgid "Try again"
+msgstr "फिर से कोशिश करें"
+
 msgid "Type"
 msgstr "टाइप करें"
+
+msgid "Type 2+ characters to search and add users (optional)"
+msgstr "उपयोगकर्ताओं को खोजने और जोड़ने के लिए 2+ अक्षर टाइप करें (वैकल्पिक)"
+
+msgid "Type 2+ characters to search groups"
+msgstr "समूहों को खोजने के लिए 2+ अक्षर टाइप करें"
+
+msgid "Type 2+ characters to search users"
+msgstr "उपयोगकर्ताओं को खोजने के लिए 2+ अक्षर टाइप करें"
+
+msgid "Type 2+ characters to search users, or * for all"
+msgstr "उपयोगकर्ताओं को खोजने के लिए 2+ अक्षर टाइप करें, या सभी के लिए *"
+
+msgid "Type at least 2 characters to search users"
+msgstr "उपयोगकर्ताओं को खोजने के लिए कम से कम 2 अक्षर टाइप करें"
 
 msgid "Type to search an instance type..."
 msgstr "इंस्टेंस टाइप खोजने के लिए टाइप करें..."
 
+msgid "Type your message..."
+msgstr "अपना संदेश टाइप करें..."
+
 msgid "Type:"
 msgstr "टाइप करें:"
 
+msgid "Typical T+ for this checkpoint (p50 / p95) from launch history"
+msgstr "लॉन्च इतिहास से इस चेकपॉइंट (p50/p95) के लिए विशिष्ट T+"
+
 msgid "URI of the Image to deploy on your pod"
 msgstr "आपके पॉड पर डिप्लॉय करने के लिए इमेज का यूआरआई"
+
+msgid "USB Allowlists"
+msgstr "USB अनुमतियों की सूची"
+
+msgid "USB References"
+msgstr "USB सन्दर्भ"
+
+msgid "USB allowlists updated"
+msgstr "USB अनुमतियों की सूची अपडेट की गई"
+
+msgid "USB device lookup"
+msgstr "USB डिवाइस लुकअप"
+
+msgid "USB device remotization allowlists. A Hardware Profile bundles a USB device allowlist and binds to a Software Stack or Project (Project overrides Stack). USB remotization is a device compatibility filter, not a security boundary."
+msgstr "USB डिवाइस रिमोटाइजेशन की अनुमति सूची। एक हार्डवेयर प्रोफ़ाइल USB डिवाइस की अनुमति सूची को बंडल करती है और एक सॉफ़्टवेयर स्टैक या प्रोजेक्ट (प्रोजेक्ट ओवरराइड स्टैक) से जुड़ जाती है। USB रिमोटाइजेशन एक डिवाइस कम्पैटिबिलिटी फ़िल्टर है, न कि सुरक्षा सीमा।"
+
+msgid "USB-IF defined class codes (BaseClass / SubClass / Protocol)"
+msgstr "USB-IF परिभाषित क्लास कोड (BaseClass/SubClass/Protocol)"
 
 msgid "Unable to access the file. Please try again:  "
 msgstr "फ़ाइल को ऐक्सेस नहीं किया जा सका। कृपया फिर से कोशिश करें:  "
@@ -2913,6 +4770,9 @@ msgstr "फ़ाइल बनाने में असमर्थ। अत�
 
 msgid "Unable to create new user. API returned error: "
 msgstr "नया यूज़र बनाने में असमर्थ। API ने त्रुटि लौटाई: "
+
+msgid "Unable to decode job script template. Check logs for additional details"
+msgstr "जॉब स्क्रिप्ट टेम्पलेट को डिकोड करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग चेक करें"
 
 msgid "Unable to delete "
 msgstr "मिटाने में असमर्थ "
@@ -2946,6 +4806,10 @@ msgid "Unable to extract profile information. See logs for additional details"
 msgstr "प्रोफ़ाइल जानकारी निकालने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें"
 
 #, python-format
+msgid "Unable to find any %(link)s agent onboarded to this EDH environment."
+msgstr "इस EDH वातावरण में किसी भी %(link)s एजेंट को ऑनबोर्ड करने में असमर्थ।"
+
+#, python-format
 msgid "Unable to find any %(link)s onboarded to this EDH environment."
 msgstr "इस EDH वातावरण में किसी भी %(link)s को ऑनबोर्ड करने में असमर्थ।"
 
@@ -2958,15 +4822,9 @@ msgstr "इस EDH वातावरण में शामिल किसी 
 msgid "Unable to generate download link. Check the logs for more information"
 msgstr "डाउनलोड लिंक जनरेट करने में असमर्थ। ज़्यादा जानकारी के लिए लॉग देखें।"
 
-msgid "Unable to generate job script. See logs for additional details"
-msgstr "जॉब स्क्रिप्ट जनरेट करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें"
-
 #, python-brace-format
 msgid "Unable to list AWS Batch jobs due to {error}"
 msgstr "{error} के कारण AWS बैच की नौकरियों को सूचीबद्ध करने में असमर्थ"
-
-msgid "Unable to list all_users: "
-msgstr "all_users को सूचीबद्ध करने में असमर्थ: "
 
 msgid "Unable to list applications. See logs for additional details"
 msgstr "अनुप्रयोगों को सूचीबद्ध करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें"
@@ -2974,17 +4832,11 @@ msgstr "अनुप्रयोगों को सूचीबद्ध कर
 msgid "Unable to list applications. See logs for additional details."
 msgstr "अनुप्रयोगों को सूचीबद्ध करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें।"
 
-msgid "Unable to list groups: "
-msgstr "समूहों को सूचीबद्ध करने में असमर्थ: "
-
 msgid "Unable to list your clusters images"
 msgstr "अपने क्लस्टर छवियों को सूचीबद्ध करने में असमर्थ"
 
 msgid "Unable to list your container images"
 msgstr "आपकी कंटेनर छवियों को सूचीबद्ध करने में असमर्थ"
-
-msgid "Unable to locate  the download archive, please try again"
-msgstr "डाउनलोड आर्काइव ढूंढने में असमर्थ, कृपया फिर से कोशिश करें"
 
 msgid "Unable to locate the download archive, please try again"
 msgstr "डाउनलोड आर्काइव ढूंढने में असमर्थ, कृपया फिर से कोशिश करें"
@@ -3007,11 +4859,8 @@ msgstr "अपना पासवर्ड रीसेट करने मे�
 msgid "Unable to retrieve API key for user. See logs for additional details."
 msgstr "उपयोगकर्ता के लिए API कुंजी पुनर्प्राप्त करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें।"
 
-msgid "Unable to retrieve jobs on all schedulers. Verify user/scheduler/queue parameters and check logs for more details"
-msgstr "सभी शेड्यूलर पर नौकरियां पुनर्प्राप्त करने में असमर्थ। उपयोगकर्ता/शेड्यूलर/कतार मापदंडों को सत्यापित करें और अधिक जानकारी के लिए लॉग चेक करें"
-
-msgid "Unable to retrieve this virtual desktop."
-msgstr "इस वर्चुअल डेस्कटॉप को पुनः प्राप्त करने में असमर्थ।"
+msgid "Unable to retrieve jobs for scheduler(s):"
+msgstr "शेड्यूलर (ओं) के लिए नौकरी प्राप्त करने में असमर्थ:"
 
 msgid "Unable to stat file"
 msgstr "फ़ाइल को स्टेट करने में असमर्थ"
@@ -3026,6 +4875,9 @@ msgstr "ग्रुप अपडेट नहीं किया जा सक�
 msgid "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
 msgstr "इस फ़ाइल को इनपुट के रूप में उपयोग करने में असमर्थ (हो सकता है कि फ़ाइल हटा दी गई थी या आपको इसे एक्सेस करने की अनुमति नहीं है।"
 
+msgid "Undo"
+msgstr "पहले जैसा करें"
+
 msgid "Unique ID of your Amazon image. Must be a valid image, start with ami- and between 8 to 21 chars"
 msgstr "आपकी Amazon इमेज की यूनिक आईडी। यह एक मान्य इमेज होनी चाहिए, जो एमी- से शुरू हो और 8 से 21 वर्णों के बीच हो"
 
@@ -3035,11 +4887,23 @@ msgstr "आपकी Amazon इमेज की यूनिक आईडी। 
 msgid "Unknown session state"
 msgstr "अज्ञात सत्र स्थिति"
 
+msgid "Unlimited (no expiration)"
+msgstr "असीमित (कोई समाप्ति नहीं)"
+
+msgid "Unlimited lifetime allowed"
+msgstr "असीमित जीवनकाल की अनुमति"
+
 msgid "Unregister Software Stack from EDH"
 msgstr "EDH से सॉफ़्टवेयर स्टैक को अपंजीकृत करें"
 
 msgid "Unregister Software Stack from SOCA"
 msgstr "SOCA से सॉफ़्टवेयर स्टैक को अपंजीकृत करें"
+
+msgid "Unsaved changes"
+msgstr "सहेजे नहीं गए परिवर्तन"
+
+msgid "Unsupervised Access Policy"
+msgstr "अनसुपरवाइज्ड एक्सेस पॉलिसी"
 
 msgid "Update Password"
 msgstr "पासवर्ड अपडेट करें"
@@ -3074,6 +4938,12 @@ msgstr "Upload limited to %(size)s GB and %(minutes)s minutes timeout. Use the %
 
 msgid "Upload your content to EDH"
 msgstr "अपनी सामग्री EDH पर अपलोड करें"
+
+msgid "Uploads are resumable — you can pause, and a dropped connection continues where it left off."
+msgstr "अपलोड फिर से शुरू किए जा सकते हैं — आप रोक सकते हैं, और एक ड्रॉप किया गया कनेक्शन वहीं जारी रहता है जहां उसने छोड़ा था।"
+
+msgid "Uptime"
+msgstr "अपटाइम"
 
 #, python-format
 msgid "Use %(hidden)s fields to hardcode values. Otherwise, defaults will be applied."
@@ -3155,6 +5025,9 @@ msgstr "यूज़र आईडी"
 msgid "User Membership"
 msgstr "यूज़र सदस्यता"
 
+msgid "User Save & Shut Down capture"
+msgstr "यूज़र सेव एंड शट डाउन कैप्चर"
+
 msgid "User code to be executed AFTER the solver command"
 msgstr "सॉल्वर कमांड के बाद उपयोगकर्ता कोड निष्पादित किया जाना है"
 
@@ -3181,6 +5054,9 @@ msgstr "आपके समूह में उपयोगकर्ता (ओ�
 
 msgid "User-Data templates are assigned to EDH Target Nodes"
 msgstr "यूजर-डेटा टेम्प्लेट EDH टारगेट नोड्स को असाइन किए गए हैं"
+
+msgid "User/Path/Source/IP/Reason: multi-tag, prefix ! to exclude. Method/Status/Actor: click to cycle ✓ include → ✗ exclude → off."
+msgstr "उपयोगकर्ता/पथ/स्रोत/आईपी/कारण: मल्टी-टैग, उपसर्ग! बाहर करने के लिए। विधि/स्थिति/अभिनेता: साइकिल पर क्लिक करें ✓ शामिल करें → ✗ बाहर करें → बंद करें।"
 
 msgid "User: "
 msgstr "यूज़र: "
@@ -3212,6 +5088,9 @@ msgstr "पायथन का उपयोग करना"
 msgid "VALUE"
 msgstr "मान"
 
+msgid "VDI Pooling"
+msgstr "VDI पूलिंग"
+
 msgid "VDI Profile"
 msgstr "VDI प्रोफ़ाइल"
 
@@ -3224,8 +5103,20 @@ msgstr "वैल्यू"
 msgid "Value (e.g., 1, 2)"
 msgstr "मान (जैसे, 1, 2)"
 
+msgid "Value only"
+msgstr "सिर्फ़ मान"
+
 msgid "Value:"
 msgstr "मान:"
+
+msgid "Ver"
+msgstr "देखें"
+
+msgid "Version history"
+msgstr "संस्करण का इतिहास"
+
+msgid "Version history is from SSM Parameter Store. Editor-attributed 'who changed it' arrives with the audit trail step."
+msgstr "संस्करण इतिहास SSM पैरामीटर स्टोर से है। एडिटर-एट्रिब्यूटेड 'इसे किसने बदला है' ऑडिट ट्रेल स्टेप के साथ आता है।"
 
 msgid "Via EDH Web Portal"
 msgstr "EDH वेब पोर्टल के माध्यम से"
@@ -3242,8 +5133,11 @@ msgstr "विवरण देखें"
 msgid "View HTTP API documentation"
 msgstr "HTTP API दस्तावेज़ देखें"
 
-msgid "View my jobs"
-msgstr "मेरी नौकरियां देखें"
+msgid "View Timeline"
+msgstr "टाइमलाइन देखें"
+
+msgid "View available paths"
+msgstr "उपलब्ध पथ देखें"
 
 msgid "View/Manage Authorized Application Profiles"
 msgstr "अधिकृत एप्लिकेशन प्रोफ़ाइल देखें/प्रबंधित करें"
@@ -3265,6 +5159,27 @@ msgstr "वर्चुअल डेस्कटॉप स्टैक्स"
 
 msgid "Virtual Desktops"
 msgstr "वर्चुअल डेस्कटॉप"
+
+msgid "Virtual Desktops (read-only)"
+msgstr "वर्चुअल डेस्कटॉप (सिर्फ पढ़ने के लिए)"
+
+msgid "Virtual Desktops (user)"
+msgstr "वर्चुअल डेस्कटॉप (उपयोगकर्ता)"
+
+msgid "Virtual Desktops / DCV"
+msgstr "वर्चुअल डेस्कटॉप/DCV"
+
+msgid "Volume Acceleration (Fast-Restore)"
+msgstr "वॉल्यूम एक्सेलेरेशन (फास्ट-रिस्टोर)"
+
+msgid "Warm"
+msgstr "वार्म"
+
+msgid "Warm (pre-stopped)"
+msgstr "गर्म (पहले से बंद)"
+
+msgid "Warm pool state"
+msgstr "वार्म पूल स्टेट"
 
 msgid "We have generated a test template for you, customize it as needed or"
 msgstr "हमने आपके लिए एक टेस्ट टेम्प्लेट तैयार किया है, इसे आवश्यकतानुसार कस्टमाइज़ करें या"
@@ -3293,8 +5208,20 @@ msgstr "आप सॉल्वर के किस संस्करण का 
 msgid "What workflow do you want to run?"
 msgstr "आप किस वर्कफ़्लो को चलाना चाहते हैं?"
 
+msgid "When (UTC)"
+msgstr "कब (UTC)"
+
+msgid "When enabled, you can extend the token expiration before it expires without generating a new secret."
+msgstr "सक्षम होने पर, आप एक नया रहस्य उत्पन्न किए बिना टोकन की समाप्ति को समाप्त होने से पहले बढ़ा सकते हैं।"
+
+msgid "Will be deleted"
+msgstr "हटा दिया जाएगा"
+
+msgid "Window:"
+msgstr "विंडो:"
+
 msgid "Windows"
-msgstr "खिड़कियाँ"
+msgstr ""
 
 msgid "Workflow Profile input file (JSON)"
 msgstr "वर्कफ़्लो प्रोफ़ाइल इनपुट फ़ाइल (JSON)"
@@ -3323,6 +5250,9 @@ msgstr "हाँ"
 msgid "You are about to be redirected to"
 msgstr "आपको यहां रीडायरेक्ट किया जाने वाला है"
 
+msgid "You are about to delete job"
+msgstr "आप जॉब डिलीट करने वाले हैं"
+
 msgid "You are about to permanently delete"
 msgstr "आप स्थायी रूप से हटाने वाले हैं"
 
@@ -3332,8 +5262,17 @@ msgstr "आप लक्षित नोट को स्थायी रूप 
 msgid "You are about to remove this job from your EKS cluster."
 msgstr "आप इस नौकरी को अपने EKS क्लस्टर से निकालने वाले हैं।"
 
+msgid "You are about to share your virtual desktop."
+msgstr "आप अपना वर्चुअल डेस्कटॉप साझा करने वाले हैं।"
+
 msgid "You are about to terminate this AWS Batch job:"
 msgstr "आप इस AWS बैच कार्य को समाप्त करने वाले हैं:"
+
+msgid "You are an AI assistant for Engineering Development Hub (EDH) specialized in Computed Aided Engineering workloads. Analyze file contents and provide helpful insights. For log files, identify errors and suggest fixes. For config files, check for misconfigurations. For scripts, review for issues."
+msgstr "आप कंप्यूटेड एडेड इंजीनियरिंग वर्कलोड में विशेषज्ञता प्राप्त इंजीनियरिंग डेवलपमेंट हब (EDH) के AI सहायक हैं। फ़ाइल सामग्री का विश्लेषण करें और उपयोगी जानकारी प्रदान करें। लॉग फ़ाइलों के लिए, त्रुटियों को पहचानें और उन्हें ठीक करने का सुझाव दें। कॉन्फ़िग फ़ाइलों के लिए, गलत कॉन्फ़िगरेशन की जांच करें। स्क्रिप्ट्स के लिए, समस्याओं की समीक्षा करें।"
+
+msgid "You are an AI assistant for Engineering Development Hub (EDH) specialized in Computed Aided Engineering workloads. Help the user with their questions."
+msgstr "आप कंप्यूटेड एडेड इंजीनियरिंग वर्कलोड में विशेषज्ञता प्राप्त इंजीनियरिंग डेवलपमेंट हब (EDH) के AI सहायक हैं। यूज़र को उनके सवालों के जवाब देने में मदद करें।"
 
 msgid "You are currently using"
 msgstr "आप वर्तमान में उपयोग कर रहे हैं"
@@ -3353,9 +5292,6 @@ msgstr "आप इस फ़ाइल को डाउनलोड करने 
 #, python-brace-format
 msgid "You are not authorized to upload in this location ({path}). If you recently changed the permissions, please allow up to 10 minutes for sync"
 msgstr "आप इस स्थान ({path}) में अपलोड करने के लिए अधिकृत नहीं हैं। अगर आपने हाल ही में अनुमतियां बदली हैं, तो कृपया सिंक करने के लिए 10 मिनट तक का समय दें"
-
-msgid "You are not the job owner"
-msgstr "आप नौकरी के मालिक नहीं हैं"
 
 #, python-format
 msgid "You can create %(link)s to provision your virtual desktop faster."
@@ -3436,11 +5372,20 @@ msgstr "आपको सबसे पहले अपने टारगेट �
 msgid "You must specify cpus and instance_type parameters"
 msgstr "आपको cpus और instance_type मापदंडों को निर्दिष्ट करना होगा"
 
+msgid "You must wait for your target node to finish stopping"
+msgstr "रुकना समाप्त करने के लिए आपको अपने लक्षित नोड की प्रतीक्षा करनी चाहिए"
+
+msgid "You must wait for your virtual desktop to finish stopping"
+msgstr "रुकने के लिए आपको अपने वर्चुअल डेस्कटॉप का इंतजार करना होगा"
+
 msgid "You will also need to pass the Base64 encoded string as payload. See below for examples:"
 msgstr "आपको बेस 64 एन्कोडेड स्ट्रिंग को पेलोड के रूप में भी पास करना होगा। उदाहरण के लिए नीचे देखें:"
 
 msgid "You will need to specify three headers:"
 msgstr "आपको तीन शीर्षलेख निर्दिष्ट करने होंगे:"
+
+msgid "You will need to specify two headers:"
+msgstr "आपको दो शीर्षलेख निर्दिष्ट करने होंगे:"
 
 #, python-format
 msgid "You will need to update %(pkg)s to add instances released after the date of your EDH installation"
@@ -3452,6 +5397,9 @@ msgstr "आपको अपने उपयोगकर्ता UID/GID की 
 
 msgid "You won't be charged for the compute time while your session is stopped"
 msgstr "जब आपका सत्र बंद हो जाता है, तब आपसे गणना समय के लिए शुल्क नहीं लिया जाएगा"
+
+msgid "Your API Tokens"
+msgstr "आपके API टोकन"
 
 msgid "Your API key:"
 msgstr "आपकी API कुंजी:"
@@ -3496,6 +5444,9 @@ msgstr "अनुरोध के अनुसार आपका डेस्�
 msgid "Your desktop is about to be terminated as requested"
 msgstr "अनुरोध के अनुसार आपका डेस्कटॉप समाप्त होने वाला है"
 
+msgid "Your desktop is being saved & shut down - a resumable image is being captured, then it will terminate."
+msgstr "आपका डेस्कटॉप सहेजा जा रहा है और बंद किया जा रहा है - एक फिर से शुरू करने योग्य छवि कैप्चर की जा रही है, फिर वह समाप्त हो जाएगी।"
+
 msgid "Your desktop is starting"
 msgstr "आपका डेस्कटॉप शुरू हो रहा है"
 
@@ -3532,8 +5483,20 @@ msgstr "आपका प्रोजेक्ट सफलतापूर्व�
 msgid "Your project has been updated successfully"
 msgstr "आपका प्रोजेक्ट सफलतापूर्वक अपडेट कर दिया गया है"
 
+msgid "Your quota"
+msgstr "आपका कोटा"
+
 msgid "Your schedule has been updated successfully"
 msgstr "आपका शेड्यूल सफलतापूर्वक अपडेट कर दिया गया है"
+
+msgid "Your session is being interrupted — saving your desktop. It will appear under Saved Desktops when ready."
+msgstr "आपका सत्र बाधित हो रहा है — अपने डेस्कटॉप को सहेज रहा है। तैयार होने पर यह सहेजे गए डेस्कटॉप के अंतर्गत दिखाई देगा।"
+
+msgid "Your session was interrupted — your desktop was saved. Find it under Saved Desktops to resume."
+msgstr "आपका सत्र बाधित हो गया था — आपका डेस्कटॉप सहेजा गया था। फिर से शुरू करने के लिए इसे सहेजे गए डेस्कटॉप के अंतर्गत ढूंढें।"
+
+msgid "Your session was interrupted, but the auto-save did not complete — your work could not be preserved."
+msgstr "आपका सत्र बाधित हो गया था, लेकिन ऑटो-सेव पूरा नहीं हुआ - आपका काम संरक्षित नहीं किया जा सका।"
 
 #, python-format
 msgid "Your session will be automatically deleted <strong>after %(n)s hour</strong> if you do not restart it.Your session will be automatically deleted <strong>after %(n)s hours</strong> if you do not restart it."
@@ -3554,6 +5517,9 @@ msgstr "आपका टारगेट नोड पहले से चल र
 msgid "Your target node is already stopped"
 msgstr "आपका टारगेट नोड पहले ही बंद हो चुका है"
 
+msgid "Your target node is already stopping"
+msgstr "आपका टारगेट नोड पहले से ही रुक रहा है"
+
 msgid "Your target node is being created"
 msgstr "आपका टारगेट नोड बनाया जा रहा है"
 
@@ -3563,8 +5529,14 @@ msgstr "आपका टारगेट नोड अभी तक नहीं 
 msgid "Your target node is starting"
 msgstr "आपका टारगेट नोड शुरू हो रहा है"
 
+msgid "Your target node is still stopping"
+msgstr "आपका लक्षित नोड अभी भी रुक रहा है"
+
 msgid "Your target node is stopped."
 msgstr "आपका टारगेट नोड रोक दिया गया है।"
+
+msgid "Your target node is stopping. This may take a few minutes."
+msgstr "आपका टारगेट नोड रुक रहा है। इसमें कुछ मिनट लग सकते हैं।"
 
 msgid "Your target node schedule has been updated"
 msgstr "आपका टारगेट नोड शेड्यूल अपडेट कर दिया गया है"
@@ -3590,6 +5562,9 @@ msgstr "आपका वर्चुअल डेस्कटॉप पहले
 msgid "Your virtual desktop is already stopped"
 msgstr "आपका वर्चुअल डेस्कटॉप पहले ही बंद हो चुका है"
 
+msgid "Your virtual desktop is already stopping"
+msgstr "आपका वर्चुअल डेस्कटॉप पहले से ही रुक रहा है"
+
 msgid "Your virtual desktop is being created"
 msgstr "आपका वर्चुअल डेस्कटॉप बनाया जा रहा है"
 
@@ -3599,8 +5574,14 @@ msgstr "आपका वर्चुअल डेस्कटॉप अभी �
 msgid "Your virtual desktop is starting"
 msgstr "आपका वर्चुअल डेस्कटॉप शुरू हो रहा है"
 
+msgid "Your virtual desktop is still stopping"
+msgstr "आपका वर्चुअल डेस्कटॉप अभी भी रुक रहा है"
+
 msgid "Your virtual desktop is stopped."
 msgstr "आपका वर्चुअल डेस्कटॉप बंद हो गया है।"
+
+msgid "Your virtual desktop is stopping. This may take a few minutes."
+msgstr "आपका वर्चुअल डेस्कटॉप रुक रहा है। इसमें कुछ मिनट लग सकते हैं।"
 
 msgid "Your virtual desktop schedule has been updated"
 msgstr "आपका वर्चुअल डेस्कटॉप शेड्यूल अपडेट कर दिया गया है"
@@ -3608,8 +5589,11 @@ msgstr "आपका वर्चुअल डेस्कटॉप शेड्
 msgid "Your workspace contains all your data stored on EDH filesystem. By default, /apps and /data are shared and accessible from all EDH nodes. You can mount additional filesystems as needed."
 msgstr "आपके वर्कस्पेस में आपका सारा डेटा EDH फाइल सिस्टम पर संग्रहीत है। डिफ़ॉल्ट रूप से, /apps और/डेटा सभी EDH नोड्स से साझा और एक्सेस किए जाते हैं। आप आवश्यकतानुसार अतिरिक्त फाइल सिस्टम माउंट कर सकते हैं।"
 
-msgid "__SOCA_CLUSTER__NAME__"
-msgstr "__SOCA_CLUSTER__NAME__"
+msgid "across this software stack"
+msgstr "इस सॉफ़्टवेयर स्टैक के पार"
+
+msgid "ago -- max age in bucket"
+msgstr "ago -- बाल्टी में अधिकतम आयु"
 
 msgid "all"
 msgstr "सभी"
@@ -3617,14 +5601,41 @@ msgstr "सभी"
 msgid "and close it with"
 msgstr "और इसके साथ बंद करें"
 
+msgid "any"
+msgstr "किसी भी"
+
 msgid "app_profile file is missing."
 msgstr "app_profile फ़ाइल अनुपलब्ध है।"
+
+msgid "attention"
+msgstr "ध्यान"
+
+msgid "auto-removes in"
+msgstr "में स्वतः हटाता है"
+
+msgid "avg"
+msgstr "एवीजी"
 
 msgid "base64"
 msgstr "बेस 64"
 
 msgid "breadcrumb"
 msgstr "ब्रेडक्रंब"
+
+msgid "by"
+msgstr "द्वारा"
+
+msgid "capacity"
+msgstr "क्षमता"
+
+msgid "captured"
+msgstr "पकड़े"
+
+msgid "changes"
+msgstr "बदलाव"
+
+msgid "changes to these take effect only after restarting"
+msgstr "इनमें परिवर्तन पुनः आरंभ करने के बाद ही प्रभावी होते हैं"
 
 msgid "clear the buffer"
 msgstr "बफर साफ़ करें"
@@ -3644,8 +5655,14 @@ msgstr "बन्द है"
 msgid "comma separated list of job ids e,g: 1,2,3"
 msgstr "नौकरी के आईडी की अल्पविराम से अलग की गई सूची जैसे: 1,2,3"
 
+msgid "configured instance type(s) carry capacity"
+msgstr "कॉन्फ़िगर किए गए इंस्टेंस प्रकार (ओं) ले जाने की क्षमता"
+
 msgid "connecting"
 msgstr "जोड़ने"
+
+msgid "connecting..."
+msgstr "कनेक्ट कर रहा है..."
 
 msgid "cpus must be a valid integer"
 msgstr "cpus एक वैध पूर्णांक होना चाहिए"
@@ -3656,6 +5673,24 @@ msgstr "सीआर-123456एबीसी"
 msgid "create, monitor and manage your budgets for your Virtual Targets, Virtual Desktops and Compute Nodes in a single place. Gain full visibility via automatic AWS Cost Allocation tags."
 msgstr "एक ही स्थान पर अपने वर्चुअल टारगेट, वर्चुअल डेस्कटॉप और कंप्यूट नोड्स के लिए अपने बजट बनाएं, मॉनिटर करें और प्रबंधित करें। स्वचालित AWS लागत आवंटन टैग के माध्यम से पूर्ण दृश्यता प्राप्त करें।"
 
+msgid "current"
+msgstr "वर्तमान"
+
+msgid "day(s)"
+msgstr "दिन (s)"
+
+msgid "days"
+msgstr "दिवसों"
+
+msgid "days, after which it is permanently deleted."
+msgstr "दिन, जिसके बाद इसे स्थायी रूप से हटा दिया जाता है।"
+
+msgid "deleted"
+msgstr "हटाए गए"
+
+msgid "desired"
+msgstr "चाहा गया"
+
 msgid "disconnected"
 msgstr "असंगत"
 
@@ -3665,8 +5700,20 @@ msgstr "उदाहरण के लिए --epochs"
 msgid "e.g. /bin/bash"
 msgstr "उदाहरण के लिए/बिन/बैश"
 
+msgid "e.g. CI/CD Pipeline Token"
+msgstr "उदाहरण के लिए CI/CD पाइपलाइन टोकन"
+
+msgid "e.g. MaxProvisioning, c8i.xlarge, /dcv/"
+msgstr "उदाहरण के लिए maxProvisioning, c8i.xlarge, /dcv/"
+
 msgid "e.g. argument"
 msgstr "उदाहरण के लिए तर्क"
+
+msgid "e.g. not_sudoer, !path"
+msgstr "उदाहरण के लिए not_sudoer,! रास्ता"
+
+msgid "e.g. webui, !api, i-0abc"
+msgstr "उदाहरण के लिए वेबुई,! एपीआई, i-0abc"
 
 msgid "encode function:"
 msgstr "एन्कोड फ़ंक्शन:"
@@ -3674,8 +5721,20 @@ msgstr "एन्कोड फ़ंक्शन:"
 msgid "error"
 msgstr "ग़लती"
 
+msgid "errors"
+msgstr "त्रुटियों"
+
+msgid "events. The DcvSessionEventLog table retains 24 hours of history per session."
+msgstr "घटनाओं। DCVSessionEventLog तालिका में प्रति सत्र 24 घंटे का इतिहास रहता है।"
+
 msgid "example: c6g.metal"
 msgstr "उदाहरण: c6g.metal"
+
+msgid "failed"
+msgstr "विफल रहा"
+
+msgid "failed cycles in last 60 min."
+msgstr "पिछले 60 मिनट में असफल चक्र।"
 
 msgid "file rotated, stream ending"
 msgstr "फ़ाइल घुमाया गया, स्ट्रीम समाप्त हो रहा है"
@@ -3686,20 +5745,39 @@ msgstr "फ़ाइल को छोटा किया गया, फिर �
 msgid "file_path"
 msgstr "फ़ाइल_पथ"
 
+msgid "finished jobs - narrow the time range to see older ones."
+msgstr "समाप्त नौकरियां - पुराने लोगों को देखने के लिए समय सीमा को कम करें।"
+
+#, python-format
+msgid "frame loss > 5%% or latency > 100ms"
+msgstr "फ़्रेम लॉस> 5%% या लेटेंसी> 100ms"
+
 msgid "from the filesystem."
 msgstr "फाइलसिस्टम से।"
 
 msgid "fsx_capacity"
 msgstr "fsx_capacity"
 
+msgid "hardware compatible"
+msgstr "हार्डवेयर संगत"
+
 msgid "has been uploaded to EDH"
 msgstr "EDH पर अपलोड किया गया है"
+
+msgid "healthy"
+msgstr "स्वस्थ"
+
+msgid "hot"
+msgstr "गर्म"
 
 msgid "hour"
 msgstr "घंटा"
 
 msgid "hour(s) with HyperThreading support set to True"
 msgstr "हाइपरथ्रेडिंग समर्थन के साथ घंटे (ओं) को सही पर सेट किया गया है"
+
+msgid "hours"
+msgstr "घंटे"
 
 msgid "idle"
 msgstr "बेकार"
@@ -3713,11 +5791,14 @@ msgstr "टाइमस्टैम्प चेकपॉइंट डाले�
 msgid "instance_type"
 msgstr "इंस्टेंस_टाइप"
 
+msgid "invocations"
+msgstr "आमंत्रण"
+
 msgid "is HTML tag for new line"
 msgstr "नई लाइन के लिए HTML टैग है"
 
-msgid "is running but EDG could not validate your session via"
-msgstr "चल रहा है लेकिन EDG आपके सत्र को इसके माध्यम से मान्य नहीं कर सका"
+msgid "is running but EDH could not validate your session via"
+msgstr "चल रहा है लेकिन EDH आपके सत्र को इसके माध्यम से मान्य नहीं कर सका"
 
 msgid "jump to live"
 msgstr "जीने के लिए कूदो"
@@ -3725,8 +5806,17 @@ msgstr "जीने के लिए कूदो"
 msgid "jump to start"
 msgstr "शुरू करने के लिए कूदें"
 
+msgid "last"
+msgstr "अंतिम"
+
+msgid "ledger"
+msgstr "खाता बही"
+
 msgid "live"
 msgstr "जीना"
+
+msgid "live · updates automatically"
+msgstr "लाइव · स्वचालित रूप से अपडेट"
 
 msgid "load earlier"
 msgstr "पहले लोड करें"
@@ -3734,8 +5824,53 @@ msgstr "पहले लोड करें"
 msgid "loading"
 msgstr "लोड हो रहा है"
 
+msgid "locked to this stack's AMI — only matching-architecture instance types are selectable."
+msgstr "इस स्टैक के एएमआई पर लॉक किया गया है - केवल मैचिंग-आर्किटेक्चर इंस्टेंस प्रकार चयन करने योग्य हैं।"
+
+msgid "member"
+msgstr "सदस्य"
+
+msgid "min"
+msgstr "मिनट"
+
+msgid "minimum guaranteed On-Demand instances; 0 up to the Hot count."
+msgstr "न्यूनतम गारंटीकृत ऑन-डिमांड उदाहरण; हॉट काउंट तक 0।"
+
 msgid "no file specified"
 msgstr "कोई फ़ाइल निर्दिष्ट नहीं है"
+
+msgid "none in window"
+msgstr "खिड़की में कोई नहीं"
+
+msgid "not in current private subnets"
+msgstr "मौजूदा निजी सबनेट में नहीं"
+
+msgid "of the capacity above the floor, the portion that is On-Demand (the rest is Spot). 0 to 100, where 100 means all On-Demand."
+msgstr "फर्श से ऊपर की क्षमता का, वह हिस्सा जो ऑन-डिमांड है (बाकी स्पॉट है)। 0 से 100, जहां 100 का अर्थ है ऑल ऑन-डिमांड।"
+
+msgid "on DeviceHunt (opens in a new tab)"
+msgstr "DeviceHunt पर (एक नए टैब में खुलता है)"
+
+msgid "on this exact instance type"
+msgstr "इस सटीक उदाहरण प्रकार पर"
+
+msgid "original"
+msgstr "असली"
+
+msgid "p95 Frame Loss"
+msgstr "p95 फ़्रेम लॉस"
+
+msgid "p95 Network Latency"
+msgstr "p95 नेटवर्क लेटेंसी"
+
+msgid "parameter(s) updated"
+msgstr "पैरामीटर (ओं) को अपडेट किया गया"
+
+msgid "patterns"
+msgstr "नमूना"
+
+msgid "patterns copied"
+msgstr "पैटर्न कॉपी किए गए"
 
 msgid "pause or resume"
 msgstr "रोकें या फिर से शुरू करें"
@@ -3746,11 +5881,35 @@ msgstr "विराम"
 msgid "pending"
 msgstr "लंबित"
 
+msgid "pre-warmed stopped instances (EBS only); start in ~30s when claimed with available capacity."
+msgstr "प्री-वार्म्ड स्टॉप्ड इंस्टेंस (केवल ईबीएस); उपलब्ध क्षमता के साथ दावा किए जाने पर ~30s में शुरू करें।"
+
 msgid "profile_name is missing."
 msgstr "profile_name अनुपलब्ध है।"
 
 msgid "purchasing Reserved Instances"
 msgstr "आरक्षित उदाहरण खरीदना"
+
+msgid "raw"
+msgstr "कच्चा"
+
+msgid "read-only"
+msgstr "सिर्फ पढ़ने के लिए"
+
+msgid "ready"
+msgstr "तैयार"
+
+msgid "reconciler + relay"
+msgstr "रिकॉन्सिलर + रिले"
+
+msgid "region"
+msgstr "क्षेत्र"
+
+msgid "rejected"
+msgstr "खारिज"
+
+msgid "restart"
+msgstr "पुनः आरंभ करें"
 
 msgid "root_size"
 msgstr "रूट_साइज़"
@@ -3758,8 +5917,14 @@ msgstr "रूट_साइज़"
 msgid "rotated"
 msgstr "घुमाया"
 
+msgid "run from the controller shell."
+msgstr "कंट्रोलर शेल से चलाएं।"
+
 msgid "running"
 msgstr "दौड़ना"
+
+msgid "running, broker-registered instances kept idle for instant assignment."
+msgstr "रनिंग, ब्रोकर-रजिस्टर्ड इंस्टेंस को तत्काल असाइनमेंट के लिए निष्क्रिय रखा गया।"
 
 #, python-brace-format
 msgid "s-{UNIQUE_ID}-.server.transfer.{AWS_REGION}.amazonaws.com"
@@ -3771,14 +5936,32 @@ msgstr "scheduler_id और job_id को निर्दिष्ट किय�
 msgid "scratch_size"
 msgstr "स्क्रैच_साइज़"
 
+msgid "set to"
+msgstr "पर सेट करें"
+
+msgid "set to your scoped token (e.g."
+msgstr "अपने स्कोप्ड टोकन पर सेट करें (उदाहरण के लिए"
+
+msgid "similar launches over the last 90 days"
+msgstr "पिछले 90 दिनों में इसी तरह के लॉन्च हुए"
+
 msgid "since last mark"
 msgstr "पिछले निशान के बाद से"
 
 msgid "stopped"
 msgstr "बंद कर दिया"
 
+msgid "stopping"
+msgstr "रोक"
+
 msgid "stream ended"
 msgstr "स्ट्रीम समाप्त हो गया"
+
+msgid "substring, e.g. /dcv/"
+msgstr "सबस्ट्रिंग, जैसे /dcv/"
+
+msgid "substring, e.g. 10.0"
+msgstr "सबस्ट्रिंग, उदाहरण के लिए 10.0"
 
 msgid "this user from the group"
 msgstr "समूह का यह उपयोगकर्ता"
@@ -3789,6 +5972,15 @@ msgstr "यह उपयोगकर्ता मेरे समूह के �
 msgid "this user to the group"
 msgstr "समूह के लिए यह उपयोगकर्ता"
 
+msgid "to get detailed troubleshooting and recommendations with file context."
+msgstr "फ़ाइल संदर्भ के साथ विस्तृत समस्या निवारण और अनुशंसाएं प्राप्त करने के लिए।"
+
+msgid "to the AgentCore runtimes you want to use."
+msgstr "AgentCore रनटाइम के लिए जिसका आप उपयोग करना चाहते हैं।"
+
+msgid "to the recycle bin? You can recover it within"
+msgstr "रीसायकल बिन में? आप इसे अंदर से पुनर्प्राप्त कर सकते हैं"
+
 msgid "toggle theme"
 msgstr "टॉगल थीम"
 
@@ -3798,11 +5990,26 @@ msgstr "इस मदद को टॉगल करें"
 msgid "toggle wrap"
 msgstr "टॉगल रैप"
 
+msgid "took"
+msgstr "लिया"
+
+msgid "typed"
+msgstr "टाइप किया गया"
+
 msgid "upload because of"
 msgstr "की वजह से अपलोड करें"
 
 msgid "upload was canceled"
 msgstr "अपलोड रद्द कर दिया गया"
+
+msgid "user"
+msgstr "उपभोक्ता"
+
+msgid "user(s)"
+msgstr "उपयोगकर्ता (ओं)"
+
+msgid "v#"
+msgstr "v#"
 
 msgid "vCPUs"
 msgstr "सीपीयू"
@@ -3810,11 +6017,20 @@ msgstr "सीपीयू"
 msgid "vcpus"
 msgstr "vcpus"
 
+msgid "version(s)"
+msgstr "संस्करण (ओं)"
+
 msgid "wall_time"
 msgstr "वॉल_टाइम"
 
 msgid "wall_time must use HH:MM:SS format and only use valid numbers"
 msgstr "wall_time को HH:MM:SS प्रारूप का उपयोग करना चाहिए और केवल मान्य संख्याओं का उपयोग करना चाहिए"
+
+msgid "warm"
+msgstr "गर्म"
+
+msgid "working"
+msgstr "काम कर रहा है"
 
 #, python-brace-format
 msgid "{entry.name} returned an error and cannot be displayed: {err}"
@@ -5437,5 +7653,156 @@ msgstr "🎉 सोका हाँ 🌴"
 #~ " उपयोग करते हैं या यह विंडो "
 #~ "उन्हें चालू रखती है ताकि आप बाद"
 #~ " में फिर से शुरू कर सकें।"
+
+#~ msgid "(EDH version __VERSION__)"
+#~ msgstr "(EDH संस्करण __VERSION__)"
+
+#~ msgid "(Optional) Description for your template, maximum 500 characters."
+#~ msgstr "(वैकल्पिक) आपके टेम्पलेट के लिए विवरण, अधिकतम 500 वर्ण।"
+
+#~ msgid ", "
+#~ msgstr ", "
+
+#~ msgid "Add"
+#~ msgstr "जोड़ें"
+
+#~ msgid "All users"
+#~ msgstr "सभी यूज़र"
+
+#~ msgid "Capacity being provisioned"
+#~ msgstr "क्षमता का प्रावधान किया जा रहा है"
+
+#~ msgid "Capacity provisioning blocked"
+#~ msgstr "क्षमता प्रोविजनिंग अवरुद्ध"
+
+#~ msgid "Code Editor"
+#~ msgstr "कोड एडिटर"
+
+#~ msgid "Code Editor is taking longer than expected to load."
+#~ msgstr "कोड एडिटर को लोड होने में उम्मीद से ज्यादा समय लग रहा है।"
+
+#~ msgid "Download Session File"
+#~ msgstr "सत्र फ़ाइल डाउनलोड करें"
+
+#~ msgid "Download your client here."
+#~ msgstr "अपने क्लाइंट को यहां डाउनलोड करें।"
+
+#~ msgid "Entering the Danger Zone"
+#~ msgstr "डेंजर जोन में प्रवेश करना"
+
+#~ msgid "Filter"
+#~ msgstr "फ़िल्टर करें"
+
+#~ msgid ""
+#~ "If the page stays blank, the "
+#~ "code-server service may not be "
+#~ "running on this cluster."
+#~ msgstr ""
+#~ "यदि पेज खाली रहता है, तो हो "
+#~ "सकता है कि कोड-सर्वर सेवा इस "
+#~ "क्लस्टर पर नहीं चल रही हो।"
+
+#~ msgid "JOB CANNOT START"
+#~ msgstr "काम शुरू नहीं हो सकता"
+
+#~ msgid "Job is finished or in invalid state"
+#~ msgstr "नौकरी समाप्त हो गई है या अमान्य स्थिति में है"
+
+#~ msgid "LSF"
+#~ msgstr "एलएसएफ"
+
+#~ msgid "List all Virtual Desktops"
+#~ msgstr "सभी वर्चुअल डेस्कटॉप को सूचीबद्ध करें"
+
+#~ msgid "Members: (choose all that apply)"
+#~ msgstr "सदस्य: (लागू होने वाले सभी को चुनें)"
+
+#~ msgid "My API Key (Developer mode)"
+#~ msgstr "मेरी API कुंजी (डेवलपर मोड)"
+
+#~ msgid "OpenPBS"
+#~ msgstr "ओपनपीबीएस"
+
+#~ msgid "Option1: Browser access"
+#~ msgstr "विकल्प 1: ब्राउज़र एक्सेस"
+
+#~ msgid "Option2: Native Application"
+#~ msgstr "विकल्प 2: मूल अनुप्रयोग"
+
+#~ msgid "PENDING"
+#~ msgstr "लंबित"
+
+#~ msgid "RUNNING"
+#~ msgstr "दौड़ना"
+
+#~ msgid "Scheduler ID"
+#~ msgstr "शेड्यूलर आईडी"
+
+#~ msgid "Slurm"
+#~ msgstr "झुग्गी"
+
+#~ msgid "Starting Code Editor..."
+#~ msgstr "कोड एडिटर शुरू किया जा रहा है..."
+
+#~ msgid "Subnets must be from the list of private subnets configured on EDH"
+#~ msgstr "सबनेट EDH पर कॉन्फ़िगर किए गए निजी सबनेट की सूची से होने चाहिए"
+
+#~ msgid ""
+#~ "This file is too big to be "
+#~ "compressed via web. Download file "
+#~ "separately or use SFTP."
+#~ msgstr ""
+#~ "यह फ़ाइल वेब के माध्यम से संपीड़ित"
+#~ " होने के लिए बहुत बड़ी है। "
+#~ "फ़ाइल को अलग से डाउनलोड करें या"
+#~ " SFTP का उपयोग करें।"
+
+#~ msgid ""
+#~ "Token has expired. As a security "
+#~ "measure we have refreshed your token."
+#~ " Please re-submit your request again."
+#~ msgstr ""
+#~ "टोकन की समय सीमा समाप्त हो गई "
+#~ "है। सुरक्षा उपाय के तौर पर हमने"
+#~ " आपका टोकन रीफ़्रेश कर दिया है। "
+#~ "कृपया अपना अनुरोध फिर से सबमिट "
+#~ "करें।"
+
+#~ msgid "Unable to generate job script. See logs for additional details"
+#~ msgstr "जॉब स्क्रिप्ट जनरेट करने में असमर्थ। अतिरिक्त जानकारी के लिए लॉग देखें"
+
+#~ msgid "Unable to list all_users: "
+#~ msgstr "all_users को सूचीबद्ध करने में असमर्थ: "
+
+#~ msgid "Unable to list groups: "
+#~ msgstr "समूहों को सूचीबद्ध करने में असमर्थ: "
+
+#~ msgid "Unable to locate  the download archive, please try again"
+#~ msgstr "डाउनलोड आर्काइव ढूंढने में असमर्थ, कृपया फिर से कोशिश करें"
+
+#~ msgid ""
+#~ "Unable to retrieve jobs on all "
+#~ "schedulers. Verify user/scheduler/queue parameters"
+#~ " and check logs for more details"
+#~ msgstr ""
+#~ "सभी शेड्यूलर पर नौकरियां पुनर्प्राप्त "
+#~ "करने में असमर्थ। उपयोगकर्ता/शेड्यूलर/कतार "
+#~ "मापदंडों को सत्यापित करें और अधिक "
+#~ "जानकारी के लिए लॉग चेक करें"
+
+#~ msgid "Unable to retrieve this virtual desktop."
+#~ msgstr "इस वर्चुअल डेस्कटॉप को पुनः प्राप्त करने में असमर्थ।"
+
+#~ msgid "View my jobs"
+#~ msgstr "मेरी नौकरियां देखें"
+
+#~ msgid "You are not the job owner"
+#~ msgstr "आप नौकरी के मालिक नहीं हैं"
+
+#~ msgid "__SOCA_CLUSTER__NAME__"
+#~ msgstr "__SOCA_CLUSTER__NAME__"
+
+#~ msgid "is running but EDG could not validate your session via"
+#~ msgstr "चल रहा है लेकिन EDG आपके सत्र को इसके माध्यम से मान्य नहीं कर सका"
 
 

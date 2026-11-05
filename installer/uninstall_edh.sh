@@ -146,11 +146,16 @@ echo "============ Deleting CloudWatch Log Groups ============"
 # no cross-cluster match is possible. Safe when the prefix yields no groups.
 delete_cluster_log_groups() {
     local _prefix="$1"
+    # Do NOT use --query with a JMESPath join here: single-quoted JMESPath
+    # strings are RAW (no escape processing), so the separator became a literal
+    # backslash-n and the whole list arrived as one oversized name, which
+    # DeleteLogGroup rejects. Split on the tab that --output text already
+    # emits; log group names cannot contain tabs.
     aws logs describe-log-groups \
         --log-group-name-prefix "${_prefix}" \
         --region "${EDH_DEPLOYMENT_REGION}" \
-        --query "join('\n', logGroups[].logGroupName)" \
-        --output text | while read -r log_group; do
+        --query "logGroups[].logGroupName" \
+        --output text | tr '\t' '\n' | while read -r log_group; do
         if [[ -n "${log_group}" ]]; then
             echo "Deleting log group: ${log_group}"
             aws logs delete-log-group --log-group-name "${log_group}" --region "${EDH_DEPLOYMENT_REGION}"
@@ -312,6 +317,13 @@ else
         --db-cluster-identifier "${AURORA_CLUSTER_ID}" \
         --no-deletion-protection \
         --apply-immediately &> /dev/null
+    # A silent failure here leaves the cluster protected and orphans it when the stack is deleted.
+    if [[ $? -eq 0 ]]; then
+        echo "Successfully disabled deletion protection for ${AURORA_CLUSTER_ID}"
+    else
+        echo "WARNING: failed to disable deletion protection for ${AURORA_CLUSTER_ID}"
+        echo "         the stack delete will fail and leave the cluster behind"
+    fi
 fi
 
 echo "Remove termination protection for NLB"
@@ -353,28 +365,6 @@ else
             echo "Successfully deleted Auto Scaling Group: ${ASG_NAME}"
         else
             echo "Failed to delete Auto Scaling Group: ${ASG_NAME}"
-        fi
-    done
-fi
-
-echo "============ Deleting Secrets ============"
-SECRET_ARNS=$(aws secretsmanager list-secrets --region "${EDH_DEPLOYMENT_REGION}" \
-    --filters "Key=tag-key,Values=edh:ClusterId" "Key=tag-value,Values=${EDH_CLUSTER_NAME}" \
-    --query "SecretList[*].ARN" \
-    --output text)
-
-if [[ -z "${SECRET_ARNS}" ]]; then
-    echo "No secrets found with tag edh:ClusterId=${EDH_CLUSTER_NAME}"
-else
-    for SECRET_ARN in ${SECRET_ARNS}; do
-        echo "Deleting secret: ${SECRET_ARN}"
-        aws secretsmanager delete-secret --region "${EDH_DEPLOYMENT_REGION}" \
-            --secret-id "${SECRET_ARN}" \
-            --force-delete-without-recovery &> /dev/null
-        if [[ $? -eq 0 ]]; then
-            echo "Successfully deleted secret: ${SECRET_ARN}"
-        else
-            echo "Failed to delete secret: ${SECRET_ARN}"
         fi
     done
 fi
@@ -427,4 +417,69 @@ echo "============ Deleting S3 Data ============"
 if confirm "This will permanently delete all data at s3://${EDH_BUCKET_NAME}/${EDH_CLUSTER_NAME}/. This action cannot be undone."; then
     echo "Deleting s3://${EDH_BUCKET_NAME}/${EDH_CLUSTER_NAME}/"
     aws s3 rm "s3://${EDH_BUCKET_NAME}/${EDH_CLUSTER_NAME}/" --recursive
+fi
+
+echo "============ Deleting Secrets ============"
+# Secrets are deleted LAST on purpose. The Aurora cluster carries a managed-secret
+# reference, so deleting the secret first makes the cluster's own delete fail with
+# ResourceNotFoundException and strands the cluster outside CloudFormation.
+STACK_STATUS=$(aws cloudformation describe-stacks --region "${EDH_DEPLOYMENT_REGION}" \
+    --stack-name "${EDH_CLUSTER_NAME}" \
+    --query "Stacks[0].StackStatus" --output text 2> /dev/null)
+
+if [[ "${STACK_STATUS}" == "DELETE_IN_PROGRESS" ]]; then
+    echo "Waiting for ${EDH_CLUSTER_NAME} to finish deleting, this can take several minutes"
+    aws cloudformation wait stack-delete-complete --region "${EDH_DEPLOYMENT_REGION}" \
+        --stack-name "${EDH_CLUSTER_NAME}" 2> /dev/null
+    STACK_STATUS=$(aws cloudformation describe-stacks --region "${EDH_DEPLOYMENT_REGION}" \
+        --stack-name "${EDH_CLUSTER_NAME}" \
+        --query "Stacks[0].StackStatus" --output text 2> /dev/null)
+fi
+
+if [[ -n "${STACK_STATUS}" ]]; then
+    echo "WARNING: stack ${EDH_CLUSTER_NAME} is ${STACK_STATUS} and was not deleted"
+    echo "         leaving secrets in place, removing them now would strand the Aurora cluster"
+    echo "         on the next delete attempt"
+    aws cloudformation describe-stack-events --region "${EDH_DEPLOYMENT_REGION}" \
+        --stack-name "${EDH_CLUSTER_NAME}" \
+        --query "StackEvents[?ResourceStatus=='DELETE_FAILED'].[LogicalResourceId,ResourceStatusReason]" \
+        --output text 2> /dev/null | head -5
+else
+    SECRET_ARNS=$(aws secretsmanager list-secrets --region "${EDH_DEPLOYMENT_REGION}" \
+        --filters "Key=tag-key,Values=edh:ClusterId" "Key=tag-value,Values=${EDH_CLUSTER_NAME}" \
+        --query "SecretList[*].ARN" \
+        --output text)
+
+    if [[ -z "${SECRET_ARNS}" ]]; then
+        echo "No secrets found with tag edh:ClusterId=${EDH_CLUSTER_NAME}"
+    else
+        for SECRET_ARN in ${SECRET_ARNS}; do
+            echo "Deleting secret: ${SECRET_ARN}"
+            aws secretsmanager delete-secret --region "${EDH_DEPLOYMENT_REGION}" \
+                --secret-id "${SECRET_ARN}" \
+                --force-delete-without-recovery &> /dev/null
+            if [[ $? -eq 0 ]]; then
+                echo "Successfully deleted secret: ${SECRET_ARN}"
+            else
+                echo "Failed to delete secret: ${SECRET_ARN}"
+            fi
+        done
+    fi
+fi
+
+echo "============ Verifying teardown ============"
+# Without this check a failed teardown is silent and the orphans are only found later.
+LEFTOVER_ARNS=$(aws resourcegroupstaggingapi get-resources --region "${EDH_DEPLOYMENT_REGION}" \
+    --tag-filters "Key=edh:ClusterId,Values=${EDH_CLUSTER_NAME}" \
+    --query "ResourceTagMappingList[*].ResourceARN" \
+    --output text)
+
+if [[ -z "${LEFTOVER_ARNS}" ]]; then
+    echo "No resources remain tagged edh:ClusterId=${EDH_CLUSTER_NAME}"
+else
+    echo "WARNING: the following resources are still tagged edh:ClusterId=${EDH_CLUSTER_NAME}"
+    for LEFTOVER_ARN in ${LEFTOVER_ARNS}; do
+        echo "  ${LEFTOVER_ARN}"
+    done
+    echo "Teardown is incomplete. Review the resources above before considering this cluster removed."
 fi

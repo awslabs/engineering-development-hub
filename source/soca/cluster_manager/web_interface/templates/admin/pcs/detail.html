@@ -1,0 +1,2401 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+
+{% from 'admin/pcs/_status_badge.html' import status_badge %}
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    {# The cluster must be ACTIVE before any management action (queues, compute node
+                       groups, launch templates, key export) is allowed -- the PCS client enforces
+                       cluster_must_be_active and the export needs a live SLURMCTLD endpoint. When it is
+                       not ACTIVE we grey out / disable every tab and action other than the Overview. #}
+                    {% set _is_active = cluster.get('status') == 'ACTIVE' %}
+                    {% set _inactive_reason = _("Available once the cluster is ACTIVE") %}
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/admin/pcs">{{ _("PCS clusters") }}</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ pcs_cluster_name }}</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3 mb-0 text-gray-800">{{ _("PCS cluster:") }} {{ pcs_cluster_name }}</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                            <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="this.querySelector('i').classList.add('fa-spin'); this.disabled = true; window.location.reload();"
+                                    title="{{ _('Refresh') }}" aria-label="{{ _('Refresh') }}">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <a href="/admin/pcs" class="btn btn-secondary btn-sm">{{ _("Back to clusters") }}</a>
+                            {# PCS rejects a delete while the resource is still being created or deleted. #}
+                            {% set _delete_in_progress = (cluster.get('status') or '') in ['CREATING', 'DELETING'] %}
+                            {% if _delete_in_progress %}
+                            <span class="d-inline-block" tabindex="0" title="{{ _('Not available while the status is') }} {{ cluster.get('status') }}">
+                                <button type="button" class="btn btn-danger btn-sm" disabled style="pointer-events: none;">{{ _("Delete cluster") }}</button>
+                            </span>
+                            {% else %}
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteClusterModal">{{ _("Delete cluster") }}</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if not _is_active %}
+                    <div class="alert alert-warning" role="alert">
+                        <span>{{ _("The cluster is not ACTIVE yet (current status: %(status)s).", status=status_badge(cluster.get('status'))) }}</span>
+                        <hr>
+                        <span>{{ _("Launch templates, compute node groups, queues, connect and running instances are available once the cluster is ACTIVE.") }}</span>
+                    </div>
+                    {% endif %}
+
+                    <style>#nav-tab .nav-link { cursor: pointer; } #nav-tab .nav-link.disabled { cursor: not-allowed; }</style>
+                    {# Tab only usable once the cluster is ACTIVE. Disabled links swallow mouse events, so
+                       when inactive the reason is carried by a focusable wrapper span instead. #}
+                    {% macro gated_tab(_pane_id, _label, _enabled, _reason) %}
+                        {% if _enabled %}
+                            <a href="#{{ _pane_id }}" class="nav-item nav-link" id="{{ _pane_id }}-tab" data-bs-target="#{{ _pane_id }}"
+                               data-bs-toggle="tab" role="tab" aria-controls="{{ _pane_id }}" aria-selected="false">{{ _label }}</a>
+                        {% else %}
+                            <span class="d-inline-block" tabindex="0" title="{{ _reason }}" data-pcs-tooltip>
+                                <a class="nav-item nav-link disabled" id="{{ _pane_id }}-tab" data-bs-target="#{{ _pane_id }}"
+                                   role="tab" aria-controls="{{ _pane_id }}" aria-selected="false" tabindex="-1" aria-disabled="true">{{ _label }}</a>
+                            </span>
+                        {% endif %}
+                    {% endmacro %}
+                    <nav>
+                        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                            <a href="#nav-overview" class="nav-item nav-link active" id="nav-overview-tab" data-bs-target="#nav-overview"
+                               data-bs-toggle="tab" role="tab" aria-controls="nav-overview" aria-selected="true">{{ _("Overview") }}</a>
+                            <a href="#nav-build-ami" class="nav-item nav-link" id="nav-build-ami-tab" data-bs-target="#nav-build-ami"
+                               data-bs-toggle="tab" role="tab" aria-controls="nav-build-ami" aria-selected="false">{{ _("Build PCS AMI") }}</a>
+                            {{ gated_tab("nav-launch-templates", _("Launch templates") ~ " (" ~ launch_templates|length ~ ")", _is_active, _inactive_reason) }}
+                            {{ gated_tab("nav-groups", _("Compute node groups") ~ " (" ~ compute_node_groups|length ~ ")", _is_active, _inactive_reason) }}
+                            {{ gated_tab("nav-queues", _("Queues") ~ " (" ~ queues|length ~ ")", _is_active, _inactive_reason) }}
+                            {{ gated_tab("nav-connect", _("Connect"), _is_active, _inactive_reason) }}
+                            {{ gated_tab("nav-instances", _("Running instances") ~ " (" ~ instances|length ~ ")", _is_active, _inactive_reason) }}
+                        </div>
+                    </nav>
+
+                    <div class="tab-content" id="nav-tabContent">
+
+                        <!-- Overview -->
+                        <div class="tab-pane fade show active" id="nav-overview" role="tabpanel" aria-labelledby="nav-overview-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <h3>{{ _("Overview") }}</h3>
+                                    {% set _slurmctld_ep = namespace(ip='', port='') %}
+                                    {% for _ep in cluster.get('endpoints', []) %}
+                                        {% if _ep.get('type') == 'SLURMCTLD' %}
+                                            {% set _slurmctld_ep.ip = _ep.get('privateIpAddress') or _ep.get('ipv6Address') or '' %}
+                                            {% set _slurmctld_ep.port = _ep.get('port') or '' %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <table class="table">
+                                        <tbody>
+                                            <tr><th style="width:220px;">{{ _("Cluster ID") }}</th><td>{{ cluster.get('id', '-') }}</td></tr>
+                                            <tr><th>{{ _("SLURMCTLD IP") }}</th><td>{{ _slurmctld_ep.ip or '-' }}</td></tr>
+                                            <tr><th>{{ _("SLURMCTLD port") }}</th><td>{{ _slurmctld_ep.port or '-' }}</td></tr>
+                                            <tr><th>{{ _("Status") }}</th><td>{{ status_badge(cluster.get('status')) }}</td></tr>
+                                            <tr><th>{{ _("Size") }}</th><td>{{ cluster.get('size', '-') }}</td></tr>
+                                            <tr><th>{{ _("Scheduler") }}</th>
+                                                <td>
+                                                    {% set sched = cluster.get('scheduler', {}) %}
+                                                    {{ sched.get('type', '-') }} {{ sched.get('version', '') }}
+                                                </td>
+                                            </tr>
+                                            <tr><th>{{ _("Created") }}</th><td title="{{ cluster.get('createdAt', '') }}">{{ cluster.get('createdAt')|pcs_datetime }}</td></tr>
+                                        </tbody>
+                                    </table>
+
+                                    <!-- Quick start wizard: each step jumps to the tab that performs it -->
+                                    {% set _wizard_steps = [
+                                        {"title": _("Create a PCS AMI"), "text": _("Build a minimal PCS AMI (skip if you already have one)."), "tab": "nav-build-ami-tab", "button": _("Build AMI"), "requires_active": False},
+                                        {"title": _("Create a launch template"), "text": _("Create a launch template that uses your PCS AMI."), "tab": "nav-launch-templates-tab", "button": _("Launch templates"), "requires_active": True},
+                                        {"title": _("Create a compute node group"), "text": _("Create a compute node group and assign your launch template."), "tab": "nav-groups-tab", "button": _("Compute node groups"), "requires_active": True},
+                                        {"title": _("Create or update a queue"), "text": _("Create a queue, or update an existing one, to use your compute node group."), "tab": "nav-queues-tab", "button": _("Queues"), "requires_active": True},
+                                        {"title": _("Submit a job"), "text": _("Connect a client node, then submit a job to your queue."), "tab": "nav-connect-tab", "button": _("How to connect"), "requires_active": True, "requires_client": True},
+                                    ] %}
+                                    <style>
+                                        #pcsWizard .pcs-wizard-step { flex: 1 1 0; min-width: 170px; }
+                                        #pcsWizard .pcs-wizard-arrow { flex: 0 0 auto; align-self: center; color: #b7b9cc; }
+                                    </style>
+                                    <div class="mt-4" id="pcsWizard">
+                                        <h4>{{ _("Quick start") }}</h4>
+                                        <hr>
+                                        <div class="d-flex flex-wrap align-items-stretch gap-2">
+                                            {% for _step in _wizard_steps %}
+                                            {# Disabled reason: the cluster is not ACTIVE yet, or it is ACTIVE but its
+                                               connection info (needed by the Connect tab) could not be retrieved. #}
+                                            {% set _step_reason = '' %}
+                                            {% if _step.requires_active and not _is_active %}
+                                                {% set _step_reason = _inactive_reason %}
+                                            {% elif _step.requires_client and not client %}
+                                                {% set _step_reason = _("Connection info could not be retrieved for this cluster.") %}
+                                            {% endif %}
+                                            <div class="card pcs-wizard-step border-primary">
+                                                <div class="card-body d-flex flex-column p-3">
+                                                    <div class="small text-muted text-center">{{ _("Step") }} {{ loop.index }}</div>
+                                                    <strong class="mb-2 text-center">{{ _step.title }}</strong>
+                                                    <p class="small text-muted mb-3">{{ _step.text }}</p>
+                                                    {% if _step_reason %}
+                                                    <span class="d-block mt-auto" tabindex="0" title="{{ _step_reason }}" data-pcs-tooltip>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary w-100" style="pointer-events: none;" disabled>
+                                                            {{ _step.button }}
+                                                        </button>
+                                                    </span>
+                                                    {% else %}
+                                                    <button type="button" class="btn btn-sm mt-auto btn-outline-primary"
+                                                            data-pcs-wizard-tab="{{ _step.tab }}">
+                                                        {{ _step.button }}
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% if not loop.last %}
+                                            <div class="pcs-wizard-arrow"><i class="fas fa-arrow-right fa-lg" aria-hidden="true"></i></div>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4">
+                                        <h4>{{ _("How to connect to this environment") }}</h4>
+                                        <hr>
+                                        <p class="mb-0">
+                                            {{ _("Instructions to configure a client node, or to register this cluster with the EDH Web Interface, are available on the") }}
+                                            {% if _is_active %}
+                                            <a href="#nav-connect" data-pcs-wizard-tab="nav-connect-tab">{{ _("Connect tab") }}</a>.
+                                            {% else %}
+                                            <span class="text-muted">{{ _("Connect tab") }}</span> {{ _("(available once the cluster is ACTIVE).") }}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Connect -->
+                        <div class="tab-pane fade" id="nav-connect" role="tabpanel" aria-labelledby="nav-connect-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-body">
+                                    <!-- Connection info -->
+                                    {% if client %}
+                                    <div id="connectionInfo">
+                                        {% set _sched = cluster.get('scheduler', {}) %}
+                                        {% set _slurm_ver = _sched.get('version', '') %}
+                                        {% set _sackd_ip = client.get('slurmctld', {}).get('ip', '') %}
+                                        {% set _sackd_port = client.get('slurmctld', {}).get('port', '') %}
+                                        <h3>{{ _("How to connect to this PCS environment") }}</h3>
+                                        <hr>
+
+                                        {# Common prerequisite: needed by BOTH the client-node and EDH-scheduler paths below.
+                                           Placeholders are plain "<...>" strings: autoescape escapes them once when rendered. #}
+                                        {% set _key_dir = slurm_key_export_dir or "/apps/edh/" ~ (edh_cluster_id or "<cluster_id>") ~ "/shared/pcs/" ~ cluster_id %}
+                                        {% set _key_file = slurm_key_export_path or _key_dir ~ "/slurm.key" %}
+                                        {# edhctl schedulers set --slurm-configuration for EDH 26.10 and older, shared by the
+                                           automated and manual Register with EDH steps so they cannot drift. #}
+                                        {% set _edh_slurm_configuration %}{"install_prefix_path": "/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}", "install_sysconfig_path": "/run/slurm-{{ cluster_id }}/conf", "sack_socket_path": "/run/slurm-{{ cluster_id }}/sack.socket", "pcs_cluster_id": "{{ cluster_id }}", "slurm_version": "{{ _slurm_ver }}", "slurmctld_port": "{{ _sackd_port or '<port>' }}"}{% endset %}
+                                        {# The generated scripts are only usable when every value is known: otherwise they
+                                           would carry placeholders, so Download/Copy are disabled. #}
+                                        {% set _script_values_missing = not (_sackd_ip and _sackd_port and edh_cluster_id) %}
+                                        
+
+                                        {# Shared by the Client node and Register with EDH automated scripts: variables, install Slurm,
+                                           key access check, sackd service and start (Manual steps 1 to 3). #}
+                                        {% set _sackd_setup_script %}set -euo pipefail
+
+REGION="{{ aws_region or '<region>' }}"
+SLURM_VERSION="{{ _slurm_ver }}"
+CLUSTER_ID="{{ cluster_id }}"
+CLUSTER_NAME="{{ pcs_cluster_name }}"
+SLURMCTLD_ENDPOINT="{{ _sackd_ip or '<ip-address>' }}:{{ _sackd_port or '<port>' }}"
+KEY_FILE="{{ _key_file }}"
+SACKD_USER="slurm"   # Ensure the user can access $KEY_FILE
+
+SLURM_HOME="/opt/aws/pcs/scheduler/slurm-${SLURM_VERSION}"
+SERVICE="sackd-${CLUSTER_ID}"
+SACKD_RUNTIME="/run/slurm-${CLUSTER_ID}"   # One sackd per PCS cluster: own socket and fetched slurm.conf
+EDH_LAUNCHER="/bin/edh_awspcs-${CLUSTER_NAME}-${CLUSTER_ID}"   # Opens a shell targeting this cluster, like /bin/edh_&lt;scheduler&gt;
+UNIT_FILE="/etc/systemd/system/${SERVICE}.service"
+
+fail() { echo "ERROR: $*" >&2; exit 1; }
+run() { echo "+ $*" >&2; "$@"; }   # Print each command before running it
+
+[[ ${EUID} -eq 0 ]] || fail "Run this script as root: sudo bash $0"
+for _value in "${REGION}" "${SLURM_VERSION}" "${SLURMCTLD_ENDPOINT}" "${KEY_FILE}"; do
+    [[ -n "${_value}" && "${_value}" != *"&lt;"* ]] || fail "A required value is missing (${_value:-empty}). Edit the variables at the top of this script."
+done
+
+echo "==> Step 1 - install the PCS Slurm client ${SLURM_VERSION}"
+# The PCS installer creates slurm with UID/GID 401 (its default) whenever "id -u slurm" is not 401, and
+# fails half-way if a slurm group already exists. Pre-create both as 401:401 so the installer skips that step.
+if [[ "$(id -u slurm 2&gt;/dev/null)" != "401" ]]; then
+    getent group slurm &gt;/dev/null || run groupadd --system --gid 401 slurm
+    id slurm &gt;/dev/null 2&gt;&amp;1 || run useradd --system --uid 401 --gid slurm --no-create-home --shell /sbin/nologin slurm
+    # Alternative: create only the slurm user, without a slurm group (its primary group becomes the
+    # useradd default, e.g. "users"). Only if the key is group-owned by another group (e.g. an AD group):
+    #   useradd --system -N --uid 401 --no-create-home --shell /sbin/nologin slurm
+fi
+[[ "$(id -u slurm 2&gt;/dev/null)" == "401" ]] || fail "user slurm exists with UID $(id -u slurm) but the PCS Slurm installer requires UID 401."
+
+# The version file is written last by the installer: without it a previous install did not finish.
+if [[ -x "${SLURM_HOME}/sbin/sackd" &amp;&amp; -f "${SLURM_HOME}/version" ]]; then
+    echo "Slurm ${SLURM_VERSION} already installed in ${SLURM_HOME}, skipping."
+else
+    _workdir=$(mktemp -d)
+    trap 'rm -rf "${_workdir}"' EXIT
+    run cd "${_workdir}"
+    run curl -fsSL "https://aws-pcs-repo-${REGION}.s3.${REGION}.amazonaws.com/aws-pcs-slurm/aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz" \
+        -o "aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz"
+    run tar -xf "aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz"
+    run cd "aws-pcs-slurm-${SLURM_VERSION}-installer"
+    run ./installer.sh -y
+    run cd /
+fi
+run cat "${SLURM_HOME}/version"
+
+echo "==> Checking that ${SACKD_USER} can read ${KEY_FILE}"
+[[ -f "${KEY_FILE}" ]] || fail "${KEY_FILE} not found. Ask your EDH administrator to export the Slurm key for this cluster."
+run id "${SACKD_USER}" >/dev/null || fail "User ${SACKD_USER} does not exist on this node. Set SACKD_USER to an account allowed to read ${KEY_FILE}."
+run sudo -u "${SACKD_USER}" test -r "${KEY_FILE}" || fail "${SACKD_USER} cannot read ${KEY_FILE}. Ask your EDH administrator to grant access (see the Prerequisite on the PCS Connect tab): every parent directory must be traversable and the key's group must have the same GID on every node."
+
+echo "==> Step 2 - create the ${SERVICE} systemd service"
+# Slurm 25.05 has no --key-file: the key path is passed via SLURM_SACK_JWKS instead
+_key_env=""
+_key_arg="--key-file=${KEY_FILE}"
+if [[ "${SLURM_VERSION}" == 25.05* ]]; then
+    _key_env="Environment=SLURM_SACK_JWKS=${KEY_FILE}"
+    _key_arg=""
+fi
+echo "+ write ${UNIT_FILE}" >&2
+cat > "${UNIT_FILE}" << EOF
+[Unit]
+Description=Slurm auth and cred kiosk daemon (${CLUSTER_NAME})
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+TimeoutStartSec=30
+User=${SACKD_USER}
+Group=$(id -gn "${SACKD_USER}")
+RuntimeDirectory=slurm-${CLUSTER_ID}
+RuntimeDirectoryMode=0755
+${_key_env}
+ExecStart=${SLURM_HOME}/sbin/sackd --systemd --conf-server=${SLURMCTLD_ENDPOINT} ${_key_arg}
+ExecReload=/bin/kill -HUP \$MAINPID
+KillMode=process
+LimitNOFILE=131072
+LimitMEMLOCK=infinity
+LimitSTACK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "==> Step 3 - ownership, enable and start ${SERVICE}"
+run chown root:root "${UNIT_FILE}"
+run chmod 0644 "${UNIT_FILE}"
+run systemctl daemon-reload
+run systemctl enable "${SERVICE}"
+run systemctl restart "${SERVICE}"
+run systemctl is-active --quiet "${SERVICE}" || { run systemctl status "${SERVICE}" --no-pager || true; fail "${SERVICE} failed to start. Check: journalctl -u ${SERVICE}"; }
+
+# /bin/edh_awspcs-&lt;cluster name&gt;-&lt;cluster id&gt; opens a shell whose Slurm commands target this cluster through SLURM_CONF /
+# SLURM_SACK_SOCKET (several PCS clusters can coexist), like /bin/edh_&lt;scheduler&gt; for the other schedulers.
+echo "+ write ${EDH_LAUNCHER}" >&2
+cat > "${EDH_LAUNCHER}" << EOF
+#!/bin/bash
+# Open a shell to run Slurm commands against AWS PCS cluster ${CLUSTER_NAME} (${CLUSTER_ID})
+export PATH="${SLURM_HOME}/bin:\${PATH}"
+export SLURM_CONF="${SACKD_RUNTIME}/conf/slurm.conf"
+export SLURM_SACK_SOCKET="${SACKD_RUNTIME}/sack.socket"
+echo "========= EDH ========= "
+echo ">> AWS PCS cluster ${CLUSTER_NAME} (${CLUSTER_ID}) environment loaded, you can now run commands such as sbatch/squeue/srun etc ..."
+echo ">> Slurm is installed under: ${SLURM_HOME}"
+echo ">> Type exit to close this shell"
+echo "======================== "
+export PS1="(edh_awspcs-${CLUSTER_NAME}-${CLUSTER_ID}) \u@\h:\w\$ "
+exec "\$SHELL" -i
+EOF
+run chmod 0755 "${EDH_LAUNCHER}"
+rm -f "/etc/slurm/activate_${CLUSTER_NAME}_${CLUSTER_ID}"   # replaced by ${EDH_LAUNCHER}
+
+{% endset %}
+
+                                        {# Open on the first step that is not done yet. #}
+                                        {% if not (slurm_key_exported and slurm_key_permissions_ok) %}{% set _connect_step = 'pill-prereq' %}
+                                        {% elif not (pcs_registration and pcs_registration.get('enabled')) %}{% set _connect_step = 'pill-scheduler' %}
+                                        {% else %}{% set _connect_step = 'pill-client' %}{% endif %}
+                                        <style>
+                                            #connectSteps .nav-link { cursor: pointer; text-align: left; margin-bottom: .5rem; border: 1px solid #e3e6f0; }
+                                            #connectSteps .nav-link small { display: block; opacity: .85; }
+                                        </style>
+                                        <div class="row">
+                                            <div class="col-md-3 mb-3">
+                                                <div class="nav flex-column nav-pills" id="connectSteps" role="tablist" aria-orientation="vertical">
+                                                    <a href="#pill-prereq" class="nav-link{{ ' active' if _connect_step == 'pill-prereq' }}" id="pill-prereq-tab" data-bs-toggle="pill" data-bs-target="#pill-prereq" role="tab" aria-controls="pill-prereq" aria-selected="{{ 'true' if _connect_step == 'pill-prereq' else 'false' }}">
+                                                        {% if slurm_key_exported and slurm_key_permissions_ok %}<i class="fas fa-check-circle text-success mr-1" aria-hidden="true"></i>{% elif slurm_key_exported %}<i class="fas fa-exclamation-triangle text-warning mr-1" aria-hidden="true"></i>{% else %}<i class="far fa-circle mr-1" aria-hidden="true"></i>{% endif %}
+                                                        <strong>1. {{ _("Prerequisite") }}</strong>
+                                                        <small>{% if slurm_key_exported and not slurm_key_permissions_ok %}{{ _("Key exported: update its permissions") }}{% else %}{{ _("Export Slurm key (admin only, one time)") }}{% endif %}</small>
+                                                    </a>
+                                                    <a href="#pill-scheduler" class="nav-link{{ ' active' if _connect_step == 'pill-scheduler' }}" id="pill-scheduler-tab" data-bs-toggle="pill" data-bs-target="#pill-scheduler" role="tab" aria-controls="pill-scheduler" aria-selected="{{ 'true' if _connect_step == 'pill-scheduler' else 'false' }}">
+                                                        {% if pcs_registration and pcs_registration.get('enabled') %}<i class="fas fa-check-circle text-success mr-1" aria-hidden="true"></i>
+                                                        {% elif pcs_registration %}<i class="fas fa-exclamation-triangle text-warning mr-1" aria-hidden="true"></i>
+                                                        {% else %}<i class="far fa-circle mr-1" aria-hidden="true"></i>{% endif %}
+                                                        <strong>2. {{ _("Register PCS with EDH") }}</strong>
+                                                        <small>
+                                                            {% if pcs_registration and pcs_registration.get('enabled') %}{{ _("Registered as") }} <code>{{ pcs_registration.get('identifier') }}</code>
+                                                            {% elif pcs_registration %}{{ _("Registered but disabled:") }} <code>{{ pcs_registration.get('identifier') }}</code>
+                                                            {% else %}{{ _("Not registered yet (admin only, one time)") }}{% endif %}
+                                                        </small>
+                                                    </a>
+                                                    <a href="#pill-client" class="nav-link{{ ' active' if _connect_step == 'pill-client' }}" id="pill-client-tab" data-bs-toggle="pill" data-bs-target="#pill-client" role="tab" aria-controls="pill-client" aria-selected="{{ 'true' if _connect_step == 'pill-client' else 'false' }}">
+                                                        <i class="fas fa-users mr-1" aria-hidden="true"></i>
+                                                        <strong>3. {{ _("Client node instructions") }}</strong>
+                                                        <small>{{ _("Automatic onboarding enabled") if auto_onboard_client else _("Share with users") }}</small>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-9">
+                                                <div class="tab-content" id="connectTabContent">
+                                        <!-- Step 1: Prerequisite (export the Slurm key + key permissions) -->
+                                        <div class="tab-pane fade{{ ' show active' if _connect_step == 'pill-prereq' }}" id="pill-prereq" role="tabpanel" aria-labelledby="pill-prereq-tab">
+                                        <div class="alert {{ 'alert-success' if (slurm_key_exported and slurm_key_permissions_ok) else 'alert-warning' }}">
+                                            <h5 class="alert-heading">
+                                                {{ _("Prerequisite - export the shared Slurm key and configure its permissions (admin only, one-time)") }}
+                                            </h5>
+                                            {% if slurm_key_exported %}
+                                            <p class="mb-2">
+                                                <span class="badge bg-success text-white mr-1"><i class="fas fa-check mr-1" aria-hidden="true"></i>{{ _("Done") }}</span>
+                                                {{ _("Slurm key exported to:") }} <code>{{ _key_file }}</code>
+                                            </p>
+                                            <p class="mb-0">{{ _("Then grant read access to the account sackd runs as, with the instructions below.") }}</p>
+                                            {% else %}
+                                            <p class="mb-2">
+                                                {{ _("Export this cluster's Slurm key once to") }} <code>{{ _key_file }}</code>{{ _(", then grant read access to the account sackd runs as, with the instructions below.") }}
+                                            </p>
+                                            <button type="button" class="btn btn-warning btn-sm mb-0" data-bs-toggle="modal" data-bs-target="#exportSecretModal">
+                                                <i class="fas fa-key mr-1" aria-hidden="true"></i>
+                                                {{ _("Export Slurm key to EDH") }}
+                                            </button>
+                                            {% endif %}
+                                            </div>
+
+                                        
+                                        {% if not slurm_key_exported %}
+                                        {% elif slurm_key_permissions_ok %}
+                                        <div class="alert alert-success mb-3"><i class="fas fa-check-circle mr-1" aria-hidden="true"></i>{{ _("The key permissions are configured: slurm can read") }} <code>{{ _key_file }}</code>.</div>
+                                        {% else %}
+                                        <div class="alert alert-warning mb-3">
+                                            <strong>{{ _("The key permissions are not configured yet:") }}</strong>
+                                            <ul class="mb-0">{% for _issue in slurm_key_permissions_issues %}<li><code>{{ _issue }}</code></li>{% endfor %}</ul>
+                                        </div>
+                                        {% endif %}
+                                        <h5>{{ _("Configure the key permissions") }}</h5>
+                                        <div id="pcsKeyPermissions">
+                                                <ul class="mt-3 mb-2">
+                                                    <li>{{ _("Every client node reads the key from this shared location.") }}</li>
+                                                    <li>{{ _("EFS/NFS has no POSIX ACLs: use a group, with the same numeric GID on every node (AD/LDAP group, or a local") }} <code>slurm</code> {{ _("group created with the same GID everywhere).") }}</li>
+                                                    <li>{{ _("The AWS PCS Slurm installer creates the") }} <code>slurm</code> {{ _("user and group with UID/GID") }} <code>401</code>{{ _(": keep 401 on every node. The installer fails if a") }} <code>slurm</code> {{ _("group already exists while the") }} <code>slurm</code> {{ _("user does not have UID 401, so create both as 401:401 before installing.") }}</li>
+                                                    <li>{{ _("The EDH controller creates") }} <code>slurm</code> {{ _("as 401:401 at bootstrap, and client nodes onboarded by EDH create it the same way. The script below sets the key permissions: run it once, on the EDH controller.") }}</li>
+                                                    <li>{{ _("Every parent directory of the key must be traversable (x) by that account.") }}</li>
+                                                    <li><strong>{{ _("Please note this guide assumes sackd runs as the") }} <code>slurm</code> {{ _("user. Adjust as needed if you plan to use a different user.") }}</strong></li>
+                                                </ul>
+                                                {% set _key_values_missing = '<' in _key_dir %}
+                                                <style>#keyPermSetupTab .nav-link { cursor: pointer; }</style>
+                                                <ul class="nav nav-pills mb-3 no-print" id="keyPermSetupTab" role="tablist">
+                                                    <li class="nav-item" role="presentation">
+                                                        <a href="#keyperm-setup-auto" class="nav-link active" id="keyperm-setup-auto-tab" data-bs-toggle="pill" data-bs-target="#keyperm-setup-auto" role="tab" aria-controls="keyperm-setup-auto" aria-selected="true">
+                                                            <i class="fas fa-magic mr-1" aria-hidden="true"></i>{{ _("Automated setup") }}
+                                                        </a>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <a href="#keyperm-setup-manual" class="nav-link" id="keyperm-setup-manual-tab" data-bs-toggle="pill" data-bs-target="#keyperm-setup-manual" role="tab" aria-controls="keyperm-setup-manual" aria-selected="false">
+                                                            <i class="fas fa-list-ol mr-1" aria-hidden="true"></i>{{ _("Manual setup") }}
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                                <div class="tab-content" id="keyPermSetupTabContent">
+                                                <!-- Automated: all-in-one script, same steps as the Manual setup -->
+                                                <div class="tab-pane fade show active" id="keyperm-setup-auto" role="tabpanel" aria-labelledby="keyperm-setup-auto-tab">
+<div class="card mb-3">
+                                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                                        <strong>{{ _("Key permissions - all steps in one script") }}</strong>
+                                                        <div class="no-print d-flex" style="gap: 0.5rem;">
+                                                            <button type="button" class="btn btn-primary btn-sm" {{ 'disabled' if _key_values_missing }} onclick="downloadPcsScript('pcsKeyPermissionsScript', 'pcs-key-permissions-{{ cluster_id }}.sh')">
+                                                        <i class="fas fa-download mr-1" aria-hidden="true"></i>{{ _("Download") }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" {{ 'disabled' if _key_values_missing }} onclick="copyPcsScript(this, 'pcsKeyPermissionsScript')">
+                                                        <i class="fas fa-copy mr-1" aria-hidden="true"></i>{{ _("Copy") }}
+                                                    </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <p class="text-muted mb-2">
+                                                    {{ _("Download it, then run it as root on the EDH controller:") }}
+                                                    <code>sudo bash pcs-key-permissions-{{ cluster_id }}.sh</code>.
+                                                    {{ _("It is safe to re-run. Review the directory listing it prints before relying on it: once others can traverse those directories, any file inside them with loose permissions is reachable by path.") }}
+                                                </p>
+                                                        <pre id="pcsKeyPermissionsScript" {{ 'data-pcs-no-copy' if _key_values_missing }} class="mb-0" style="background:#f8f9fa; padding:12px; border-radius:4px; max-height:400px; overflow:auto;"><code>#!/bin/bash
+# Let sackd read the Slurm key of AWS PCS cluster {{ pcs_cluster_name }} ({{ cluster_id }}).
+# Generated by the EDH Web Interface. Run as root on the EDH controller:
+#   sudo bash pcs-key-permissions-{{ cluster_id }}.sh
+set -euo pipefail
+
+KEY_DIR="{{ _key_dir }}"
+KEY_FILE="{{ _key_file }}"
+
+fail() { echo "ERROR: $*" &gt;&amp;2; exit 1; }
+run() { echo "+ $*" &gt;&amp;2; "$@"; }   # Print each command before running it
+
+[[ ${EUID} -eq 0 ]] || fail "Run this script as root: sudo bash $0"
+
+echo "==> Step 0 - make sure this script runs on the EDH controller"
+_edh_node_type="$(sed -n 's/^EDH_NODE_TYPE=//p' /etc/environment 2&gt;/dev/null | tr -d '"' | tail -n 1)"
+[[ "${_edh_node_type}" == "controller" ]] || fail "this script must run on the EDH controller (EDH_NODE_TYPE in /etc/environment is '${_edh_node_type:-unset}', expected 'controller')."
+[[ -f "${KEY_FILE}" ]] || fail "${KEY_FILE} not found. Export the Slurm key from the PCS Connect tab first."
+
+echo "==> Step 1 - pcs/ must never be group/world-writable"
+run chmod 0755 "$(dirname "${KEY_DIR}")"
+
+echo "==> Step 2 - traverse-only (x, no listing) for others on the parent directories"
+_shared="$(dirname "$(dirname "${KEY_DIR}")")"
+_edh_root="$(dirname "${_shared}")"
+run ls -la "${_edh_root}" "${_shared}"
+run chmod o+x "${_edh_root}" "${_shared}" "$(dirname "${KEY_DIR}")"
+
+echo "==> Step 3 - group-own the key and its directory: key group-readable, directory group-traversable. Slurm uid/gid is 401 - default by PCS"
+run chgrp slurm "${KEY_DIR}" "${KEY_FILE}"
+run chmod 0710 "${KEY_DIR}"
+run chmod 0640 "${KEY_FILE}"
+
+echo "==> Step 4 - verify sackd will be able to read the key"
+if sudo -u slurm test -r "${KEY_FILE}"; then
+    echo "OK: slurm can read ${KEY_FILE}"
+else
+    namei -l "${KEY_FILE}" || true
+    id slurm || true
+    fail "slurm cannot read ${KEY_FILE}: check the directory blocking access above, and that the slurm GID matches on every node."
+fi</code></pre>
+                                                    </div>
+                                                </div>
+                                                </div>
+                                                <!-- Manual: step by step -->
+                                                <div class="tab-pane fade" id="keyperm-setup-manual" role="tabpanel" aria-labelledby="keyperm-setup-manual-tab">
+                                                <h5>{{ _("Step 1 - connect to the EDH controller as root") }}</h5>
+                                                <p class="text-muted mb-1">{{ _("Every command below runs on the EDH controller. Confirm you are on it:") }}</p>
+                                                <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>grep EDH_NODE_TYPE /etc/environment   # must print EDH_NODE_TYPE=controller</code></pre>
+
+                                                <h5 class="mt-4">{{ _("Step 2 - make sure pcs/ is not group/world-writable") }}</h5>
+                                                <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo chmod 0755 {{ _key_dir.rsplit('/', 1)[0] }}</code></pre>
+
+                                                <h5 class="mt-4">{{ _("Step 3 - allow traverse-only (x, no listing) on the parent directories") }}</h5>
+                                                <p class="text-muted mb-1">{{ _("They are root-only by default. Review their content first: once others can traverse them, any file inside them with loose permissions is reachable by path.") }}</p>
+                                                <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo ls -la {{ _key_dir.rsplit('/', 3)[0] }} {{ _key_dir.rsplit('/', 2)[0] }}
+sudo chmod o+x {{ _key_dir.rsplit('/', 3)[0] }} {{ _key_dir.rsplit('/', 2)[0] }} {{ _key_dir.rsplit('/', 1)[0] }}</code></pre>
+
+                                                <h5 class="mt-4">{{ _("Step 4 - group-own the key and its directory") }}</h5>
+                                                <p class="text-muted mb-1">{{ _("Key group-readable, directory group-traversable, for the slurm group (GID 401) created by the EDH controller:") }}</p>
+                                                <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo chgrp slurm {{ _key_dir }} {{ _key_file }}
+sudo chmod 0710 {{ _key_dir }}
+sudo chmod 0640 {{ _key_file }}</code></pre>
+
+                                                <h5 class="mt-4">{{ _("Step 5 - verify sackd can read the key") }}</h5>
+                                                <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo -u slurm test -r {{ _key_file }} &amp;&amp; echo OK
+
+# Not OK? Show which directory blocks access, and the slurm IDs on this node
+namei -l {{ _key_file }}
+id slurm</code></pre>
+                                                </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Step 2: Register with EDH -->
+                                        <div class="tab-pane fade{{ ' show active' if _connect_step == 'pill-scheduler' }}" id="pill-scheduler" role="tabpanel" aria-labelledby="pill-scheduler-tab">
+                                        {% if not (slurm_key_exported and slurm_key_permissions_ok) %}
+                                        <div class="alert alert-warning">
+                                            {{ _("Complete step 1 (Prerequisite) first: the Slurm key must be exported and readable by slurm.") }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="alert alert-primary">
+                                            <strong>{{ _("Optional.") }}</strong>
+                                            {{ _("You only need this if you want PCS jobs to show up on the EDH Web UI, to submit PCS jobs through EDH Web Workflows, or to onboard new EDH nodes automatically as clients of this cluster (automatic onboarding requires this registration, otherwise each client node must be onboarded manually). If you just want users to submit jobs from a client node with the standard Slurm commands, use the \"Client node\" tab instead.") }}
+                                        </div>
+                                        <p class="text-muted">
+                                            {{ _("Registering this PCS cluster as an EDH scheduler makes EDH aware of the PCS-managed Slurm controller. It involves installing the PCS-matching Slurm at its default PCS location on the EDH controller and then registering it with the") }} <code>edhctl</code> {{ _("utility. Run every step below on the EDH controller as root. Full walkthrough:") }}
+                                            <a href="https://awslabs.github.io/engineering-development-hub-documentation/documentation/High-Performance-Computing/aws_pcs/?h=pcs#connect-edh-with-aws-pcs"
+                                               target="_blank" rel="noopener noreferrer">{{ _("Connect EDH with AWS PCS") }}</a>.
+                                        </p>
+
+                                        <style>#registerSetupTab .nav-link { cursor: pointer; }</style>
+                                        <ul class="nav nav-pills mb-3 no-print" id="registerSetupTab" role="tablist">
+                                            <li class="nav-item" role="presentation">
+                                                <a href="#register-setup-auto" class="nav-link active" id="register-setup-auto-tab" data-bs-toggle="pill" data-bs-target="#register-setup-auto" role="tab" aria-controls="register-setup-auto" aria-selected="true">
+                                                    <i class="fas fa-magic mr-1" aria-hidden="true"></i>{{ _("Automated setup") }}
+                                                </a>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <a href="#register-setup-manual" class="nav-link" id="register-setup-manual-tab" data-bs-toggle="pill" data-bs-target="#register-setup-manual" role="tab" aria-controls="register-setup-manual" aria-selected="false">
+                                                    <i class="fas fa-list-ol mr-1" aria-hidden="true"></i>{{ _("Manual setup") }}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content" id="registerSetupTabContent">
+
+                                        <!-- Automated: all-in-one script, same values as the Manual steps -->
+                                        <div class="tab-pane fade show active" id="register-setup-auto" role="tabpanel" aria-labelledby="register-setup-auto-tab">
+                                        {% if _script_values_missing %}
+                                        <div class="alert alert-warning">
+                                            {{ _("The SLURMCTLD endpoint or the EDH cluster ID could not be resolved, so the generated script contains placeholders. Download and Copy are disabled: follow the Manual setup steps and replace the placeholders.") }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="card mb-3">
+                                            <div class="card-header d-flex justify-content-between align-items-center">
+                                                <strong>{{ _("Quick setup - all steps in one script") }}</strong>
+                                                <div class="no-print d-flex" style="gap: 0.5rem;">
+                                                    <button type="button" class="btn btn-primary btn-sm" {{ 'disabled' if _script_values_missing }} onclick="downloadPcsScript('pcsRegisterScript', 'pcs-register-edh-{{ cluster_id }}.sh')">
+                                                        <i class="fas fa-download mr-1" aria-hidden="true"></i>{{ _("Download") }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" {{ 'disabled' if _script_values_missing }} onclick="copyPcsScript(this, 'pcsRegisterScript')">
+                                                        <i class="fas fa-copy mr-1" aria-hidden="true"></i>{{ _("Copy") }}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="text-muted mb-2">
+                                                    {{ _("Runs all the Manual setup steps on the EDH controller. Download it, then run it as root:") }}
+                                                    <code>sudo bash pcs-register-edh-{{ cluster_id }}.sh</code>.
+                                                    {{ _("It picks the edhctl register command matching your EDH version and restarts the EDH web UI at the end.") }}
+                                                </p>
+                                                <pre id="pcsRegisterScript" {{ 'data-pcs-no-copy' if _script_values_missing }} style="background:#f8f9fa; padding:12px; border-radius:4px; max-height:400px; overflow:auto;"><code>#!/bin/bash
+# Register AWS PCS cluster {{ pcs_cluster_name }} ({{ cluster_id }}) as an EDH scheduler.
+# Generated by the EDH Web Interface. Run on the EDH controller as root: sudo bash pcs-register-edh-{{ cluster_id }}.sh
+
+echo "==> Step 0 - make sure this script runs on the EDH controller"
+_edh_node_type="$(sed -n 's/^EDH_NODE_TYPE=//p' /etc/environment 2&gt;/dev/null | tr -d '"' | tail -n 1)"
+if [[ "${_edh_node_type}" != "controller" ]]; then
+    echo "ERROR: this script must run on the EDH controller (EDH_NODE_TYPE in /etc/environment is '${_edh_node_type:-unset}', expected 'controller')." &gt;&amp;2
+    exit 1
+fi
+
+{{ _sackd_setup_script }}echo "==> Step 4 - confirm connectivity to the SLURMCTLD"
+_slurmctld_ip="${SLURMCTLD_ENDPOINT%:*}"
+_slurmctld_port="${SLURMCTLD_ENDPOINT##*:}"
+run timeout 5 bash -c "&lt;/dev/tcp/${_slurmctld_ip}/${_slurmctld_port}" \
+    || fail "Cannot reach ${SLURMCTLD_ENDPOINT} from this host. Allow TCP ${_slurmctld_port} from the EDH controller to the PCS cluster."
+echo "${SLURMCTLD_ENDPOINT} is reachable."
+
+echo "==> Step 5 - register ${CLUSTER_NAME} on EDH with edhctl"
+EDHCTL="/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/edhctl"
+[[ -x "${EDHCTL}" && "${EDHCTL}" != *"<"* ]] || fail "edhctl not found at ${EDHCTL}. Run this script on the EDH controller."
+echo "+ ${EDHCTL} pcs --help (detect the EDH version)" >&2
+if "${EDHCTL}" pcs --help &>/dev/null; then
+    # EDH 26.11 and newer: PCS helper resolves the endpoint and Slurm version from the PCS API
+    run "${EDHCTL}" pcs register --cluster-identifier "${CLUSTER_NAME}" --force
+else
+    # EDH 26.10 and older: generic scheduler command
+    SLURM_CONFIGURATION='{{ _edh_slurm_configuration }}'
+    run "${EDHCTL}" schedulers set \
+        --scheduler-identifier "${CLUSTER_NAME}" \
+        --provider "aws_pcs" \
+        --endpoint "${_slurmctld_ip}" \
+        --manage-host-provisioning "false" \
+        --binary-folder-paths "${SLURM_HOME}/bin:${SLURM_HOME}/sbin" \
+        --slurm-configuration "${SLURM_CONFIGURATION}" \
+        --enabled "true" \
+        --force
+fi
+
+echo "==> Step 6 - restart the EDH web UI"
+run "/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/web_interface/edhwebui.sh" restart
+
+echo "Done. ${CLUSTER_NAME} is registered on EDH."</code></pre>
+                                            </div>
+                                        </div>
+                                        </div>
+
+                                        <!-- Manual: step by step -->
+                                        <div class="tab-pane fade" id="register-setup-manual" role="tabpanel" aria-labelledby="register-setup-manual-tab">
+                                        <h5>{{ _("Step 1 - install a PCS-matching Slurm on the EDH controller") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Install Slurm (version") }} <code>{{ _slurm_ver }}</code>{{ _(", matching this cluster) into the default PCS location") }} <code>/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}</code> {{ _("using the AWS PCS installer (same as the Client node tab). The region below is taken from this EDH environment (") }}<code>{{ aws_region or '<region>' }}</code>{{ _(") -- double-check both and adjust as needed:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code># The PCS installer creates the slurm user and group with UID/GID 401 and fails if a slurm group
+# already exists without a slurm user of UID 401: create both as 401:401 first (no-op if already there).
+getent group slurm &gt;/dev/null || sudo groupadd --system --gid 401 slurm
+id slurm &gt;/dev/null 2&gt;&amp;1 || sudo useradd --system --uid 401 --gid slurm --no-create-home --shell /sbin/nologin slurm
+id slurm   # must show uid=401(slurm) gid=401(slurm)
+
+# Download the latest stable Slurm installer for this cluster's major series.
+curl https://aws-pcs-repo-{{ aws_region or '<region>' }}.s3.{{ aws_region or '<region>' }}.amazonaws.com/aws-pcs-slurm/aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz -o aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz
+tar -xf aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz && cd aws-pcs-slurm-{{ _slurm_ver }}-installer
+sudo ./installer.sh -y
+cd ..
+
+# Verify the install (binaries land under the default PCS prefix used below).
+cat /opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/version</code></pre>
+                                        <h5>{{ _("Step 2 - systemd service") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Same as the Client node tab: point sackd at this cluster's SLURMCTLD endpoint and at the exported Slurm key on the shared filesystem (") }}<code>--key-file</code>{{ _(", Slurm 25.11+) directly on the") }} <code>ExecStart</code> {{ _("line. sackd fetches the Slurm config from the controller, so no local slurm.conf is needed:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo tee /etc/systemd/system/sackd-{{ cluster_id }}.service > /dev/null << 'EOF'
+[Unit]
+Description=Slurm auth and cred kiosk daemon ({{ pcs_cluster_name }})
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+TimeoutStartSec=30
+User=slurm
+Group=slurm
+RuntimeDirectory=slurm-{{ cluster_id }}
+RuntimeDirectoryMode=0755
+ExecStart=/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/sbin/sackd --systemd --conf-server={{ _sackd_ip or '<ip-address>' }}:{{ _sackd_port or '<port>' }} --key-file={{ _key_file }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+LimitNOFILE=131072
+LimitMEMLOCK=infinity
+LimitSTACK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF</code></pre>
+                                        <div class="alert alert-warning mb-1">
+                                            <strong>{{ _("Important:") }}</strong>
+                                            {{ _("The") }} <code>User</code>/<code>Group</code> {{ _("that sackd runs as (") }}<code>slurm</code> {{ _("above) MUST be able to read the exported Slurm key. Your EDH administrator grants this access (see the Prerequisite above). Check it with:") }}
+                                            <pre class="mb-0 mt-2" style="background:#fff; padding:8px; border-radius:4px;"><code>sudo -u slurm test -r {{ _key_file }} && echo OK</code></pre>
+                                        </div>
+                                        <p class="text-muted mb-1">{{ _("On Slurm 25.05, drop --key-file and instead export the key path via the SLURM_SACK_JWKS environment variable.") }}</p>
+
+                                        <h5>{{ _("Step 3 - ownership, enable and start") }}</h5>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo chown root:root /etc/systemd/system/sackd-{{ cluster_id }}.service && sudo chmod 0644 /etc/systemd/system/sackd-{{ cluster_id }}.service
+sudo systemctl daemon-reload && sudo systemctl enable sackd-{{ cluster_id }}
+sudo systemctl start sackd-{{ cluster_id }}
+
+# Verify sackd is active (running)
+systemctl status sackd-{{ cluster_id }}</code></pre>
+
+                                        <h5>{{ _("Step 4 - confirm connectivity to the SLURMCTLD") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Confirm TCP") }} <code>{{ _sackd_port or '6817' }}</code> {{ _("is open from the EDH controller to") }} <code>{{ _sackd_ip or '<slurmctld-ip>' }}</code> {{ _("(e.g.") }} <code>telnet {{ _sackd_ip or '<slurmctld-ip>' }} {{ _sackd_port or '6817' }}</code>{{ _(") before registering.") }}
+                                        </p>
+
+                                        <h5>{{ _("Step 5 - register PCS on EDH with edhctl") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Register this PCS cluster as a scheduler.") }}
+                                            <code>--manage-host-provisioning</code> {{ _("is") }} <code>false</code> {{ _("because AWS PCS -- not EDH -- provisions and manages the compute capacity:") }}
+                                        </p>
+                                        <p class="text-muted mb-1">
+                                            <strong>{{ _("EDH 26.11 and newer:") }}</strong>
+                                            {{ _("use the PCS helper. It resolves the SLURMCTLD endpoint and Slurm version from the PCS API and fills in the PCS-specific defaults, so you only pass the cluster identifier:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/edhctl pcs register \
+  --cluster-identifier "{{ pcs_cluster_name or cluster_id }}"</code></pre>
+                                        <p class="text-muted mb-1">
+                                            <strong>{{ _("EDH 26.10 and older:") }}</strong>
+                                            {{ _("use the generic scheduler command:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/edhctl schedulers set \
+  --scheduler-identifier "{{ pcs_cluster_name or cluster_id }}" \
+  --provider "aws_pcs" \
+  --endpoint "{{ _sackd_ip or '<slurmctld-ip>' }}" \
+  --manage-host-provisioning "false" \
+  --binary-folder-paths "/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/bin:/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/sbin" \
+  --slurm-configuration '{{ _edh_slurm_configuration }}' \
+  --enabled "true"</code></pre>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Confirm with") }} <code>yes</code> {{ _("(or pass") }} <code>--force</code>{{ _(").") }}
+                                        </p>
+
+                                        <h5>{{ _("Step 6 - restart the EDH web UI") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Restart the EDH web UI so the new scheduler appears:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/web_interface/edhwebui.sh restart</code></pre>
+
+                                        <div class="alert alert-primary mb-0">
+                                            <strong>{{ _("Several PCS clusters on the same EDH controller:") }}</strong>
+                                            {{ _("each PCS cluster has its own sackd and runtime directory") }} (<code>/run/slurm-{{ cluster_id }}</code>),
+                                            {{ _("and") }} <code>edhctl pcs register</code> {{ _("points EDH at this cluster's Slurm configuration and socket, so you can register several PCS clusters: repeat these steps once per cluster.") }}
+                                            <hr>
+                                            {{ _("Registered before per-cluster runtime directories (sackd using") }} <code>/run/slurm</code>{{ _(")? Re-run Steps 2 and 3 (or the Automated setup), then register again with") }} <code>--force</code>
+                                            {{ _("so EDH uses") }} <code>/run/slurm-{{ cluster_id }}/conf</code> {{ _("and") }} <code>/run/slurm-{{ cluster_id }}/sack.socket</code>.
+                                        </div>
+                                        </div>
+                                        </div>
+                                        </div>
+                                        <!-- Step 3: Client node -->
+                                        <div class="tab-pane fade{{ ' show active' if _connect_step == 'pill-client' }}" id="pill-client" role="tabpanel" aria-labelledby="pill-client-tab">
+                                        {% if not (slurm_key_exported and slurm_key_permissions_ok) %}
+                                        <div class="alert alert-warning">
+                                            {{ _("Complete step 1 (Prerequisite) first: the Slurm key must be exported and readable by slurm.") }}
+                                        </div>
+                                        {% endif %}
+                                        {% set _registered = pcs_registration and pcs_registration.get('enabled') %}
+                                        {% set _edhctl = "/opt/edh/" ~ (edh_cluster_id or "<cluster_id>") ~ "/cluster_manager/edhctl" %}
+                                        <div class="alert {{ 'alert-success' if (auto_onboard_client and _registered) else 'alert-warning' }}">
+                                            {% if auto_onboard_client %}
+                                            <strong>{{ _("Automatic onboarding is enabled.") }}</strong><br>
+                                            {% if _registered %}
+                                            {{ _("Every new Linux virtual desktop and login node is onboarded automatically at bootstrap as a client of this cluster (registered with EDH as") }} <code>{{ pcs_registration.get('identifier') }}</code>).<br>
+                                            {% else %}
+                                            {{ _("New Linux virtual desktop and login nodes") }} <strong>{{ _("will be onboarded automatically at bootstrap as clients of this cluster once it is registered with EDH (step 2).") }}</strong> {{ _("It is not registered yet, so nodes launched before then are not onboarded.") }}<br>
+                                            {% endif %}
+                                            {{ _("Nodes already running are not changed: use the steps below on them.") }}<br><br>
+                                            {{ _("To disable auto onboard, run on the EDH controller as root (takes effect on the next node launch):") }}
+                                            <pre class="mb-0 mt-2" style="background:#fff; padding:8px; border-radius:4px;"><code>{{ _edhctl }} config set \
+  --key /configuration/services/aws_pcs/auto_onboard_client \
+  --value false</code></pre>
+                                            {% else %}
+                                            <strong>{{ _("Automatic onboarding is disabled.") }}</strong><br>
+                                            {{ _("New Linux virtual desktop and login nodes will NOT be onboarded automatically as PCS clients: run the steps below on each node.") }}<br>
+                                            {% if _registered %}
+                                            {{ _("This cluster is registered with EDH: once enabled, every new node is onboarded automatically as a client of this cluster.") }}<br><br>
+                                            {% else %}
+                                            {{ _("Once enabled, every new node is onboarded automatically as a client of this cluster, as soon as it is registered with EDH (step 2).") }}<br><br>
+                                            {% endif %}
+                                            {{ _("To enable it, run on the EDH controller as root (takes effect on the next node launch):") }}
+                                            <pre class="mb-0 mt-2" style="background:#fff; padding:8px; border-radius:4px;"><code>{{ _edhctl }} config set \
+  --key /configuration/services/aws_pcs/auto_onboard_client \
+  --value true</code></pre>
+                                            {% endif %}
+                                        </div>
+                                        <div class="alert alert-primary">
+                                            <i class="fas fa-lightbulb mr-1" aria-hidden="true"></i>
+                                            {{ _("The steps below configure a client node for this cluster. Share them with your users. They must be run as root, after the key has been exported (see the Prerequisite above).") }}
+                                            <a href="https://docs.aws.amazon.com/pcs/latest/userguide/working-with_login-nodes_standalone.html"
+                                               target="_blank" rel="noopener noreferrer">{{ _("Refer to the official AWS PCS documentation for more details.") }}</a>
+                                        </div>
+
+                                        <style>#clientSetupTab .nav-link { cursor: pointer; }</style>
+                                        <ul class="nav nav-pills mb-3 no-print w-100" id="clientSetupTab" role="tablist" style="display:flex;">
+                                            <li class="nav-item" role="presentation">
+                                                <a href="#client-setup-auto" class="nav-link active" id="client-setup-auto-tab" data-bs-toggle="pill" data-bs-target="#client-setup-auto" role="tab" aria-controls="client-setup-auto" aria-selected="true">
+                                                    <i class="fas fa-magic mr-1" aria-hidden="true"></i>{{ _("Automated setup") }}
+                                                </a>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <a href="#client-setup-manual" class="nav-link" id="client-setup-manual-tab" data-bs-toggle="pill" data-bs-target="#client-setup-manual" role="tab" aria-controls="client-setup-manual" aria-selected="false">
+                                                    <i class="fas fa-list-ol mr-1" aria-hidden="true"></i>{{ _("Manual setup") }}
+                                                </a>
+                                            </li>
+                                            <li class="nav-item d-flex align-items-center" style="margin-left:auto;">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportClientTabPdf()">
+                                                    <i class="fas fa-file-pdf mr-1" aria-hidden="true"></i>{{ _("Export instructions as PDF") }}
+                                                </button>
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content" id="clientSetupTabContent">
+
+                                        <!-- Automated: all-in-one script, same values as the Manual steps -->
+                                        <div class="tab-pane fade show active" id="client-setup-auto" role="tabpanel" aria-labelledby="client-setup-auto-tab">
+                                        {% if _script_values_missing %}
+                                        <div class="alert alert-warning">
+                                            {{ _("The SLURMCTLD endpoint or the EDH cluster ID could not be resolved, so the generated script contains placeholders. Download and Copy are disabled: follow the Manual setup steps and replace the placeholders.") }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="card mb-3">
+                                            <div class="card-header d-flex justify-content-between align-items-center">
+                                                <strong>{{ _("Quick setup - all steps in one script") }}</strong>
+                                                <div class="no-print d-flex" style="gap: 0.5rem;">
+                                                    <button type="button" class="btn btn-primary btn-sm" {{ 'disabled' if _script_values_missing }} onclick="downloadPcsScript('pcsClientScript', 'pcs-client-{{ cluster_id }}.sh')">
+                                                        <i class="fas fa-download mr-1" aria-hidden="true"></i>{{ _("Download") }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" {{ 'disabled' if _script_values_missing }} onclick="copyPcsScript(this, 'pcsClientScript')">
+                                                        <i class="fas fa-copy mr-1" aria-hidden="true"></i>{{ _("Copy") }}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="text-muted mb-2">
+                                                    {{ _("Download or copy the script below, then run it as root on the client node.") }}
+                                                    {{ _("It is safe to re-run: Slurm is only installed if missing, and the sackd service is rewritten and restarted.") }}
+                                                    {{ _("You can have multiple PCS clusters on the same client node: each cluster gets its own sackd service, and you pick the cluster with") }} <code>edh_awspcs-{{ pcs_cluster_name }}-{{ cluster_id }}</code>.
+                                                </p>
+                                                <pre id="pcsClientScript" {{ 'data-pcs-no-copy' if _script_values_missing }} style="background:#f8f9fa; padding:12px; border-radius:4px; max-height:400px; overflow:auto;"><code>#!/bin/bash
+# Configure this node as an AWS PCS client for cluster {{ pcs_cluster_name }} ({{ cluster_id }}).
+# Generated by the EDH Web Interface. Run as root: sudo bash pcs-client-{{ cluster_id }}.sh
+{{ _sackd_setup_script }}echo "==> Step 4 - verify the connection"
+export PATH="${SLURM_HOME}/bin:${PATH}" SLURM_CONF="${SACKD_RUNTIME}/conf/slurm.conf" SLURM_SACK_SOCKET="${SACKD_RUNTIME}/sack.socket"
+run lsid
+run sinfo || true
+
+echo ""
+echo "=============================================================================="
+echo " Done. ${CLUSTER_NAME} is reachable from this node."
+echo ""
+echo " To run Slurm commands against this cluster, open its environment with:"
+echo ""
+echo "     ${EDH_LAUNCHER}"
+echo ""
+echo "=============================================================================="</code></pre>
+                                            </div>
+                                        </div>
+                                        </div>
+
+                                        <!-- Manual: step by step -->
+                                        <div class="tab-pane fade" id="client-setup-manual" role="tabpanel" aria-labelledby="client-setup-manual-tab">
+                                        <h5>{{ _("Step 1 - download and install the PCS Slurm client") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("On the client node, install Slurm following") }}
+                                            <a href="https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom_install-slurm.html"
+                                               target="_blank" rel="noopener noreferrer">{{ _("Install the Slurm scheduler") }}</a>.
+                                            {{ _("The quick install below (run as root) uses this environment's region (") }}<code>{{ aws_region or '<region>' }}</code>{{ _(") and this cluster's Slurm version (") }}<code>{{ _slurm_ver }}</code>{{ _(") -- double-check both and adjust as needed. It provides the sackd binary at") }} <code>/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/sbin/sackd</code> {{ _("used below.") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code># The PCS installer creates the slurm user and group with UID/GID 401 and fails if a slurm group
+# already exists without a slurm user of UID 401: create both as 401:401 first (no-op if already there).
+getent group slurm &gt;/dev/null || sudo groupadd --system --gid 401 slurm
+id slurm &gt;/dev/null 2&gt;&amp;1 || sudo useradd --system --uid 401 --gid slurm --no-create-home --shell /sbin/nologin slurm
+id slurm   # must show uid=401(slurm) gid=401(slurm)
+
+# Download the latest stable Slurm installer for this cluster's major series.
+curl https://aws-pcs-repo-{{ aws_region or '<region>' }}.s3.{{ aws_region or '<region>' }}.amazonaws.com/aws-pcs-slurm/aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz -o aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz
+tar -xf aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz && cd aws-pcs-slurm-{{ _slurm_ver }}-installer
+sudo ./installer.sh -y
+cd ..
+
+# Verify the Slurm client installation (provides the sackd binary used below).
+cat /opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/version</code></pre>
+
+                                        <h5>{{ _("Step 2 - systemd service") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Point sackd at this cluster's SLURMCTLD endpoint and at the exported Slurm key on the shared filesystem (") }}<code>--key-file</code>{{ _(", Slurm 25.11+) directly on the") }} <code>ExecStart</code> {{ _("line:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo tee /etc/systemd/system/sackd-{{ cluster_id }}.service > /dev/null << 'EOF'
+[Unit]
+Description=Slurm auth and cred kiosk daemon ({{ pcs_cluster_name }})
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+TimeoutStartSec=30
+User=slurm
+Group=slurm
+RuntimeDirectory=slurm-{{ cluster_id }}
+RuntimeDirectoryMode=0755
+ExecStart=/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/sbin/sackd --systemd --conf-server={{ _sackd_ip or '<ip-address>' }}:{{ _sackd_port or '<port>' }} --key-file={{ _key_file }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+LimitNOFILE=131072
+LimitMEMLOCK=infinity
+LimitSTACK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF</code></pre>
+                                        <div class="alert alert-warning mb-1">
+                                            <strong>{{ _("Important:") }}</strong>
+                                            {{ _("The") }} <code>User</code>/<code>Group</code> {{ _("that sackd runs as (") }}<code>slurm</code> {{ _("above) MUST be able to read the exported Slurm key. Your EDH administrator grants this access (see the Prerequisite above). Check it with:") }}
+                                            <pre class="mb-0 mt-2" style="background:#fff; padding:8px; border-radius:4px;"><code>sudo -u slurm test -r {{ _key_file }} && echo OK</code></pre>
+                                        </div>
+                                        <p class="text-muted mb-1">{{ _("On Slurm 25.05, drop --key-file and instead export the key path via the SLURM_SACK_JWKS environment variable.") }}</p>
+
+                                        <h5>{{ _("Step 3 - ownership, enable and start") }}</h5>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>sudo chown root:root /etc/systemd/system/sackd-{{ cluster_id }}.service && sudo chmod 0644 /etc/systemd/system/sackd-{{ cluster_id }}.service
+sudo systemctl daemon-reload && sudo systemctl enable sackd-{{ cluster_id }}
+sudo systemctl start sackd-{{ cluster_id }}
+
+# Verify sackd is active (running)
+systemctl status sackd-{{ cluster_id }}</code></pre>
+
+                                        <h5>{{ _("Step 4 - verify the connection") }}</h5>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Each PCS cluster has its own sackd, so point the Slurm commands at this cluster first (add these lines to a file you source, or to your shell profile), then check that the client sees it:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>export PATH=/opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/bin:$PATH
+export SLURM_CONF=/run/slurm-{{ cluster_id }}/conf/slurm.conf
+export SLURM_SACK_SOCKET=/run/slurm-{{ cluster_id }}/sack.socket
+
+lsid</code></pre>
+                                        <p class="text-muted mb-1">
+                                            {{ _("The output should report this cluster. For example (") }}<code>{{ pcs_cluster_name }}</code>{{ _("is your cluster name, shown here only as a sample):") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>Slurm {{ _slurm_ver }}, ...
+Copyright SchedMD LLC, 2010-2017.
+
+My cluster name is {{ pcs_cluster_name }}
+My master name is slurmctld-primary</code></pre>
+                                        <p class="text-muted mb-1">
+                                            {{ _("Then query the cluster from the client node with the standard Slurm client commands:") }}
+                                        </p>
+                                        <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>systemctl status sackd-{{ cluster_id }}
+
+# List partitions and node states
+sinfo
+
+# List jobs in the queue
+squeue
+
+# Submit a quick test job
+srun -N1 hostname</code></pre>
+
+                                        <div class="alert alert-primary mb-0">
+                                            <strong>{{ _("Several PCS clusters on the same node:") }}</strong>
+                                            {{ _("each PCS cluster has its own sackd and runtime directory") }} (<code>/run/slurm-{{ cluster_id }}</code>),
+                                            {{ _("so repeat this setup once per cluster, then point your shell at the cluster you want with its export lines (Step 4) or, with the Automated setup,") }}
+                                            <code>edh_awspcs-{{ pcs_cluster_name }}-{{ cluster_id }}</code>.
+                                            <hr>
+                                            {{ _("Node set up before per-cluster runtime directories (sackd using") }} <code>/run/slurm</code>{{ _(")? Re-run the setup to move it to") }} <code>/run/slurm-{{ cluster_id }}</code>.
+                                        </div>
+                                        </div>
+                                        </div>
+                                        </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning mb-0" role="alert">
+                                        {% if _is_active %}
+                                        {{ _("Connection info could not be retrieved for this cluster.") }} {{ _("Refresh the page to try again.") }}
+                                        {% else %}
+                                        {{ _("Connection info is available once the cluster is ACTIVE.") }}
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Running instances -->
+                        <div class="tab-pane fade" id="nav-instances" role="tabpanel" aria-labelledby="nav-instances-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-header">
+                                    <h3 class="m-0">{{ _("Running instances") }} ({{ instances|length }})</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-primary" role="alert">
+                                        {{ _("EC2 instances AWS PCS has provisioned for this cluster (tagged <kbd>aws:pcs:cluster-id</kbd>). Terminated instances are not shown.") }}
+                                    </div>
+                                    {% if instances %}
+                                    <table id="pcsInstancesTable" class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Instance ID") }}</th>
+                                                <th>{{ _("State") }}</th>
+                                                <th>{{ _("Type") }}</th>
+                                                <th>{{ _("Compute node group") }}</th>
+                                                <th>{{ _("AZ") }}</th>
+                                                <th>{{ _("Private IP") }}</th>
+                                                <th>{{ _("Launched") }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for i in instances %}
+                                            <tr>
+                                                <td>{{ i.get('id', '-') }}</td>
+                                                <td>{{ status_badge(i.get('state')|upper if i.get('state') else '-') }}</td>
+                                                <td>{{ i.get('instance_type', '-') }}</td>
+                                                <td>{{ i.get('compute_node_group_id', '-') }}</td>
+                                                <td>{{ i.get('availability_zone', '-') }}</td>
+                                                <td>{{ i.get('private_ip', '-') }}</td>
+                                                <td title="{{ i.get('launch_time', '') }}">{{ i.get('launch_time')|pcs_datetime }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div class="alert alert-warning mb-0" role="alert">
+                                        {{ _("No EC2 instances are currently provisioned for this cluster.") }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Queues -->
+                        <div class="tab-pane fade" id="nav-queues" role="tabpanel" aria-labelledby="nav-queues-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h3 class="m-0">{{ _("Queues") }} ({{ queues|length }})</h3>
+                                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#createQueueModal">
+                                        {{ _("Create queue") }}
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    {% if queues %}
+                                    <table id="pcsQueuesTable" class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Name") }}</th>
+                                                <th>{{ _("Queue ID") }}</th>
+                                                <th>{{ _("Status") }}</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for q in queues %}
+                                            <tr>
+                                                <td>{{ q.get('name', '-') }}</td>
+                                                <td>{{ q.get('id', '-') }}</td>
+                                                <td>{{ status_badge(q.get('status')) }}</td>
+                                                <td class="text-end">
+                                                    <a href="/admin/pcs/queue/{{ cluster_id }}/{{ q.get('id') }}" class="btn btn-sm btn-primary">
+                                                        {{ _("Manage") }}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div class="alert alert-warning mb-0" role="alert">{{ _("No queues.") }} {{ _("Create a compute node group first, then a queue.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compute node groups -->
+                        <div class="tab-pane fade" id="nav-groups" role="tabpanel" aria-labelledby="nav-groups-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h3 class="m-0">{{ _("Compute node groups") }} ({{ compute_node_groups|length }})</h3>
+                                    <div>
+                                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#createNodeGroupModal">
+                                            {{ _("Create compute node group") }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    {% if compute_node_groups %}
+                                    <table id="pcsNodeGroupsTable" class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Name") }}</th>
+                                                <th>{{ _("Group ID") }}</th>
+                                                <th>{{ _("Status") }}</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for g in compute_node_groups %}
+                                            <tr>
+                                                <td>{{ g.get('name', '-') }}</td>
+                                                <td>{{ g.get('id', '-') }}</td>
+                                                <td>{{ status_badge(g.get('status')) }}</td>
+                                                <td class="text-end">
+                                                    <a href="/admin/pcs/compute_node_group/{{ cluster_id }}/{{ g.get('id') }}" class="btn btn-sm btn-primary">
+                                                        {{ _("Manage") }}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div class="alert alert-warning mb-0" role="alert">{{ _("No compute node groups.") }} {{ _("Create a launch template first, then a compute node group.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Launch templates -->
+                        <div class="tab-pane fade" id="nav-launch-templates" role="tabpanel" aria-labelledby="nav-launch-templates-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h3 class="m-0">{{ _("Launch templates") }} ({{ launch_templates|length }})</h3>
+                                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#createLaunchTemplateModal">
+                                        {{ _("Create launch template") }}
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-primary" role="alert">
+                                        {{ _("Only launch templates created by this EDH environment or tagged with <kbd>edh:visibility:%(edh_cluster_id)s=true</kbd> are listed here.", edh_cluster_id=edh_cluster_id or "<cluster_id>") }}
+                                    </div>
+                                    {% if launch_templates %}
+                                    <table id="pcsLaunchTemplatesTable" class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _("Name") }}</th>
+                                                <th>{{ _("Template ID") }}</th>
+                                                <th>{{ _("Default version") }}</th>
+                                                <th>{{ _("Latest version") }}</th>
+                                                <th>{{ _("Created") }}</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for lt in launch_templates %}
+                                            <tr>
+                                                <td>{{ lt.get('name', '-') }}</td>
+                                                <td>{{ lt.get('id', '-') }}</td>
+                                                <td>{{ lt.get('default_version', '-') }}</td>
+                                                <td>{{ lt.get('latest_version', '-') }}</td>
+                                                <td title="{{ lt.get('created_at', '') }}">{{ lt.get('created_at')|pcs_datetime }}</td>
+                                                <td class="text-end">
+                                                    <a href="/admin/pcs/launch_template/{{ cluster_id }}/{{ lt.get('id') }}" class="btn btn-sm btn-primary">
+                                                        {{ _("Manage") }}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div class="alert alert-warning mb-0" role="alert">{{ _("No launch templates created by this EDH environment yet.") }} {{ _("Create one with the Create launch template button.") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Build PCS AMI -->
+                        <div class="tab-pane fade" id="nav-build-ami" role="tabpanel" aria-labelledby="nav-build-ami-tab">
+                            <br>
+                            <div class="card shadow mb-4">
+                                <div class="card-header">
+                                    <h3 class="m-0">{{ _("Build minimal PCS AMI") }}</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-primary" role="alert">
+                                        {{ _("These commands build a <strong>minimal</strong> PCS-ready AMI (AWS PCS agent + a matching Slurm version) and are provided for information purposes only. They cover only Step 2 (Install the AWS PCS agent) and Step 3 (Install Slurm) of the AWS documentation. For all options (signature verification, additional drivers/libraries, GPU/EFA, and creating the AMI itself) refer to") }}
+                                        <a href="https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom.html"
+                                           target="_blank" rel="noopener noreferrer">{{ _("Custom Amazon Machine Images (AMIs) for AWS PCS") }}</a>.
+                                    </div>
+                                    <style>#amiSetupTab .nav-link { cursor: pointer; }</style>
+                                    <ul class="nav nav-pills mb-3" id="amiSetupTab" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <a href="#ami-setup-auto" class="nav-link active" id="ami-setup-auto-tab" data-bs-toggle="pill" data-bs-target="#ami-setup-auto" role="tab" aria-controls="ami-setup-auto" aria-selected="true">
+                                                <i class="fas fa-magic mr-1" aria-hidden="true"></i>{{ _("Automated setup") }}
+                                            </a>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <a href="#ami-setup-manual" class="nav-link" id="ami-setup-manual-tab" data-bs-toggle="pill" data-bs-target="#ami-setup-manual" role="tab" aria-controls="ami-setup-manual" aria-selected="false">
+                                                <i class="fas fa-list-ol mr-1" aria-hidden="true"></i>{{ _("Manual setup") }}
+                                            </a>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content" id="amiSetupTabContent">
+
+                                    <!-- Automated: all-in-one script, same values as the Manual steps -->
+                                    <div class="tab-pane fade show active" id="ami-setup-auto" role="tabpanel" aria-labelledby="ami-setup-auto-tab">
+                                    <div class="card mb-3">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <strong>{{ _("Quick setup - all steps in one script") }}</strong>
+                                            <div>
+                                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadPcsScript('pcsAmiScript', 'pcs-ami-{{ cluster_id }}.sh')">
+                                                    <i class="fas fa-download mr-1" aria-hidden="true"></i>{{ _("Download") }}
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPcsScript(this, 'pcsAmiScript')">
+                                                    <i class="fas fa-copy mr-1" aria-hidden="true"></i>{{ _("Copy") }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="text-muted mb-2">
+                                                {{ _("Runs all the Manual setup steps on a temporary EC2 instance (Amazon Linux 2023 / RHEL / Rocky / Ubuntu). Download it, then run it as root:") }}
+                                                <code>sudo bash pcs-ami-{{ cluster_id }}.sh</code>.
+                                                {{ _("It follows") }}
+                                                <a href="https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom_install-agent.html"
+                                                   target="_blank" rel="noopener noreferrer">{{ _("Install the AWS PCS agent") }}</a>{{ _(", and is safe to re-run: components already installed are skipped.") }}
+                                            </p>
+                                            <pre id="pcsAmiScript" style="background:#f8f9fa; padding:12px; border-radius:4px; max-height:400px; overflow:auto;"><code>#!/bin/bash
+# Prepare this temporary instance for a minimal AWS PCS AMI (PCS agent + Slurm {{ _slurm_ver }}) for cluster {{ pcs_cluster_name }} ({{ cluster_id }}).
+# Generated by the EDH Web Interface. Run as root: sudo bash pcs-ami-{{ cluster_id }}.sh
+# Reference: https://docs.aws.amazon.com/pcs/latest/userguide/working-with_ami_custom_install-agent.html
+# Safe to re-run: already installed components are skipped.
+set -euo pipefail
+
+REGION="{{ aws_region or '<region>' }}"
+SLURM_VERSION="{{ _slurm_ver }}"
+
+SLURM_HOME="/opt/aws/pcs/scheduler/slurm-${SLURM_VERSION}"
+PCS_REPO="https://aws-pcs-repo-${REGION}.s3.${REGION}.amazonaws.com"
+
+fail() { echo "ERROR: $*" >&2; exit 1; }
+run() { echo "+ $*" >&2; "$@"; }   # Print each command before running it
+
+[[ ${EUID} -eq 0 ]] || fail "Run this script as root: sudo bash $0"
+for _value in "${REGION}" "${SLURM_VERSION}"; do
+    [[ -n "${_value}" && "${_value}" != *"<"* ]] || fail "A required value is missing (${_value:-empty}). Edit the variables at the top of this script."
+done
+
+_workdir=$(mktemp -d)
+trap 'rm -rf "${_workdir}"' EXIT
+
+echo "==> Step 1 - update the system"
+if command -v apt-get >/dev/null 2>&1; then
+    run apt-get update
+    run env DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+else
+    run yum update -y
+fi
+
+echo "==> Step 2 - install the AWS PCS agent"
+if [[ -f /opt/aws/pcs/version ]]; then
+    echo "AWS PCS agent already installed, skipping."
+else
+    run cd "${_workdir}"
+    run curl -fsSL "${PCS_REPO}/aws-pcs-agent/aws-pcs-agent-v1-latest.tar.gz" -o aws-pcs-agent-v1-latest.tar.gz
+    run tar -xf aws-pcs-agent-v1-latest.tar.gz
+    run cd aws-pcs-agent
+    run ./installer.sh
+    run cd /
+fi
+run cat /opt/aws/pcs/version
+
+echo "==> Step 3 - install Slurm ${SLURM_VERSION}"
+if [[ -f "${SLURM_HOME}/version" ]]; then
+    echo "Slurm ${SLURM_VERSION} already installed in ${SLURM_HOME}, skipping."
+else
+    run cd "${_workdir}"
+    run curl -fsSL "${PCS_REPO}/aws-pcs-slurm/aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz" -o "aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz"
+    run tar -xf "aws-pcs-slurm-${SLURM_VERSION}-installer-latest.tar.gz"
+    run cd "aws-pcs-slurm-${SLURM_VERSION}-installer"
+    run ./installer.sh -y
+    run cd /
+fi
+run cat "${SLURM_HOME}/version"
+
+echo "==> Step 4 - prepare the AMI to avoid boot-time reboots"
+echo "Bake any reboot-requiring step (kernel updates, Lustre client kernel module, GPU/EFA drivers) into this instance now."
+
+echo "==> Step 5 - create the AMI"
+_imds_token=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || true)
+_instance_id=$(curl -fsS -H "X-aws-ec2-metadata-token: ${_imds_token}" "http://169.254.169.254/latest/meta-data/instance-id" 2>/dev/null || echo "&lt;instance-id&gt;")
+echo "Done. Create an AMI from this instance (EC2 console, or from a host with EC2 permissions):"
+echo "  aws ec2 create-image --region ${REGION} --instance-id ${_instance_id} --name pcs-slurm-${SLURM_VERSION}-$(date +%Y%m%d%H%M)"
+echo "Then reference the AMI in a launch template on the Launch templates tab."</code></pre>
+                                        </div>
+                                    </div>
+                                    </div>
+
+                                    <!-- Manual: step by step -->
+                                    <div class="tab-pane fade" id="ami-setup-manual" role="tabpanel" aria-labelledby="ami-setup-manual-tab">
+                                    <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code># Run these on a temporary EC2 instance (Amazon Linux 2023 / RHEL / Rocky / Ubuntu).
+# The AWS PCS installers live in a regional S3 bucket; the region below is taken from this EDH environment ({{ aws_region or '<region>' }}).
+# The Slurm major series matches this cluster ({{ _slurm_ver }}).
+
+# 0. Update the system, then reboot and reconnect before installing.
+# Amazon Linux 2023 / RHEL / Rocky:
+sudo yum update -y
+# Ubuntu:
+sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+
+sudo reboot
+
+# --- Step 2: Install the AWS PCS agent ---
+# Download the latest stable agent from the regional PCS repo bucket.
+curl https://aws-pcs-repo-{{ aws_region or '<region>' }}.s3.{{ aws_region or '<region>' }}.amazonaws.com/aws-pcs-agent/aws-pcs-agent-v1-latest.tar.gz -o aws-pcs-agent-v1-latest.tar.gz
+tar -xf aws-pcs-agent-v1-latest.tar.gz && cd aws-pcs-agent
+sudo ./installer.sh
+cd ..
+
+# Verify the agent installation.
+cat /opt/aws/pcs/version
+
+# --- Step 3: Install Slurm ({{ _slurm_ver }}) ---
+# Download the latest stable Slurm installer for this cluster's major series.
+curl https://aws-pcs-repo-{{ aws_region or '<region>' }}.s3.{{ aws_region or '<region>' }}.amazonaws.com/aws-pcs-slurm/aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz -o aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz
+tar -xf aws-pcs-slurm-{{ _slurm_ver }}-installer-latest.tar.gz && cd aws-pcs-slurm-{{ _slurm_ver }}-installer
+sudo ./installer.sh -y
+cd ..
+
+# Verify the Slurm installation.
+cat /opt/aws/pcs/scheduler/slurm-{{ _slurm_ver }}/version
+
+# --- Step 4: Prepare the AMI to avoid boot-time reboots ---
+# Remember: reboots are not allowed during PCS node registration, so bake any
+# reboot-requiring steps (kernel updates, Lustre client kernel module, GPU/EFA
+# drivers) into the AMI now.
+
+# --- Step 5: Create the AMI ---
+# After verifying both, create an AMI from the temporary instance and
+# reference it in a launch template on the Launch templates tab.</code></pre>
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% include 'common/footer.html' %}
+    </div>
+</div>
+
+<!-- Create queue -->
+{# Details behind the "Learn more" toggle of the AMI warning, shared by the launch template and
+   compute node group modals so the long explanation is written once. #}
+{% macro ami_requirements_details(_collapse_id) %}
+    <div class="collapse" id="{{ _collapse_id }}">
+        <hr>
+        <p class="mb-2">
+            {{ _("Build one from the") }}
+            <a href="#nav-build-ami" data-bs-dismiss="modal" data-pcs-wizard-tab="nav-build-ami-tab">{{ _("Build PCS AMI tab") }}</a>
+            {{ _("and make sure the installed Slurm major series matches this cluster's Slurm version.") }}
+        </p>
+        <p class="mb-2">
+            <strong>{{ _("Reboots are not allowed during PCS node registration.") }}</strong>
+            {{ _("A reboot interrupts the AWS PCS bootstrap sequence and prevents slurmd from starting (or causes PCS to terminate the node). Any action that would require a reboot MUST be pre-baked into the AMI -- for example kernel updates, the Lustre client kernel module (matching the AMI kernel), and GPU/EFA driver installation. If the EDH bootstrap detects a pending reboot on a PCS node it fails fast asking you to bake that step into the AMI.") }}
+        </p>
+        <p class="mb-0">{{ _("An x86_64 AMI will not boot on arm64/Graviton instances, and vice versa.") }}</p>
+    </div>
+{% endmacro %}
+<style>#createQueueTab .nav-link { cursor: pointer; }</style>
+<div class="modal fade" id="createQueueModal" tabindex="-1" aria-labelledby="createQueueModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createQueueModalLabel">{{ _("Create queue") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="createQueueTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a href="#queue-simple" class="nav-link active" id="queue-simple-tab" data-bs-toggle="tab" data-bs-target="#queue-simple"
+                           role="tab" aria-controls="queue-simple" aria-selected="true">{{ _("Simple") }}</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a href="#queue-advanced" class="nav-link" id="queue-advanced-tab" data-bs-toggle="tab" data-bs-target="#queue-advanced"
+                           role="tab" aria-controls="queue-advanced" aria-selected="false">{{ _("Advanced") }} <span class="badge bg-warning text-dark ms-1">{{ _("PREVIEW") }}</span></a>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3" id="createQueueTabContent">
+
+                    <!-- Simple -->
+                    <div class="tab-pane fade show active" id="queue-simple" role="tabpanel" aria-labelledby="queue-simple-tab">
+                        <form action="/admin/pcs/create_queue_simple" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="queue_name">{{ _("Queue name") }}</label>
+                                <input id="queue_name" name="queue_name" type="text" class="form-control"
+                                       placeholder="{{ _('e.g. queue-1') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compute_node_group_ids">{{ _("Compute node groups") }}</label>
+                                {% if compute_node_groups %}
+                                <select id="compute_node_group_ids" name="compute_node_group_ids" class="form-control" multiple size="4">
+                                    {% for g in compute_node_groups %}
+                                    <option value="{{ g.get('id') }}">{{ g.get('name', g.get('id')) }} ({{ g.get('id') }})</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">{{ _("Hold Ctrl/Cmd to select multiple. Optional: attach node groups now or later.") }}</small>
+                                {% else %}
+                                <div class="alert alert-warning mb-0">{{ _("No compute node groups yet. Create one first to attach it, or create the queue empty.") }}</div>
+                                {% endif %}
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary">{{ _("Create queue") }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- JSON -->
+                    <div class="tab-pane fade" id="queue-advanced" role="tabpanel" aria-labelledby="queue-advanced-tab">
+                        <p class="text-muted">
+                            {{ _("Paste a JSON object whose keys map to create_queue() arguments. Required:") }}
+                            <code>queue_name</code>.
+                            {{ _("Optional:") }}
+                            <code>compute_node_group_ids</code>, <code>slurm_configuration</code>,
+                            <code>client_token</code>, <code>tags</code>.
+                        </p>
+                        <form action="/admin/pcs/create_queue" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="queue_raw_json">{{ _("JSON payload") }}</label>
+                                <textarea id="queue_raw_json" name="raw_json" data-pcs-json class="form-control" rows="14"
+                                          style="font-family: monospace;" required
+                                          placeholder='{
+  "queue_name": "queue-1",
+  "compute_node_group_ids": ["cng-0abc123"],
+  "slurm_configuration": {"slurmCustomSettings": [{"parameterName": "MaxTime", "parameterValue": "60"}]},
+  "tags": {"team": "hpc"}
+}'></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary">{{ _("Create from JSON") }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create launch template -->
+<style>#createLaunchTemplateTab .nav-link { cursor: pointer; }</style>
+<div class="modal fade" id="createLaunchTemplateModal" tabindex="-1" aria-labelledby="createLaunchTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createLaunchTemplateModalLabel">{{ _("Create launch template") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="createLaunchTemplateTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a href="#lt-simple" class="nav-link active" id="lt-simple-tab" data-bs-toggle="tab" data-bs-target="#lt-simple"
+                           role="tab" aria-controls="lt-simple" aria-selected="true">{{ _("Simple") }}</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a href="#lt-advanced" class="nav-link" id="lt-advanced-tab" data-bs-toggle="tab" data-bs-target="#lt-advanced"
+                           role="tab" aria-controls="lt-advanced" aria-selected="false">{{ _("Advanced") }} <span class="badge bg-warning text-dark ms-1">{{ _("PREVIEW") }}</span></a>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3" id="createLaunchTemplateTabContent">
+
+                    <!-- Simple -->
+                    <div class="tab-pane fade show active" id="lt-simple" role="tabpanel" aria-labelledby="lt-simple-tab">
+                        <form action="/admin/pcs/create_launch_template_simple" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="lt_template_name">{{ _("Template name") }}</label>
+                                <input id="lt_template_name" name="template_name" type="text" class="form-control"
+                                       placeholder="{{ _('e.g. compute') }}" required>
+                                <small class="form-text text-muted">
+                                    {{ _("The final template name is prefixed automatically as") }}
+                                    <code>&lt;cluster-id&gt;-&lt;name&gt;-PCSNODE</code>.
+                                </small>
+                            </div>
+                            <div class="alert alert-warning" role="alert">
+                                <strong>{{ _("The AMI must be PCS-ready (AWS PCS agent and a matching Slurm version pre-installed) and must not require a reboot at boot.") }}</strong>
+                                <a href="#ltAmiLearnMore" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="ltAmiLearnMore">{{ _("Learn more") }}</a>
+                                {{ ami_requirements_details("ltAmiLearnMore") }}
+                            </div>
+                            <div class="form-group">
+                                <label for="lt_image_id">{{ _("AMI ID") }}</label>
+                                <input id="lt_image_id" name="image_id" type="text" class="form-control"
+                                       placeholder="ami-0abc123" required>
+                                <small class="form-text text-muted">
+                                    {{ _("The AMI (ImageId) baked into this launch template. Compute node groups using this template inherit it.") }}
+                                </small>
+                            </div>
+                            <div class="mb-3">
+                                <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#lt-advanced-settings" aria-expanded="false"
+                                        aria-controls="lt-advanced-settings">
+                                    {{ _("Optional settings (SSH key, Capacity Reservation, EFA, EBS volumes)") }}
+                                </button>
+                            </div>
+                            <div class="collapse" id="lt-advanced-settings">
+                                <div class="form-group">
+                                    <label for="lt_key_name">{{ _("SSH key pair (optional)") }}</label>
+                                    <input id="lt_key_name" name="key_name" type="text" class="form-control"
+                                           value="{{ default_ssh_keypair or '' }}"
+                                           placeholder="{{ _('leave blank for no SSH key pair') }}">
+                                    <small class="form-text text-muted">
+                                        {{ _("Name of an existing EC2 key pair to enable SSH access to nodes launched from this template.") }}
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lt_capacity_reservation_id">{{ _("Capacity Reservation ID (optional)") }}</label>
+                                    <input id="lt_capacity_reservation_id" name="capacity_reservation_id" type="text" class="form-control"
+                                           placeholder="cr-0abc123">
+                                    <small class="form-text text-muted">
+                                        {{ _("Target an existing On-Demand Capacity Reservation so nodes draw from that reserved capacity. Leave blank to use any matching open reservation (EC2 default).") }}
+                                    </small>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="lt_enable_efa" name="enable_efa" value="on">
+                                    <label class="form-check-label" for="lt_enable_efa">{{ _("Enable Elastic Fabric Adapter (EFA)") }}</label>
+                                    <small class="form-text text-muted d-block">
+                                        {{ _("Adds an EFA network interface. The EFA driver must be pre-baked into the AMI and the compute node group must use an EFA-capable instance type.") }}
+                                    </small>
+                                </div>
+                                <p class="text-muted mb-2">
+                                    {{ _("Additional EBS data volumes (optional, up to 2). A volume is created only when its size is set. Volumes are encrypted at rest and deleted on instance termination.") }}
+                                </p>
+                                {% for _slot, _dev in [(1, '/dev/sdb'), (2, '/dev/sdc')] %}
+                                <div class="row g-2 align-items-end mb-2">
+                                    <div class="col-sm-3">
+                                        <label for="lt_ebs_size_{{ _slot }}">{{ _("Volume %(n)s size (GiB)", n=_slot) }}</label>
+                                        <input id="lt_ebs_size_{{ _slot }}" name="ebs_size_{{ _slot }}" type="number" min="1" class="form-control"
+                                               placeholder="{{ _('e.g. 100') }}">
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <label for="lt_ebs_type_{{ _slot }}">{{ _("Type") }}</label>
+                                        <select id="lt_ebs_type_{{ _slot }}" name="ebs_type_{{ _slot }}" class="form-control">
+                                            <option value="gp3" selected>gp3</option>
+                                            <option value="gp2">gp2</option>
+                                            <option value="io1">io1</option>
+                                            <option value="io2">io2</option>
+                                            <option value="st1">st1</option>
+                                            <option value="sc1">sc1</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <label for="lt_ebs_device_{{ _slot }}">{{ _("Device name") }}</label>
+                                        <input id="lt_ebs_device_{{ _slot }}" name="ebs_device_{{ _slot }}" type="text" class="form-control"
+                                               placeholder="{{ _dev }}">
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-check mt-4">
+                                            <input class="form-check-input" type="checkbox" id="lt_ebs_encrypted_{{ _slot }}"
+                                                   name="ebs_encrypted_{{ _slot }}" value="on" checked>
+                                            <label class="form-check-label" for="lt_ebs_encrypted_{{ _slot }}">{{ _("Encrypted") }}</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <hr>
+                            <p class="text-muted mb-2">
+                                {{ _("Cost allocation (optional). These tags are applied to the EC2 instances and EBS volumes launched from this template, so spend can be grouped by them in Cost Explorer. Activate them as cost allocation tags in the Billing console.") }}
+                            </p>
+                            <div class="form-group row align-items-center">
+                                <label for="lt_cost_team" class="col-sm-4 col-form-label"><kbd>edh:PCS:team</kbd></label>
+                                <div class="col-sm-8">
+                                    <input id="lt_cost_team" name="cost_team" type="text" class="form-control"
+                                           placeholder="{{ _('e.g. hpc') }}">
+                                </div>
+                            </div>
+                            <div class="form-group row align-items-center">
+                                <label for="lt_cost_department" class="col-sm-4 col-form-label"><kbd>edh:PCS:department</kbd></label>
+                                <div class="col-sm-8">
+                                    <input id="lt_cost_department" name="cost_department" type="text" class="form-control"
+                                           placeholder="{{ _('e.g. research') }}">
+                                </div>
+                            </div>
+                            <div class="form-group row align-items-center">
+                                <label for="lt_cost_project" class="col-sm-4 col-form-label"><kbd>edh:PCS:project</kbd></label>
+                                <div class="col-sm-8">
+                                    <input id="lt_cost_project" name="cost_project" type="text" class="form-control"
+                                           placeholder="{{ _('e.g. genomics-2026') }}">
+                                </div>
+                            </div>
+                            <div class="form-group row align-items-center">
+                                <label for="lt_cost_user" class="col-sm-4 col-form-label"><kbd>edh:PCS:user</kbd></label>
+                                <div class="col-sm-8">
+                                    <input id="lt_cost_user" name="cost_user" type="text" class="form-control"
+                                           placeholder="{{ _('e.g. jdoe') }}">
+                                </div>
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary">{{ _("Create launch template") }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- JSON -->
+                    <div class="tab-pane fade" id="lt-advanced" role="tabpanel" aria-labelledby="lt-advanced-tab">
+                        <p class="text-muted">
+                            {{ _("Paste a JSON object whose keys map to create_launch_template() arguments. Provide exactly one of") }}
+                            <code>launch_template_data</code> {{ _("or") }} <code>launch_template_data_path</code>.
+                            {{ _("Optional:") }}
+                            <code>template_name</code>, <code>security_group_ids</code>, <code>tags</code>
+                            {{ _("(launch template resource tags),") }} <code>instance_tags</code>
+                            {{ _("(tags stamped on the launched instances/volumes for cost allocation).") }}
+                            {{ _("Name and security groups default from this cluster when omitted. The returned template id can be used as") }}
+                            <code>launch_template_id</code> {{ _("below.") }}
+                        </p>
+                        <form action="/admin/pcs/create_launch_template" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="lt_raw_json">{{ _("JSON payload") }}</label>
+                                <textarea id="lt_raw_json" name="raw_json" data-pcs-json class="form-control" rows="14"
+                                          style="font-family: monospace;" required
+                                          placeholder='{
+  "template_name": "edh-pcs-compute",
+  "security_group_ids": ["sg-aaa"],
+  "launch_template_data": {
+    "InstanceType": "c6i.large",
+    "ImageId": "ami-0abc123",
+    "KeyName": "my-key"
+  },
+  "tags": {"team": "hpc"}
+}'></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary">{{ _("Create from JSON") }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create compute node group -->
+<style>#createNodeGroupTab .nav-link { cursor: pointer; }</style>
+<div class="modal fade" id="createNodeGroupModal" tabindex="-1" aria-labelledby="createNodeGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createNodeGroupModalLabel">{{ _("Create compute node group") }}</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="createNodeGroupTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a href="#cng-simple" class="nav-link active" id="cng-simple-tab" data-bs-toggle="tab" data-bs-target="#cng-simple"
+                           role="tab" aria-controls="cng-simple" aria-selected="true">{{ _("Simple") }}</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a href="#cng-advanced" class="nav-link" id="cng-advanced-tab" data-bs-toggle="tab" data-bs-target="#cng-advanced"
+                           role="tab" aria-controls="cng-advanced" aria-selected="false">{{ _("Advanced") }} <span class="badge bg-warning text-dark ms-1">{{ _("PREVIEW") }}</span></a>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3" id="createNodeGroupTabContent">
+
+                    <!-- Simple -->
+                    <div class="tab-pane fade show active" id="cng-simple" role="tabpanel" aria-labelledby="cng-simple-tab">
+                        {% if not launch_templates %}
+                        <div class="alert alert-warning mb-0">{{ _("No launch templates exist yet. Create one from the Launch templates tab first.") }}</div>
+                        {% else %}
+                        <form action="/admin/pcs/create_compute_node_group_simple" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="cng_group_name">{{ _("Group name") }}</label>
+                                <input id="cng_group_name" name="group_name" type="text" class="form-control"
+                                       placeholder="{{ _('e.g. compute-1 (25 chars max)') }}" maxlength="25" required>
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-8">
+                                    <label for="cng_launch_template_id">{{ _("Launch template") }}</label>
+                                    <select id="cng_launch_template_id" name="launch_template_id" class="form-control" required>
+                                        <option value="" disabled selected>{{ _("Select a launch template") }}</option>
+                                        {% for lt in launch_templates %}
+                                        <option value="{{ lt.get('id') }}">{{ lt.get('name', lt.get('id')) }} ({{ lt.get('id') }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="form-text text-muted">{{ _("Only launch templates created by this EDH environment or tagged with edh:visibility:%(edh_cluster_id)s=true are listed here. The AMI and OS come from the template. Create one from the Launch templates tab first.", edh_cluster_id=edh_cluster_id or "<cluster_id>") }}</small>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label for="cng_launch_template_version">{{ _("Launch template version") }}</label>
+                                    {# The full help is in the tooltip: the column is too narrow for it. #}
+                                    <input id="cng_launch_template_version" name="launch_template_version" type="text" class="form-control"
+                                           placeholder="{{ _('$Latest') }}" autocomplete="off"
+                                           title="{{ _('Optional. A specific version number (e.g. 3), $Latest, or $Default. Leave blank to always use the latest version.') }}">
+                                    <small class="form-text text-muted">{{ _("Optional. A number, $Latest or $Default.") }}</small>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="cng_instance_types">{{ _("Instance types") }}</label>
+                                <input id="cng_instance_types" name="instance_types" type="text" class="form-control"
+                                       placeholder="{{ _('c6i.large, c6i.xlarge') }}" autocomplete="off" data-it-typeahead data-it-multi="1" required>
+                                <small class="form-text text-muted">{{ _("Comma-separated. PCS requires the instance types on the node group.") }} <strong>{{ _("Their CPU architecture must match the AMI.") }}</strong></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="cng_edh_base_os">{{ _("AMI Operating System") }}</label>
+                                <select id="cng_edh_base_os" name="edh_base_os" class="form-control" required>
+                                    <option value="" selected disabled>{{ _("Select the base OS (must match the AMI)") }}</option>
+                                    {% for _os_key, _os_label in base_os_choices.items() %}
+                                    <option value="{{ _os_key }}">{{ _os_label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">{{ _("Which OS package set the bootstrap renders for. Must match the AMI OS that boots on this node group, including any custom AMI override below (e.g. select Amazon Linux 2023 for an AL2023 AMI).") }}</small>
+                            </div>
+                            <div class="form-group">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="cng_min_instance_count">{{ _("Minimum instance count") }}</label>
+                                        <input id="cng_min_instance_count" name="min_instance_count" type="number" min="0" step="1" class="form-control"
+                                               value="0" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="cng_max_instance_count">{{ _("Maximum instance count") }}</label>
+                                        <input id="cng_max_instance_count" name="max_instance_count" type="number" min="1" step="1" class="form-control"
+                                               required>
+                                        <div class="invalid-feedback">{{ _("The maximum instance count must be greater than or equal to the minimum instance count.") }}</div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-primary mt-2 mb-0" role="alert">
+                                    <strong>{{ _("How scaling works") }}</strong>
+                                    {{ _("PCS keeps at least the minimum number of instances running and launches more, up to the maximum, when jobs are queued. It removes them again when the work is done.") }}
+                                    {{ _("You can change both values later by updating the compute node group.") }}
+                                </div>
+                                {% if user_directory_provider in ["existing_active_directory", "aws_ds_managed_activedirectory"] %}
+                                <div class="alert alert-secondary mt-2 mb-0" role="alert">
+                                    {# One-line summary always visible; the trade-offs and how to switch sit behind the toggle. #}
+                                    {% if join_pcs_nodes_to_ad %}
+                                    {{ _("PCS nodes in this cluster REALM-JOIN Active Directory. Each node registers an AD computer object and authenticates users live against the domain.") }}
+                                    {% else %}
+                                    {{ _("PCS nodes in this cluster do NOT join Active Directory. Instead, AD users and groups are synced locally on each node (preserving their UID/GID) via a recurring job.") }}
+                                    {% endif %}
+                                    <a href="#cngAdDetails" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="cngAdDetails">{{ _("How users log in to these nodes") }}</a>
+                                    <div class="collapse" id="cngAdDetails">
+                                        <hr class="my-2">
+                                        {% if join_pcs_nodes_to_ad %}
+                                        <p class="mb-1">
+                                            {{ _("Current configuration:") }} <code>/configuration/FeatureFlags/Hpc/JoinPCSNodesToAD = true</code>
+                                        </p>
+                                        <ul class="mb-1">
+                                            <li>{{ _("Best when nodes are long-lived (minimum instance count greater than 0): users and groups resolve directly from AD, including accounts created after the node booted.") }}</li>
+                                            <li>{{ _("Limitation: every node creates an AD computer object. On-demand nodes that scale up and down frequently (minimum instance count 0) can leave orphaned computer objects in the domain and add join/leave load, so realm join is a poor fit for bursty capacity.") }}</li>
+                                        </ul>
+                                        {% else %}
+                                        <p class="mb-1">
+                                            {{ _("Current configuration:") }} <code>/configuration/FeatureFlags/Hpc/JoinPCSNodesToAD = false</code> {{ _("(or not set)") }}
+                                        </p>
+                                        <ul class="mb-1">
+                                            <li>{{ _("Best for on-demand / short-lived nodes (minimum instance count 0): no AD computer object is created, so nothing is orphaned when a node is removed.") }}</li>
+                                            <li>{{ _("Limitation: users are a local copy refreshed on a schedule, so brand-new AD accounts or group changes appear only after the next sync, and live AD password policy / lockout is not enforced on the node.") }}</li>
+                                        </ul>
+                                        {% endif %}
+                                        {{ _("To change this behavior for PCS nodes, set the flag with") }}
+                                        <code>edhctl config set --key "/configuration/FeatureFlags/Hpc/JoinPCSNodesToAD" --value "true|false"</code>
+                                        {{ _("It applies to newly launched nodes.") }}
+                                        <hr class="my-2">
+                                        <strong>{{ _("Important:") }}</strong>
+                                        {{ _("If nodes are ephemeral, EDH syncs the current EDH users to the node(s) at launch. If nodes are meant to stay up for a long period of time, it is recommended to enable AD Join (set") }} <code>JoinPCSNodesToAD</code> {{ _("to") }} <code>true</code>{{ _("); otherwise an EDH user created after the instance is deployed will have to be synced manually.") }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label for="cng_instance_profile_arn">{{ _("IAM instance profile") }}</label>
+                                {% if instance_profiles %}
+                                <select id="cng_instance_profile_arn" name="instance_profile_arn" class="form-control" required>
+                                    <option value="" selected disabled>{{ _("Select a PCS-compatible IAM instance profile") }}</option>
+                                    {% for ip in instance_profiles %}
+                                    <option value="{{ ip.get('arn') }}">{{ ip.get('name', ip.get('arn')) }}{% if ip.get('role_name') %} ({{ _("role:") }} {{ ip.get('role_name') }}){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">{{ _("Only instance profiles whose role is named AWSPCS* or has the path /aws-pcs/ are listed (the role must also carry pcs:RegisterComputeNodeGroupInstance). The EDH compute node instance profile is not PCS-compatible and is intentionally excluded.") }}</small>
+                                {% else %}
+                                <div class="alert alert-warning mb-0">
+                                    {{ _("No PCS-compatible IAM instance profiles found (role named AWSPCS* or path /aws-pcs/, with pcs:RegisterComputeNodeGroupInstance). A PCS instance profile is required: create one before adding a compute node group.") }}
+                                    <a href="https://docs.aws.amazon.com/pcs/latest/userguide/security-instance-profiles.html"
+                                       target="_blank" rel="noopener noreferrer">{{ _("IAM instance profiles for AWS PCS") }}</a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Override launch template data -->
+                            <div class="form-group">
+                                <a class="btn btn-secondary" data-bs-toggle="collapse" href="#cngOverrideLtData"
+                                   role="button" aria-expanded="false" aria-controls="cngOverrideLtData">
+                                    {{ _("Override launch template data") }}
+                                </a>
+                                <div class="collapse mt-3" id="cngOverrideLtData">
+                                    <div class="card card-body">
+                                        <div class="alert alert-warning">
+                                            {{ _("A custom AMI overrides the launch template's AMI: it must also be PCS-ready (AWS PCS agent and a matching Slurm version pre-installed), match the CPU architecture of the instance types above, and must not require a reboot at boot.") }}
+                                            <a href="#cngAmiLearnMore" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="cngAmiLearnMore">{{ _("Learn more") }}</a>
+                                            {{ ami_requirements_details("cngAmiLearnMore") }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="cng_subnet_ids">{{ _("Subnet IDs") }}</label>
+                                            <input id="cng_subnet_ids" name="subnet_ids" type="text" class="form-control"
+                                                   placeholder="{{ _('subnet-aaa, subnet-bbb (defaults from this cluster)') }}">
+                                            <small class="form-text text-muted">{{ _("Optional. Comma-separated. Defaults to this cluster's private subnets when left blank.") }}</small>
+                                        </div>
+                                        <div class="form-group mb-0">
+                                            <label for="cng_ami_id">{{ _("Custom AMI") }}</label>
+                                            <input id="cng_ami_id" name="ami_id" type="text" class="form-control"
+                                                   placeholder="{{ _('ami-... (defaults to the launch template AMI)') }}">
+                                            <small class="form-text text-muted">{{ _("Optional. Overrides the launch template's AMI for this node group.") }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr>
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input id="cng_edh_bootstrap" name="edh_bootstrap" type="checkbox" class="form-check-input"
+                                           value="on" checked data-edh-bootstrap-toggle data-warning-target="cng_edh_bootstrap_warning">
+                                    <label class="form-check-label" for="cng_edh_bootstrap">
+                                        {{ _("Configure nodes with the EDH bootstrap (recommended)") }}
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">
+                                    {{ _("Registers the EDH bootstrap as a nodeBootstrapped lifecycle action on this node group. AWS PCS runs it as root after its own node setup and before slurmd, so nodes mount the shared filesystems and sync directory users before accepting jobs.") }}
+                                </small>
+                                <div id="cng_edh_bootstrap_warning" class="alert alert-warning mt-2" style="display:none;">
+                                    <strong>{{ _("Warning:") }}</strong>
+                                    {{ _("With the EDH bootstrap disabled, EDH will NOT configure these nodes: no filesystem mounts and no directory auth. The nodes may never boot correctly unless the AMI you provide is already fully configured (shared filesystems and directory auth pre-baked in addition to PCS/Slurm). Only uncheck this if you are supplying such a custom AMI.") }}
+                                </div>
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary" {{ 'disabled' if not instance_profiles }}>{{ _("Create compute node group") }}</button>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </div>
+
+                    <!-- JSON -->
+                    <div class="tab-pane fade" id="cng-advanced" role="tabpanel" aria-labelledby="cng-advanced-tab">
+                        <p class="text-muted">
+                            {{ _("Paste a JSON object whose keys map to create_compute_node_group() arguments. Required:") }}
+                            <code>group_name</code>, <code>launch_template_id</code>, <code>instance_types</code>,
+                            <code>min_instance_count</code>, <code>max_instance_count</code>.
+                            {{ _("Optional:") }}
+                            <code>ami_id</code> {{ _("(defaults to the launch template's AMI),") }}
+                            <code>launch_template_version</code>, <code>instance_profile_arn</code>, <code>subnet_ids</code>,
+                            <code>purchase_option</code>,
+                            <code>spot_options</code>, <code>slurm_configuration</code>, <code>node_lifecycle_actions</code>,
+                            <code>client_token</code>, <code>tags</code>.
+                        </p>
+                        <form action="/admin/pcs/create_compute_node_group" method="post">
+                            <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                            <div class="form-group">
+                                <label for="cng_raw_json">{{ _("JSON payload") }}</label>
+                                <textarea id="cng_raw_json" name="raw_json" data-pcs-json class="form-control" rows="16"
+                                          style="font-family: monospace;" required
+                                          placeholder='{
+  "group_name": "compute-1",
+  "launch_template_id": "lt-0abc123",
+  "instance_types": ["c6i.large"],
+  "min_instance_count": 0,
+  "max_instance_count": 10,
+  "ami_id": "ami-0abc123",
+  "purchase_option": "ONDEMAND",
+  "subnet_ids": ["subnet-aaa"],
+  "slurm_configuration": {"scaleDownIdleTimeInSeconds": 600},
+  "tags": {"team": "hpc"}
+}'></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div style="gap: 0.5rem;" class="d-flex justify-content-end border-top pt-3 mt-3">
+                                <button type="submit" class="btn btn-primary">{{ _("Create from JSON") }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Slurm key to EDH confirmation -->
+<div class="modal fade" id="exportSecretModal" tabindex="-1" aria-labelledby="exportSecretModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <form action="/admin/pcs/export_secret/{{ cluster_id }}" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exportSecretModalLabel">{{ _("Export Slurm key to EDH") }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        {{ _("This fetches the cluster's shared Slurm key from Secrets Manager and writes it (base64-decoded) to the EDH Controller filesystem at:") }}
+                    </p>
+                    <pre style="background:#f8f9fa; padding:12px; border-radius:4px;"><code>{{ slurm_key_export_path or "/apps/edh/" ~ (edh_cluster_id or "<cluster_id>") ~ "/shared/pcs/" ~ cluster_id ~ "/slurm.key" }}</code></pre>
+                    <div class="alert alert-primary">
+                        {{ _("This is a one-time action. Re-exporting is blocked while the key file already exists. To rotate it, delete the file from the filesystem first, then export again.") }}
+                    </div>
+                    <div class="alert alert-warning mb-0">
+                        {{ _("The key file and its directory are restricted to root only (no group or other access). After exporting, grant read access to the account sackd runs as with a group (EFS/NFS does not support POSIX ACLs): every parent directory must be traversable, and the group must have the same GID on every node. The AWS PCS Slurm installer creates the slurm user and group with UID/GID 401 by default, and the EDH controller creates them the same way at bootstrap. After exporting, run the key permissions script from the Prerequisite on the Connect tab, as root on the EDH controller.") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-warning">{{ _("Export Slurm key") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete cluster confirmation -->
+<div class="modal fade" id="deleteClusterModal" tabindex="-1" aria-labelledby="deleteClusterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="/admin/pcs/delete" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteClusterModalLabel">{{ _("Delete PCS cluster") }} {{ pcs_cluster_name }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger">
+                        {{ _("This permanently deletes the cluster. This action cannot be undone.") }}
+                    </p>
+                    {# PCS refuses the delete while queues or compute node groups remain (no cascade), so
+                       show what is left, link each count to its tab, and block the delete until both are 0. #}
+                    {% set _delete_blocked = queues|length > 0 or compute_node_groups|length > 0 %}
+                    <ul class="mb-2">
+                        <li>
+                            <a href="#nav-queues" data-bs-dismiss="modal" data-pcs-wizard-tab="nav-queues-tab">{{ _("Queues") }}</a>:
+                            {{ queues|length }}
+                        </li>
+                        <li>
+                            <a href="#nav-groups" data-bs-dismiss="modal" data-pcs-wizard-tab="nav-groups-tab">{{ _("Compute node groups") }}</a>:
+                            {{ compute_node_groups|length }}
+                        </li>
+                    </ul>
+                    {% if _delete_blocked %}
+                    <div class="alert alert-warning mb-0" role="alert">
+                        {{ _("AWS PCS refuses to delete a cluster that still has queues or compute node groups: delete them first.") }}
+                    </div>
+                    {% endif %}
+                    <div class="form-check mt-3">
+                        <input id="confirmDeleteCluster" name="confirm_delete" type="checkbox" class="form-check-input" required
+                               {{ 'disabled' if _delete_blocked }}>
+                        <label class="form-check-label" for="confirmDeleteCluster">
+                            {{ _("I understand this cluster will be permanently deleted.") }}
+                        </label>
+                    </div>
+                    {% if pcs_registration and pcs_registration.get('enabled') %}
+                    {# Registered with EDH: a deleted (orphaned) cluster left enabled keeps being onboarded by every new node. #}
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        <strong>{{ _("This cluster is registered with EDH as") }} <code>{{ pcs_registration.get('identifier') }}</code>.</strong>
+                        {{ _("Keeping the registration of a deleted (orphaned) PCS cluster can delay the bootstrap of every new virtual desktop and login node when automatic onboarding is enabled: each node tries to reach a cluster that no longer exists.") }}
+                        <div class="form-check mt-2">
+                            <input id="disableRegistration" name="disable_registration" type="checkbox" class="form-check-input" checked
+                                   {{ 'disabled' if _delete_blocked }}>
+                            <label class="form-check-label" for="disableRegistration">
+                                {{ _("Also disable its EDH registration (sets enabled to False).") }}
+                            </label>
+                        </div>
+                        <div class="mt-2">{{ _("Equivalent command, to run as root on the EDH controller:") }}</div>
+                        <pre class="mb-0 mt-1" style="background:#fff; padding:8px; border-radius:4px;"><code>/opt/edh/{{ edh_cluster_id or '<cluster_id>' }}/cluster_manager/edhctl schedulers update \
+  --scheduler-identifier {{ pcs_registration.get('identifier') }} \
+  --key enabled \
+  --value false</code></pre>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="cluster_name" value="{{ pcs_cluster_name }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-danger" {{ 'disabled' if _delete_blocked }}>{{ _("Delete cluster") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Polish the DataTables search box + length dropdown: a clear gap between each label and its
+       control, and SB Admin 2-style borders / focus glow so they match the rest of the theme. */
+    .dataTables_wrapper .dataTables_filter label,
+    .dataTables_wrapper .dataTables_length label {
+        font-weight: 600; color: #5a5c69; display: inline-flex; align-items: center; margin-bottom: .75rem;
+    }
+    .dataTables_wrapper .dataTables_filter input { margin-left: .5rem; }
+    .dataTables_wrapper .dataTables_length select { margin: 0 .5rem; }
+    .dataTables_wrapper .dataTables_filter input,
+    .dataTables_wrapper .dataTables_length select {
+        border: 1px solid #d1d3e2; border-radius: .35rem; padding: .35rem .75rem;
+        color: #6e707e; background-color: #fff; transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    }
+    .dataTables_wrapper .dataTables_filter input:focus,
+    .dataTables_wrapper .dataTables_length select:focus {
+        border-color: #bac8f3; box-shadow: 0 0 0 .2rem rgba(78, 115, 223, .25); outline: 0;
+    }
+</style>
+<script>
+    // Paginate + make searchable every PCS listing table (instances / queues / compute node
+    // groups / launch templates), since any of them can grow large. order: [] preserves the
+    // server-side ordering (e.g. instances arrive newest-first) until the user clicks a column.
+    document.addEventListener("DOMContentLoaded", function () {
+        if (!window.jQuery || !$.fn.DataTable) { return; }
+        var _tables = [
+            "#pcsInstancesTable",
+            "#pcsQueuesTable",
+            "#pcsNodeGroupsTable",
+            "#pcsLaunchTemplatesTable",
+        ];
+        _tables.forEach(function (_sel) {
+            if (!document.querySelector(_sel)) { return; }
+            $(_sel).DataTable({
+                retrieve: true,
+                paging: true,
+                pagingType: "full_numbers",
+                order: [],
+                lengthMenu: [[15, 30, 50, -1], [15, 30, 50, "All"]],
+                dom: "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
+                     "<'row'<'col-sm-12'tr>>" +
+                     "<'row'<'col-sm-5'i><'col-sm-7'p>>",
+                initComplete: function () {
+                    var _container = $(this.api().table().container());
+                    // Style the "show N entries" length dropdown as a small Bootstrap select.
+                    // w-auto/d-inline-block are required because form-control forces width:100%,
+                    // which would otherwise blow the little select up to the full column width.
+                    _container.find("select")
+                        .removeClass()
+                        .addClass("custom-select custom-select-sm form-control form-control-sm w-auto d-inline-block");
+                    // Same for the search box: form-control-sm forces width:100% (full column),
+                    // so w-auto/d-inline-block keep it inline next to its label.
+                    _container.find("input[type='search']")
+                        .removeClass()
+                        .addClass("form-control form-control-sm w-auto d-inline-block");
+                },
+            });
+        });
+
+        // Tables initialised inside a hidden Bootstrap tab-pane compute 0-width columns, so their
+        // header/body misalign (and can look empty) until the tab is shown. Recompute column
+        // widths every time a tab becomes visible.
+        document.querySelectorAll('#nav-tab [data-bs-toggle="tab"]').forEach(function (_tab) {
+            _tab.addEventListener("shown.bs.tab", function () {
+                $.fn.DataTable.tables({ visible: true, api: true }).columns.adjust();
+            });
+        });
+    });
+</script>
+
+<script>
+    // Automated setup scripts (Client node / Register with EDH): textContent returns the decoded
+    // (un-HTML-escaped) script.
+    function downloadPcsScript(_scriptId, _filename) {
+        var _script = document.getElementById(_scriptId);
+        if (!_script) { return; }
+        var _blob = new Blob([_script.textContent], { type: "text/x-shellscript" });
+        var _link = document.createElement("a");
+        _link.href = URL.createObjectURL(_blob);
+        _link.download = _filename;
+        document.body.appendChild(_link);
+        _link.click();
+        document.body.removeChild(_link);
+        URL.revokeObjectURL(_link.href);
+    }
+
+    function copyPcsScript(_btn, _scriptId) {
+        var _script = document.getElementById(_scriptId);
+        if (!_script || !navigator.clipboard) { return; }
+        navigator.clipboard.writeText(_script.textContent).then(function () {
+            var _label = _btn.innerHTML;
+            _btn.innerHTML = '<i class="fas fa-check mr-1" aria-hidden="true"></i>{{ _("Copied") }}';
+            setTimeout(function () { _btn.innerHTML = _label; }, 1500);
+        });
+    }
+
+    // Automated/Manual pills (Client node + Register with EDH): the panes have very different heights, so keep the
+    // scroll position from landing mid-pane. Bring the pills (and the start of the pane) into view.
+    ["clientSetupTab", "registerSetupTab", "amiSetupTab"].forEach(function (_navId) {
+        document.querySelectorAll("#" + _navId + ' [data-bs-toggle="pill"]').forEach(function (_pill) {
+            _pill.addEventListener("shown.bs.tab", function () {
+                document.getElementById(_navId).scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+        });
+    });
+
+    // Quick start wizard buttons and Overview links: open the target tab.
+    document.querySelectorAll("[data-pcs-wizard-tab]").forEach(function (_btn) {
+        _btn.addEventListener("click", function (_event) {
+            _event.preventDefault();
+            var _tab = document.getElementById(_btn.dataset.pcsWizardTab);
+            if (!_tab || _tab.classList.contains("disabled")) { return; }
+            bootstrap.Tab.getOrCreateInstance(_tab).show();
+            document.getElementById("nav-tab").scrollIntoView({ behavior: "smooth" });
+        });
+    });
+
+    // Tab persistence: actions redirect back with the tab anchor (e.g. #nav-queues), so open that
+    // tab on load (unless it is disabled because the cluster is not ACTIVE), and keep the hash in
+    // sync with the selected tab so a reload stays on it.
+    document.addEventListener("DOMContentLoaded", function () {
+        var _hash = window.location.hash;
+        if (_hash && /^#nav-[\w-]+$/.test(_hash)) {
+            var _link = document.querySelector('#nav-tab [data-bs-target="' + _hash + '"]');
+            if (_link && !_link.classList.contains("disabled")) {
+                bootstrap.Tab.getOrCreateInstance(_link).show();
+            }
+        }
+        document.querySelectorAll('#nav-tab [data-bs-toggle="tab"]').forEach(function (_tab) {
+            _tab.addEventListener("shown.bs.tab", function () {
+                history.replaceState(null, "", _tab.dataset.bsTarget);
+            });
+        });
+
+        // Reasons on disabled tabs / wizard buttons: Bootstrap tooltip when available, else the native title.
+        if (window.bootstrap && bootstrap.Tooltip) {
+            document.querySelectorAll("[data-pcs-tooltip]").forEach(function (_el) {
+                bootstrap.Tooltip.getOrCreateInstance(_el);
+            });
+        }
+    });
+</script>
+
+<script>
+    // Client-side checks run before the loading state below: JSON payloads must parse to an object,
+    // and the compute node group maximum must be >= the minimum. Invalid fields get .is-invalid and
+    // their sibling .invalid-feedback message; the server still validates everything.
+    var _pcsJsonInvalidMsg = {{ _("This is not valid JSON:")|tojson }};
+    var _pcsJsonNotObjectMsg = {{ _("The JSON payload must be an object mapping arguments.")|tojson }};
+    function pcsFormIsValid(_form) {
+        var _valid = true;
+        _form.querySelectorAll("textarea[data-pcs-json]").forEach(function (_area) {
+            var _error = "";
+            try {
+                var _parsed = JSON.parse(_area.value);
+                if (_parsed === null || typeof _parsed !== "object" || Array.isArray(_parsed)) { _error = _pcsJsonNotObjectMsg; }
+            } catch (_err) {
+                _error = _pcsJsonInvalidMsg + " " + _err.message;
+            }
+            var _feedback = _area.parentNode.querySelector(".invalid-feedback");
+            if (_feedback) { _feedback.textContent = _error; }
+            _area.classList.toggle("is-invalid", _error !== "");
+            if (_error) { _valid = false; }
+        });
+        var _min = _form.querySelector("#cng_min_instance_count");
+        var _max = _form.querySelector("#cng_max_instance_count");
+        if (_min && _max && _min.value !== "" && _max.value !== "") {
+            var _bad = parseInt(_max.value, 10) < parseInt(_min.value, 10);
+            _max.classList.toggle("is-invalid", _bad);
+            if (_bad) { _valid = false; }
+        }
+        if (!_valid) {
+            var _first = _form.querySelector(".is-invalid");
+            if (_first) { _first.focus(); }
+        }
+        return _valid;
+    }
+    // Clear the error as soon as the field is edited.
+    document.addEventListener("input", function (e) {
+        if (e.target.matches && e.target.matches("textarea[data-pcs-json], #cng_min_instance_count, #cng_max_instance_count")) {
+            e.target.classList.remove("is-invalid");
+            var _max = document.getElementById("cng_max_instance_count");
+            if (e.target.id === "cng_min_instance_count" && _max) { _max.classList.remove("is-invalid"); }
+        }
+    });
+
+    // Disable the submit button and show a loading state once any form is submitted, so a slow
+    // create/delete round-trip can't be double-clicked (mirrors the VDI launch behavior).
+    document.addEventListener('submit', function (e) {
+        if (e.target.tagName === 'FORM') {
+            e.preventDefault();
+            if (!pcsFormIsValid(e.target)) { return; }
+            var _submitButton = e.target.querySelector('button[type="submit"]');
+            if (_submitButton) {
+                _submitButton.disabled = true;
+                _submitButton.innerHTML = `
+                <span class="icon text-white-50">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+                <span class="text">{{ _("Please wait ...") }}</span>`;
+            }
+            setTimeout(function () { e.target.submit(); }, 300);
+        }
+    });
+</script>
+
+<!-- Instance-type autocomplete for the launch-template / compute-node-group forms.
+     Reuses the same session-authed catalog endpoint and spec formatter as the VDI
+     software-stack editor so the typeahead behaves identically across the app. -->
+<style>
+    .it-typeahead-box{position:absolute;z-index:1080;background:#fff;border:1px solid #ced4da;border-radius:4px;max-height:260px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:320px;font-size:12px}
+    .it-ta-item{padding:5px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0}
+    .it-ta-item:hover,.it-ta-item.active{background:#eef4ff}
+    .it-ta-type{font-family:monospace;font-weight:600;margin-right:12px}
+    .it-ta-specs{color:#6c757d}
+</style>
+<script>
+(function () {
+    var inputs = document.querySelectorAll('input[data-it-typeahead]');
+    if (!inputs.length) return;
+
+    function specLine(s) {
+        return (typeof edhFormatInstanceSpecs === 'function') ? edhFormatInstanceSpecs(s) : '';
+    }
+    // For a comma-separated (multi) input, the token under the caret is what we
+    // search on and replace; single inputs treat the whole value as the token.
+    function currentToken(input) {
+        if (!input.dataset.itMulti) return (input.value || '').trim();
+        var parts = (input.value || '').split(',');
+        return (parts[parts.length - 1] || '').trim();
+    }
+    function applyToken(input, type) {
+        if (!input.dataset.itMulti) { input.value = type; return; }
+        var parts = (input.value || '').split(',');
+        parts[parts.length - 1] = ' ' + type;
+        // Re-join, trim stray spaces, drop empties, and leave a trailing separator
+        // so the admin can immediately type the next type.
+        var cleaned = parts.map(function (p) { return p.trim(); }).filter(Boolean);
+        input.value = cleaned.join(', ') + ', ';
+    }
+
+    var box = null, items = [], active = -1, timer = null, boundInput = null, cache = {};
+
+    function close() { if (box) { box.remove(); box = null; } items = []; active = -1; boundInput = null; }
+
+    function render(input, results) {
+        if (box) { box.remove(); box = null; }
+        boundInput = input;
+        if (!results.length) return;
+        box = document.createElement('div');
+        box.className = 'it-typeahead-box';
+        var r = input.getBoundingClientRect();
+        box.style.left = (window.scrollX + r.left) + 'px';
+        box.style.top = (window.scrollY + r.bottom) + 'px';
+        box.style.width = r.width + 'px';
+        results.forEach(function (s) {
+            var it = document.createElement('div');
+            it.className = 'it-ta-item';
+            it.innerHTML = '<span class="it-ta-type"></span> <span class="it-ta-specs"></span>';
+            it.querySelector('.it-ta-type').textContent = s.type;
+            it.querySelector('.it-ta-specs').textContent = specLine(s);
+            it.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                applyToken(input, s.type);
+                close();
+                input.focus();
+            });
+            box.appendChild(it);
+        });
+        items = Array.prototype.slice.call(box.querySelectorAll('.it-ta-item'));
+        document.body.appendChild(box);
+    }
+
+    function fetchTypes(input) {
+        var q = currentToken(input);
+        if (q.length < 1) { close(); return; }
+        var url = '/admin/virtual_desktops/instance_types?q=' + encodeURIComponent(q) + '&limit=25';
+        function resolve(results) { render(input, results); }
+        if (cache[url]) { resolve(cache[url]); return; }
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                if (!j) return;
+                var results = (j && j.message) ? j.message : (Array.isArray(j) ? j : []);
+                cache[url] = results;
+                resolve(results);
+            })
+            .catch(function () { /* typeahead is best-effort */ });
+    }
+
+    inputs.forEach(function (input) {
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(function () { fetchTypes(input); }, 200);
+        });
+        input.addEventListener('focus', function () { fetchTypes(input); });
+        input.addEventListener('blur', function () { setTimeout(close, 150); });
+        input.addEventListener('keydown', function (ev) {
+            if (!box || boundInput !== input) return;
+            if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                if (active >= 0 && items[active]) items[active].classList.remove('active');
+                active += (ev.key === 'ArrowDown') ? 1 : -1;
+                if (active < 0) active = items.length - 1;
+                if (active >= items.length) active = 0;
+                if (items[active]) { items[active].classList.add('active'); items[active].scrollIntoView({ block: 'nearest' }); }
+            } else if (ev.key === 'Enter' && active >= 0 && items[active]) {
+                ev.preventDefault();
+                applyToken(input, items[active].querySelector('.it-ta-type').textContent);
+                close();
+            } else if (ev.key === 'Escape') {
+                close();
+            }
+        });
+    });
+
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+})();
+</script>
+
+<script>
+    // Show the "AMI must be PCS-ready" warning whenever an EDH-bootstrap checkbox is unchecked.
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-edh-bootstrap-toggle]").forEach(function (cb) {
+            var warn = document.getElementById(cb.getAttribute("data-warning-target"));
+            if (!warn) { return; }
+            var sync = function () { warn.style.display = cb.checked ? "none" : "block"; };
+            cb.addEventListener("change", sync);
+            sync();
+        });
+    });
+</script>
+
+<script>
+    // Make every command/code block in the connection details and export modal one-click
+    // copyable: drop a small copy button in the top-right of each <pre> that writes the
+    // block's text to the clipboard. Keeps the shown commands easy to paste onto a client node.
+    document.addEventListener("DOMContentLoaded", function () {
+        var _blocks = document.querySelectorAll("#connectionInfo pre, #exportSecretModal pre");
+        _blocks.forEach(function (pre) {
+            // Scripts still carrying placeholders are not offered for copy (see _script_values_missing)
+            if (pre.hasAttribute("data-pcs-no-copy")) { return; }
+            pre.style.position = "relative";
+            pre.style.paddingRight = "44px";
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-outline-secondary btn-sm";
+            btn.style.position = "absolute";
+            btn.style.top = "6px";
+            btn.style.right = "6px";
+            btn.title = "{{ _('Copy') }}";
+            btn.setAttribute("aria-label", "{{ _('Copy') }}");
+            btn.innerHTML = '<i class="fas fa-copy"></i>';
+            btn.addEventListener("click", function () {
+                var code = pre.querySelector("code");
+                var text = code ? code.innerText : pre.innerText;
+                navigator.clipboard.writeText(text).then(function () {
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(function () { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 1500);
+                });
+            });
+            pre.appendChild(btn);
+        });
+    });
+</script>
+
+<script>
+    // Export the "Client node" tab as a shareable PDF. We open a print window
+    // containing only that tab's content plus this page's stylesheets, then
+    // trigger the browser's print dialog (Save as PDF). No extra JS libraries.
+    function exportClientTabPdf() {
+        var pane = document.getElementById('pill-client');
+        if (!pane) { return; }
+        var clone = pane.cloneNode(true);
+        clone.classList.add('show', 'active');   // the Client node tab is not necessarily the selected one
+        // Drop anything marked no-print (e.g. the export button itself, copy buttons).
+        clone.querySelectorAll('.no-print, .code-copy-btn').forEach(function (el) { el.remove(); });
+        // Print both the Automated and Manual pills, not only the one currently selected.
+        clone.querySelectorAll('#clientSetupTabContent > .tab-pane').forEach(function (el) { el.classList.add('show', 'active'); });
+
+        var title = "{{ pcs_cluster_name or cluster_id }} - " + `{{ _("PCS client setup") }}`;
+        var win = window.open('', '_blank');
+        if (!win) { return; }  // popup blocked
+        var doc = win.document;
+        doc.open();
+        doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + title + '</title>');
+        // Reuse the page's own CSS so the exported doc matches the UI.
+        document.querySelectorAll('link[rel="stylesheet"], style').forEach(function (node) {
+            doc.write(node.outerHTML);
+        });
+        doc.write('<style>@page{margin:16mm;} body{padding:0;} pre{white-space:pre-wrap;word-break:break-word;} .nav-tabs,button{display:none!important;}</style>');
+        doc.write('</head><body class="p-4">');
+        doc.write('<h3>' + title + '</h3>');
+        doc.write(clone.innerHTML);
+        doc.write('</body></html>');
+        doc.close();
+        win.focus();
+        // Give the stylesheets a moment to load before printing.
+        setTimeout(function () { win.print(); }, 500);
+    }
+</script>
+
+</body>
+</html>

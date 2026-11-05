@@ -25,7 +25,7 @@ function slurm_install_{{ SCHEDULER_VARS.get("IDENTIFIER") }} {
         tar -xaf "slurm_installer.tar.bz2" --strip-components=1
         
         log_info "Installing additional required packages"
-        {% if context.get("/job/BaseOS") in ["amazonlinux2023", "amazonlinux2", "rhel8", "rhel9", "rocky8", "rocky9"] %}
+        {% if context.get("/job/BaseOS") in ["amazonlinux2023", "amazonlinux2027", "amazonlinux2", "rhel8", "rhel9", "rocky8", "rocky9"] %}
             packages_install pmix pmix-devel dbus-devel json-c-devel pam-devel jansson-devel
         {% elif context.get("/job/BaseOS") in ["ubuntu2204", "ubuntu2404"] %}
             packages_install libpmix3 libpmix-dev libdbus-1-dev libjson-c-dev libpam0g-dev libjansson4 libjansson-dev

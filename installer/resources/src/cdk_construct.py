@@ -99,6 +99,7 @@ from helpers import (
     dcv_session_sharing as dcv_session_sharing_helper,
     user_preferences as user_preferences_helper,
     ai_token_usage as ai_token_usage_helper,
+    directory_domain as directory_domain_helper,
 )
 from helpers.aspects import CdkTokenGuardAspect, EventSourceMappingTagStripAspect, LambdaExecWrapperAspect
 import re
@@ -161,10 +162,11 @@ for _logger_name in ["boto3", "botocore"]:
 
 # sitecustomize.py shipped in the boto3 layer; the exec wrapper puts it on the
 # path at cold start, where it sets the SO0072 UA on every botocore session.
-_SOCA_LAMBDA_UA_SITECUSTOMIZE = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# {version} is interpolated at synth from utils/version.py.
+_SOCA_LAMBDA_UA_SITECUSTOMIZE_TEMPLATE = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # AUTO-GENERATED -- sets the SO0072 solution-attribution User-Agent on botocore.
-_SOCA_USER_AGENT_EXTRA = "AwsSolution/SO0072/26.8.0"
+_SOCA_USER_AGENT_EXTRA = "AwsSolution/SO0072/{version}"
 
 try:
     import botocore.session as _soca_bc_session
@@ -205,6 +207,17 @@ def get_service_principal_url_suffix():
 
 def get_lambda_runtime_version() -> aws_lambda.Runtime:
     return typing.cast(aws_lambda.Runtime, aws_lambda.Runtime.PYTHON_3_13)
+
+
+# Python ABI of the Lambda runtime above, as a bare "<major>.<minor>" string,
+# DERIVED from that runtime so the two cannot drift apart.
+# build_lambda_dependency() passes this to pip as --python-version; if it ever
+# stopped matching the runtime, the wheels baked into each function's package
+# would no longer match the interpreter that imports them.
+# Do NOT source this from SOCA_PYTHON_VERSION: that variable tracks the
+# operator's local installer venv, which moves independently of the runtime.
+# aws_lambda.Runtime.PYTHON_3_13.name == "python3.13"
+LAMBDA_PYTHON_VERSION = get_lambda_runtime_version().name.removeprefix("python")
 
 
 def get_supported_azs_list_by_instance_type(region: str, instance_type: str) -> list:
@@ -344,6 +357,26 @@ def flatten_parameterstore_config(
         else:
             _items.append((_new_key, v))
     return dict(_items)
+
+
+def prune_empty_config(d: dict) -> dict:
+    # Drop keys whose value is None or an empty/whitespace string, recursively,
+    # and drop a branch left empty by that.
+    if not isinstance(d, dict):
+        return {}
+    _pruned: dict = {}
+    for _key, _value in d.items():
+        if isinstance(_value, dict):
+            _child = prune_empty_config(_value)
+            if _child:
+                _pruned[_key] = _child
+        elif _value is None:
+            continue
+        elif isinstance(_value, str) and not _value.strip():
+            continue
+        else:
+            _pruned[_key] = _value
+    return _pruned
 
 
 def get_subnet_route_table_by_subnet_id(subnet_ids: list) -> dict:
@@ -798,6 +831,67 @@ def get_kms_key_id(config_key_names: list, allow_global_default: bool = True) ->
     return _kms_key_id
 
 
+def build_lambda_layer_dir(
+    layers_root: str, prefix: str, version: str, pip_args: list
+) -> str:
+    """Materialise ``<layers_root>/<prefix>-<version>/python`` and return the layer base dir.
+
+    Two failure modes are guarded against, both of which previously shipped an
+    empty zip to Lambda ("Uploaded file must be a non-empty zip"):
+
+    - An existing but EMPTY ``python/`` is treated as a failed prior build, not
+      as a completed one. Testing only ``os.path.exists`` let a half-built layer
+      permanently suppress its own rebuild.
+    - pip installs into a staging sibling that is moved into place only after it
+      succeeds, so an interrupted build (including Ctrl-C) leaves no directory
+      behind at all rather than an empty one.
+    """
+
+    import subprocess
+
+    _base_dir = os.path.join(layers_root, f"{prefix}-{version}")
+    _python_dir = os.path.join(_base_dir, "python")
+
+    if os.path.isdir(_python_dir) and os.listdir(_python_dir):
+        logger.debug(f"Lambda layer {prefix}-{version} already built, reusing")
+        return _base_dir
+
+    # Drop this layer's other versions, and any empty shell of this one.
+    if os.path.isdir(layers_root):
+        for _entry in os.listdir(layers_root):
+            if _entry.startswith(f"{prefix}-"):
+                shutil.rmtree(os.path.join(layers_root, _entry), ignore_errors=True)
+
+    _staging_dir = os.path.join(layers_root, f".{prefix}-{version}.staging")
+    shutil.rmtree(_staging_dir, ignore_errors=True)
+    os.makedirs(_staging_dir)
+
+    logger.debug(f"Building Lambda layer {prefix}-{version}")
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install"]
+            + pip_args
+            + ["-t", _staging_dir, "--no-cache-dir", "-q"]
+        )
+    except BaseException:
+        # BaseException so KeyboardInterrupt is covered too: never leave a
+        # partially built layer that a later synth would mistake for complete.
+        shutil.rmtree(_staging_dir, ignore_errors=True)
+        raise
+
+    if not os.listdir(_staging_dir):
+        shutil.rmtree(_staging_dir, ignore_errors=True)
+        logger.error(
+            f"Lambda layer {prefix}-{version} produced no files. "
+            f"pip reported success for: {' '.join(pip_args)}"
+        )
+        sys.exit(1)
+
+    os.makedirs(_base_dir, exist_ok=True)
+    shutil.move(_staging_dir, _python_dir)
+    return _base_dir
+
+
 class SOCAInstall(Stack):
 
     def __init__(
@@ -958,12 +1052,13 @@ class SOCAInstall(Stack):
         )
         logger.debug(f"ControllerNode - Configured instance type: {_instance_type}")
 
-        self._instance_type, self._instance_arch, _default_instance_ami = (
-            self.select_best_instance(
-                instance_list=_instance_type,
-                region=user_specified_variables.region,
-                fallback_instance="m5.large",
-            )
+        # The AMI is discarded here on purpose: the controller resolves its own from
+        # custom_ami_map further down (soca_resources["ami_id"]). Only the instance type
+        # and arch are wanted from this call.
+        self._instance_type, self._instance_arch, _ = self.select_best_instance(
+            instance_list=_instance_type,
+            region=user_specified_variables.region,
+            fallback_instance="m5.large",
         )
 
         logger.debug(
@@ -1001,12 +1096,14 @@ class SOCAInstall(Stack):
             },
         }
         # Our DS domain is used for route53 rule creation
-        # This can be specified in the configuration as directoryservice.name - defaults to <cluster_id>.local
+        # This can be specified in the configuration as directoryservice.domain_name - defaults to <cluster_id>.internal
         _ds_domain_name = get_config_key(
             key_name="Config.directoryservice.domain_name",
             expected_type=str,
             required=False,
-            default=f"{user_specified_variables.cluster_id}.local",
+            default=directory_domain_helper.default_domain_name(
+                user_specified_variables.cluster_id
+            ),
         ).lower()
 
         _ds_provider = get_config_key(
@@ -1023,6 +1120,16 @@ class SOCAInstall(Stack):
             )
             _use_existing_directory = True
 
+        # Read separately from the lookup below so the validation can tell a truncated derived
+        # NetBIOS name from one the operator chose deliberately.
+        _ds_short_name_is_explicit = bool(
+            get_config_key(
+                key_name="Config.directoryservice.short_name",
+                expected_type=str,
+                required=False,
+            )
+        )
+
         self.directory_service_resource_setup = {
             "use_existing_directory": _use_existing_directory,
             "provider": _ds_provider,
@@ -1031,13 +1138,13 @@ class SOCAInstall(Stack):
                 key_name="Config.directoryservice.short_name",
                 expected_type=str,
                 required=False,
-                default=_ds_domain_name.split(".")[0].upper()[:15],
+                default=directory_domain_helper.default_short_name(_ds_domain_name),
             ).upper(),
             "domain_base": get_config_key(
                 key_name="Config.directoryservice.domain_base",
                 expected_type=str,
                 required=False,
-                default=f"dc={',dc='.join(_ds_domain_name.split('.'))}".lower(),
+                default=directory_domain_helper.default_domain_base(_ds_domain_name),
             ).lower(),
             "endpoint": _endpoint.lower() if _endpoint is not None else _endpoint,
             "ad_aws_directory_service_id": False,
@@ -1047,7 +1154,51 @@ class SOCAInstall(Stack):
                 default=None,
             ),
             "domain_controller_ips": [],
+            # Drive letter Windows maps the user's home to at logon, via the AD
+            # homeDirectory/homeDrive pair. Pre-created with a default so it is
+            # UI/edhctl-flippable. See default_config.yml for why H: is safe.
+            "windows_home_drive": get_config_key(
+                key_name="Config.directoryservice.windows_home_drive",
+                expected_type=str,
+                required=False,
+                default="H:",
+            ),
+            # How the directory stores POSIX identity, for the ONTAP SVM's LDAP
+            # client. Pre-created so it is UI/edhctl-flippable.
+            "ontap_ldap_schema": get_config_key(
+                key_name="Config.directoryservice.ontap_ldap_schema",
+                expected_type=str,
+                required=False,
+                default="MS-AD-BIS",
+            ),
+            # Only supported for Active Directory providers, read from the selected provider section. Empty list = no group restriction
+            "ad_authentication_groups": (
+                get_config_key(
+                    key_name=f"Config.directoryservice.{_ds_provider}.ad_authentication_groups",
+                    required=False,
+                    default=[],
+                    expected_type=list,
+                )
+                if _ds_provider
+                in {"existing_active_directory", "aws_ds_managed_activedirectory"}
+                else []
+            ),
         }
+
+        # UNC for the Windows home. Unset means derive it from the fsx_ontap
+        # filesystem backing the UNIX home, so the key is only added when set:
+        # these dicts reach SSM through an unconditional str(), which would
+        # store None as the literal "None".
+        _windows_home_unc_template = get_config_key(
+            key_name="Config.directoryservice.windows_home_unc_template",
+            expected_type=str,
+            required=False,
+            default=None,
+        )
+        if _windows_home_unc_template:
+            self.directory_service_resource_setup[
+                "windows_home_unc_template"
+            ] = _windows_home_unc_template
 
         # Retrieve Directory OU/CN settings based on config values
         # Default options that are created automatically by AWS DS and cannot be changed
@@ -1121,6 +1272,19 @@ class SOCAInstall(Stack):
                 )
 
         # Validate Directory Settings
+        _domain_errors, _domain_warnings = directory_domain_helper.validate_domain_name(
+            domain_name=self.directory_service_resource_setup.get("domain_name"),
+            provider=self.directory_service_resource_setup.get("provider"),
+            short_name_is_explicit=_ds_short_name_is_explicit,
+        )
+        for _warning in _domain_warnings:
+            logger.warning(_warning)
+        if _domain_errors:
+            # fatal() exits, so report every problem rather than only the first
+            for _error in _domain_errors[:-1]:
+                logger.error(_error)
+            logger.fatal(_domain_errors[-1])
+
         if (
             self._base_os in ("rhel8", "rhel9", "rocky8", "rocky9")
             and self.directory_service_resource_setup.get("provider") == "openldap"
@@ -1350,40 +1514,29 @@ class SOCAInstall(Stack):
             default="",
         )
         if _boto3_version:
-            import subprocess
-
             _layers_base = os.path.join(
                 os.path.dirname(__file__), "..", ".lambda_layers"
             )
-            _layer_base = os.path.join(_layers_base, f"boto3-{_boto3_version}")
+            _layer_base = build_lambda_layer_dir(
+                layers_root=_layers_base,
+                prefix="boto3",
+                version=_boto3_version,
+                pip_args=[f"boto3=={_boto3_version}"],
+            )
             _layer_dir = os.path.join(_layer_base, "python")
-            if not os.path.exists(_layer_dir):
-                # Remove any old version dirs
-                if os.path.exists(_layers_base):
-                    for d in os.listdir(_layers_base):
-                        if d.startswith("boto3-"):
-                            shutil.rmtree(os.path.join(_layers_base, d))
-                os.makedirs(_layer_dir)
-                subprocess.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        f"boto3=={_boto3_version}",
-                        "-t",
-                        _layer_dir,
-                        "--no-cache-dir",
-                        "-q",
-                    ]
-                )
 
-            # sitecustomize.py written into the layer each synth; 26.8.0 is
-            # substituted by the release pipeline (github_release.py), like on-box.
+            # sitecustomize.py written into the layer each synth; version comes
+            # from utils/version.py, matching the on-box user agent.
+            from helpers.installer.helpers import get_edh_version
+
             with open(
                 os.path.join(_layer_dir, "sitecustomize.py"), "w", encoding="utf-8"
             ) as _sc_fh:
-                _sc_fh.write(_SOCA_LAMBDA_UA_SITECUSTOMIZE)
+                _sc_fh.write(
+                    _SOCA_LAMBDA_UA_SITECUSTOMIZE_TEMPLATE.format(
+                        version=get_edh_version()
+                    )
+                )
 
             # Exec-wrapper script -> /opt/bin/edh-ua-wrapper (see LambdaExecWrapperAspect).
             _wrapper_bin_dir = os.path.join(_layer_base, "bin")
@@ -1424,35 +1577,14 @@ class SOCAInstall(Stack):
             default="5.2.1",  # matches controller venv pin in soca_python_controller_requirements.txt.j2
         )
         if _redis_version:
-            import subprocess as _subp_redis  # local alias to avoid confusing readers
-
-            _redis_layer_base_dir = os.path.join(
-                os.path.dirname(__file__), "..", ".lambda_layers", f"redis-{_redis_version}"
-            )
-            _redis_layer_python_dir = os.path.join(_redis_layer_base_dir, "python")
-            if not os.path.exists(_redis_layer_python_dir):
-                # Clean any stale older versions
-                _redis_layers_root = os.path.join(
+            _redis_layer_base_dir = build_lambda_layer_dir(
+                layers_root=os.path.join(
                     os.path.dirname(__file__), "..", ".lambda_layers"
-                )
-                if os.path.exists(_redis_layers_root):
-                    for _d in os.listdir(_redis_layers_root):
-                        if _d.startswith("redis-"):
-                            shutil.rmtree(os.path.join(_redis_layers_root, _d))
-                os.makedirs(_redis_layer_python_dir)
-                _subp_redis.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        f"redis=={_redis_version}",
-                        "-t",
-                        _redis_layer_python_dir,
-                        "--no-cache-dir",
-                        "-q",
-                    ]
-                )
+                ),
+                prefix="redis",
+                version=_redis_version,
+                pip_args=[f"redis=={_redis_version}"],
+            )
             self.soca_resources["redis_layer"] = aws_lambda.LayerVersion(
                 self,
                 "RedisLayer",
@@ -1479,50 +1611,29 @@ class SOCAInstall(Stack):
             default="48.0.0",
         )
         if _crypto_version:
-            import subprocess as _subp_crypto  # local alias, mirrors redis layer
-
-            _crypto_layer_base_dir = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                ".lambda_layers",
-                f"cryptography-{_crypto_version}",
-            )
-            _crypto_layer_python_dir = os.path.join(_crypto_layer_base_dir, "python")
-            if not os.path.exists(_crypto_layer_python_dir):
-                _crypto_layers_root = os.path.join(
+            # cryptography publishes abi3 wheels that load on any 3.x runtime.
+            # cryptography 48.x ships manylinux_2_28 (AL2023 Lambda = glibc
+            # 2.34, compatible); manylinux2014 listed as a fallback for older
+            # pins. --only-binary forbids a host source build.
+            _crypto_layer_base_dir = build_lambda_layer_dir(
+                layers_root=os.path.join(
                     os.path.dirname(__file__), "..", ".lambda_layers"
-                )
-                if os.path.exists(_crypto_layers_root):
-                    for _d in os.listdir(_crypto_layers_root):
-                        if _d.startswith("cryptography-"):
-                            shutil.rmtree(os.path.join(_crypto_layers_root, _d))
-                os.makedirs(_crypto_layer_python_dir)
-                # cryptography publishes abi3 wheels that load on any 3.x
-                # runtime. cryptography 48.x ships manylinux_2_28 (AL2023 Lambda
-                # = glibc 2.34, compatible); manylinux2014 listed as a fallback
-                # for older pins. --only-binary forbids a host source build.
-                _subp_crypto.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        f"cryptography=={_crypto_version}",
-                        "--platform",
-                        "manylinux_2_28_x86_64",
-                        "--platform",
-                        "manylinux2014_x86_64",
-                        "--only-binary=:all:",
-                        "--python-version",
-                        "3.13",
-                        "--implementation",
-                        "cp",
-                        "-t",
-                        _crypto_layer_python_dir,
-                        "--no-cache-dir",
-                        "-q",
-                    ]
-                )
+                ),
+                prefix="cryptography",
+                version=_crypto_version,
+                pip_args=[
+                    f"cryptography=={_crypto_version}",
+                    "--platform",
+                    "manylinux_2_28_x86_64",
+                    "--platform",
+                    "manylinux2014_x86_64",
+                    "--only-binary=:all:",
+                    "--python-version",
+                    "3.13",
+                    "--implementation",
+                    "cp",
+                ],
+            )
             self.soca_resources["cryptography_layer"] = aws_lambda.LayerVersion(
                 self,
                 "CryptographyLayer",
@@ -1553,49 +1664,26 @@ class SOCAInstall(Stack):
             default="3.3.4",
         )
         if _psycopg_version:
-            import subprocess as _subp_psycopg  # local alias, mirrors crypto layer
-
-            _psycopg_layer_base_dir = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                ".lambda_layers",
-                f"psycopg-{_psycopg_version}",
-            )
-            _psycopg_layer_python_dir = os.path.join(
-                _psycopg_layer_base_dir, "python"
-            )
-            if not os.path.exists(_psycopg_layer_python_dir):
-                _psycopg_layers_root = os.path.join(
+            # psycopg[binary] pulls the compiled psycopg_binary wheel
+            # (manylinux2014 x86_64 = glibc 2.17, runs on AL2023 glibc 2.34).
+            # --only-binary forbids a host source build.
+            _psycopg_layer_base_dir = build_lambda_layer_dir(
+                layers_root=os.path.join(
                     os.path.dirname(__file__), "..", ".lambda_layers"
-                )
-                if os.path.exists(_psycopg_layers_root):
-                    for _d in os.listdir(_psycopg_layers_root):
-                        if _d.startswith("psycopg-"):
-                            shutil.rmtree(os.path.join(_psycopg_layers_root, _d))
-                os.makedirs(_psycopg_layer_python_dir)
-                # psycopg[binary] pulls the compiled psycopg_binary wheel
-                # (manylinux2014 x86_64 = glibc 2.17, runs on AL2023 glibc
-                # 2.34). --only-binary forbids a host source build.
-                _subp_psycopg.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        f"psycopg[binary]=={_psycopg_version}",
-                        "--platform",
-                        "manylinux2014_x86_64",
-                        "--only-binary=:all:",
-                        "--python-version",
-                        "3.13",
-                        "--implementation",
-                        "cp",
-                        "-t",
-                        _psycopg_layer_python_dir,
-                        "--no-cache-dir",
-                        "-q",
-                    ]
-                )
+                ),
+                prefix="psycopg",
+                version=_psycopg_version,
+                pip_args=[
+                    f"psycopg[binary]=={_psycopg_version}",
+                    "--platform",
+                    "manylinux2014_x86_64",
+                    "--only-binary=:all:",
+                    "--python-version",
+                    "3.13",
+                    "--implementation",
+                    "cp",
+                ],
+            )
             self.soca_resources["psycopg_layer"] = aws_lambda.LayerVersion(
                 self,
                 "PsycopgLayer",
@@ -1675,7 +1763,19 @@ class SOCAInstall(Stack):
         ):
             self.resources_mirroring()  # Cloud-side artifact mirror (SFN + Lambdas + trigger)
 
+        # Cross-region overlay mesh. Split into two passes that straddle
+        # self.controller(): the first creates the mesh's shared state, the
+        # second the policy console role and the controller-role grants.
+        #
+        # The split is a grouping, not an ordering requirement. Everything the
+        # second pass needs already exists before the first: controller_role
+        # comes from self.iam_roles() above, and self.controller() references no
+        # cross-region resource. Both passes could run together here.
+        self.cross_region()
+
         self.controller()  # Configure the Controller
+
+        self.cross_region_post_controller()
 
         if get_config_key(
             key_name="Config.dcv.high_scale",
@@ -2498,10 +2598,16 @@ class SOCAInstall(Stack):
 
         vpc_config = None
         if method == "cloud-in-vpc-nat":
+            from helpers import ec2 as ec2_helper
+
+            # Prefer PRIVATE_WITH_EGRESS, else PRIVATE_ISOLATED. Vpc.private_subnets
+            # only returns PRIVATE_WITH_EGRESS subnets, so on NAT-instance VPCs
+            # (subnets CDK labels ISOLATED) it is empty and the mirror Lambda
+            # would get no subnets. The helper handles that fallback.
             vpc_config = {
                 "vpc": self.soca_resources["vpc"],
-                "subnets": ec2.SubnetSelection(
-                    subnets=self.soca_resources["vpc"].private_subnets
+                "subnets": ec2_helper.private_subnet_type_selection(
+                    self.soca_resources["vpc"]
                 ),
             }
 
@@ -2885,27 +2991,36 @@ class SOCAInstall(Stack):
                 logger.fatal("Unable to construct IPv4 Clients MPL - Possible defect?")
                 exit(1)
 
-            # TODO - What is a good default for clients sizing?
-            # Probably should be an easier way to control this magic number
-            if len(_cidr_entry_list) > 16:
+            # max_entries is CAPACITY: a prefix list referenced by a security
+            # group rule charges all of it against that group's rule quota, once
+            # per referencing rule, against a default of 60.
+            _clients_mpl_entry_budget: int = 16
+
+            if len(_cidr_entry_list) > _clients_mpl_entry_budget:
                 logger.warning(
-                    f"Clients CIDR MPL for {_af=} is larger than 16 entries - Entries: {_cidr_entry_list=}"
+                    f"Clients CIDR MPL for {_af=} is larger than {_clients_mpl_entry_budget} entries - Entries: {_cidr_entry_list=}"
                 )
                 if _soca_debug:
                     logger.debug("Allowing larger Clients MPL due to SOCA_DEBUG")
                 else:
                     logger.error(
-                        f"Considering large Clients MPL for {_af} as FATAL - rerun in SOCA_DEBUG mode to allow unrestricted MPL size. Entries: {_cidr_entry_list=}"
+                        f"Clients MPL for {_af} needs {len(_cidr_entry_list)} entries, more than the "
+                        f"{_clients_mpl_entry_budget} a referenced prefix list can reserve without risking the "
+                        f"security group rule quota. Supply supernets, attach your own list with "
+                        f"--prefix-list-id, or add the rest to {cluster_id}-Clients-{_af} in the EC2 console "
+                        f"after install. Re-run with SOCA_DEBUG set to override. Entries: {_cidr_entry_list=}"
                     )
                     exit(1)
+
+            _clients_mpl_max_entries: int = max(
+                len(_cidr_entry_list), _clients_mpl_entry_budget
+            )
 
             self.soca_resources[f"clients_mpl_{_af}"] = ec2.PrefixList(
                 self,
                 f"{cluster_id}-Clients-{_af}",
                 prefix_list_name=f"{cluster_id}-Clients-{_af}",
-                max_entries=max(
-                    len(_cidr_entry_list), 16
-                ),  #  Default to the larger of <size of the list> or 16
+                max_entries=_clients_mpl_max_entries,
                 address_family=ec2.AddressFamily[_af.upper()],
                 entries=(
                     _cidr_entry_list if _cidr_entry_list else None
@@ -3334,6 +3449,69 @@ class SOCAInstall(Stack):
             "enabled": "true",
         }
 
+        # FSx/ONTAP SVMs are created unjoined and joined by the controller
+        # bootstrap, which reads these from this filesystem's SSM tree.
+        if fs_provider == "fsx_ontap":
+            _svm_domain_join: dict = getattr(
+                self, "soca_filesystems_svm_domain_join", {}
+            ).get(fs_key, {})
+            for _join_key, _join_value in _svm_domain_join.items():
+                if _join_value:
+                    self.soca_filesystems[f"{fs_key}"][_join_key] = _join_value
+
+            # mount_drive_letter is opt-in and only meaningful for fsx_ontap.
+            # Normalized to "<LETTER>:" so the value matches what edhctl
+            # writes. Windows VDIs map the drive from this key; nothing reads
+            # it on Linux.
+            _mount_drive_letter = get_config_key(
+                key_name=f"Config.storage.{fs_key}.fsx_ontap.mount_drive_letter",
+                expected_type=str,
+                required=False,
+                default="",
+            )
+            if _mount_drive_letter:
+                _drive = _mount_drive_letter.rstrip(":").upper()
+                if not re.match(r"^[A-Z]$", _drive):
+                    logger.fatal(
+                        f"Config.storage.{fs_key}.fsx_ontap.mount_drive_letter must be a single letter A-Z, got {_mount_drive_letter}"
+                    )
+                    sys.exit(1)
+                self.soca_filesystems[f"{fs_key}"]["mount_drive_letter"] = f"{_drive}:"
+
+    def cross_region(self):
+        """Extracted to helpers/cdk/cross_region/setup.py.
+
+        No-op unless Config.services.cross_region.enabled is true.
+        """
+        from helpers.cdk.cross_region import setup as _helper
+
+        if not _helper.is_enabled(get_config_key):
+            logger.debug("Cross-region overlay mesh is disabled, skipping")
+            return
+
+        return _helper.cross_region_setup(
+            self,
+            get_config_key=get_config_key,
+            user_specified_variables=user_specified_variables,
+        )
+
+    def cross_region_post_controller(self):
+        """Extracted to helpers/cdk/cross_region/setup.py.
+
+        Second pass, grouping the policy console role and the controller-role
+        grants after self.controller(). No-op unless the feature is enabled.
+        """
+        from helpers.cdk.cross_region import setup as _helper
+
+        if not _helper.is_enabled(get_config_key):
+            return
+
+        return _helper.cross_region_post_controller_setup(
+            self,
+            get_config_key=get_config_key,
+            user_specified_variables=user_specified_variables,
+        )
+
     def controller(self):
         """Extracted to helpers/controller.py."""
         from helpers import controller as _helper
@@ -3390,16 +3568,17 @@ class SOCAInstall(Stack):
             "private": [],
         }
 
-        if (
-            user_specified_variables.public_subnets
-            and user_specified_variables.private_subnets
-        ):
-            logger.debug(
-                "Using supplied public and private subnets for Param configuration"
-            )
+        # Keyed off private_subnets alone. public_subnets is empty for a private
+        # deployment in an existing VPC, and the else branch below reads the
+        # Vpc.from_lookup lists, which resolve to every subnet in that VPC
+        # rather than the ones the operator picked. PrivateSubnets is consumed
+        # by node launch, virtual desktops, target nodes and PCS, so it has to
+        # carry the selection.
+        if user_specified_variables.private_subnets:
+            logger.debug("Using supplied subnets for Param configuration")
 
             # format for user_specified is subnet-123,us-east-1a
-            for _sn in user_specified_variables.public_subnets:
+            for _sn in user_specified_variables.public_subnets or []:
                 _sn_id: str = _sn.split(",")[0]
                 logger.debug(f"Adding public subnet - {_sn_id}")
                 _subnet_listings["public"].append(_sn_id)
@@ -3536,6 +3715,9 @@ class SOCAInstall(Stack):
             "VdiNodeInstanceProfileArn": f"arn:{Aws.PARTITION}:iam::{Aws.ACCOUNT_ID}:instance-profile/{self.soca_resources['vdi_node_instance_profile'].ref}",
             "TargetNodeIAMRole": self.soca_resources["target_node_role"].role_name,
             "TargetNodeInstanceProfileArn": f"arn:{Aws.PARTITION}:iam::{Aws.ACCOUNT_ID}:instance-profile/{self.soca_resources['target_node_instance_profile'].ref}",
+            "PCSNodeIAMRoleArn": self.soca_resources["pcs_node_role"].role_arn,
+            "PCSNodeIAMRole": self.soca_resources["pcs_node_role"].role_name,
+            "PCSNodeInstanceProfileArn": f"arn:{Aws.PARTITION}:iam::{Aws.ACCOUNT_ID}:instance-profile/{self.soca_resources['pcs_node_instance_profile'].ref}",
             "ClusterId": user_specified_variables.cluster_id,
             "Version": get_config_key("Config.version"),
             "Region": user_specified_variables.region,
@@ -3603,6 +3785,13 @@ class SOCAInstall(Stack):
                     expected_type=list,
                 )
             ),
+            "AIAssistant/allowed_knowledge_base_ids": json.dumps(
+                get_config_key(
+                    "Config.ai_assistant.allowed_knowledge_base_ids",
+                    required=False,
+                    expected_type=list,
+                ) or []
+            ),
 
         }
 
@@ -3618,6 +3807,13 @@ class SOCAInstall(Stack):
                 expected_type=str,
             ).replace("$EDH_CLUSTER_ID", user_specified_variables.cluster_id)
 
+            _openpbs_job_history_duration = get_config_key(
+                key_name="Parameters.system.scheduler.openpbs.job_history_duration",
+                expected_type=str,
+                required=False,
+                default="336:00:00",
+            )
+
             self.soca_resources["soca_config"][f"HPC/schedulers/openpbs-default"] = {
                 "enabled": True,
                 "provider": "openpbs",
@@ -3630,6 +3826,7 @@ class SOCAInstall(Stack):
                 "pbs_configuration": {
                     "pbs_exec": _openpbs_install_pbs_exec,
                     "pbs_home": _openpbs_install_pbs_home,
+                    "job_history_duration": _openpbs_job_history_duration,
                 },
             }
 
@@ -3645,6 +3842,13 @@ class SOCAInstall(Stack):
                 expected_type=str,
             ).replace("$EDH_CLUSTER_ID", user_specified_variables.cluster_id)
 
+            _pbspro_job_history_duration = get_config_key(
+                key_name="Parameters.system.scheduler.pbspro.job_history_duration",
+                expected_type=str,
+                required=False,
+                default="336:00:00",
+            )
+
             self.soca_resources["soca_config"][f"HPC/schedulers/pbspro-default"] = {
                 "enabled": True,
                 "provider": "pbspro",
@@ -3657,6 +3861,7 @@ class SOCAInstall(Stack):
                 "pbs_configuration": {
                     "pbs_exec": _pbspro_install_pbs_exec,
                     "pbs_home": _pbspro_install_pbs_home,
+                    "job_history_duration": _pbspro_job_history_duration,
                 },
             }
 
@@ -3714,6 +3919,52 @@ class SOCAInstall(Stack):
                     "lsf_top": f"{_lsf_install_lsf_top}",
                 },
             }
+
+        # AWS PCS client auto-onboarding (default off). Read by
+        # templates/linux/scheduler/install_schedulers.sh.j2 during node bootstrap.
+        self.soca_resources["soca_config"]["services/aws_pcs/auto_onboard_client"] = str(
+            get_config_key(
+                key_name="Config.services.aws_pcs.auto_onboard_client",
+                expected_type=bool,
+                required=False,
+                default=False,
+            )
+        ).lower()
+
+        # Container runtime configuration. Read by
+        # templates/linux/containers/apptainer.sh.j2 during node bootstrap.
+        _apptainer_enabled = get_config_key(
+            key_name="Config.containers.apptainer.enabled",
+            expected_type=bool,
+            required=False,
+            default=False,
+        )
+        self.soca_resources["soca_config"]["HPC/containers/apptainer"] = {
+            "enabled": _apptainer_enabled,
+            "install_prefix": get_config_key(
+                key_name="Config.containers.apptainer.install_prefix",
+                expected_type=str,
+                required=False,
+                default="/opt/edh/$EDH_CLUSTER_ID/apptainer",
+            ).replace("$EDH_CLUSTER_ID", user_specified_variables.cluster_id),
+            "images_path": get_config_key(
+                key_name="Config.containers.apptainer.images_path",
+                expected_type=str,
+                required=False,
+                default="/apps/containers",
+            ),
+            "unsupported_platforms": get_config_key(
+                key_name="Config.containers.apptainer.unsupported_platforms",
+                expected_type=str,
+                required=False,
+                # Must stay in step with installer/default_config.yml. This
+                # fallback is what an older config file with no containers block
+                # gets, and the entries are a safety gate rather than a
+                # preference: the el7-family ones keep a distro whose package
+                # names were never validated off the now-fatal install path.
+                default="amazonlinux2023:aarch64,amazonlinux2,centos7,rhel7",
+            ),
+        }
 
         # Analytics configuration
         _is_analytics_enabled = get_config_key(
@@ -3840,6 +4091,10 @@ class SOCAInstall(Stack):
         _ds_resources["domain_controller_ips"] = str(
             self.directory_service_resource_setup["domain_controller_ips"]
         )
+        # Same for ad_authentication_groups (group DNs contain commas, so we cannot use a space/comma separated str)
+        _ds_resources["ad_authentication_groups"] = str(
+            self.directory_service_resource_setup["ad_authentication_groups"]
+        )
 
         # Feature Flags - remove webInterface as they use a different format and already been added
         _ff = get_config_key(
@@ -3881,7 +4136,21 @@ class SOCAInstall(Stack):
                     default={"enabled": True},
                 ),
             ),
-            # Web interface settings (e.g. file tail). Optional block — if
+            # Per-node-class OU for computer objects. Flattened on its own
+            # rather than through directory_service_resource_setup, which is
+            # str()'d whole and would store the nested dict as a repr. Unset
+            # keys are pruned because that str() would write them as "None".
+            "/configuration/UserDirectory/computer_ou": flatten_parameterstore_config(
+                prune_empty_config(
+                    get_config_key(
+                        key_name="Config.directoryservice.computer_ou",
+                        expected_type=dict,
+                        required=False,
+                        default={},
+                    )
+                )
+            ),
+            # Web interface settings (e.g. file tail). Optional block -- if
             # the user removed it from default_config.yml, fall back to
             # empty dict and rely on the view-side defaults in tail.py.
             "/configuration/WebInterface": flatten_parameterstore_config(
@@ -3903,6 +4172,39 @@ class SOCAInstall(Stack):
                     default={"TransferEngine": "v1"},
                 ),
             ),
+            # VDI root EBS volume defaults (size per OS, type, IOPS, throughput).
+            # Pre-created so they are UI/edhctl-flippable; read on every VDI launch
+            # by helpers.vdi_root_volume.
+            "/configuration/dcv/root_volume": flatten_parameterstore_config(
+                get_config_key(
+                    key_name="Config.dcv.root_volume",
+                    expected_type=dict,
+                    required=False,
+                    default={
+                        "default_size_linux": 100,
+                        "default_size_windows": 100,
+                        "min_size_linux": 100,
+                        "min_size_windows": 100,
+                        "volume_type": "gp3",
+                        "iops": 3000,
+                        "throughput": 125,
+                    },
+                ),
+            ),
+            # VDI capacity-placement tuning. Pre-created so it is UI/edhctl-flippable;
+            # read by the DcvPlacement Lambda on every launch, which falls back to
+            # serial if the key is absent.
+            "/configuration/dcv/placement": flatten_parameterstore_config(
+                get_config_key(
+                    key_name="Config.dcv.placement",
+                    expected_type=dict,
+                    required=False,
+                    default={
+                        "concurrent_az_attempts": 1,
+                        "az_order": "random",
+                    },
+                ),
+            ),
             # My HPC Jobs listing controls (visibility ceiling, default window, row cap,
             # finished-by-default). Optional block; pre-created on fresh installs so the
             # keys are UI/edhctl-flippable and read hot by the my_jobs view + scheduler jobs API.
@@ -3916,6 +4218,20 @@ class SOCAInstall(Stack):
                         "DefaultWindow": "24h",
                         "MaxRows": "1000",
                         "IncludeFinished": "true",
+                    },
+                ),
+            ),
+            # Job chain submission limits (stage cap, fan-in cap). Optional block;
+            # pre-created on fresh installs so the keys are UI/edhctl-flippable and read
+            # hot by the job chain API and the chain submitter.
+            "/configuration/HPC/JobChain": flatten_parameterstore_config(
+                get_config_key(
+                    key_name="Config.hpc_job_chain",
+                    expected_type=dict,
+                    required=False,
+                    default={
+                        "MaxStages": "50",
+                        "MaxParentsPerStage": "0",
                     },
                 ),
             ),
@@ -4139,10 +4455,15 @@ class SOCAInstall(Stack):
                         iam.PolicyStatement(
                             actions=["rds-db:connect"],
                             effect=iam.Effect.ALLOW,
+                            # DbiResourceId is wildcarded because a PITR restore
+                            # produces a new one and the grant must already cover
+                            # it -- discovering a missing permission mid-restore is
+                            # the failure we are avoiding. Blast radius is held by
+                            # the cluster-derived DbUserName: only this cluster and
+                            # its own restores have a role by that name.
                             resources=[
                                 f"arn:{Aws.PARTITION}:rds-db:{Aws.REGION}:{Aws.ACCOUNT_ID}:"
-                                f"dbuser:{self.database_info['cluster_resource_id']}/"
-                                f"{self.database_info['app_user']}"
+                                f"dbuser:*/{self.database_info['app_user']}"
                             ],
                         )
                     ],
@@ -4486,13 +4807,18 @@ class SOCAInstall(Stack):
         return len(response["InstanceTypes"]) > 0
 
     def select_best_instance(
-        self, instance_list: list, region: str, fallback_instance: str
+        self, instance_list: list, region: str, fallback_instance: str, base_os: str = ""
     ) -> tuple[str, str, str]:
         """
         Return the best instance type from a given list and region. This probes the region for instance availability and will return the first one that is available in the region.
 
+        base_os defaults to the cluster's own. Pass it explicitly for a role deployed on a
+        substitute OS, or an instance is rejected for lacking an AMI the role never uses,
+        and the arch silently falls back to the fallback instance's.
+
         Returns tuple of (instance_type, instance_architecture, instance_ami).
         """
+        _base_os: str = base_os or self._base_os
         _selected_instance: str = "amnesiac"
         _default_ami_for_instance: str = ""
         _instance_arch: str = "unknown"
@@ -4508,21 +4834,18 @@ class SOCAInstall(Stack):
                 _default_ami_for_instance = (
                     self.soca_resources.get("custom_ami_map", {})
                     .get(_instance_arch, {})
-                    .get(self._base_os, "")
+                    .get(_base_os, "")
                 )
                 if _default_ami_for_instance:
                     _selected_instance = _instance
                     break
                 else:
                     logger.warning(
-                        f"No AMI found for {_instance} (arch {_instance_arch}, base os {self._base_os}, region {region}, testing next instance in selection"
+                        f"No AMI found for {_instance} (arch {_instance_arch}, base os {_base_os}, region {region}, testing next instance in selection"
                     )
 
-        if _default_ami_for_instance is None:
-            logger.fatal(
-                "No AMI on region_map.yml found. Choose a different OS/Region or Architecture"
-            )
-
+        # No AMI check here on purpose: the value is only ever set from .get(_base_os, ""),
+        # so it is "" and never None, and callers decide what an empty AMI means.
         if _selected_instance == "amnesiac":
             _selected_instance = fallback_instance if fallback_instance else "m5.large"
             _instance_arch = "x86_64"
@@ -4539,7 +4862,12 @@ class SOCAInstall(Stack):
         """
         _ebs_device_name: str = "unknown"
 
-        if base_os.lower() in {"amazonlinux2", "amazonlinux2023"}:
+        # AL2027 preview AMIs report RootDeviceName /dev/xvda, same as AL2 and AL2023
+        # (verified via ec2 describe-images 2026-09-05). This is currently LATENT for
+        # AL2027: all three callers pass the install-time base_os, and AL2027 is not in
+        # helpers/installer/install_model.py BaseOS, so a controller, login node or DCV
+        # host cannot be built on it yet. Corrected here so it is right when it can be.
+        if base_os.lower() in {"amazonlinux2", "amazonlinux2023", "amazonlinux2027"}:
             _ebs_device_name = "/dev/xvda"
         else:
             _ebs_device_name = "/dev/sda1"
@@ -4702,6 +5030,7 @@ class SOCAInstall(Stack):
             self.soca_resources,
             user_specified_variables,
             get_kms_key_id=get_kms_key_id,
+            get_config_key=get_config_key,
             principals_suffix=principals_suffix,
         )
 
@@ -4882,9 +5211,7 @@ if __name__ == "__main__":
         {"Key": "edh:CreatedOn", "Value": str(datetime.datetime.now(datetime.UTC))},
         {
             "Key": "edh:Version",
-            "Value": get_config_key(
-                key_name="Config.version", required=False, default="26.4.0"
-            ),
+            "Value": get_config_key(key_name="Config.version"),
         },
     ]
 

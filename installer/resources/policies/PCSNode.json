@@ -1,0 +1,85 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "EDHBootstrapLogsPreMount",
+            "Action": "s3:PutObject",
+            "Resource": "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/%%CLUSTER_ID%%/%%VERSION%%/bootstrap_logs_pre_filesystem_mount/*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "EDHBootstrapAndDriverBucketsRead",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:s3:::dcv-license.%%AWS_REGION%%/*",
+                "arn:%%AWS_PARTITION%%:s3:::ec2-linux-nvidia-drivers/*",
+                "arn:%%AWS_PARTITION%%:s3:::ec2-linux-nvidia-drivers",
+                "arn:%%AWS_PARTITION%%:s3:::ec2-amd-linux-drivers/*",
+                "arn:%%AWS_PARTITION%%:s3:::ec2-amd-linux-drivers",
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%/*",
+                "arn:%%AWS_PARTITION%%:s3:::%%BUCKET%%"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "EDHTagVolumesAndEnis",
+            "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": [
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:volume/*",
+                "arn:%%AWS_PARTITION%%:ec2:*:%%AWS_ACCOUNT_ID%%:network-interface/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "EDHDescribeForBootstrap",
+            "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeInstanceTypes",
+                "ec2:DescribeInstances",
+                "fsx:DescribeFileSystems",
+                "fsx:DescribeVolumes",
+                "fsx:DescribeStorageVirtualMachines",
+                "tag:GetResources",
+                "tag:GetTagValues",
+                "tag:GetTagKeys",
+                "elasticfilesystem:DescribeAccessPoints",
+                "elasticfilesystem:DescribeMountTargets"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        },
+        {
+            "Sid": "EDHCloudWatchLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:logs:%%AWS_REGION%%:*:*"
+        },
+        {
+            "Sid": "EDHReadClusterSSMParameters",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:GetParametersByPath"
+            ],
+            "Resource": "arn:%%AWS_PARTITION%%:ssm:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:parameter/edh/%%CLUSTER_ID%%/*"
+        },
+        {
+            "Sid": "PCSRegisterComputeNodeGroupInstance",
+            "Effect": "Allow",
+            "Action": "pcs:RegisterComputeNodeGroupInstance",
+            "Resource": "arn:%%AWS_PARTITION%%:pcs:%%AWS_REGION%%:%%AWS_ACCOUNT_ID%%:cluster/*"
+        }
+    ]
+}

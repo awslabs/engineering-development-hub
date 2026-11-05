@@ -1,0 +1,156 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# SCHEDULER_VARS are forwarded from templates/linux/scheduler/install_schedulers.sh.j2.
+#
+# Onboard this node as a client of an AWS PCS cluster registered with `edhctl pcs register`.
+# Same steps as the setup script on the PCS Connect tab (admin/pcs/detail.html), keep both in sync:
+#   1. install the PCS Slurm build matching the cluster (skipped if already installed)
+#   2. check the sackd account can read the exported key
+#   3. one sackd-<pcs_cluster_id> service per cluster (own runtime dir, socket and slurm.conf)
+#   4. /bin/edh_awspcs-<pcs_cluster_name>-<pcs_cluster_id> (like /bin/edh_<scheduler> for the other schedulers) to target the cluster
+#
+# Only included when /configuration/services/aws_pcs/auto_onboard_client is true.
+# A PCS cluster that is not ready (registration missing fields, key not exported or not readable,
+# slurmctld not reachable, sackd not starting) is logged and skipped. Deleting a cluster from
+# /admin/pcs disables its registration, so it is not onboarded anymore. A failed installer download fails the bootstrap
+# (file_download exit_fail).
+
+{% set PCS_CFG = SCHEDULER_VARS.get("SLURM_CONFIGURATION") or {} %}
+# Begin: AWS PCS Configure Client
+function aws_pcs_configure_client_{{ SCHEDULER_VARS.get("IDENTIFIER") | replace("-", "_") }} {
+    local CLUSTER_NAME="{{ SCHEDULER_VARS.get("IDENTIFIER") }}"
+    local CLUSTER_ID="{{ PCS_CFG.get("pcs_cluster_id", "") }}"
+    local SLURM_VERSION="{{ PCS_CFG.get("slurm_version", "") }}"
+    local SLURM_HOME="{{ PCS_CFG.get("install_prefix_path", "") }}"
+    local SLURMCTLD_HOST="{{ SCHEDULER_VARS.get("ENDPOINT") }}"
+    local SLURMCTLD_PORT="{{ PCS_CFG.get("slurmctld_port", "6817") }}"
+    local SLURMCTLD_ENDPOINT="${SLURMCTLD_HOST}:${SLURMCTLD_PORT}"
+    local REGION="{{ context.get("/configuration/Region") }}"
+    local KEY_FILE="/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/pcs/${CLUSTER_ID}/slurm.key"
+    local SACKD_USER="slurm"
+    local SERVICE="sackd-${CLUSTER_ID}"
+    local SACKD_RUNTIME="/run/slurm-${CLUSTER_ID}"
+    local EDH_LAUNCHER="/bin/edh_awspcs-${CLUSTER_NAME}-${CLUSTER_ID}"
+    local UNIT_FILE="/etc/systemd/system/${SERVICE}.service"
+
+    log_info "[AWS PCS] Onboarding this node as a client of PCS cluster ${CLUSTER_NAME} (${CLUSTER_ID}). Disable it by changing /configuration/services/aws_pcs/auto_onboard_client to False"
+
+    if [[ -z "${CLUSTER_ID}" || -z "${SLURM_VERSION}" || -z "${SLURM_HOME}" ]]; then
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: pcs_cluster_id, slurm_version or install_prefix_path missing from its scheduler configuration. Re-run 'edhctl pcs register --cluster-identifier ${CLUSTER_NAME} --force' on the controller. Skipping."
+        return 0
+    fi
+
+    if [[ ! -f "${KEY_FILE}" ]]; then
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: ${KEY_FILE} not found. Export the PCS secret from /admin/pcs first. Skipping."
+        return 0
+    fi
+
+    # A deleted / unreachable cluster must not slow down the bootstrap: probe slurmctld first.
+    # telnet ships with the base packages; only install it if it was removed.
+    if ! verify_package_installed telnet; then
+        packages_install telnet
+    fi
+    if ! echo "" | timeout 5 telnet "${SLURMCTLD_HOST}" "${SLURMCTLD_PORT}" 2>&1 | grep -q "Connected to"; then
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: slurmctld ${SLURMCTLD_ENDPOINT} is not reachable from this node (cluster deleted, or security group / routing not allowing TCP ${SLURMCTLD_PORT}). Skipping."
+        return 0
+    fi
+
+    # The version file is written last by the installer: without it a previous install did not finish.
+    if [[ -x "${SLURM_HOME}/sbin/sackd" && -f "${SLURM_HOME}/version" ]]; then
+        log_info "[AWS PCS] Slurm ${SLURM_VERSION} already installed in ${SLURM_HOME}"
+    else
+        local _installer="aws-pcs-slurm-${SLURM_VERSION}-installer-latest"
+        local _workdir
+        _workdir=$(mktemp -d)
+        log_info "[AWS PCS] Installing PCS Slurm ${SLURM_VERSION} into ${SLURM_HOME}"
+        file_download --download-url="https://aws-pcs-repo-${REGION}.s3.${REGION}.amazonaws.com/aws-pcs-slurm/${_installer}.tar.gz" \
+            --save-as="${_workdir}/${_installer}.tar.gz"
+        if ! tar -xf "${_workdir}/${_installer}.tar.gz" -C "${_workdir}" \
+            || ! (cd "${_workdir}/aws-pcs-slurm-${SLURM_VERSION}-installer" && ./installer.sh -y); then
+            rm -rf "${_workdir}"
+            log_warning "[AWS PCS] ${CLUSTER_NAME}: unable to install PCS Slurm ${SLURM_VERSION}. Skipping."
+            return 0
+        fi
+        rm -rf "${_workdir}"
+        if [[ ! -x "${SLURM_HOME}/sbin/sackd" || ! -f "${SLURM_HOME}/version" ]]; then
+            log_warning "[AWS PCS] ${CLUSTER_NAME}: PCS Slurm ${SLURM_VERSION} install is incomplete in ${SLURM_HOME}. Skipping."
+            return 0
+        fi
+    fi
+
+    # Step 1 - the sackd account must read the exported key (see the Prerequisite on the PCS Connect tab)
+    if ! id "${SACKD_USER}" &>/dev/null; then
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: user ${SACKD_USER} does not exist on this node. Skipping."
+        return 0
+    fi
+    if ! sudo -u "${SACKD_USER}" test -r "${KEY_FILE}"; then
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: ${SACKD_USER} cannot read ${KEY_FILE}. Every parent directory must be traversable and the key's group must have the same GID on every node (see the Prerequisite on the PCS Connect tab). Skipping."
+        return 0
+    fi
+
+    # Step 2 - one sackd service per PCS cluster
+    # Slurm 25.05 has no --key-file: the key path is passed via SLURM_SACK_JWKS instead
+    local _key_env=""
+    local _key_arg="--key-file=${KEY_FILE}"
+    if [[ "${SLURM_VERSION}" == 25.05* ]]; then
+        _key_env="Environment=SLURM_SACK_JWKS=${KEY_FILE}"
+        _key_arg=""
+    fi
+    cat > "${UNIT_FILE}" << EOF
+[Unit]
+Description=Slurm auth and cred kiosk daemon (${CLUSTER_NAME})
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+TimeoutStartSec=30
+User=${SACKD_USER}
+Group=$(id -gn "${SACKD_USER}")
+RuntimeDirectory=slurm-${CLUSTER_ID}
+RuntimeDirectoryMode=0755
+${_key_env}
+ExecStart=${SLURM_HOME}/sbin/sackd --systemd --conf-server=${SLURMCTLD_ENDPOINT} ${_key_arg}
+ExecReload=/bin/kill -HUP \$MAINPID
+KillMode=process
+LimitNOFILE=131072
+LimitMEMLOCK=infinity
+LimitSTACK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    chown root:root "${UNIT_FILE}"
+    chmod 0644 "${UNIT_FILE}"
+    systemctl daemon-reload
+    systemctl enable "${SERVICE}"
+    if ! systemctl restart "${SERVICE}" || ! systemctl is-active --quiet "${SERVICE}"; then
+        # Do not leave a broken unit enabled: it would retry (and time out) on every boot
+        systemctl disable --now "${SERVICE}" &>/dev/null || true
+        log_warning "[AWS PCS] ${CLUSTER_NAME}: ${SERVICE} failed to start (check journalctl -u ${SERVICE}), service disabled. Skipping."
+        return 0
+    fi
+
+    # Step 3 - /bin/edh_awspcs-<cluster name>-<cluster id> opens a shell whose Slurm commands target this cluster
+    # (SLURM_CONF / SLURM_SACK_SOCKET), like /bin/edh_<scheduler> for the other EDH schedulers.
+    cat > "${EDH_LAUNCHER}" << EOF
+#!/bin/bash
+# Open a shell to run Slurm commands against AWS PCS cluster ${CLUSTER_NAME} (${CLUSTER_ID})
+export PATH="${SLURM_HOME}/bin:\${PATH}"
+export SLURM_CONF="${SACKD_RUNTIME}/conf/slurm.conf"
+export SLURM_SACK_SOCKET="${SACKD_RUNTIME}/sack.socket"
+echo "========= EDH ========= "
+echo ">> AWS PCS cluster ${CLUSTER_NAME} (${CLUSTER_ID}) environment loaded, you can now run commands such as sbatch/squeue/srun etc ..."
+echo ">> Slurm is installed under: ${SLURM_HOME}"
+echo ">> Type exit to close this shell"
+echo "======================== "
+export PS1="(edh_awspcs-${CLUSTER_NAME}-${CLUSTER_ID}) \u@\h:\w\$ "
+exec "\$SHELL" -i
+EOF
+    chmod 0755 "${EDH_LAUNCHER}"
+
+    log_info "[AWS PCS] ${CLUSTER_NAME} is reachable from this node: run ${EDH_LAUNCHER}"
+}
+aws_pcs_configure_client_{{ SCHEDULER_VARS.get("IDENTIFIER") | replace("-", "_") }}
+# End: AWS PCS Configure Client

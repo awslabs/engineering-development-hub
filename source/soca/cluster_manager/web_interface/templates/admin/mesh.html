@@ -1,0 +1,1021 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# The mesh admin page.
+#
+# Every action button and every badge on this page is driven by what the API
+# returns, not by rules restated here. The peer list carries a permitted_actions
+# array per peer, computed from the one transition table in
+# api/v1/mesh/lifecycle.py, and this page renders exactly those buttons.
+#
+# That is the deliberate difference from the prototype's version, which hardcoded
+# lifecycle names in 44 places and decided client-side which buttons to show. Two
+# copies of a state machine drift, and when they do the UI offers an action the
+# API refuses, or hides one it would allow. There is no list of states in the
+# JavaScript below for that reason.
+#
+# Every action sends the revision the row was rendered at. The API refuses when it
+# no longer matches, so a click on a page that has gone stale is rejected rather
+# than applied to a state nobody saw.
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+{% include 'common/horizontal_menu_bar.html' %}
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <h3>{{ _("Cross-region mesh") }}</h3>
+                    <p class="text-muted" id="mesh-subtitle">{{ _("Loading...") }}</p>
+
+                    <!-- Where every API failure is reported. The API distinguishes
+                         an unbound cluster (409) from an unreachable table (503)
+                         and says which in its message, so this shows that message
+                         rather than an empty table. -->
+                    <div class="alert alert-warning d-none" id="mesh-alert" role="alert"></div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header">
+                            <strong>{{ _("Daemon liveness") }}</strong>
+                            <span class="text-muted" id="liveness-basis"></span>
+                        </div>
+                        <div class="card-body">
+                            <div id="liveness-summary" class="mb-2"></div>
+                            <p class="text-muted small mb-0">
+                                {{ _("Liveness is heartbeat freshness, not reachability: a cluster whose daemon is running and whose tunnel is down reports live.") }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>{{ _("Reachability") }}</strong>
+                            <span class="text-muted small" id="reachability-note"></span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                {{ _("Who can reach whom, as each cluster sees it. Read a row as one observer's view: a peer that is unavailable from one cluster and healthy from another is a one-sided partition, not a peer that is down.") }}
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="reachability-table">
+                                    <tbody id="reachability-body">
+                                    <tr><td class="text-muted">{{ _("Loading...") }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>{{ _("Peers") }}</strong>
+                            <button class="btn btn-sm btn-outline-secondary" id="btn-reload">{{ _("Reload") }}</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="peers-table">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ _("Cluster") }}</th>
+                                        <th>{{ _("Region") }}</th>
+                                        <th>{{ _("Site") }}</th>
+                                        <th>{{ _("Lifecycle") }}</th>
+                                        <th>{{ _("Daemon") }}</th>
+                                        <th>{{ _("Endpoint") }}</th>
+                                        <th>{{ _("Actions") }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="peers-body">
+                                    <tr><td colspan="7" class="text-muted">{{ _("Loading...") }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>{{ _("Quorum proposals") }}</strong>
+                            <span class="text-muted small" id="proposals-note"></span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                {{ _("Decommission, tombstone and reclaim need agreement from the other clusters once this mesh has more than two active peers. Each cluster votes once, from its own admin page.") }}
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="proposals-table">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ _("Operation") }}</th>
+                                        <th>{{ _("Target") }}</th>
+                                        <th>{{ _("Proposed by") }}</th>
+                                        <th>{{ _("State") }}</th>
+                                        <th>{{ _("Tally") }}</th>
+                                        <th>{{ _("Closes") }}</th>
+                                        <th>{{ _("This cluster") }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="proposals-body">
+                                    <tr><td colspan="7" class="text-muted">{{ _("Loading...") }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-header"><strong>{{ _("Audit log") }}</strong></div>
+                        <div class="card-body">
+                            <div class="row g-2 mb-3">
+                                <div class="col-auto">
+                                    <input class="form-control form-control-sm" id="filter-cluster"
+                                           placeholder="{{ _('Cluster id') }}">
+                                </div>
+                                <div class="col-auto">
+                                    <input class="form-control form-control-sm" id="filter-actor"
+                                           placeholder="{{ _('Actor') }}">
+                                </div>
+                                <div class="col-auto">
+                                    <!-- Populated from the audit response's filterable_actions, which
+                                         is every action the log can contain. Deliberately not the
+                                         peers' permitted_actions: that is what can be done now, and
+                                         this filters what already happened. -->
+                                    <select class="form-select form-select-sm" id="filter-action">
+                                        <option value="">{{ _("Any action") }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-sm btn-outline-secondary" id="btn-audit-apply">{{ _("Apply") }}</button>
+                                </div>
+                            </div>
+                            <div class="alert alert-info d-none" id="audit-incomplete" role="alert">
+                                {{ _("The search stopped before reaching the end of the log. These results are partial; load more to continue.") }}
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="audit-table">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ _("When") }}</th>
+                                        <th>{{ _("Action") }}</th>
+                                        <th>{{ _("Target") }}</th>
+                                        <th>{{ _("Actor") }}</th>
+                                        <th>{{ _("Reason") }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="audit-body">
+                                    <tr><td colspan="5" class="text-muted">{{ _("Loading...") }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary d-none" id="btn-audit-more">{{ _("Load more") }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action confirmation. A reason is mandatory because the API requires
+             one, and it is recorded in the audit log against the operator. -->
+        <div class="modal fade" id="action-modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="action-title"></h5>
+                    </div>
+                    <div class="modal-body">
+                        <p id="action-detail" class="mb-2"></p>
+                        <div class="alert alert-danger d-none" id="action-error" role="alert"></div>
+                        <label class="form-label" for="action-reason">{{ _("Reason (recorded in the audit log)") }}</label>
+                        <textarea class="form-control" id="action-reason" rows="3"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="action-cancel">{{ _("Cancel") }}</button>
+                        <button class="btn btn-primary" id="action-confirm">{{ _("Confirm") }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Raising a proposal. Separate from the action modal because it asks for
+             different things: no expected_revision, since a proposal is decided
+             against the mesh as it stands when the daemon applies it rather than
+             against the row this page rendered, and an override that has to be
+             typed out. -->
+        <div class="modal fade" id="propose-modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="propose-title"></h5>
+                    </div>
+                    <div class="modal-body">
+                        <p id="propose-detail" class="mb-2"></p>
+                        <div class="alert alert-danger d-none" id="propose-error" role="alert"></div>
+                        <label class="form-label" for="propose-reason">{{ _("Reason (the other clusters vote on this)") }}</label>
+                        <textarea class="form-control mb-3" id="propose-reason" rows="3"></textarea>
+                        <label class="form-label" for="propose-window">{{ _("Voting window in seconds (optional)") }}</label>
+                        <input class="form-control mb-3" id="propose-window" type="number" placeholder="900">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="propose-override">
+                            <label class="form-check-label" for="propose-override">
+                                {{ _("Commit without agreement from the other clusters") }}
+                            </label>
+                        </div>
+                        <div class="d-none" id="propose-override-block">
+                            <!-- Not a permission check, and not presented as one. There
+                                 is no authority here a proposer cannot self-grant: it
+                                 is administrator of its own cluster and no central
+                                 authority exists. What makes the override acceptable is
+                                 that it is recorded on the proposal, named in the
+                                 decision, and attributable to whoever used it.
+
+                                 The warning states what the override reachably does,
+                                 which is commit without the agreement of the other
+                                 ACTIVE clusters. An earlier version described it as
+                                 breaking a two-peer deadlock; review established that
+                                 state cannot occur, because a proposal cannot be
+                                 created at that mesh size and the direct action is
+                                 permitted there instead. -->
+                            <div class="alert alert-warning mt-2 mb-2">
+                                {{ _("This commits without the agreement of the other active clusters in this mesh. Nothing here checks whether they are reachable, so use it only when you know they cannot answer. It is recorded on the proposal and attributed to you in the audit log.") }}
+                            </div>
+                            <label class="form-label" for="propose-override-confirm">
+                                {{ _("Type the target cluster id to confirm") }}
+                            </label>
+                            <input class="form-control" id="propose-override-confirm" type="text" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="propose-cancel">{{ _("Cancel") }}</button>
+                        <button class="btn btn-primary" id="propose-confirm">{{ _("Raise proposal") }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Casting this cluster's vote. The voter is never sent: the API takes it
+             from the cluster the request arrived at, so this page cannot vote on
+             another cluster's behalf even if it tried. -->
+        <div class="modal fade" id="vote-modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="vote-title"></h5>
+                    </div>
+                    <div class="modal-body">
+                        <p id="vote-detail" class="mb-2"></p>
+                        <div class="alert alert-danger d-none" id="vote-error" role="alert"></div>
+                        <label class="form-label" for="vote-reason">{{ _("Reason (optional, recorded with the vote)") }}</label>
+                        <textarea class="form-control" id="vote-reason" rows="2"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="vote-cancel">{{ _("Cancel") }}</button>
+                        <button class="btn btn-primary" id="vote-confirm">{{ _("Cast vote") }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+        {% include 'common/footer.html' %}
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    const API = "/api/v1/mesh";
+
+    // Liveness values the API can return, mapped to a badge class. Presentation
+    // only: nothing here decides liveness, and an unrecognised value renders as
+    // itself in a neutral badge rather than being dropped, so a value added
+    // server-side shows up instead of disappearing.
+    const LIVENESS_BADGE = {
+        live: "bg-success",
+        failing: "bg-danger",
+        stale: "bg-warning text-dark",
+        dead: "bg-danger",
+        unknown: "bg-secondary"
+    };
+
+    let auditCursor = null;
+    // The filter signature the cursor above was produced with. Compared before the
+    // cursor is ever used, so a cursor cannot be applied to a different filter set.
+    let auditCursorFilters = null;
+    let pendingAction = null;
+    let pendingProposal = null;
+    let pendingVote = null;
+
+    function el(id) { return document.getElementById(id); }
+
+    function escapeHtml(value) {
+        return String(value === null || value === undefined ? "" : value)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function showAlert(message) {
+        const box = el("mesh-alert");
+        box.textContent = message;
+        box.classList.remove("d-none");
+    }
+
+    function clearAlert() {
+        el("mesh-alert").classList.add("d-none");
+    }
+
+    // Every response goes through here so a failure is reported with the API's own
+    // message. The endpoints already explain themselves: an unbound cluster says
+    // so, an unreachable table says so, a refused transition says which states
+    // would have been allowed. Replacing that with a generic string would throw
+    // away the only useful part.
+    async function call(path, options) {
+        const response = await fetch(API + path, options || {});
+        let body = null;
+        try {
+            body = await response.json();
+        } catch (e) {
+            body = null;
+        }
+        if (!response.ok || !body || body.success === false) {
+            const detail = body && body.message
+                ? (typeof body.message === "string" ? body.message : JSON.stringify(body.message))
+                : ("HTTP " + response.status);
+            const error = new Error(detail);
+            error.status = response.status;
+            throw error;
+        }
+        return body.message;
+    }
+
+    function livenessBadge(value) {
+        const cls = LIVENESS_BADGE[value] || "bg-secondary";
+        return '<span class="badge ' + cls + '">' + escapeHtml(value) + "</span>";
+    }
+
+    function actionButtons(peer) {
+        // Rendered from what the API says is permitted for this peer's current
+        // state. No list of lifecycle states appears in this file.
+        const actions = Array.isArray(peer.permitted_actions) ? peer.permitted_actions : [];
+        if (actions.length === 0) {
+            return '<span class="text-muted small">{{ _("No actions available") }}</span>';
+        }
+        // Which of them this mesh is too large to do directly, as the API computed
+        // it. Read from the payload rather than decided here, because the threshold
+        // and the set of quorum actions are server rules and a copy of them in this
+        // file would drift from the ones the API enforces.
+        const needsQuorum = Array.isArray(peer.actions_requiring_quorum)
+            ? peer.actions_requiring_quorum
+            : [];
+        return actions.map(function (action) {
+            const danger = (action === "revoke" || action === "decommission" || action === "tombstone");
+            const quorum = needsQuorum.indexOf(action) !== -1;
+            // A quorum action opens a proposal instead of calling the direct
+            // endpoint. Before the proposal endpoints existed the button called it
+            // anyway and was refused every time, so the page offered three actions
+            // on a large mesh that could not be performed from it.
+            return '<button class="btn btn-tiny ' +
+                (danger ? "btn-outline-danger" : "btn-outline-secondary") +
+                '" data-action="' + escapeHtml(action) +
+                '" data-quorum="' + (quorum ? "1" : "0") +
+                '" data-cluster="' + escapeHtml(peer.cluster_id) +
+                '" data-revision="' + escapeHtml(peer.revision) +
+                '" data-lifecycle="' + escapeHtml(peer.lifecycle) + '">' +
+                (quorum ? '{{ _("Propose") }} ' : "") + escapeHtml(action) + "</button>";
+        }).join(" ");
+    }
+
+    function renderPeers(payload, livenessByCluster) {
+        const body = el("peers-body");
+        const peers = payload.peers || [];
+        el("mesh-subtitle").textContent =
+            "{{ _('Mesh') }} " + payload.mesh_id + "  |  " +
+            payload.active_peer_count + " {{ _('active peers') }}";
+
+        if (peers.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" class="text-muted">' +
+                '{{ _("This mesh has no peer rows.") }}</td></tr>';
+            return;
+        }
+
+        body.innerHTML = peers.map(function (peer) {
+            const live = livenessByCluster[peer.cluster_id];
+            return "<tr>" +
+                "<td>" + escapeHtml(peer.cluster_id) +
+                '<div class="text-muted small">' + escapeHtml(peer.cluster_name) + "</div></td>" +
+                "<td>" + escapeHtml(peer.region) + "</td>" +
+                "<td>" + escapeHtml(peer.site_seq) + "</td>" +
+                "<td>" + escapeHtml(peer.lifecycle) + "</td>" +
+                "<td>" + (live ? livenessBadge(live.daemon_liveness) : livenessBadge("unknown")) + "</td>" +
+                "<td class=\"small\">" + escapeHtml(peer.endpoint) + "</td>" +
+                "<td>" + actionButtons(peer) + "</td>" +
+                "</tr>";
+        }).join("");
+    }
+
+    // ----------------------------------------------------------------------
+    // Quorum proposals
+    // ----------------------------------------------------------------------
+
+    const PROPOSAL_BADGE = {
+        open: "bg-primary",
+        committed: "bg-success",
+        rejected: "bg-secondary",
+        stalled: "bg-warning text-dark",
+        cancelled: "bg-secondary"
+    };
+
+    function proposalBadge(state) {
+        const cls = PROPOSAL_BADGE[state] || "bg-secondary";
+        return '<span class="badge ' + cls + '">' + escapeHtml(state) + "</span>";
+    }
+
+    function tallyCell(proposal) {
+        // A proposal the API reported without a tally is one it did not evaluate,
+        // which happens for a finished proposal and for one whose votes could not be
+        // read. Both must render as absent rather than as zero: "0 of 2" reads as a
+        // live count that nobody has answered.
+        const tally = proposal.tally;
+        if (!tally) {
+            return '<span class="text-muted small">{{ _("not counted") }}</span>';
+        }
+        const silent = Array.isArray(tally.silent) ? tally.silent : [];
+        let text = tally.yes + " {{ _('yes') }} / " + tally.quorum_needed + " {{ _('needed') }}";
+        if (tally.no) { text += ", " + tally.no + " {{ _('no') }}"; }
+        if (tally.abstain) { text += ", " + tally.abstain + " {{ _('abstain') }}"; }
+        let cell = escapeHtml(text);
+        if (silent.length) {
+            // Named rather than counted, because "2 have not answered" sends an
+            // operator looking for which ones and the answer is already here.
+            cell += '<div class="text-muted small">{{ _("silent") }}: ' +
+                escapeHtml(silent.join(", ")) + "</div>";
+        }
+        if (proposal.decision_reason) {
+            cell += '<div class="text-muted small">' +
+                escapeHtml(proposal.decision_reason) + "</div>";
+        }
+        return cell;
+    }
+
+    function voteButtons(proposal, selfClusterId) {
+        // Nothing is offered on a proposal that is finished, and nothing is offered
+        // to the cluster the operation would be applied to: the subject of a
+        // decision does not vote on it, and its vote would carry real weight rather
+        // than none, since the electorate is every ACTIVE peer with no exclusion for
+        // the target.
+        if (!proposal.tally) {
+            return '<span class="text-muted small">{{ _("closed") }}</span>';
+        }
+        if (selfClusterId && proposal.target === selfClusterId) {
+            return '<span class="text-muted small">{{ _("this cluster is the target") }}</span>';
+        }
+        return ["yes", "no", "abstain"].map(function (value) {
+            const style = value === "yes" ? "btn-outline-success"
+                : (value === "no" ? "btn-outline-danger" : "btn-outline-secondary");
+            return '<button class="btn btn-tiny ' + style +
+                '" data-vote="' + value +
+                '" data-proposal="' + escapeHtml(proposal.proposal_id) +
+                '" data-operation="' + escapeHtml(proposal.operation) +
+                '" data-target="' + escapeHtml(proposal.target) + '">' +
+                escapeHtml(value) + "</button>";
+        }).join(" ");
+    }
+
+    function renderProposals(payload) {
+        const body = el("proposals-body");
+        const proposals = payload.proposals || [];
+        const selfClusterId = payload.self_cluster_id || null;
+        el("proposals-note").textContent = selfClusterId
+            ? "{{ _('Voting as') }} " + selfClusterId
+            : "";
+
+        if (proposals.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" class="text-muted">' +
+                '{{ _("No proposals. One is raised from the peer table when an action needs agreement.") }}</td></tr>';
+            return;
+        }
+
+        body.innerHTML = proposals.map(function (proposal) {
+            const override = proposal.committed_by_override
+                ? '<div class="text-warning small">{{ _("quorum bypassed") }}</div>'
+                : "";
+            return "<tr>" +
+                "<td>" + escapeHtml(proposal.operation) + override + "</td>" +
+                "<td>" + escapeHtml(proposal.target) + "</td>" +
+                "<td>" + escapeHtml(proposal.proposer) +
+                '<div class="text-muted small">' + escapeHtml(proposal.reason) + "</div></td>" +
+                "<td>" + proposalBadge(proposal.state) + "</td>" +
+                "<td class=\"small\">" + tallyCell(proposal) + "</td>" +
+                "<td class=\"small\">" +
+                escapeHtml(new Date(proposal.expires_at * 1000).toISOString()) + "</td>" +
+                "<td>" + voteButtons(proposal, selfClusterId) + "</td>" +
+                "</tr>";
+        }).join("");
+    }
+
+    async function loadProposals() {
+        try {
+            const payload = await call("/proposals");
+            renderProposals(payload);
+        } catch (e) {
+            el("proposals-body").innerHTML =
+                '<tr><td colspan="7" class="text-danger">' + escapeHtml(e.message) + "</td></tr>";
+        }
+    }
+
+    function renderActionFilter(filterableActions) {
+        // Sourced from the audit response, not from the peers' permitted_actions.
+        // Those answer different questions: permitted_actions is what can be done to
+        // a peer now, and this filter is over what has already happened. Driving it
+        // from permitted_actions meant approve vanished from the dropdown once every
+        // peer was ACTIVE, because approve is only permitted from PENDING, so the
+        // operator could no longer filter the log for the approvals an audit log
+        // exists to answer for.
+        const select = el("filter-action");
+        const current = select.value;
+        select.innerHTML = '<option value="">{{ _("Any action") }}</option>' +
+            (filterableActions || []).map(function (action) {
+                return '<option value="' + escapeHtml(action) + '">' + escapeHtml(action) + "</option>";
+            }).join("");
+        // Only restored when it is still offered. Assigning a value that is no longer
+        // among the options silently selects nothing, which would reset the filter to
+        // "Any action" while the rows on screen still came from the filtered query,
+        // leaving the page disagreeing with its own controls.
+        const stillOffered = Array.prototype.some.call(select.options, function (option) {
+            return option.value === current;
+        });
+        if (current && stillOffered) {
+            select.value = current;
+        }
+    }
+
+    const REACHABILITY_BADGE = {
+        healthy: "bg-success",
+        degraded: "bg-warning text-dark",
+        unavailable: "bg-danger",
+        unknown: "bg-secondary"
+    };
+
+    function renderReachability(payload) {
+        const view = payload.reachability || {};
+        const body = el("reachability-body");
+        const note = el("reachability-note");
+
+        if (view.unreadable) {
+            // Distinguished from "nothing to report": the liveness view above still
+            // rendered, and saying the table could not be read is not the same as
+            // saying every pair is fine.
+            note.textContent = "{{ _('could not be read') }}";
+            body.innerHTML = '<tr><td class="text-danger">' +
+                escapeHtml(view.unreadable) + "</td></tr>";
+            return;
+        }
+
+        if (!view.probing_active) {
+            // The distinction the endpoint's docstring exists for. An empty matrix
+            // labelled healthy would read as "nothing wrong" when it means "nothing
+            // has ever been measured".
+            note.textContent = "{{ _('not running') }}";
+            body.innerHTML = '<tr><td class="text-muted">' +
+                '{{ _("No cluster has recorded a probe. Reachability is unmeasured, which is not the same as every peer being reachable. The daemon probes only when a probe interval is configured.") }}' +
+                "</td></tr>";
+            return;
+        }
+
+        const matrix = view.matrix || [];
+        const counts = view.unavailable_observer_counts || {};
+        note.textContent = "";
+
+        body.innerHTML = matrix.map(function (row) {
+            const cells = Object.keys(row.observed).sort().map(function (observed) {
+                const cell = row.observed[observed];
+                const cls = REACHABILITY_BADGE[cell.health] || "bg-secondary";
+                const rtt = (cell.last_rtt_ms === null || cell.last_rtt_ms === undefined)
+                    ? "" : " " + escapeHtml(cell.last_rtt_ms) + "ms";
+                return '<span class="badge ' + cls + ' me-1">' +
+                    escapeHtml(observed) + " " + escapeHtml(cell.health) + rtt +
+                    "</span>";
+            }).join(" ");
+            return "<tr><td class=\"small\"><strong>" + escapeHtml(row.observer) +
+                "</strong> {{ _('sees') }}</td><td>" + cells + "</td></tr>";
+        }).join("");
+
+        // Named rather than counted, and shown separately from the matrix, because
+        // this is the number the tunnel and the escalation both act on: two separate
+        // observers is what removes a peer from the tunnel or proposes its removal.
+        const flagged = Object.keys(counts).sort();
+        if (flagged.length > 0) {
+            body.insertAdjacentHTML("beforeend", flagged.map(function (cluster_id) {
+                const observers = counts[cluster_id];
+                return '<tr><td class="small text-danger">' +
+                    escapeHtml(cluster_id) + "</td><td class=\"small text-danger\">" +
+                    "{{ _('unreachable from') }} " + escapeHtml(observers.join(", ")) +
+                    (observers.length >= 2
+                        ? " {{ _('(enough to remove it from the tunnel)') }}"
+                        : " {{ _('(one observer only, so nothing is acted on)') }}") +
+                    "</td></tr>";
+            }).join(""));
+        }
+    }
+
+    function renderLiveness(payload) {
+        el("liveness-basis").textContent = payload.liveness_basis || "";
+        const summary = payload.summary || {};
+        el("liveness-summary").innerHTML = Object.keys(summary).sort().map(function (band) {
+            return livenessBadge(band) + " " + escapeHtml(summary[band]);
+        }).join("  ");
+
+        // Heartbeats with no peer row mean either a row was deleted under a running
+        // daemon or a daemon is writing to a mesh it was never admitted to. Both
+        // are worth showing rather than dropping.
+        const orphans = payload.heartbeats_without_a_peer_row || [];
+        if (orphans.length > 0) {
+            showAlert("{{ _('Heartbeats from clusters with no peer row:') }} " + orphans.join(", "));
+        }
+
+        const byCluster = {};
+        (payload.peers || []).forEach(function (entry) { byCluster[entry.cluster_id] = entry; });
+        return byCluster;
+    }
+
+    function renderAudit(payload, append) {
+        const body = el("audit-body");
+        const rows = (payload.events || []).map(function (event) {
+            return "<tr>" +
+                "<td class=\"small\">" + escapeHtml(new Date(event.ts * 1000).toISOString()) + "</td>" +
+                "<td>" + escapeHtml(event.action) + "</td>" +
+                "<td>" + escapeHtml(event.target_cluster_id) + "</td>" +
+                "<td>" + escapeHtml(event.actor) + "</td>" +
+                "<td>" + escapeHtml(event.reason) + "</td>" +
+                "</tr>";
+        }).join("");
+
+        if (append) {
+            body.insertAdjacentHTML("beforeend", rows);
+        } else {
+            body.innerHTML = rows ||
+                '<tr><td colspan="5" class="text-muted">{{ _("No matching audit events.") }}</td></tr>';
+        }
+
+        auditCursor = payload.next_cursor || null;
+        // The cursor is only valid for the filters that produced it. Recording them
+        // together is what stops a later "Load more" from paging forward through a
+        // different filter set: the server would apply the new filters from the old
+        // position, silently skipping matching events newer than the cursor and
+        // appending them under rows from the previous query, as one complete list.
+        auditCursorFilters = auditFilterSignature();
+        renderActionFilter(payload.filterable_actions);
+        el("btn-audit-more").classList.toggle("d-none", !auditCursor);
+        // Distinguishes "no more matches" from "we stopped looking", which the API
+        // reports separately.
+        el("audit-incomplete").classList.toggle("d-none", !payload.search_incomplete);
+    }
+
+    function auditFilterSignature() {
+        return JSON.stringify([
+            el("filter-cluster").value.trim(),
+            el("filter-actor").value.trim(),
+            el("filter-action").value
+        ]);
+    }
+
+    function auditQuery(cursor) {
+        const params = new URLSearchParams();
+        const cluster = el("filter-cluster").value.trim();
+        const actor = el("filter-actor").value.trim();
+        const action = el("filter-action").value;
+        if (cluster) { params.set("cluster_id", cluster); }
+        if (actor) { params.set("actor", actor); }
+        if (action) { params.set("action", action); }
+        if (cursor) { params.set("cursor", cursor); }
+        const query = params.toString();
+        return "/audit" + (query ? "?" + query : "");
+    }
+
+    async function loadAudit(append) {
+        // Appending is downgraded to a fresh query when the filters no longer match
+        // the ones the cursor came from. Checked here rather than only on the input
+        // event because this is the point where the stale cursor would be used, so
+        // it holds for a filter changed by any means, including one this page never
+        // saw an event for.
+        if (append && auditCursorFilters !== auditFilterSignature()) {
+            append = false;
+        }
+        try {
+            const payload = await call(auditQuery(append ? auditCursor : null));
+            renderAudit(payload, append);
+        } catch (e) {
+            el("audit-body").innerHTML =
+                '<tr><td colspan="5" class="text-danger">' + escapeHtml(e.message) + "</td></tr>";
+        }
+    }
+
+    async function loadMesh() {
+        clearAlert();
+        let livenessByCluster = {};
+        try {
+            const health = await call("/health");
+            livenessByCluster = renderLiveness(health);
+            renderReachability(health);
+        } catch (e) {
+            // Liveness is supplementary. Losing it must not stop the peer list from
+            // rendering, because the peer list is what approval is done from.
+            el("liveness-summary").innerHTML =
+                '<span class="text-danger">' + escapeHtml(e.message) + "</span>";
+            // The reachability card reads from the same call, so it has to be told too.
+            // Left alone it sat on its initial "Loading..." row forever, which reads as
+            // a slow request rather than a failed one.
+            el("reachability-body").innerHTML =
+                '<tr><td colspan="2" class="text-danger">' +
+                escapeHtml(e.message) +
+                "</td></tr>";
+            el("reachability-note").textContent =
+                "Reachability could not be loaded.";
+        }
+        try {
+            const peers = await call("/peers");
+            renderPeers(peers, livenessByCluster);
+        } catch (e) {
+            showAlert(e.message);
+            el("peers-body").innerHTML =
+                '<tr><td colspan="7" class="text-danger">' + escapeHtml(e.message) + "</td></tr>";
+        }
+        await loadAudit(false);
+        await loadProposals();
+    }
+
+    // ----------------------------------------------------------------------
+    // Raising a proposal
+    // ----------------------------------------------------------------------
+
+    function openProposeModal(button) {
+        pendingProposal = {
+            operation: button.getAttribute("data-action"),
+            target: button.getAttribute("data-cluster"),
+            lifecycle: button.getAttribute("data-lifecycle")
+        };
+        el("propose-title").textContent =
+            "{{ _('Propose') }} " + pendingProposal.operation + " " + pendingProposal.target;
+        el("propose-detail").textContent =
+            "{{ _('Currently') }} " + pendingProposal.lifecycle +
+            ". {{ _('The other active clusters vote, and the daemon applies it once quorum is reached.') }}";
+        el("propose-reason").value = "";
+        el("propose-window").value = "";
+        el("propose-override").checked = false;
+        el("propose-override-confirm").value = "";
+        el("propose-override-block").classList.add("d-none");
+        el("propose-error").classList.add("d-none");
+        el("propose-modal").classList.add("show");
+        el("propose-modal").style.display = "block";
+    }
+
+    function closeProposeModal() {
+        pendingProposal = null;
+        el("propose-modal").classList.remove("show");
+        el("propose-modal").style.display = "none";
+    }
+
+    async function confirmProposal() {
+        if (!pendingProposal) { return; }
+        const error = el("propose-error");
+        const reason = el("propose-reason").value.trim();
+        if (!reason) {
+            error.textContent = "{{ _('A reason is required. The other clusters vote on it.') }}";
+            error.classList.remove("d-none");
+            return;
+        }
+
+        const override = el("propose-override").checked;
+        if (override) {
+            // Typed confirmation, and deliberately the target rather than a generic
+            // word: it is the thing the operator is about to remove without
+            // agreement, so typing it is the point at which they read it back.
+            const typed = el("propose-override-confirm").value.trim();
+            if (typed !== pendingProposal.target) {
+                error.textContent =
+                    "{{ _('Type the target cluster id exactly to bypass quorum:') }} " +
+                    pendingProposal.target;
+                error.classList.remove("d-none");
+                return;
+            }
+        }
+
+        const body = {
+            operation: pendingProposal.operation,
+            target: pendingProposal.target,
+            reason: reason,
+            single_cluster_override: override
+        };
+        const window_ = el("propose-window").value.trim();
+        // Omitted rather than sent empty when unset, so the API applies its default
+        // instead of refusing an unreadable value.
+        if (window_) { body.voting_window_seconds = Number(window_); }
+
+        const confirmButton = el("propose-confirm");
+        confirmButton.disabled = true;
+        try {
+            await call("/proposals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            closeProposeModal();
+            await loadMesh();
+        } catch (e) {
+            // Shown here rather than as a page alert, next to the decision. A 409
+            // carries the reason: the mesh is small enough to act directly, the peer
+            // is in the wrong state, or a proposal for this already exists.
+            error.textContent = e.message;
+            error.classList.remove("d-none");
+        } finally {
+            confirmButton.disabled = false;
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // Voting
+    // ----------------------------------------------------------------------
+
+    function openVoteModal(button) {
+        pendingVote = {
+            proposal: button.getAttribute("data-proposal"),
+            vote: button.getAttribute("data-vote"),
+            operation: button.getAttribute("data-operation"),
+            target: button.getAttribute("data-target")
+        };
+        el("vote-title").textContent =
+            "{{ _('Vote') }} " + pendingVote.vote + " {{ _('on') }} " +
+            pendingVote.operation + " " + pendingVote.target;
+        el("vote-detail").textContent =
+            "{{ _('The vote belongs to this cluster, and it can be changed while the proposal is open.') }}";
+        el("vote-reason").value = "";
+        el("vote-error").classList.add("d-none");
+        el("vote-modal").classList.add("show");
+        el("vote-modal").style.display = "block";
+    }
+
+    function closeVoteModal() {
+        pendingVote = null;
+        el("vote-modal").classList.remove("show");
+        el("vote-modal").style.display = "none";
+    }
+
+    async function confirmVote() {
+        if (!pendingVote) { return; }
+        const error = el("vote-error");
+        const confirmButton = el("vote-confirm");
+        confirmButton.disabled = true;
+        try {
+            // No voter is sent. The API takes it from the cluster the request
+            // arrived at, so this page cannot vote for another cluster.
+            await call("/proposals/" + encodeURIComponent(pendingVote.proposal) + "/vote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    vote: pendingVote.vote,
+                    reason: el("vote-reason").value.trim()
+                })
+            });
+            closeVoteModal();
+            await loadProposals();
+            // Reloaded too, because a vote that reaches quorum changes what the peer
+            // table should offer once the daemon applies it.
+            await loadMesh();
+        } catch (e) {
+            error.textContent = e.message;
+            error.classList.remove("d-none");
+        } finally {
+            confirmButton.disabled = false;
+        }
+    }
+
+    function openActionModal(button) {
+        pendingAction = {
+            action: button.getAttribute("data-action"),
+            cluster: button.getAttribute("data-cluster"),
+            revision: button.getAttribute("data-revision"),
+            lifecycle: button.getAttribute("data-lifecycle")
+        };
+        el("action-title").textContent = pendingAction.action + " " + pendingAction.cluster;
+        el("action-detail").textContent =
+            "{{ _('Currently') }} " + pendingAction.lifecycle +
+            ". {{ _('Acting on revision') }} " + pendingAction.revision + ".";
+        el("action-reason").value = "";
+        el("action-error").classList.add("d-none");
+        el("action-modal").classList.add("show");
+        el("action-modal").style.display = "block";
+    }
+
+    function closeActionModal() {
+        pendingAction = null;
+        el("action-modal").classList.remove("show");
+        el("action-modal").style.display = "none";
+    }
+
+    async function confirmAction() {
+        if (!pendingAction) { return; }
+        const reason = el("action-reason").value.trim();
+        const error = el("action-error");
+        if (!reason) {
+            error.textContent = "{{ _('A reason is required. It is recorded in the audit log.') }}";
+            error.classList.remove("d-none");
+            return;
+        }
+        // Disabled for the duration of the request, and this is a correctness fix
+        // rather than polish. Every action carries the revision its row was
+        // rendered at, so a second click sends the same now-superseded revision and
+        // the API refuses it with the stale-page message. The operator would be
+        // told their view was out of date for an action they had just performed
+        // successfully, which is the most confusing possible reading of a correct
+        // refusal. Guarding the button is what stops the concurrency check
+        // reporting a conflict against the operator's own first click.
+        const confirmButton = el("action-confirm");
+        confirmButton.disabled = true;
+        try {
+            await call("/peers/" + encodeURIComponent(pendingAction.cluster) + "/" + pendingAction.action, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    reason: reason,
+                    // The revision this row was rendered at. The API refuses if the
+                    // peer has changed since, so a click on a stale page cannot be
+                    // applied to a state the operator never saw.
+                    expected_revision: Number(pendingAction.revision)
+                })
+            });
+            closeActionModal();
+            await loadMesh();
+        } catch (e) {
+            // Shown in the modal rather than as a page alert, so the operator sees
+            // it next to the decision they were making. A 409 here is the stale-page
+            // or wrong-state refusal and its message says which.
+            error.textContent = e.message;
+            error.classList.remove("d-none");
+        } finally {
+            // In a finally so the button comes back on the failure path too. A
+            // refusal the operator can read but not retry is a dead modal.
+            confirmButton.disabled = false;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        el("btn-reload").addEventListener("click", loadMesh);
+        el("btn-audit-apply").addEventListener("click", function () { loadAudit(false); });
+        el("btn-audit-more").addEventListener("click", function () { loadAudit(true); });
+        // Hides the affordance as soon as a filter is edited, so the operator is not
+        // offered a "Load more" that would be downgraded to a reload anyway. The
+        // check in loadAudit is what makes it correct; this is what makes it honest.
+        ["filter-cluster", "filter-actor", "filter-action"].forEach(function (id) {
+            el(id).addEventListener("input", function () {
+                el("btn-audit-more").classList.add("d-none");
+            });
+        });
+        el("action-cancel").addEventListener("click", closeActionModal);
+        el("action-confirm").addEventListener("click", confirmAction);
+        el("peers-body").addEventListener("click", function (event) {
+            const button = event.target.closest("button[data-action]");
+            if (!button) { return; }
+            // The API decided which actions need agreement, and the button carries
+            // that answer. Routing on it here is what stops the page calling an
+            // endpoint that would refuse it.
+            if (button.getAttribute("data-quorum") === "1") {
+                openProposeModal(button);
+            } else {
+                openActionModal(button);
+            }
+        });
+        el("propose-cancel").addEventListener("click", closeProposeModal);
+        el("propose-confirm").addEventListener("click", confirmProposal);
+        el("propose-override").addEventListener("change", function () {
+            const on = el("propose-override").checked;
+            el("propose-override-block").classList.toggle("d-none", !on);
+            // Cleared when unticked so a typed confirmation cannot be left behind and
+            // then satisfy a later tick the operator did not mean to make.
+            if (!on) { el("propose-override-confirm").value = ""; }
+        });
+        el("vote-cancel").addEventListener("click", closeVoteModal);
+        el("vote-confirm").addEventListener("click", confirmVote);
+        el("proposals-body").addEventListener("click", function (event) {
+            const button = event.target.closest("button[data-vote]");
+            if (button) { openVoteModal(button); }
+        });
+        loadMesh();
+    });
+})();
+</script>
+
+</body>
+</html>

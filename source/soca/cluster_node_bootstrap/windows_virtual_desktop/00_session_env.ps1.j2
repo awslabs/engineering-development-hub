@@ -13,43 +13,43 @@
 # See docs/BootstrapTemplateCache.md for the full design.
 
 # DCV session identity.
-$env:EDH_DCV_SESSION_ID    = "{{ context.get('/dcv/SessionId') }}"
-$env:EDH_DCV_SESSION_NAME  = "{{ context.get('/dcv/SessionName') }}"
-$env:EDH_DCV_SESSION_OWNER = "{{ context.get('/dcv/SessionOwner') }}"
-$env:EDH_DCV_SESSION_TYPE  = "{{ context.get('/dcv/SessionType') }}"
+$env:EDH_DCV_SESSION_ID    = {{ context.get('/dcv/SessionId') | ps_quote }}
+$env:EDH_DCV_SESSION_NAME  = {{ context.get('/dcv/SessionName') | ps_quote }}
+$env:EDH_DCV_SESSION_OWNER = {{ context.get('/dcv/SessionOwner') | ps_quote }}
+$env:EDH_DCV_SESSION_TYPE  = {{ context.get('/dcv/SessionType') | ps_quote }}
 # VDI pool member marker (runtime flag; 03_setup_post_reboot emits pool-ready
 # instead of session-ready when "true"). Generic for non-pool VDIs.
-$env:EDH_DCV_POOL_MEMBER   = "{{ context.get('/dcv/PoolMember', 'false') }}"
+$env:EDH_DCV_POOL_MEMBER   = {{ context.get('/dcv/PoolMember', 'false') | ps_quote }}
 
 # DCV event-relay (SNS+Lambda push). Both nullable: empty values cause
 # the publish helper to silently no-op (legacy clusters / event-relay
 # disabled). The HMAC secret is per-session, IMDS-readable only by THIS
 # instance; the topic ARN is cluster-wide.
-$env:EDH_DCV_SESSION_EVENTS_QUEUE_URL = "{{ context.get('/configuration/DcvSessionEventsQueueUrl', '') }}"
+$env:EDH_DCV_SESSION_EVENTS_QUEUE_URL = {{ context.get('/configuration/DcvSessionEventsQueueUrl', '') | ps_quote }}
 
 # AD short name (e.g. "EDH-DCVHS10A") when the cluster is AD-joined.
 # Used by 03_setup_post_reboot to pre-fill the Windows login dialog's
 # domain field via the Winlogon\DefaultDomainName registry value, so the
 # user types only their bare username on first connect. Empty when the
 # cluster is not AD-joined.
-$env:EDH_AD_SHORT_NAME = "{{ context.get('/configuration/UserDirectory/short_name', '') }}"
+$env:EDH_AD_SHORT_NAME = {{ context.get('/configuration/UserDirectory/short_name', '') | ps_quote }}
 
 # Job identity.
-$env:EDH_JOB_ID         = "{{ context.get('/job/JobId') }}"
-$env:EDH_JOB_NAME       = "{{ context.get('/job/JobName') }}"
-$env:EDH_JOB_OWNER      = "{{ context.get('/job/JobOwner') }}"
-$env:EDH_JOB_PROJECT    = "{{ context.get('/job/JobProject') }}"
-$env:EDH_JOB_QUEUE      = "{{ context.get('/job/JobQueue') }}"
-$env:EDH_JOB_STACK_ID   = "{{ context.get('/job/StackId') }}"
+$env:EDH_JOB_ID         = {{ context.get('/job/JobId') | ps_quote }}
+$env:EDH_JOB_NAME       = {{ context.get('/job/JobName') | ps_quote }}
+$env:EDH_JOB_OWNER      = {{ context.get('/job/JobOwner') | ps_quote }}
+$env:EDH_JOB_PROJECT    = {{ context.get('/job/JobProject') | ps_quote }}
+$env:EDH_JOB_QUEUE      = {{ context.get('/job/JobQueue') | ps_quote }}
+$env:EDH_JOB_STACK_ID   = {{ context.get('/job/StackId') | ps_quote }}
 
 # Bootstrap-path / S3 prefix (per session).
-$env:EDH_JOB_BOOTSTRAP_PATH = "{{ context.get('/job/BootstrapPath') }}"
-$env:EDH_JOB_BOOTSTRAP_S3   = "{{ context.get('/job/BootstrapScriptsS3Location') }}"
+$env:EDH_JOB_BOOTSTRAP_PATH = {{ context.get('/job/BootstrapPath') | ps_quote }}
+$env:EDH_JOB_BOOTSTRAP_S3   = {{ context.get('/job/BootstrapScriptsS3Location') | ps_quote }}
 
 # Lifecycle flags.
-$env:EDH_JOB_SCRATCH_SIZE        = "{{ context.get('/job/ScratchSize', 0) }}"
-$env:EDH_JOB_KEEP_FOREVER        = "{{ context.get('/job/KeepForever') }}"
-$env:EDH_JOB_TERMINATE_WHEN_IDLE = "{{ context.get('/job/TerminateWhenIdle') }}"
+$env:EDH_JOB_SCRATCH_SIZE        = {{ context.get('/job/ScratchSize', 0) | ps_quote }}
+$env:EDH_JOB_KEEP_FOREVER        = {{ context.get('/job/KeepForever') | ps_quote }}
+$env:EDH_JOB_TERMINATE_WHEN_IDLE = {{ context.get('/job/TerminateWhenIdle') | ps_quote }}
 
 # Convenience flags: cached scripts can do
 #   if ($env:EDH_JOB_SCRATCH_ENABLED -eq "1") { ... }

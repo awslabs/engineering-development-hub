@@ -23,6 +23,7 @@ from utils.error import SocaError
 from utils.response import SocaResponse
 from datetime import datetime, timezone
 import utils.aws.odcr_helper as odcr_helper
+from utils.aws.ec2_helper import quota_check_skip_reason, QUOTA_CHECK_UNAVAILABLE, validate_ec2_quota_for_instance
 from utils.config import SocaConfig
 
 logger = logging.getLogger("soca_logger")
@@ -211,6 +212,52 @@ class StartTargetNode(Resource):
                     session_owner=_user,
                     helper="This target node seems to be already running.",
                 ).as_flask()
+
+            # Quota gate. This path differs from create: a STOPPED instance does not
+            # consume the running-vCPU quota, so starting it consumes quota again.
+            # Without this check, StartInstances fails with a raw
+            # IncorrectInstanceState-style AWS error on an exhausted quota instead of
+            # a message naming the quota, and the session is left stuck in "pending".
+            #
+            # Placed above the ODCR probe below, because a reservation is charged
+            # against the quota at creation time -- so on an exhausted quota that
+            # probe would fail first with InstanceLimitExceeded, which is a confusing
+            # way to learn the account is out of vCPUs.
+            #
+            # instance_type comes from the session row, so no extra EC2 call is
+            # needed. Target Nodes are On-Demand only.
+            _quota_check = validate_ec2_quota_for_instance(
+                instance_type=_check_session.instance_type,
+                desired_capacity=1,
+                lifecycle="on-demand",
+            )
+            if (
+                _quota_check.get("success") is False
+                and _quota_check.get("status_code") == QUOTA_CHECK_UNAVAILABLE
+            ):
+                # The quota could not be READ, so nothing has been shown to be
+                # exhausted. Admit, matching plan_starts_within_quota()'s bias:
+                # AWS still enforces the real limit at RunInstances, whereas
+                # refusing here invents a denial no quota justifies.
+                logger.warning(
+                    f"Quota check could not be completed ({_quota_check.get('message')}); "
+                    f"admitting {_check_session.instance_type} and letting AWS enforce the limit"
+                )
+            elif _quota_check.get("success") is False:
+                logger.error(
+                    f"Quota check refused start of target node {_session_uuid} "
+                    f"({_check_session.instance_type}): {_quota_check.get('message')}"
+                )
+                return SocaError.VIRTUAL_DESKTOP_RESTART_ERROR(
+                    session_number=_session_uuid,
+                    session_owner=_user,
+                    helper=str(_quota_check.get("message")),
+                ).as_flask()
+            _skip_reason = quota_check_skip_reason(_quota_check)
+            if _skip_reason:
+                logger.info(
+                    f"Quota check skipped for {_check_session.instance_type}: {_skip_reason}"
+                )
 
             try:
                 if (

@@ -198,6 +198,16 @@ def login_nodes(
         f"LoginNode - Instance / AMI / Arch determination - InstanceType: {_selected_instance} / AMI: {_desired_ami} / Arch: {_instance_arch}"
     )
 
+    # Checked AFTER the config override, which can legitimately supply an AMI the region
+    # map has none for. An empty value here would otherwise reach MachineImage below and
+    # fail at deploy time with no hint that region_map is the cause.
+    if not _desired_ami:
+        raise ValueError(
+            f"No {user_specified_variables.base_os} AMI found for {_instance_arch} in "
+            f"{user_specified_variables.region}, needed to deploy the login node. Add one "
+            f"to installer/region_map.d or set Config.login_node.ami.{_instance_arch}."
+        )
+
     _ebs_volume_key_id: str = get_kms_key_id(
         config_key_names=["Config.login_node.volume_kms_key_id"],
         allow_global_default=True,

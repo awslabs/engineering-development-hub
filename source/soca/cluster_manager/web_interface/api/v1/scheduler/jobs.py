@@ -13,6 +13,7 @@ from utils.response import SocaResponse
 from utils.cast import SocaCastEngine
 from utils.validators import Validators
 from utils.hpc.job_fetcher import SocaHpcJobFetcher
+from utils.hpc.job_dependencies import describe_wait_reason, parse_pbs_depend
 from utils.datamodels.hpc.scheduler import get_schedulers
 from utils.config import SocaConfig
 import json
@@ -27,6 +28,42 @@ def _job_state_upper(job: dict) -> str:
     """Uppercased job_state via SocaCastEngine (empty string on cast failure)."""
     _cast = SocaCastEngine(data=job.get("job_state", "")).cast_as(str)
     return _cast.get("message").upper() if _cast.get("success") is True else ""
+
+
+def _with_dependency_info(job: dict) -> dict:
+    """
+    Add a `dependency` block to a serialized job.
+
+    Three things a caller cannot work out from `job_state` alone:
+      - a job waiting on another job reports the same state as a suspended
+        one, and only the scheduler's hold types tell them apart;
+      - a job the scheduler removed for an unsatisfiable dependency reports
+        the finished state with no exit status, so it otherwise reads as
+        having completed normally;
+      - a satisfied edge is cleared from the live attribute, so a finished
+        chain has to be read back out of the submit arguments.
+    """
+    _summary = describe_wait_reason(
+        job_state=job.get("pbs_job_state") or job.get("job_state"),
+        hold_types=job.get("pbs_hold_types"),
+        depend=job.get("pbs_depend"),
+        submit_arguments=job.get("pbs_submit_arguments"),
+        exit_status=job.get("pbs_exit_status"),
+        substate=job.get("pbs_substate"),
+    ).get("message")
+
+    _edges = parse_pbs_depend(job.get("pbs_depend")).get("message")
+    _summary["blocking"] = sorted(
+        {
+            _short
+            for _edge in _edges
+            if _edge.get("type", "").startswith("before")
+            for _short in _edge.get("short_job_ids", [])
+        }
+    )
+
+    job["dependency"] = _summary
+    return job
 
 
 class Jobs(Resource):
@@ -211,12 +248,15 @@ class Jobs(Resource):
                         continue
                     else:
                         logger.info(
-                            f"Retrieved jobs {_queue=} / {_user=} on {_scheduler.identifier}: {_get_jobs=}"
+                            f"Retrieved {len(_get_jobs)} job(s) {_queue=} / {_user=} on {_scheduler.identifier}"
                         )
+                        logger.debug("Retrieved jobs: %s", _get_jobs)
                         for _job in _get_jobs:
                             _serialize = SocaCastEngine(data=_job).serialize_json()
                             if _serialize.get("success") is True:
-                                _all_jobs.append(json.loads(_serialize.message))
+                                _all_jobs.append(
+                                    _with_dependency_info(json.loads(_serialize.message))
+                                )
                             else:
                                 return SocaError.GENERIC_ERROR(
                                     helper=f"Unable to serialize job {_job=} due to {_serialize.get('message')}"

@@ -37,6 +37,13 @@
                                    data-bs-toggle="tab" role="tab" aria-controls="nav-contact" aria-selected="false">{{ _("Change group membership") }}</a>
                             </div>
                         </nav>
+                        {% if directory_read_only %}
+                            <div class="alert alert-warning" role="alert">
+                                <strong>{{ _("User and group management is not available on this cluster") }}</strong><br>
+                                {{ _("This EDH cluster is connected to an existing directory that it does not manage, so users and groups must be administered in that directory. Detected provider:") }}
+                                <code>{{ directory }}</code>
+                            </div>
+                        {% endif %}
                         <div class="tab-content" id="nav-tabContent">
                             <div class="tab-pane fade show active" id="nav-add" role="tabpanel"
                                  aria-labelledby="nav-home-tab">
@@ -58,7 +65,7 @@
                                             <br>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-primary">{{ _("Create Group") }}
+                                                <button type="submit" class="btn btn-primary" {% if directory_read_only %}disabled{% endif %}>{{ _("Create Group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -95,7 +102,7 @@
                                             </div>
                                             <div>
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-danger">{{ _("Delete group") }}
+                                                <button type="submit" class="btn btn-danger" {% if directory_read_only %}disabled{% endif %}>{{ _("Delete group") }}
                                                 </button>
                                             </div>
                                         </form>
@@ -166,7 +173,7 @@
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-success">{{ _("Add user") }}
+                                                        <button type="submit" class="btn btn-success" {% if directory_read_only %}disabled{% endif %}>{{ _("Add user") }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -209,7 +216,7 @@
                                                         <input type="hidden" name="csrf_token"
                                                                value="{{ csrf_token() }}">
 
-                                                        <button type="submit" class="btn btn-danger">{{ _("Remove user") }}
+                                                        <button type="submit" class="btn btn-danger" {% if directory_read_only %}disabled{% endif %}>{{ _("Remove user") }}
                                                         </button>
                                                     </div>
                                                 </form>

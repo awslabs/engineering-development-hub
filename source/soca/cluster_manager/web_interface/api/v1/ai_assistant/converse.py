@@ -163,7 +163,10 @@ class AiAssistantConverse(Resource):
         logger.info(
             f"Invoking AI Assistant with prompt from {username} with model_id={args['model_id']}, inference_profile_arn={args['inference_profile_arn']}"
         )
-        system_prompt = SocaAiAssistant.generate_system_prompt(user_specified_system_prompt=args["system_prompt"])
+        system_prompt = SocaAiAssistant.generate_system_prompt(
+            user_specified_system_prompt=args["system_prompt"],
+            include_edh_context=not args["knowledge_base_id"],
+        )
         response = assistant.converse(
             prompt=args["prompt"],
             system_prompt=system_prompt,

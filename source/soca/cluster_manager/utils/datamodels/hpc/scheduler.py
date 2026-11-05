@@ -36,6 +36,8 @@ class SocaHpcSchedulerPBSConfig(BaseModel):
     pbs_home: str  # Directory for PBS runtime and spool files (e.g., /var/spool/pbs). This directory must not already exist.
 
 class SocaHpcSchedulerSlurmConfig(BaseModel):
+    # AWS PCS only: sackd socket of this cluster (e.g. /run/slurm-<pcs_cluster_id>/sack.socket). Each PCS cluster runs its own sackd, so several PCS clusters can be registered on the same host.
+    sack_socket_path: Optional[str] = None
     install_prefix_path: str  # Root directory for Slurm installation, including bin, sbin, lib, and log directories (e.g., /opt/slurm). This directory must not already exist.
     install_sysconfig_path: str  # Directory containing Slurm configuration files (e.g., slurm.conf, slurm.key) (e.g., /etc/slurm). This directory must not already exist._sysconfig_path: str  # Path to slurm.conf, slurm.key (e.g: /etc/slurm) - Make sure this path does not already exist
 
@@ -46,8 +48,8 @@ class SocaHpcSchedulerProvider(str, Enum):
 
     # Preview - Not suitable for production workloads yet
     LSF = "lsf"
-    SLURM = "slurm" # use this provider if you target HPC endpoint is AWS ParallelCluster (PC) or AWS Parallel Compute Service (PCS)
-
+    SLURM = "slurm"
+    AWS_PCS = "aws_pcs"  # AWS ParallelCluster Scheduler (PCS)
     # Following providers are not yet supported
     # AWS_BATCH = "awsbatch"
 
@@ -209,10 +211,10 @@ class SocaHpcScheduler(BaseModel):
             raise ValueError("lsf_configuration is required when provider is LSF.")
 
         if (
-            self.provider == SocaHpcSchedulerProvider.SLURM
+            self.provider in [SocaHpcSchedulerProvider.SLURM, SocaHpcSchedulerProvider.AWS_PCS]
             and self.slurm_configuration is None
         ):
-            raise ValueError("slurm_configuration is required when provider is Slurm.")
+            raise ValueError("slurm_configuration is required when provider is Slurm or PCS.")
 
         if (
             self.provider
@@ -220,7 +222,7 @@ class SocaHpcScheduler(BaseModel):
             and self.pbs_configuration is None
         ):
             raise ValueError("pbs_configuration is required when provider is PBS.")
-
+    
         # Required binaries for each scheduler
         SCHEDULER_BINARIES = {
             SocaHpcSchedulerProvider.OPENPBS: [
@@ -254,6 +256,13 @@ class SocaHpcScheduler(BaseModel):
                 "scancel",
                 "scontrol",
             ],
+            SocaHpcSchedulerProvider.AWS_PCS: [
+                "sbatch",
+                "squeue",
+                "sinfo",
+                "scancel",
+                "scontrol",
+            ],
         }
 
         provider = self.provider
@@ -268,6 +277,7 @@ class SocaHpcScheduler(BaseModel):
             SocaHpcSchedulerProvider.OPENPBS,
             SocaHpcSchedulerProvider.PBSPRO,
             SocaHpcSchedulerProvider.SLURM,
+            SocaHpcSchedulerProvider.AWS_PCS,
         ]:
             # Expand paths and check existence
             paths = [
@@ -275,6 +285,23 @@ class SocaHpcScheduler(BaseModel):
                 for p in (self.binary_folder_paths or "").split(":")
                 if p
             ]
+
+            if self.provider == SocaHpcSchedulerProvider.AWS_PCS:
+                # AWS PCS always installs Slurm under /opt/aws/pcs/ (e.g.
+                # /opt/aws/pcs/scheduler/slurm-<version>/bin), so reject any binary
+                # path outside that tree.
+                _bad_pcs_paths = [
+                    str(path)
+                    for path in paths
+                    if not str(path).startswith("/opt/aws/pcs/")
+                ]
+                if _bad_pcs_paths:
+                    raise ValueError(
+                        "For AWS PCS, binary_folder_paths must be located under "
+                        "/opt/aws/pcs/ (e.g. /opt/aws/pcs/scheduler/slurm-<version>/bin):\n"
+                        f"{''.join(f' - {p}\n' for p in _bad_pcs_paths)}"
+                    )
+
             _invalid_paths = [
                 (
                     f"{path} (does not exist)"

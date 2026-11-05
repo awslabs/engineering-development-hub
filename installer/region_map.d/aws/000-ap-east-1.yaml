@@ -1,28 +1,33 @@
 ---
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC
 ap-east-1:
   x86_64:
-    amazonlinux2: ami-0bffb727530d86f92
-    amazonlinux2023: ami-0f5cd195c0b00cbd8
-    rhel10: ami-030f42728ecd398f7
-    rhel7: ami-001c8a3a8b61c4015
-    rhel8: ami-06f6584d566c49fe6
-    rhel9: ami-04f623d25c808f9f7
+    amazonlinux2: ami-0769677bf9d813a0e
+    amazonlinux2023: ami-036571ac6f39f7064
+    amazonlinux2027: ami-02fe732b986f07274
+    rhel10: ami-0b0f4490e33b1b66f
+    rhel8: ami-05bdbe0f657c7eb30
+    rhel9: ami-056332a2a8eab0c23
+    rocky10: ami-0e2d144521a8e39e7
     rocky8: ami-0b7035df5b1f6e9ba
     rocky9: ami-0e1f8d03a5de708dc
-    ubuntu2204: ami-0f938ccf1d2ab1cad
-    ubuntu2404: ami-0515ffc0a7800412c
+    ubuntu2204: ami-07c6a9ee8e31e9058
+    ubuntu2404: ami-07fd710daa8c6ce93
+    ubuntu2604: ami-00fb6f708ba48ae8c
     windows2019: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
     windows2022: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
     windows2025: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
   arm64:
-    amazonlinux2: ami-0546009fab8039bf9
-    amazonlinux2023: ami-0445c45caa7f0813f
-    rhel10: ami-04ca1300dd3deb824
-    rhel8: ami-026d5d9b49abe6877
-    rhel9: ami-0e4709276ff9979ec
+    amazonlinux2: ami-065f273e18330d36b
+    amazonlinux2023: ami-091074818f2ca4b3a
+    amazonlinux2027: ami-0ef56169214ae026b
+    rhel10: ami-027ff0ab6e251d2c5
+    rhel8: ami-0b511bfa9b7ae4553
+    rhel9: ami-05fb7f6b0cd9471b9
+    rocky10: ami-01cc4e639655d2f3e
     rocky8: ami-097498671570b2186
     rocky9: ami-0615b6e60bc0a76c8
-    ubuntu2204: ami-027e5f5bcfd5a2c4b
-    ubuntu2404: ami-038d518205394ac8e
-# SOCA AMI List for commercial partition generated 2026-07-25 20:30:33 UTC
+    ubuntu2204: ami-075f7154c426ba92e
+    ubuntu2404: ami-06c1abf9bb18cc6c8
+    ubuntu2604: ami-03bb01c905e637bf1
+# SOCA AMI List for commercial partition generated 2026-11-04 08:46:09 UTC

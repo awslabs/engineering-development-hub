@@ -1,0 +1,128 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Validate that the directory holds POSIX identity in the attributes an FSx for
+# NetApp ONTAP SVM's LDAP client reads.
+#
+# Runs from controller/03_setup.sh.j2 after the admin-user creation block: it
+# needs this host's machine keytab and the EDH admin user in the directory, and
+# both arrive after fsx_ontap_first_setup has run.
+
+{% if context.get("/job/NodeType") == "controller" %}
+  {% if "templates/linux/shared_storage/fsx/ontap/validate_directory_attributes.sh.j2" not in ns.template_already_included %}
+    {% set _ = ns.template_already_included.append("templates/linux/shared_storage/fsx/ontap/validate_directory_attributes.sh.j2") %}
+
+    function fsx_ontap_validate_directory_attributes () {
+      # Assert the directory holds POSIX identity in the attributes the SVM's
+      # LDAP client reads. EDH once wrote the numeric uid into `uid` (which must
+      # hold the LOGIN NAME) and the UNIX home into `homeDirectory` (the WINDOWS
+      # home), so every SVM name lookup failed while NFS kept working -- UNIX
+      # security style with AUTH_SYS compares numeric uid/gid, never a name.
+      #
+      # Warn only, never fatal: an admin can fix directory content afterwards.
+
+      # Only meaningful when an ONTAP filesystem is configured: 03_setup runs on
+      # every controller. Providers live in SSM, so this is a runtime read.
+      local FS_TREE=$(aws_cli ssm get-parameters-by-path \
+        --path "/edh/{{ context.get("/configuration/ClusterId") }}/configuration/FileSystems" \
+        --recursive --query "Parameters[].[Name,Value]" --output text 2>/dev/null)
+      if [[ -z "${FS_TREE}" ]]; then
+        # Do not report this as "no ONTAP configured": that is a different
+        # fact, and claiming it would hide a failed read.
+        log_warning "Could not read the FileSystems SSM tree; ONTAP directory attribute validation was NOT performed"
+        return 0
+      fi
+      if ! echo "${FS_TREE}" | grep -q "/provider[[:space:]]*fsx_ontap$"; then
+        log_info "No fsx_ontap filesystem configured; skipping ONTAP directory attribute validation"
+        return 0
+      fi
+
+      # Runtime reads, not jinja context: these keys do not exist when this
+      # template is rendered at CDK time.
+      local DS_SSM_BASE="/edh/{{ context.get("/configuration/ClusterId") }}/configuration/UserDirectory"
+      local DS_BASE=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/people_search_base" --query "Parameter.Value" --output text 2>/dev/null)
+      if [[ -z "${DS_BASE}" || "${DS_BASE}" == "None" ]]; then
+        DS_BASE=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/domain_base" --query "Parameter.Value" --output text 2>/dev/null)
+      fi
+      local DS_DOMAIN=$(aws_cli ssm get-parameter --name "${DS_SSM_BASE}/domain_name" --query "Parameter.Value" --output text 2>/dev/null)
+      [[ "${DS_BASE}" == "None" ]] && DS_BASE=""
+      [[ "${DS_DOMAIN}" == "None" ]] && DS_DOMAIN=""
+
+      # The admin username is not an SSM key: it lives in the EDHAdminUser
+      # secret, which is what controller/03_setup.sh.j2 reads to create it.
+      local VALIDATE_USER=$(get_secret "/edh/{{ context.get("/configuration/ClusterId") }}/EDHAdminUser" 2>/dev/null | jq -r ". | fromjson.username // empty" 2>/dev/null)
+
+      if [[ -z "${VALIDATE_USER}" || -z "${DS_BASE}" || -z "${DS_DOMAIN}" ]]; then
+        log_warning "Skipping directory attribute validation: no admin user, search base or domain resolved from config"
+        return 0
+      fi
+      if ! verify_package_installed openldap-clients && ! command -v ldapsearch >/dev/null 2>&1; then
+        log_warning "Skipping directory attribute validation: ldapsearch is not installed"
+        return 0
+      fi
+
+      # GSSAPI with this host's own machine keytab: no password is handled. The
+      # keytab's short-name principal is used because the EC2-default hostname
+      # principal does not exist in AD.
+      local KT_PRINC=$(klist -k /etc/krb5.keytab 2>/dev/null | awk '/\$@/ {print $2; exit}')
+      if [[ -z "${KT_PRINC}" ]]; then
+        log_warning "Skipping directory attribute validation: no machine principal in /etc/krb5.keytab. This host is not domain-joined yet, so this check is running too early in the bootstrap."
+        return 0
+      fi
+
+      local KRB5CCNAME_SAVED="${KRB5CCNAME:-}"
+      export KRB5CCNAME="FILE:/tmp/.edh_fsx_validate.$$"
+      if ! kinit -k "${KT_PRINC}" >/dev/null 2>&1; then
+        log_warning "Skipping directory attribute validation: kinit -k ${KT_PRINC} failed"
+        kdestroy -q 2>/dev/null
+        export KRB5CCNAME="${KRB5CCNAME_SAVED}"
+        return 0
+      fi
+
+      # A specific DC's FQDN, from the domain's SRV record. GSSAPI builds the
+      # service principal from the hostname in the URI and no ldap/<domain> SPN
+      # exists, so ldap://<domain> or an IP fails with "Server not found in
+      # Kerberos database".
+      local DS_DC=$(dig +short _ldap._tcp."${DS_DOMAIN}" SRV 2>/dev/null | awk '{print $4}' | sed 's/\.$//' | head -1)
+      if [[ -z "${DS_DC}" ]]; then
+        log_warning "Skipping directory attribute validation: no _ldap._tcp.${DS_DOMAIN} SRV record resolved"
+        kdestroy -q 2>/dev/null
+        export KRB5CCNAME="${KRB5CCNAME_SAVED}"
+        return 0
+      fi
+
+      log_info "Validating POSIX attributes for ${VALIDATE_USER} in ${DS_BASE} via ${DS_DC} (the attributes the ONTAP SVM reads)"
+      local LDAP_STDERR="/tmp/.edh_fsx_validate_err.$$"
+      # Declare FIRST, assign SECOND. `local X=$(cmd)` returns the status of the
+      # `local` builtin, always 0, which made LDAP_RC always 0 and the "could
+      # not run" branch unreachable.
+      local LDAP_ENTRY
+      local LDAP_RC
+      LDAP_ENTRY=$(ldapsearch -Q -Y GSSAPI -LLL -H "ldap://${DS_DC}" -b "${DS_BASE}" \
+        "(&(objectClass=User)(uid=${VALIDATE_USER}))" \
+        uid uidNumber gidNumber loginShell unixHomeDirectory 2>"${LDAP_STDERR}")
+      LDAP_RC=$?
+
+      if [[ ${LDAP_RC} -ne 0 ]]; then
+        # Distinguish "the query could not run" from "the attributes are wrong":
+        # a bind failure reported as a missing attribute misdirects the admin.
+        log_warning "Directory attribute validation could not run: ldapsearch exited ${LDAP_RC} ($(tr -d '\n' < "${LDAP_STDERR}" | cut -c1-200)). Attribute shape was NOT checked."
+      elif [[ -z "${LDAP_ENTRY}" ]]; then
+        log_warning "Directory attribute validation FAILED: no object matches (&(objectClass=User)(uid=${VALIDATE_USER})), which is the exact query the ONTAP SVM makes. The 'uid' attribute must hold the login name, not the numeric uid. SMB access and Windows-to-UNIX name mapping will not work until this is corrected."
+      else
+        log_info "Directory attribute validation: uid=${VALIDATE_USER} resolves"
+        for ATTR in uidNumber gidNumber unixHomeDirectory loginShell; do
+          if ! echo "${LDAP_ENTRY}" | grep -q "^${ATTR}:"; then
+            log_warning "Directory attribute validation: ${ATTR} is NOT set on ${VALIDATE_USER}; the ONTAP SVM will return an incomplete passwd entry"
+          else
+            log_info "Directory attribute validation: ${ATTR} present"
+          fi
+        done
+      fi
+
+      rm -f "${LDAP_STDERR}"
+      kdestroy -q 2>/dev/null
+      export KRB5CCNAME="${KRB5CCNAME_SAVED}"
+    }
+  {% endif %}
+{% endif %}

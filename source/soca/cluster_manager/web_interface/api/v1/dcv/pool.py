@@ -232,6 +232,22 @@ class VdiPoolManager(Resource):
                 helper="Unknown instance type(s): " + ", ".join(_bad_types)
             ).as_flask()
 
+        # Reject a per-entry capacity_reservation_id that does not exist, is no
+        # longer targetable, or is reserved for a different instance type.
+        # validate_pool_config only checks the id's SHAPE; a well-formed but
+        # bogus id was previously stored and rendered into the launch
+        # template's CapacityReservationTarget, so the first symptom was a
+        # member that would not launch. Fails OPEN on an EC2 error, same as the
+        # instance-type and arch guards above, so a transient hiccup never
+        # blocks a save.
+        _cr_errors = vdi_pool_config.validate_capacity_reservation_ids(
+            _normalized.get("entries") or []
+        )
+        if _cr_errors:
+            return SocaError.GENERIC_ERROR(
+                helper="Invalid capacity reservation: " + "; ".join(_cr_errors)
+            ).as_flask()
+
         # Architecture guard (authoritative): a stack's AMI is a single
         # architecture (x86_64/arm64) and an instance of a different arch simply
         # won't boot it -- so a pool must never mix archs. Reject any entry whose

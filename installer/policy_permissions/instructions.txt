@@ -13,6 +13,21 @@ Note that not all IAM permissions listed here are required. Permissions are
 additive based on the features you enable. For example, "backup:*" actions
 are not needed if you are not planning to use the AWS Backup integration.
 
+Note on KMS:
+EDHInstallerPolicy_01 grants the KMS key lifecycle actions (CreateKey,
+CreateAlias, PutKeyPolicy, TagResource, EnableKeyRotation) and
+EDHUninstallPolicy grants ScheduleKeyDeletion and DeleteAlias. These matter
+because step 5 passes these same policies as --cloudformation-execution-policies,
+so CloudFormation acts with them when it creates or deletes a cluster owned CMK.
+They are not needed if you supply your own key through Config.kms_key_id or a
+per-service kms_key_id, since an existing key is imported rather than created.
+Without ScheduleKeyDeletion a cluster owned key survives the teardown of the
+cluster it belongs to and continues to be billed.
+
+EDHInstallerPolicy_01 is within about 200 characters of IAM's 6,144 character
+limit for a managed policy, which cannot be increased. Additional permissions
+belong in a new managed policy rather than in this one.
+
 Reach out to your EDH contact for more information or if you need any assistance.
 
 Note:

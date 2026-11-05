@@ -18,7 +18,14 @@ from utils.datamodels.hpc.scheduler import get_schedulers
 from utils.jinjanizer import SocaJinja2Renderer
 from utils.http_client import SocaHttpClient
 from utils.datamodels.hpc.scheduler import SocaHpcSchedulerProvider
-from utils.hpc.scheduler_command_builder import SocaHpcPBSJobCommandBuilder
+from utils.hpc.scheduler_command_builder import (
+    SocaHpcLSFJobCommandBuilder,
+    SocaHpcPBSJobCommandBuilder,
+    SocaHpcPCSJobCommandBuilder,
+    SocaHpcSlurmJobCommandBuilder,
+)
+from utils.hpc.job_identity import count_array_indices
+from utils.user_filesystems_acls import check_user_permission, Permissions
 
 logger = logging.getLogger("soca_logger")
 submit_job = Blueprint("submit_job", __name__, template_folder="templates")
@@ -27,6 +34,233 @@ submit_job = Blueprint("submit_job", __name__, template_folder="templates")
 # should be a single char - such as a comma (,) (default) , or pipe (|) depending on site policy
 MULTI_SELECT_DELIMITER = ","
 
+# formBuilder type of the EDH file picker field (static/js/edh_workflow_file_picker.js). Its values are
+# re-validated server side at submission since the input is a free text field.
+FILE_PICKER_FIELD_TYPE = "edhFilePicker"
+
+# Which builder owns normalize_job_name for each provider. Keyed on the enum's
+# value because _scheduler_info.provider is the string form.
+_JOB_NAME_BUILDERS = {
+    SocaHpcSchedulerProvider.OPENPBS.value: SocaHpcPBSJobCommandBuilder,
+    SocaHpcSchedulerProvider.PBSPRO.value: SocaHpcPBSJobCommandBuilder,
+    SocaHpcSchedulerProvider.LSF.value: SocaHpcLSFJobCommandBuilder,
+    SocaHpcSchedulerProvider.SLURM.value: SocaHpcSlurmJobCommandBuilder,
+    SocaHpcSchedulerProvider.AWS_PCS.value: SocaHpcPCSJobCommandBuilder,
+}
+
+
+def _is_true(value) -> bool:
+    # formBuilder stores checkbox attributes as booleans or "true"/"false" strings
+    return value is True or str(value).lower() in ("true", "required")
+
+
+# Keep in sync with TERM_RE / parseTerm() / parse() in static/js/edh_workflow_form_conditions.js
+_CONDITION_RE = re.compile(r"^([^!=<>\s]+)\s*(>=|<=|!=|=|>|<)\s*(.*)$")
+
+
+def _parse_condition(condition: str) -> tuple[str, str, str | None]:
+    """Parse one "showIf" term into (controlling field, operator, expected value)."""
+    condition = condition.strip()
+    if not condition:
+        # empty side of && / || (e.g. "a &&"): never matches
+        return "", "invalid", None
+    if condition.startswith("!") and not re.search(r"[=<>]", condition):
+        return condition[1:].strip(), "empty", None
+    _match = _CONDITION_RE.match(condition)
+    if _match:
+        return _match.group(1), _match.group(2), _match.group(3).strip()
+    return condition, "set", None
+
+
+def _parse_expression(condition: str) -> list[list[tuple[str, str, str | None]]]:
+    """
+    Parse a full "showIf" condition into OR groups of AND terms. && binds tighter than ||
+    and there are no parentheses: "a && b || c" -> [[a, b], [c]] meaning (a AND b) OR c.
+    """
+    return [
+        [_parse_condition(_term) for _term in _group.split("&&")]
+        for _group in condition.split("||")
+    ]
+
+
+def _to_number(value) -> float | None:
+    try:
+        _n = float(str(value).strip())
+    except ValueError:
+        return None
+    return _n if math.isfinite(_n) else None
+
+
+def _condition_matches(op: str, expected: str | None, values: list) -> bool:
+    if op == "invalid":
+        return False
+    if op == "set":
+        return bool(values)
+    if op == "empty":
+        return not values
+    if op in ("=", "!="):
+        # = and != accept several alternatives separated by |
+        _hit = any(_v in [_e.strip() for _e in expected.split("|")] for _v in values)
+        return _hit if op == "=" else not _hit
+    # > >= < <= : numeric only; a non-numeric (or empty) value never matches
+    _expected = _to_number(expected)
+    if _expected is None:
+        return False
+    _compare = {
+        ">": lambda n: n > _expected,
+        ">=": lambda n: n >= _expected,
+        "<": lambda n: n < _expected,
+        "<=": lambda n: n <= _expected,
+    }[op]
+    return any(_n is not None and _compare(_n) for _n in map(_to_number, values))
+
+
+def _is_field_visible(field: dict, fields_by_name: dict, form, _seen: frozenset = frozenset()) -> bool:
+    """
+    Server side twin of static/js/edh_workflow_form_conditions.js: evaluate the formBuilder "showIf"
+    attribute of `field` against the submitted form. Terms are combined with && / || (&& binds
+    tighter, no parentheses):
+      other_field              -> visible when other_field has a non-empty value / is checked
+      !other_field             -> visible when other_field is empty / nothing checked
+      other_field=a|b          -> visible when a (or b) is among other_field values
+      other_field!=a|b         -> visible when neither a nor b is among other_field values
+      other_field>N >=N <N <=N -> numeric comparison, False when the value is not a number
+    A hidden controlling field counts as empty, so conditions chain. A cycle (A depends on B,
+    B on A) stops the recursion; the fields then simply follow their submitted values.
+    """
+    _condition = str(field.get("showIf") or "").strip()
+    _name = field.get("name")
+    if not _condition or _name in _seen:
+        return True
+
+    def _values_of(ctrl: str) -> list:
+        _ctrl_field = fields_by_name.get(ctrl)
+        if _ctrl_field is not None and not _is_field_visible(
+            _ctrl_field, fields_by_name, form, _seen | {_name}
+        ):
+            return []
+        return [
+            _v.strip()
+            for _v in form.getlist(ctrl) + form.getlist(f"{ctrl}[]")
+            if _v and _v.strip()
+        ]
+
+    return any(
+        all(
+            _condition_matches(_op, _expected, _values_of(_ctrl))
+            for _ctrl, _op, _expected in _group
+        )
+        for _group in _parse_expression(_condition)
+    )
+
+
+def _hidden_field_names(profile_form: list, form) -> set:
+    """Names of the fields hidden by a "showIf" condition for this submission."""
+    _fields = [_f for _f in profile_form if isinstance(_f, dict) and _f.get("name")]
+    _by_name = {_f["name"]: _f for _f in _fields}
+    return {_f["name"] for _f in _fields if not _is_field_visible(_f, _by_name, form)}
+
+
+def _get_authorized_application_profile(app_id: str) -> dict | None:
+    """
+    Return the application profile `app_id` if the current user is authorized to use it
+    (same /api/user/resources_permissions check used to list workflows), otherwise None.
+    """
+    _get_authorized_application_profiles = SocaHttpClient(
+        endpoint="/api/user/resources_permissions",
+        headers={
+            "X-EDH-USER": session.get("user", ""),
+            "X-EDH-TOKEN": session.get("api_key", ""),
+        },
+    ).get(params={"application_profiles": f"{app_id}"})
+
+    if _get_authorized_application_profiles.get("success") is False:
+        logger.error(
+            f"Unable to get application profile {app_id} for {session.get('user')} because of {_get_authorized_application_profiles.get('message')}"
+        )
+        return None
+
+    _profiles = (_get_authorized_application_profiles.get("message") or {}).get(
+        "application_profiles", []
+    )
+    return _profiles[0] if _profiles else None
+
+
+def _validate_file_picker_values(profile_form: list, form, user: str) -> tuple[dict, str | None]:
+    """
+    Validate every EDH file picker value submitted for this workflow against the field
+    definition stored server side (allowMultiple / selectType / required) and the user's
+    filesystem permissions (check_user_permission + PATH_TO_RESTRICT).
+
+    Returns (validated_values, error). validated_values maps field name -> the resolved
+    paths joined with MULTI_SELECT_DELIMITER, so the job script receives exactly what was
+    checked. error is None when everything is valid, otherwise a user facing message.
+    """
+    _validated = {}
+    _hidden = _hidden_field_names(profile_form, form)
+    for _field in profile_form:
+        if not isinstance(_field, dict) or _field.get("type") != FILE_PICKER_FIELD_TYPE:
+            continue
+
+        _name = _field.get("name", "")
+        if _name in _hidden:
+            # Hidden by a "showIf" condition: not required, and any posted value is dropped.
+            _validated[_name] = ""
+            continue
+        _label = _field.get("label") or _name
+        _value = (form.get(_name) or "").strip()
+        if not _value:
+            if _is_true(_field.get("required")):
+                return {}, _("%(label)s is required.", label=_label)
+            _validated[_name] = ""
+            continue
+
+        _paths = [_p.strip() for _p in _value.split(MULTI_SELECT_DELIMITER)]
+        if any(not _p for _p in _paths):
+            return {}, _(
+                "%(label)s contains an empty path. Paths containing a comma are not supported.",
+                label=_label,
+            )
+        if len(_paths) > 1 and not _is_true(_field.get("allowMultiple")):
+            return {}, _("%(label)s accepts a single path only.", label=_label)
+
+        _select_type = _field.get("selectType") or "file"
+        _resolved = []
+        for _path in _paths:
+            if not _path.startswith("/"):
+                return {}, _("%(label)s: %(path)s must be an absolute path.", label=_label, path=_path)
+
+            _real = pathlib.Path(_path).resolve()
+            # Same generic message for missing / denied paths so the check does not reveal
+            # whether a path the user cannot read exists.
+            _denied = _(
+                "%(label)s: %(path)s does not exist or you are not authorized to access it.",
+                label=_label,
+                path=_path,
+            )
+            if (
+                check_user_permission(
+                    path=str(_real),
+                    permissions=Permissions.READ,
+                    user=user,
+                    paths_to_restrict=config.Config.PATH_TO_RESTRICT,
+                )
+                is False
+                or not _real.exists()
+            ):
+                logger.warning(f"File picker {_name}: {user} cannot read {_real}")
+                return {}, _denied
+
+            if _select_type == "file" and not _real.is_file():
+                return {}, _("%(label)s: %(path)s is not a file.", label=_label, path=_path)
+            if _select_type == "folder" and not _real.is_dir():
+                return {}, _("%(label)s: %(path)s is not a folder.", label=_label, path=_path)
+            _resolved.append(str(_real))
+
+        _validated[_name] = MULTI_SELECT_DELIMITER.join(_resolved)
+
+    return _validated, None
+
 
 @submit_job.route("/submit_job", methods=["GET"])
 @login_required
@@ -34,15 +268,9 @@ MULTI_SELECT_DELIMITER = ","
 def index():
     _input_file = request.args.get("input_file", "")
     _user = session.get("user", "")
+    # input_file is optional: set when coming from the file explorer ("Use as Simulation Input"),
+    # empty when the workflow is picked directly from /submit_job.
     logger.info(f"Received submit_job GET request with {_input_file=}")
-    if not _input_file:
-        flash(
-            _(
-                "What input file do you want to use? Navigate to the folder where your input file is located then click 'Use as Simulation Input'"
-            ),
-            "info",
-        )
-        return redirect("/file_explorer")
 
     _get_authorized_application_profiles = SocaHttpClient(
         endpoint=f"/api/user/resources_permissions",
@@ -72,7 +300,7 @@ def index():
     return render_template(
         "submit_job.html",
         application_profiles=_application_profiles,
-        input_file=False if _input_file is None else _input_file,
+        input_file=_input_file,
     )
 
 
@@ -85,8 +313,8 @@ def job_submission():
     _user = session.get("user", "")
     logger.info(f"Received submit_job POST request with {_app=} / {_input_file=}")
 
-    if not _app or not _input_file:
-        flash(_("Missing required parameters (app and input_file)."), "error")
+    if not _app:
+        flash(_("Missing required parameter (app)."), "error")
         return redirect("/submit_job")
 
     _get_authorized_application_profiles = SocaHttpClient(
@@ -113,17 +341,22 @@ def job_submission():
         "application_profiles", []
     )
 
-    _file_info = decrypt(_input_file)
-    if _file_info.get("success") is False:
-        logger.error(f"Unable to decrypt file {_input_file} due to {_file_info}")
-        flash(
-            _(
-                "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
-            ),
-            "error",
-        )
-        return redirect("/submit_job")
+    if not _input_file:
+        # No input file selected: the form starts empty and the job runs from the user's home.
+        _input_path = ""
+        _input_name = ""
+        _input_file_parent = f"{config.Config.USER_HOME}/{_user}"
     else:
+        _file_info = decrypt(_input_file)
+        if _file_info.get("success") is False:
+            logger.error(f"Unable to decrypt file {_input_file} due to {_file_info}")
+            flash(
+                _(
+                    "Unable to use this file as an input (maybe the file was removed or you do not have permission to access it."
+                ),
+                "error",
+            )
+            return redirect("/submit_job")
         try:
             _input_file_path = pathlib.Path(
                 json.loads(_file_info.get("message")).get("file_path", "")
@@ -219,6 +452,7 @@ def job_submission():
             input_path=_input_path,
             input_file_path=_input_file_parent,
             input_name=_input_name,
+            app_id=_app,
         )
 
     else:
@@ -233,7 +467,120 @@ def job_submission():
 @login_required
 @feature_flag(flag_name="HPC", mode="view")
 def send_job():
-    _profile_interpreter = request.form.get("profile_interpreter", "")
+    _user = session.get("user", "")
+    # Re-load the workflow server side: the job script, interpreter and form definition come
+    # from the stored application profile (after the authorization check), never from the
+    # browser, so they cannot be altered by editing the page.
+    _app = request.form.get("app", "")
+    _application_profile = _get_authorized_application_profile(_app) if _app else None
+    if not _application_profile:
+        logger.error(f"send_job: application {_app=} not found or {_user} is not authorized")
+        flash(_("Application not found or user is not authorized."), "error")
+        return redirect("/submit_job")
+
+    _profile_interpreter = _application_profile.get("profile_interpreter", "")
+    try:
+        _profile_form = json.loads(
+            base64.b64decode(_application_profile.get("profile_form") or "").decode() or "[]"
+        )
+    except Exception as err:
+        logger.error(f"Unable to read application profile profile_form due to {err}")
+        flash(_("Unable to extract profile information. See logs for additional details"), "error")
+        return redirect("/submit_job")
+
+    if not isinstance(_profile_form, list):
+        _profile_form = []
+    # Reject line breaks in submitted values: a "\n" in e.g. job_name would let the user inject
+    # extra scheduler directives (#PBS / #SBATCH / #BSUB lines) or shell commands in the job
+    # script. Only fields defined as textarea in the stored workflow (e.g. user_pre_exec) may
+    # be multi-line.
+    _multiline_fields = {
+        _f["name"]
+        for _f in _profile_form
+        if isinstance(_f, dict) and _f.get("name") and _f.get("type") == "textarea"
+    }
+    for _param_name in request.form:
+        _base_name = _param_name[:-2] if _param_name.endswith("[]") else _param_name
+        if _base_name in _multiline_fields:
+            continue
+        if any("\n" in _v or "\r" in _v for _v in request.form.getlist(_param_name)):
+            logger.warning(f"send_job: {_user} submitted a line break in {_base_name!r}, refusing")
+            flash(
+                _(
+                    "%(field)s cannot contain line breaks. Only multi-line text area fields accept them.",
+                    field=_base_name,
+                ),
+                "error",
+            )
+            return redirect("/submit_job")
+
+    # Fields hidden by a "showIf" condition reach the job script empty (see _is_field_visible)
+    _hidden_fields = _hidden_field_names(_profile_form, request.form)
+
+    # array_indices is interpolated into a "#PBS -J {{array_indices}}" directive,
+    # so it needs an allowlist, not just the line-break check above. A newline is
+    # already refused, but a SAME-LINE injection is not: a value of
+    #
+    #     1-100 -l select=999:ncpus=96
+    #
+    # carries no line break and PBS honours both options on the one directive
+    # line, so the user would escape the form's own sizing.
+    #
+    # count_array_indices is the allowlist AND the sizing function the dispatcher
+    # uses, deliberately: a value that cannot be sized cannot be submitted, and
+    # there is no second definition of "valid indices" to drift from this one. It
+    # accepts only digits, '-', ':' and ',' and returns 0 for anything else.
+    _array_indices = request.form.get("array_indices", "")
+    if _array_indices and "array_indices" not in _hidden_fields:
+        _subjob_count = count_array_indices(_array_indices).get("message")
+        if _subjob_count < 1:
+            logger.warning(
+                f"send_job: {_user} submitted an unusable array_indices "
+                f"{_array_indices!r}, refusing"
+            )
+            flash(
+                _(
+                    "Subjob indices are not valid. Use a range like 1-100, a "
+                    "stepped range like 0-999:10, or a comma-separated list like "
+                    "1-4,9-10. Only digits, '-', ':' and ',' are accepted."
+                ),
+                "error",
+            )
+            return redirect("/submit_job")
+
+        # No size ceiling is checked here. PBS refuses an oversized array at
+        # qsub via max_array_size, so the submission fails with the
+        # administrator's real limit for this server/queue rather than a
+        # duplicate EDH constant that could drift from it. What PBS does NOT
+        # catch is the injection above -- "1-100 -l select=999:ncpus=96" is a
+        # perfectly legal array size to PBS -- which is why the allowlist stays.
+        logger.info(
+            f"send_job: array_indices {_array_indices!r} validated, "
+            f"{_subjob_count} subjobs"
+        )
+
+    _file_picker_values, _file_picker_error = _validate_file_picker_values(
+        _profile_form, request.form, _user
+    )
+    if _file_picker_error:
+        flash(_file_picker_error, "error")
+        return redirect("/submit_job")
+
+    # input_file_path (working directory) is a hidden field: the user must be able to read it.
+    _input_file_path = request.form.get("input_file_path", "")
+    if _input_file_path and (
+        check_user_permission(
+            path=str(pathlib.Path(_input_file_path).resolve()),
+            permissions=Permissions.READ,
+            user=_user,
+            paths_to_restrict=config.Config.PATH_TO_RESTRICT,
+        )
+        is False
+    ):
+        logger.warning(f"send_job: {_user} cannot read input_file_path {_input_file_path}")
+        flash(_("You are not authorized to access this location and/or this path is restricted by the Administrator."), "error")
+        return redirect("/submit_job")
+
     _cpus = request.form.get("vcpus", "1")
     try:
         _requested_cpus = int(_cpus)
@@ -243,7 +590,7 @@ def send_job():
         return redirect("/file_explorer")
 
     _instance_type = request.form.get("instance_type", "")
-    _job_script = request.form.get("job_script", "")
+    _job_script = _application_profile.get("profile_job", "")
     logger.info(
         f"Requested HPC job submission for {_profile_interpreter=} {_requested_cpus=} {_instance_type=}. Add debug to view entire job_script."
     )
@@ -269,15 +616,15 @@ def send_job():
             _scheduler_info = _scheduler
             break
 
-    if is_hpc_scheduler:
-        # Handle case where interpreter is an actual HPC scheduler and not system interpreter
-        if not _instance_type:
-            logger.error(
-                f"Interpreter is HPC scheduler {_profile_interpreter} but instance_type is not set"
-            )
-            flash(_("You must specify cpus and instance_type parameters"), "error")
-            return redirect("/file_explorer")
+    if is_hpc_scheduler and not _instance_type:
+        # instance_type is optional: e.g. on AWS PCS the compute node group defines the instance
+        # types. Without it EDH cannot calculate the node count, so the job script is submitted
+        # as written and must request its own nodes.
+        logger.info(
+            f"Interpreter is HPC scheduler {_profile_interpreter} without instance_type, skipping node count calculation"
+        )
 
+    if is_hpc_scheduler and _instance_type:
         # Calculate the number of nodes to be provisioned for the simulation
         _pattern_ht_support = re.compile(
             r"(?im)^#PBS\s+-l\s+.*\bht_support\s*=\s*(true|false)\b"
@@ -405,8 +752,14 @@ def send_job():
             f"Processing Form inputs for macro expansion - Parameter name: ({_param_name}), Value: ({_param_value})"
         )
 
-        if _param_name != "csrf_token":
-            if _param_name.lower() == "user":
+        # Internal fields of the submission form, not job parameters.
+        if _param_name not in ("csrf_token", "app", "job_script", "profile_interpreter"):
+            if _param_name in _hidden_fields:
+                _job_script_parameters[_param_name] = ""
+            elif _param_name in _file_picker_values:
+                # Use the paths validated by _validate_file_picker_values (resolved, ACL checked)
+                _job_script_parameters[_param_name] = _file_picker_values[_param_name]
+            elif _param_name.lower() == "user":
                 _job_script_parameters[_param_name] = session["user"]
             elif _param_name == "HOME":
                 _job_script_parameters[_param_name] = (
@@ -415,28 +768,30 @@ def send_job():
             else:
                 _job_script_parameters[_param_name] = _param_value
 
+    # Kept available to job scripts as before, but always the server side value.
+    _job_script_parameters["profile_interpreter"] = _profile_interpreter
     logger.info(f"Found all Job Parameters; {_job_script_parameters}")
 
-    # PBS rejects `qsub -N` names with chars outside its allowed set (e.g. '@' from
-    # StarCCM+ filenames). Normalize the job_name form field before rendering the
-    # #PBS -N directive so the submit doesn't fail with 'illegal -N value'.
-    if (
-        is_hpc_scheduler
-        and _scheduler_info.provider
-        in (
-            SocaHpcSchedulerProvider.OPENPBS.value,
-            SocaHpcSchedulerProvider.PBSPRO.value,
-        )
-        and _job_script_parameters.get("job_name")
-    ):
-        _orig_job_name = _job_script_parameters["job_name"]
-        _job_script_parameters["job_name"] = SocaHpcPBSJobCommandBuilder(
-            scheduler_info=_scheduler_info
-        ).normalize_job_name(_orig_job_name)
-        if _job_script_parameters["job_name"] != _orig_job_name:
-            logger.info(
-                f"Normalized PBS job name {_orig_job_name!r} -> {_job_script_parameters['job_name']!r}"
+    # Scheduler directives reject or mis-parse some characters in a job name: PBS
+    # refuses chars outside its own set (e.g. '@' from StarCCM+ filenames), and a
+    # double quote breaks out of a quoted directive such as
+    # `#BSUB -J "{{job_name}}[{{array_indices}}]"` and appends further options.
+    if is_hpc_scheduler and _job_script_parameters.get("job_name"):
+        _job_name_builder = _JOB_NAME_BUILDERS.get(_scheduler_info.provider)
+        if _job_name_builder is None:
+            logger.warning(
+                f"send_job: no job_name normalizer for {_scheduler_info.provider=}, "
+                f"leaving the submitted name as-is"
             )
+        else:
+            _orig_job_name = _job_script_parameters["job_name"]
+            _job_script_parameters["job_name"] = _job_name_builder(
+                scheduler_info=_scheduler_info
+            ).normalize_job_name(_orig_job_name)
+            if _job_script_parameters["job_name"] != _orig_job_name:
+                logger.info(
+                    f"Normalized job name {_orig_job_name!r} -> {_job_script_parameters['job_name']!r}"
+                )
 
     _render_job_payload = SocaJinja2Renderer().from_string(
         data=_job_to_submit, variables=_job_script_parameters

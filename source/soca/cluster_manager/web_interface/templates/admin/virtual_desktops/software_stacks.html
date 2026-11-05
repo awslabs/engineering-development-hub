@@ -110,9 +110,10 @@
                                             <div class="form-group">
                                                 <label data-toggle="tooltip" data-placement="top"
                                                        title="{{ _("The minimum size (in GB) of the root disk for this image. Provisioning an instance with a lower EBS size will throw an error") }}"
-                                                       for="root_size">{{ _("Root Disk Size (in GB)") }}</label>
-                                                <input type="number" min=0 value=40 id="root_size" class="form-control"
+                                                       for="root_size">{{ _("Minimum Root Disk Size (in GB)") }}</label>
+                                                <input type="number" min=0 value=0 id="root_size" class="form-control"
                                                        required name="root_size">
+                                                <small class="form-text text-muted">{{ _("Users cannot launch below this size. Set 0 to use the cluster minimum (currently Linux %(min_linux)s GB, Windows %(min_windows)s GB). The launch form offers the cluster default (currently Linux %(linux)s GB, Windows %(windows)s GB), or the minimum if it is larger.", min_linux=root_defaults.min_linux, min_windows=root_defaults.min_windows, linux=root_defaults.linux, windows=root_defaults.windows) }}</small>
                                             </div>
 
                                              <div class="form-group">
@@ -259,7 +260,8 @@
                             {% for hp in hardware_profiles %}"{{ hp.id }}": {{ hp.profile_name|tojson }},{% endfor %}
                         };
 
-                        function updateSoftwareStackInfo() {
+                        function _se(v){return (v==null?"":String(v)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\x27/g,"&#39;");}
+        function updateSoftwareStackInfo() {
                         var selectElement = document.getElementById("software_stack_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
 
@@ -268,14 +270,14 @@
 
                         document.getElementById("stackInfo").innerHTML =
                             "<h3>Software Stack Details:</h3> <hr>" +
-                            "<strong>Base OS:</strong> " + selectedOption.getAttribute("data-soca-ami-base-os") +
-                            "<br><strong>Architecture:</strong> " + selectedOption.getAttribute("data-soca-ami-arch") +
-                            "<br><strong>AMI ID:</strong> " + selectedOption.getAttribute("data-soca-ami-id") +
-                            "<br><strong><a href='/admin/virtual_desktops/profiles' target='_blank'>Associated VDI Profile ID:</a></strong> " + selectedOption.getAttribute("data-soca-vdi-profile") +
-                            "<br><strong><a href='/admin/projects' target='_blank'>Associated Project IDs:</a></strong> " + selectedOption.getAttribute("data-soca-project-ids") +
-                            "<br><strong><a href='/admin/virtual_desktops/hardware_profiles' target='_blank'>Hardware Profile:</a></strong> " + hwName +
-                            "<br><strong>Created By:</strong> " + selectedOption.getAttribute("data-soca-created-by") +
-                            "<br><strong>Created On</strong> " + selectedOption.getAttribute("data-soca-created-on");
+                            "<strong>Base OS:</strong> " + _se(selectedOption.getAttribute("data-soca-ami-base-os")) +
+                            "<br><strong>Architecture:</strong> " + _se(selectedOption.getAttribute("data-soca-ami-arch")) +
+                            "<br><strong>AMI ID:</strong> " + _se(selectedOption.getAttribute("data-soca-ami-id")) +
+                            "<br><strong><a href='/admin/virtual_desktops/profiles' target='_blank'>Associated VDI Profile ID:</a></strong> " + _se(selectedOption.getAttribute("data-soca-vdi-profile")) +
+                            "<br><strong><a href='/admin/projects' target='_blank'>Associated Project IDs:</a></strong> " + _se(selectedOption.getAttribute("data-soca-project-ids")) +
+                            "<br><strong><a href='/admin/virtual_desktops/hardware_profiles' target='_blank'>Hardware Profile:</a></strong> " + _se(hwName) +
+                            "<br><strong>Created By:</strong> " + _se(selectedOption.getAttribute("data-soca-created-by")) +
+                            "<br><strong>Created On</strong> " + _se(selectedOption.getAttribute("data-soca-created-on"));
                         }
 
                         document.addEventListener("DOMContentLoaded", function() {

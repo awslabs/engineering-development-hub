@@ -34,7 +34,7 @@ def _hpc_log_base() -> Path:
 
 def _resolve_job_log_dir(job_id: str) -> Path | None:
     """Resolve the log directory for a job: <base>/<job_id>/<uuid>/
-    The <uuid> dir holds per-node subdirectories (<node_name>/*.log)."""
+    The <uuid> dir holds per-node subdirectories (<node_name>/<instance_id>/*.log)."""
     job_dir = _hpc_log_base() / job_id
     if not job_dir.exists():
         return None
@@ -46,12 +46,15 @@ def _resolve_job_log_dir(job_id: str) -> Path | None:
 
 def _discover_nodes(log_dir: Path) -> dict[str, list[Path]]:
     """Discover node subdirectories and their log files.
-    Returns {node_name: [log_file_paths]}."""
+    Returns {node_name: [log_file_paths]}.
+    Recursive: logs live under <node_name>/<instance_id>/ (a hostname can be
+    reused by a replacement instance); nodes bootstrapped before that layout
+    keep their logs directly under <node_name>/."""
     nodes = {}
     for entry in sorted(log_dir.iterdir()):
         if entry.is_dir():
             log_files = sorted(
-                f for f in entry.iterdir() if f.is_file()
+                f for f in entry.rglob("*") if f.is_file()
             )
             if log_files:
                 nodes[entry.name] = log_files
@@ -60,6 +63,7 @@ def _discover_nodes(log_dir: Path) -> dict[str, list[Path]]:
 
 @click.group(name="hpc")
 def logs_hpc() -> None:
+    """HPC job logs from shared storage."""
     pass
 
 
@@ -78,6 +82,7 @@ def logs_hpc() -> None:
 )
 @click.pass_context
 def list_logs(ctx: click.Context, job_id: str, output_format: str) -> None:
+    """List the log files captured for an HPC job."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -98,7 +103,8 @@ def list_logs(ctx: click.Context, job_id: str, output_format: str) -> None:
             "job_id": job_id,
             "log_dir": str(log_dir),
             "nodes": {
-                node: [f.name for f in files] for node, files in nodes.items()
+                node: [str(f.relative_to(log_dir / node)) for f in files]
+                for node, files in nodes.items()
             },
         }
         click.echo(json.dumps(result, indent=4))
@@ -109,7 +115,7 @@ def list_logs(ctx: click.Context, job_id: str, output_format: str) -> None:
         for node, files in nodes.items():
             click.echo(click.style(f"  {node}/", fg="cyan"))
             for f in files:
-                click.echo(f"    {f.name}")
+                click.echo(f"    {f.relative_to(log_dir / node)}")
 
 
 @logs_hpc.command()
@@ -179,6 +185,7 @@ def fetch(
     end_time: Optional[str] = None,
     ai_assistant: Optional[str] = None,
 ) -> None:
+    """Fetch log lines for an HPC job."""
     if not is_controller_instance():
         print_output("This command must be run on the controller instance.", error=True)
 
@@ -277,4 +284,5 @@ def fetch(
         assistant = SocaAiAssistant(username=getpass.getuser())
         stream = assistant.converse_stream("\n".join(log_texts), system_prompt=get_ai_system_prompt("node-bootstrap"))
         render_ai_analysis_stream(stream)
-        
+
+

@@ -1,0 +1,178 @@
+<!--
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+{% set _used_by = used_by_compute_node_groups | default([]) or [] %}
+
+<head>
+    {% include 'common/header.html' %}
+</head>
+
+<body id="page-top">
+    {% include 'common/horizontal_menu_bar.html' %}
+
+
+<div id="wrapper">
+    {% include 'common/vertical_menu_bar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+
+        <div id="content" style="margin-top: 20px;">
+            <div class="container-fluid">
+
+                {% include 'common/flashed_messages.html' %}
+
+                <div class="col-md-12">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/admin/pcs">{{ _("PCS clusters") }}</a></li>
+                            <li class="breadcrumb-item"><a href="/admin/pcs/detail/{{ cluster_id }}">{{ pcs_cluster_name }}</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ launch_template.get('name', launch_template.get('id', '')) }}</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3 mb-0 text-gray-800">{{ _("Launch template:") }} {{ launch_template.get('name', launch_template.get('id', '')) }}</h1>
+                        <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                            <a href="/admin/pcs/detail/{{ cluster_id }}#nav-launch-templates" class="btn btn-secondary btn-sm">{{ _("Back to cluster") }}</a>
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteLaunchTemplateModal">{{ _("Delete launch template") }}</button>
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <h3>{{ _("Details") }}</h3>
+                            <table class="table">
+                                <tbody>
+                                    {% set _lt_created = launch_template.get('created_at') %}
+                                    <tr><th style="width:220px;">{{ _("Name") }}</th><td>{{ launch_template.get('name') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Launch template ID") }}</th><td>{{ launch_template.get('id') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Default version") }}</th><td>{{ launch_template.get('default_version') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Latest version") }}</th><td>{{ launch_template.get('latest_version') or '-' }}</td></tr>
+                                    <tr><th>{{ _("Created") }}</th><td title="{{ _lt_created or '' }}">{{ _lt_created | pcs_datetime if _lt_created else '-' }}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Used by compute node groups -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header">
+                            <h3 class="m-0">{{ _("Used by compute node groups") }}</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if _used_by %}
+                            <table class="table table-sm mb-0">
+                                <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Compute node group ID") }}</th><th>{{ _("Cluster") }}</th></tr></thead>
+                                <tbody>
+                                    {% for g in _used_by %}
+                                    {% set _g_cluster = g.get('cluster_id') or g.get('cluster_name') or cluster_id %}
+                                    <tr>
+                                        <td><a href="/admin/pcs/compute_node_group/{{ _g_cluster }}/{{ g.get('id') }}">{{ g.get('name') or g.get('id') or '-' }}</a></td>
+                                        <td><code>{{ g.get('id') or '-' }}</code></td>
+                                        <td>{{ g.get('cluster_name') or g.get('cluster_id') or '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div class="alert alert-warning mb-0">{{ _("Not used by any compute node group.") }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header">
+                            <h3 class="m-0">{{ _("Tags") }}</h3>
+                        </div>
+                        <div class="card-body">
+                            {% set _tags = launch_template.get('tags') or {} %}
+                            {% if _tags %}
+                            <table class="table table-sm mb-0">
+                                <thead><tr><th>{{ _("Key") }}</th><th>{{ _("Value") }}</th></tr></thead>
+                                <tbody>
+                                    {% for k, v in _tags.items() %}
+                                    <tr><td><code>{{ k }}</code></td><td>{{ v }}</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div class="alert alert-warning mb-0">{{ _("No tags on this launch template.") }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% include 'common/footer.html' %}
+    </div>
+</div>
+
+<!-- Delete launch template confirmation -->
+<div class="modal fade" id="deleteLaunchTemplateModal" tabindex="-1" aria-labelledby="deleteLaunchTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="/admin/pcs/delete_launch_template" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteLaunchTemplateModalLabel">{{ _("Delete launch template") }} {{ launch_template.get('name', launch_template.get('id', '')) }}</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}">&times;</button>
+                </div>
+                <div class="modal-body">
+                    {% if _used_by %}
+                    <div class="alert alert-warning">
+                        {{ _("This launch template is used by the compute node groups below. Delete them or move them to another launch template before deleting it.") }}
+                        <ul class="mb-0 mt-2">
+                            {% for g in _used_by %}
+                            <li>{{ g.get('name') or g.get('id') }} <code>{{ g.get('id') }}</code>{% if g.get('cluster_name') %} ({{ g.get('cluster_name') }}){% endif %}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    <p class="text-danger">
+                        {{ _("This permanently deletes the launch template. This action cannot be undone.") }}
+                    </p>
+                    <div class="form-check">
+                        <input id="confirmDeleteLaunchTemplate" name="confirm_delete" type="checkbox" class="form-check-input" required{{ ' disabled' if _used_by }}>
+                        <label class="form-check-label" for="confirmDeleteLaunchTemplate">
+                            {{ _("I understand this launch template will be permanently deleted.") }}
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="cluster_name" value="{{ cluster_id }}">
+                    <input type="hidden" name="launch_template_id" value="{{ launch_template.get('id') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+                    <button type="submit" class="btn btn-danger"{{ ' disabled' if _used_by }}>{{ _("Delete launch template") }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Disable the submit button and show a loading state once any form is submitted, so a slow
+    // delete round-trip can't be double-clicked (mirrors the PCS detail page behavior).
+    document.addEventListener('submit', function (e) {
+        if (e.target.tagName === 'FORM' && !e.defaultPrevented) {
+            e.preventDefault();
+            var _submitButton = e.target.querySelector('button[type="submit"]');
+            if (_submitButton) {
+                _submitButton.disabled = true;
+                _submitButton.innerHTML = `
+                <span class="icon text-white-50">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+                <span class="text" aria-live="polite">{{ _("Please wait ...") }}</span>`;
+            }
+            setTimeout(function () { e.target.submit(); }, 300);
+        }
+    });
+</script>
+
+</body>
+</html>

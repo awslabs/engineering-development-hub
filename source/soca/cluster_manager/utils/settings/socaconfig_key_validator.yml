@@ -14,12 +14,18 @@ ValidationFunctions:
   EXPECT_LIST_OF_EC2_INSTANCES: &list_of_ec2_instances 'list_of_ec2_instance' # Verify if list provides contains only EC2 instance type
   EXPECT_LIST_OF_EC2_SUBNET_IDS: &list_of_ec2_subnet_ids 'list_of_ec2_subnet_ids' # Verify if list provides contains only EC2 subnet IDs
   EXPECT_LIST_OF_STRINGS: &list_of_strings 'list_of_strings' # Verify the value is a list where each element is a string
+  EXPECT_LIST_OF_GROUP_DNS: &list_of_group_dns 'list_of_group_dns' # Verify the value is a list where each element is a full group DN starting with CN= (e.g. CN=group1,OU=Groups,DC=corp,DC=com)
   EXPECT_VALID_SSH_KEYPAIR: &valid_ssh_keypair 'valid_ssh_keypair'
   VALIDATE_FEATURE_FLAGS: &validate_feature_flags 'validate_feature_flags'
+  # A distinguished name. These keys are a resolution chain rather than
+  # required values, so an unset one must be tolerated: it is pruned before it
+  # reaches SSM, and SSM rejects an empty value outright, so a key in this tree
+  # is either absent or a DN. The empty alternative is defensive only.
+  EXPECT_DN_OR_EMPTY: &dn_or_empty '^$|^[a-zA-Z]+\s*=\s*[^,+=<>#;]+(,\s*[a-zA-Z]+\s*=\s*[^,+=<>#;]+)*$'
 
 configuration:
   ComputeNodeInstanceProfileArn: '^arn:(aws|aws-us-gov|aws-cn):iam::\d{12}:instance-profile/.+$'
-  ControllerIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn)$:iam::\d{12}:role/.+$'
+  ControllerIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn):iam::\d{12}:role/.+$'
   CustomAMIMap: *immutable_key ## to review when we have a better check
   DCVAllowedInstances: *list_of_ec2_instances
   DCVDeniedInstances: *list_of_ec2_instances
@@ -31,6 +37,15 @@ configuration:
   CustomAMI: '^ami-[0-9a-f]{8,17}$'
   dcv:
     high_scale: *bool
+    root_volume:
+      # 30 GB floor (below this a Linux desktop cannot finish bootstrap), 65536 GB ceiling (gp3/io2 max)
+      default_size_linux: '^(3\d|[4-9]\d|[1-9]\d{2,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-6])$'
+      default_size_windows: '^(3\d|[4-9]\d|[1-9]\d{2,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-6])$'
+      min_size_linux: '^(3\d|[4-9]\d|[1-9]\d{2,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-6])$'
+      min_size_windows: '^(3\d|[4-9]\d|[1-9]\d{2,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-6])$'
+      volume_type: '^(gp2|gp3|io1|io2)$'
+      iops: '^(0|[1-9]\d{0,4}|1\d{5}|2[0-4]\d{4}|25[0-5]\d{3}|256000)$' # 0..256000 (io2 max); per-type limits enforced at launch
+      throughput: '^(0|[1-9]\d{0,2}|1\d{3}|2000)$' # 0..2000 MiB/s (gp3 max)
     pool:
       enabled: *bool
       provisioning_timeout_seconds: *positive_int
@@ -39,6 +54,9 @@ configuration:
       collision_alarm_pct: *positive_int
       collision_alarm_min_attempts: *positive_int
       asg_count_alarm_pct: *positive_int
+    placement:
+      concurrent_az_attempts: '^(all|[1-9]\d*)$' # "all" tracks the candidate AZ count
+      az_order: '^(random|ordered)$'
     session_sharing:
       enabled: *bool
       allow_unsupervised_access: *bool
@@ -66,6 +84,8 @@ configuration:
       EnableQuotasCheck: *bool
       EnableNestedVirtualization: *bool
       JoinEphemeralNodesToAD: *bool
+      JoinAlwaysOnNodesToAD: *bool
+      JoinPCSNodesToAD: *bool
 
     Networking:
       EnableIPv6: *bool
@@ -93,6 +113,22 @@ configuration:
       DefaultWindow: '^(24h|72h|7d|30d)$'
       MaxRows: *positive_int
       IncludeFinished: *bool
+    JobChain:
+      MaxStages: *positive_int
+      # 0 is meaningful here and means "no limit beyond the stage count", so
+      # positive_int would reject the shipped default. Inline rather than a new
+      # anchor because this is the only non-negative integer key today.
+      MaxParentsPerStage: '^(0|[1-9]\d*)$'
+    # One parameter holding a dict, the same wire format as the HPC/schedulers
+    # keys, so it takes a validation function rather than a per-member regex.
+    # Without this entry the key has no schema, and config_checks.check() refuses
+    # it outright with "does not exist in util.config_checks" -- which makes these
+    # four settings unreachable from `edhctl config set` and marks them
+    # "not writable (no config schema entry)" in the WebUI Configuration Editor.
+    # The install-time write is unaffected either way: the CDK's bulk SSM writer
+    # never goes through this verifier.
+    containers:
+      apptainer: validate_containers_apptainer
 
   WebInterface:
     csrf_token_follows_session: *bool
@@ -121,7 +157,7 @@ configuration:
   S3InstallFolder: *str
   SpotFleetIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn)$:iam::\d{12}:role/.+$'
   Version: *immutable_key
-  BaseOS: '^(amazonlinux2|amazonlinux2023|rhel7|rhel8|rhel9|rocky8|rocky9|centos7|ubuntu2204|ubuntu2404)$'
+  BaseOS: '^(amazonlinux2|amazonlinux2023|amazonlinux2027|rhel7|rhel8|rhel9|rocky8|rocky9|centos7|ubuntu2204|ubuntu2404)$'
   ComputeNodeIAMRole: *valid_iam_role
   ControllerIAMRole: *valid_iam_role
   ControllerSecurityGroup: '^sg-[0-9a-fz]{8,17}$'
@@ -138,14 +174,24 @@ configuration:
     mount_drive_letter: '^[A-Z]:$'
     smb_dns: *str
     cifs_share_name: *str
+    svm_netbios_name: '^[A-Za-z0-9-]{1,15}$'
+    svm_organizational_unit: '((?:[a-zA-Z]+\s*=\s*[^,+=<>#;]+)(?:\+[a-zA-Z]+\s*=\s*[^,+=<>#;]+)*)'
+    svm_file_system_administrators_group: *str
   OSDomainEndpoint: *str
+  Integrity:
+    # Fatality for integrity findings. Vocabulary intentionally reuses
+    # on_mount_failure's exit/ignore rather than inventing off/fail, for
+    # operator muscle memory. Shell-readable so node bootstrap can consume
+    # it. Governs deviations FOUND by a check; failure to PRODUCE a check
+    # is always non-fatal.
+    on_validation_failure: '^(ignore|warn|exit)$'
   AnalyticsEngine: '^(opensearch|opensearch_serverless|aoss_serverless|elasticsearch)$'
   Analytics:
     enabled: *bool
     engine: '^(opensearch|opensearch_serverless|aoss_serverless|elasticsearch)$'
     endpoint: *str
   UserDirectory:
-    provider: '^(aws_ds_managed_activedirectory|openldap)$'
+    provider: '^(aws_ds_managed_activedirectory|existing_active_directory|openldap|existing_openldap)$'
     admins_search_base: '((?:[a-zA-Z]+\s*=\s*[^,+=<>#;]+)(?:\+[a-zA-Z]+\s*=\s*[^,+=<>#;]+)*)'
     people_search_base: '((?:[a-zA-Z]+\s*=\s*[^,+=<>#;]+)(?:\+[a-zA-Z]+\s*=\s*[^,+=<>#;]+)*)'
     group_search_base: '((?:[a-zA-Z]+\s*=\s*[^,+=<>#;]+)(?:\+[a-zA-Z]+\s*=\s*[^,+=<>#;]+)*)'
@@ -158,12 +204,49 @@ configuration:
     ad_aws_directory_service_id: *str
     ad_aws_lambda_reset_password: *str
     domain_controller_ips: *str
-  ComputeNodeIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn)$:iam::\d{12}:role/.+$'
+    ad_authentication_groups: *list_of_group_dns
+    windows_home_drive: '^([A-Z]:)?$'
+    windows_home_unc_template: '^(?=.*\{username\})\\\\[^\\/:*?"<>|]+(\\[^\\/:*?"<>|]+)+$'
+    ontap_ldap_schema: '^(MS-AD-BIS|AD-IDMU|AD-SFU|RFC-2307)$'
+    # Where computer objects are created, per node class. Empty is valid and
+    # means fall through to the next level, ending at the directory default.
+    computer_ou:
+      default: *dn_or_empty
+      controller: *dn_or_empty
+      login_node: *dn_or_empty
+      storage: *dn_or_empty
+      vdi:
+        default: *dn_or_empty
+        windows: *dn_or_empty
+        linux: *dn_or_empty
+      hpc:
+        default: *dn_or_empty
+        ephemeral: *dn_or_empty
+        alwayson: *dn_or_empty
+        pcs: *dn_or_empty
+  ComputeNodeIAMRoleArn: '^arn:(aws|aws-us-gov|aws-cn):iam::\d{12}:role/.+$'
   ControllerPrivateIP: '^(\d{1,3}\.){3}\d{1,3}$'
   HPCJobDeploymentMethod: '^(asg|fleet)$'
   LdapName: *str
   MetadataHttpTokens: '^(optional|required)$'
   VpcId: '^vpc-[0-9a-f]{8,17}$'
+  # EC2 service-quota reads. Account and region scoped, NOT specific to HPC: the
+  # quotas themselves are account-wide and VDI and Target Nodes launch instances
+  # against the same limits.
+  ServiceQuotas:
+    # Seconds a fetched quota LIMIT stays cached. Lower means a quota increase
+    # granted by AWS reaches the caller sooner; the read is a single filtered
+    # ListServiceQuotas request per quota, so a short window is cheap.
+    ValueCacheTTL: *positive_int
+    # Seconds the quota-name-to-quota-code mapping stays cached. This is the
+    # expensive read (a full paginate of ~1750 ec2 quotas) and the mapping
+    # effectively never changes, so it should stay long.
+    DiscoveryCacheTTL: *positive_int
+    # Minimum seconds between forced re-reads of one quota's limit on the
+    # about-to-refuse path. Stops a queue of callers blocked on the same quota
+    # from forcing one API read each.
+    RevalidationFloor: *positive_int
+
   Cache:
     port: *int
     enabled: *bool
@@ -187,6 +270,45 @@ configuration:
     allowed_daily_tokens_per_user: *int
     allowed_bedrock_model_ids: *list_of_strings
     allowed_mcp_servers: *str
+  # Cross-region overlay mesh runtime keys. Written by the overlay daemon and
+  # the mesh admin API, read by both plus the WebUI. Install-time counterparts
+  # live under Config.services.cross_region in installer/default_config.yml.
+  # NOTE: /configuration/Overlay/suspend_peer/<peer_cluster_id> is a dynamic
+  # per-peer key and cannot be enumerated here; it is special-cased in
+  # config_checks.py the same way CustomTags and FileSystems are.
+  Overlay:
+    # Mesh identity
+    mesh_id: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    mesh_table_prefix: '^[a-z][a-z0-9_]{0,31}$'
+    is_mesh_creator: *bool
+    # Cross-account assume-role bridge
+    mesh_role_arn: '^arn:(aws|aws-us-gov|aws-cn):iam::\d{12}:role/.+$'
+    mesh_role_external_id: *str
+    # WireGuard identity
+    wg_secret_arn: '^arn:(aws|aws-us-gov|aws-cn):secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    # Peer-to-peer capacity probe token
+    peer_probe_token: *str
+    peer_probe_token_secret_arn: '^arn:(aws|aws-us-gov|aws-cn):secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    peer_probe_rotation_lambda_arn: '^arn:(aws|aws-us-gov|aws-cn):lambda:[a-z0-9-]+:\d{12}:function:.+$'
+    peer_probe_rotation_days: *positive_int
+    peer_probe_grace_days: *positive_int
+    # Mesh sidecar (cross-controller P2P API surface)
+    mesh_sidecar_enabled: *bool
+    mesh_sidecar_port: *positive_int
+    mesh_sidecar_loopback_port: *positive_int
+    # Managed prefix list sync
+    prefix_list_id: '^pl-[0-9a-f]{8,17}$'
+    prefix_list_id_ipv6: '^pl-[0-9a-f]{8,17}$'
+    mpl_sync_interval_seconds: *positive_int
+    mpl_max_entries_hard_cap: *positive_int
+    mpl_removal_grace_hours: *positive_int
+    # Failure containment / operator big-red-buttons
+    local_read_only: *bool
+    local_disconnect: *bool
+    destructive_ceiling_n: *positive_int
+    allow_large_diff_until: *int
+    # Observability
+    cw_namespace: *str
 
 packages:
   controller: *immutable_key
@@ -229,6 +351,16 @@ system:
   orchestration:
     stack_grace_period_in_minutes: *int
     stack_max_retry_attempts: *int
+  apptainer:
+    version: *str
+    url: *url
+    sha256: '^[a-fA-F0-9]{64}$'
+    go_version: '^go\d+\.\d+(\.\d+)?$'
+    go_sha256_amd64: '^[a-fA-F0-9]{64}$'
+    go_sha256_arm64: '^[a-fA-F0-9]{64}$'
+    squashfuse_version: *str
+    squashfuse_url: *url
+    squashfuse_sha256: '^[a-fA-F0-9]{64}$'
   awscliv2:
     aarch64: *url
     x86_64: *url
@@ -324,20 +456,39 @@ system:
   gpu:
     gpu_settings:
       nvidia:
-        tesla_drivers_only: '\(\w+(\|\w+)*\)'
-        tesla_drivers_ltsb_only: '\(\w+(\|\w+)*\)'
-        grid_drivers:
+        linux:
+          tesla_drivers_only: '^\([\w-]+(\|[\w-]+)*\)$'
+          grid_drivers:
+            s3_bucket_url: *url
+            s3_bucket_path: '^s3:\/\/[a-zA-Z0-9\.\-_]+(\/[a-zA-Z0-9\.\-_]+)*\/?$'
+            version: *str
+            version_amazonlinux2: *str
+          tesla_drivers:
+            public_driver_url_endpoint: *url
+            production_version: *str
+            # version_pins groups are operator-named, so the group segment is
+            # stripped in config_checks.py before these leaves are validated.
+            # instance_families is authored as a YAML list and reaches here
+            # space-joined by the installer's config flattener, so the canonical
+            # stored form is "p2 g2". Whole family names only -- no prefix, glob
+            # or "|".
+            version_pins:
+              instance_families: '^[\w-]+( [\w-]+)*$'
+              version: *str
+        windows:
+          grid_drivers:
+            s3_bucket_url: *url
+            s3_bucket_path: '^s3:\/\/[a-zA-Z0-9\.\-_]+(\/[a-zA-Z0-9\.\-_]+)*\/?$'
+            version: *str
+            version_server2019: *str
+      amd:
+        linux:
           s3_bucket_url: *url
           s3_bucket_path: '^s3:\/\/[a-zA-Z0-9\.\-_]+(\/[a-zA-Z0-9\.\-_]+)*\/?$'
-        tesla_drivers:
-          public_driver_version: *str
-          public_driver_version_ltsb: *str
-          public_driver_url_endpoint: *url
-      amd:
-        s3_bucket_url: *url
-        s3_bucket_path: '^s3:\/\/[a-zA-Z0-9\.\-_]+(\/[a-zA-Z0-9\.\-_]+)*\/?$'
-        rhel_rocky8_installer_url:  *url
-        rhel_rocky9_installer_url:  *url
+          radeon_repo_url: *url
+        windows:
+          s3_bucket_url: *url
+          s3_bucket_path: '^s3:\/\/[a-zA-Z0-9\.\-_]+(\/[a-zA-Z0-9\.\-_]+)*\/?$'
 
   nvm:
     install_script: *str

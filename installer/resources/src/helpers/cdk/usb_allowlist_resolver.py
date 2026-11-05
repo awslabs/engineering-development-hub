@@ -20,6 +20,7 @@ from aws_cdk import aws_lambda
 from aws_cdk import aws_ssm as ssm
 
 from helpers import security_groups as security_groups_helper
+from helpers import ec2 as ec2_helper
 from helpers.cdk.edh_internal_api import (
     add_iam_lambda_route,
     get_or_create_internal_api,
@@ -108,7 +109,7 @@ def build_usb_allowlist_resolver(
         log_group=scope.generate_log_group(name="UsbAllowlistResolverLambda"),
         role=resolver_role,
         vpc=vpc,
-        vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+        vpc_subnets=ec2_helper.private_subnet_type_selection(vpc),
         security_groups=[resolver_sg],
         environment={
             "DB_HOST": database.cluster_read_endpoint.hostname,

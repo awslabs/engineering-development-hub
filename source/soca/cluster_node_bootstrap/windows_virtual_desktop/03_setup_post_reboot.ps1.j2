@@ -65,7 +65,13 @@ if (Test-Path $rescueMarker) {
         $sau = $secret.username.Split('@')[0]
         $sp  = ConvertTo-SecureString "$($secret.password)" -AsPlainText -Force
         $cred = New-Object System.Management.Automation.PSCredential -ArgumentList "{{ context.get('/configuration/UserDirectory/short_name') }}\$sau",$sp
-        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $cred -UniqueName $UniqueName) {
+        {# Same chain as join_activedirectory.ps.j2: vdi.windows, vdi.default,
+           default. ps_quote for the same reason: autoescape is on and a DN may
+           contain & " '. #}
+        {%- set _wcou = context.get('/configuration/UserDirectory/computer_ou/vdi/windows')
+                     or context.get('/configuration/UserDirectory/computer_ou/vdi/default')
+                     or context.get('/configuration/UserDirectory/computer_ou/default') -%}
+        if (Invoke-SocaCleanDomainJoin -DomainName "{{ context.get('/configuration/UserDirectory/domain_name') }}" -Credential $cred -UniqueName $UniqueName -ComputerOU {{ (_wcou if _wcou else '') | ps_quote }}) {
             Remove-Item $rescueMarker -Force -ErrorAction SilentlyContinue
             # Re-arm this post-reboot task so 03 runs again after the rejoin reboot to finish normally.
             $rescueScript = "$EDHBootstrapAssetsFolder\03_setup_post_reboot.ps1"
@@ -165,8 +171,18 @@ if (-not ($cs.PartOfDomain -and ($env:COMPUTERNAME -eq $expectedAdName) -and $se
     $EDHUser = "$env:EDH_DCV_SESSION_OWNER"
 {% endif %}
 
-Log-Info -Message "Grant ${EDHUser} Admin permissions on the local Virtual Desktop machine"
-Add-LocalGroupMember -Group "Administrators" -Member $EDHUser
+# A VDI pool member boots session-less: vdi_pool_render sets /dcv/SessionOwner to
+# "", so $EDHUser is "SHORTNAME\" under AD and "" under OpenLDAP, and this call
+# cannot resolve a principal. 02_setup.ps1.j2 already guards its equivalent call;
+# this one did not, so every pool member logged a non-terminating
+# Add-LocalGroupMember error here on every boot. The owner is granted admin at
+# CLAIM time instead, by the claim-personalization agent installed below.
+if ([string]::IsNullOrWhiteSpace($env:EDH_DCV_SESSION_OWNER)) {
+    Log-Info -Message "No session owner at bootstrap (pool member); local Administrators grant deferred to claim-time personalization"
+} else {
+    Log-Info -Message "Grant ${EDHUser} Admin permissions on the local Virtual Desktop machine"
+    Add-LocalGroupMember -Group "Administrators" -Member $EDHUser
+}
 
 {% include "templates/windows/auto_user_logon.ps.j2" %}
 
@@ -412,7 +428,13 @@ $region = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/placem
 function Get-EdhTag($key) {
     $v = try { Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/tags/instance/$key" -Headers $hdr -TimeoutSec 5 } catch { $null }
     if ([string]::IsNullOrEmpty($v)) {
-        $v = & aws ec2 describe-tags --region $region --filters "Name=resource-id,Values=$iid" "Name=key,Values=$key" --query "Tags[0].Value" --output text 2>$null
+        # describe-INSTANCES, not describe-tags: the VDI node role (Vdi.json)
+        # grants ec2:DescribeInstances on "*" and does NOT grant
+        # ec2:DescribeTags, so the describe-tags form was always denied. It has
+        # never shown up because cold VDI's launch template enables
+        # InstanceMetadataTags, so this fallback has never had to fire.
+        $v = & aws ec2 describe-instances --region $region --instance-ids $iid --query "Reservations[0].Instances[0].Tags[?Key=='$key'].Value | [0]" --output text 2>$null
+        if ($v -eq "None") { $v = $null }
     }
     return $v
 }
@@ -479,6 +501,120 @@ exit 0
     Log-Info -Message "Installed EDHResumeHeal boot runner (tag-gated resume heal + emit)"
 } catch {
     Write-Warning "EDHResumeHeal runner install failed: $_"
+}
+
+# Claim-time personalization agent for VDI pool members, whose owner is unknown at boot.
+# Triggered by SSM at claim time, with this AtStartup task as the backstop.
+try {
+    $_claimDir = "C:\ProgramData\EDH"
+    New-Item -ItemType Directory -Force -Path $_claimDir | Out-Null
+    $_claimPath = Join-Path $_claimDir "claim_personalize.ps1"
+    $_claimBody = @'
+# EDH VDI claim-time personalization agent (Windows). Takes no arguments; reads
+# edh:JobOwner from the instance tags. Idempotent, sentinel-guarded.
+$ErrorActionPreference = "Continue"
+$logFile = "C:\ProgramData\EDH\claim_personalize.log"
+function Log-Claim($m) { try { "$((Get-Date).ToUniversalTime().ToString('o')) $m" | Out-File -FilePath $logFile -Append -Encoding UTF8 } catch {} }
+
+try {
+    $tok = Invoke-RestMethod -Method PUT -Uri "http://169.254.169.254/latest/api/token" -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="21600"} -TimeoutSec 5
+    $hdr = @{"X-aws-ec2-metadata-token"=$tok}
+    $iid = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" -Headers $hdr -TimeoutSec 5
+    $region = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/placement/region" -Headers $hdr -TimeoutSec 5
+} catch {
+    Log-Claim "IMDS unavailable, cannot resolve identity: $($_.Exception.Message)"
+    exit 0
+}
+
+# describe-instances, not describe-tags: ec2:DescribeTags is not in Vdi.json.
+function Get-EdhClaimTag($key) {
+    $v = try { Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/tags/instance/$key" -Headers $hdr -TimeoutSec 5 } catch { $null }
+    if ([string]::IsNullOrWhiteSpace($v)) {
+        $v = & aws ec2 describe-instances --region $region --instance-ids $iid --query "Reservations[0].Instances[0].Tags[?Key=='$key'].Value | [0]" --output text 2>$null
+        if ($v -eq "None") { $v = $null }
+    }
+    if ([string]::IsNullOrWhiteSpace($v)) { return $null }
+    return $v.Trim()
+}
+
+# Polled: the doorbell fires immediately after CreateTags, so the tag write may still
+# be propagating. An unclaimed member has no owner, which is an exit rather than an error.
+$owner = $null
+for ($i = 0; $i -lt 24; $i++) {   # 24 x 5s = 120s
+    $owner = Get-EdhClaimTag "edh:JobOwner"
+    if ($owner) { break }
+    Start-Sleep -Seconds 5
+}
+if (-not $owner) {
+    Log-Claim "no edh:JobOwner after ~120s; unclaimed member, nothing to personalize"
+    exit 0
+}
+
+# Per-owner so a re-claim by a different user re-applies. A file rather than a tag:
+# Vdi.json limits this role's instance ec2:CreateTags to edh:ADComputerName.
+$sentinel = "C:\ProgramData\EDH\claim_personalized_" + ($owner -replace '[^A-Za-z0-9._-]', '_') + ".flag"
+if (Test-Path $sentinel) { exit 0 }
+Log-Claim "personalizing iid=$iid owner=$owner"
+
+# Set by a failed step, not by a deliberate skip. Withholds the sentinel so the
+# AtStartup backstop retries on the next boot.
+$claimFailed = $false
+
+__EDH_CLAIM_ADMIN_GRANT__
+
+# DefaultDomainName is already set by the bootstrap; only the username is missing.
+try {
+    New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName" -PropertyType "String" -Value $owner -Force | Out-Null
+    Log-Claim "Winlogon DefaultUserName pre-filled = $owner"
+} catch {
+    $claimFailed = $true
+    Log-Claim "FAILED to pre-fill DefaultUserName: $($_.Exception.Message)"
+}
+
+if ($claimFailed) {
+    Log-Claim "personalization INCOMPLETE for $owner; sentinel withheld so the EDHClaimPersonalize AtStartup task retries on the next boot"
+    exit 0
+}
+
+New-Item -ItemType File -Path $sentinel -Force | Out-Null
+Log-Claim "personalization complete for $owner"
+exit 0
+'@
+
+{% if context.get('/configuration/UserDirectory/provider') in ("aws_ds_managed_activedirectory", "existing_active_directory") %}
+    # short_name is baked in: the VDI node role holds no ssm:GetParameter to read it live.
+    $_claimGrant = @'
+$member = "{{ context.get('/configuration/UserDirectory/short_name') }}\$owner"
+$already = $false
+try { $already = [bool](Get-LocalGroupMember -Group "Administrators" -Member $member -ErrorAction Stop) } catch { $already = $false }
+if ($already) {
+    Log-Claim "already in local Administrators: $member"
+} else {
+    try {
+        Add-LocalGroupMember -Group "Administrators" -Member $member -ErrorAction Stop
+        Log-Claim "granted local Administrators: $member"
+    } catch {
+        $claimFailed = $true
+        Log-Claim "FAILED to grant local Administrators to ${member}: $($_.Exception.Message)"
+    }
+}
+'@
+{% else %}
+    # OpenLDAP: the owner is a local account 02_setup creates from /dcv/LocalAdminPassword,
+    # which the session-less render does not carry. No account to add; log the gap.
+    $_claimGrant = @'
+Log-Claim "directory provider is OpenLDAP: the owner has no local account on a session-less pool member, and claim-time local-account creation is not supported. Skipping the Administrators grant; the user will not be able to elevate."
+'@
+{% endif %}
+    $_claimBody = $_claimBody.Replace("__EDH_CLAIM_ADMIN_GRANT__", $_claimGrant)
+    Set-Content -Path $_claimPath -Value $_claimBody -Encoding UTF8
+    $_claimAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NonInteractive -NoProfile -ExecutionPolicy Bypass -File `"$_claimPath`""
+    $_claimTrigger = New-ScheduledTaskTrigger -AtStartup
+    $_claimPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName "EDHClaimPersonalize" -Action $_claimAction -Trigger $_claimTrigger -Principal $_claimPrincipal -Force | Out-Null
+    Log-Info -Message "Installed EDHClaimPersonalize agent (claim-time local admin + Winlogon pre-fill; SSM-triggered, AtStartup backstop)"
+} catch {
+    Write-Warning "EDHClaimPersonalize agent install failed: $_"
 }
 
 Log-Info -Message "Node is ready"

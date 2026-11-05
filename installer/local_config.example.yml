@@ -1,0 +1,130 @@
+# EDH site configuration overlay -- EXAMPLE
+#
+# This file ships with EDH and is never loaded. Copy it to a name matching
+# local_config_*.yml -- note the UNDERSCORE -- then edit the copy:
+#
+#     cp local_config.example.yml local_config_site.yml
+#
+# Any suffix after the underscore works, so concerns can live in separate
+# files:
+#
+#     cp local_config.example.yml local_config_directory.yml
+#     cp local_config.example.yml local_config_storage.yml
+#
+# Those are gitignored, so a pull never conflicts with your environment and a
+# code review never carries it.
+#
+# local_config.yml, without the underscore, is NOT loaded. The installer stops
+# and tells you to rename it rather than ignoring it quietly.
+#
+# == Layer order ==
+#
+# Lowest precedence first. Each layer is applied over the one before it:
+#
+#   1. default_config.yml        shipped defaults, do not edit
+#   2. local_config_*.yml        auto-loaded, sorted by filename
+#   3. --config <path>           repeatable, applied in the order given
+#   4. --override key,type,value last word
+#
+# Layer 2 is sorted, so a numeric prefix makes ordering explicit:
+# local_config_10_base.yml is applied before local_config_20_site.yml.
+#
+# == Merge rules ==
+#
+# Mappings merge key by key, so naming one filesystem leaves its siblings
+# alone. You only set the keys you want to change; everything else comes from
+# default_config.yml, and this file never needs to track upstream additions.
+#
+# Scalars and lists REPLACE. A list in a later layer is used whole, so an
+# entry can be removed as well as added. Setting a key to ~ (null) is an
+# override to null, not an instruction to fall back to the default.
+#
+# Overlays must match local_config_*.yml and end in .yml. A near-miss name is
+# reported as an error rather than skipped.
+#
+# Set EDH_DEBUG=1 to log which file set each effective key.
+#
+# Everything below is commented out. Uncomment only what your site changes.
+Config:
+  # ===================================================================
+  # Connect to an existing Active Directory instead of creating one
+  # ===================================================================
+  #
+  # directoryservice:
+  #   provider: "existing_active_directory"
+  #
+  #   domain_name: "ad.example.com"
+  #   base_dn: "DC=ad,DC=example,DC=com"
+  #
+  #   # The domain's real NetBIOS name. Leaving this unset derives it from the
+  #   # first label of domain_name, which is wrong for most real domains:
+  #   # ad.example.com would derive to AD. Confirm it with
+  #   # 'aws ds describe-directories' or 'Get-ADDomain'.
+  #   short_name: "EXAMPLE"
+  #
+  #   # Set to false when a Route 53 Resolver rule for this domain already
+  #   # exists on the VPC, or when a shared-VPC owner creates it for you. EDH
+  #   # creating a second rule for the same domain on the same VPC collides.
+  #   create_route53_resolver: true
+  #
+  #   existing_active_directory:
+  #     # The slice of the directory EDH works in. Full DNs are clearer than
+  #     # relying on base_dn being appended.
+  #     people_search_base: "OU=Users,OU=HPC,DC=ad,DC=example,DC=com"
+  #     group_search_base: "OU=Groups,OU=HPC,DC=ad,DC=example,DC=com"
+  #     admins_search_base: "CN=hpc-admins,OU=Groups,OU=HPC,DC=ad,DC=example,DC=com"
+  #
+  #     # Must start with ldap:// or ldaps://. AWS Managed AD does not serve
+  #     # LDAPS until server-side LDAPS is enabled with a CA-issued certificate.
+  #     endpoint: "ldaps://ad.example.com"
+  #
+  #     # Required for every existing-AD install, not only FSx ONTAP ones:
+  #     # it is read with required=True and a missing value aborts the synth.
+  #     dc_ips:
+  #       - 10.0.1.10
+  #       - 10.0.2.10
+  #
+  #     # Secrets Manager secret holding the service account, with keys named
+  #     # exactly "username" and "password". Use the ARN, not the name.
+  #     #
+  #     # Store the username in UPN form (user@domain). It is used verbatim as
+  #     # an LDAP simple bind by the web UI, which Active Directory rejects for
+  #     # a bare sAMAccountName; the node and SVM domain joins strip the realm
+  #     # themselves, so UPN is the only form that satisfies every consumer.
+  #     #
+  #     # The account needs rights to create and delete computer objects in the
+  #     # OU below, and to create users and groups in the search bases above.
+  #     service_account_secret_name_arn: "arn:aws:secretsmanager:us-east-1:111122223333:secret:my-ad-service-account-AbCdEf"
+  #
+  #     # Optional. Restrict login to members of these groups. Full DNs.
+  #     ad_authentication_groups:
+  #       - "CN=hpc-users,OU=Groups,OU=HPC,DC=ad,DC=example,DC=com"
+
+  # ===================================================================
+  # Per-filesystem overrides
+  # ===================================================================
+  #
+  # storage:
+  #   data:
+  #     fsx_ontap:
+  #       # 15 characters maximum, and unique within the directory.
+  #       netbios_name: "HPCDATASVM"
+  #
+  #       # Where the SVM's computer object is created. Point this at the OU
+  #       # the service account was delegated on, not the domain-wide
+  #       # Computers container.
+  #       organizational_unit_distinguished_name: "OU=Computers,OU=HPC,DC=ad,DC=example,DC=com"
+  #
+  #       # On AWS Managed AD this is "AWS Delegated FSx Administrators".
+  #       # On a self-managed directory, name the group you delegated.
+  #       file_system_administrators_group: "AWS Delegated FSx Administrators"
+
+  # ===================================================================
+  # Anything else in default_config.yml can be overridden the same way
+  # ===================================================================
+  #
+  # termination_protection: false
+  #
+  # feature_flags:
+  #   Networking:
+  #     EnableIPv6: true

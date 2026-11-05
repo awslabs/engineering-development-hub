@@ -3,6 +3,48 @@
 
 # Note: Any entries must have been created as scheduler resource first.
 # Refer to the documentation for instruction https://awslabs.github.io/engineering-development-hub-documentation/documentation/High-Performance-Computing/job-with-license-requirements/
+#
+# How it works: before dispatching a job that requests <name>_lic_<feature>=N, the EDH dispatcher
+# asks the provider how many licenses are AVAILABLE. The job is dispatched only if available >= N,
+# otherwise it stays queued and is re-evaluated on the next cycle. Any provider error also keeps it queued.
+#
+# Each entry under `daemons` is keyed by the scheduler resource name and supports:
+#
+#   Option          Provider   Required  Description
+#   --------------  ---------  --------  ----------------------------------------------------------------
+#   provider        all        yes       "flexlm" or "script"
+#   minus           all        no        Licenses reserved for non-HPC usage, subtracted from the available count (default 0)
+#   server          flexlm     yes       License server hostname or IP
+#   port            flexlm     yes       License server port
+#   feature         flexlm     yes       Feature name, as reported by `lmutil lmstat -f <feature>`
+#   script_command  script     yes       Absolute script path followed by optional arguments
+#   timeout         script     no        Seconds before the script is killed (default 30)
+#
+# provider: "flexlm"
+#   Runs `<flexlm_lmutil_path> lmstat -a -c <port>@<server> -f <feature>` and computes
+#   available = (issued - minus) - in_use. Requires settings.flexlm_lmutil_path.
+#
+#     ansys_lic_hpcpack:
+#       provider: "flexlm"
+#       server: "my.license.endpoint"
+#       port: 21055
+#       feature: "anshpc_pack"
+#       minus: 5
+#
+# provider: "script"
+#   Runs your own command and uses its output as the available count (minus `minus`). Use it for
+#   license managers other than FlexLM (RLM, LM-X, DSLS, a REST API...).
+#   - stdout must be a single non-negative integer (e.g. "12") and the exit code must be 0
+#   - runs WITHOUT a shell: pipes, redirects and $VARS are not interpreted (wrap them in your script)
+#   - runs as the dispatcher user on every cycle, so the script must be executable, owned by root
+#     (or the dispatcher user) and not group/world writable
+#
+#     custom_lic_feature:
+#       provider: "script"
+#       script_command: "/fake/path/example/check_my_license.sh --feature my_feature"
+#       timeout: 30
+#       minus: 0
+#
 
 settings:
   # Set up LMUTIL path if you are planning to use FlexLM based license, e.g: /my/path/to/lmutil
@@ -21,7 +63,7 @@ daemons: # Do not change this section name
     port: 21055 # Port of your license server
     feature: "anshpc_pack" # Name of the feature you will need to check out
     minus: 0 # Optional: Reserve license for non HPC usage. For example, if you have 20 licenses, but set minus to 5, then SOCA will assume the total number of license for HPC usage is 15
-    provider: "flexlm" # Only flexlm is supported as of today
+    provider: "flexlm" # flexlm or script (see custom_lic_example below)
 
   comsol_lic_acoustic: # Name of the Scheduler resource
     server: "example.license1.soca.dev"
@@ -47,3 +89,13 @@ daemons: # Do not change this section name
     feature: "MATLAB"
     provider: "flexlm"
     minus: 5
+
+  # Custom provider: EDH runs your script and reads the number of AVAILABLE licenses from its stdout.
+  # - stdout must be a single non-negative integer (e.g. "12"); exit code must be 0
+  # - any other output, a non-zero exit code or a timeout keeps the job queued
+  # - server, port and feature are not used by this provider
+  custom_lic_example: # Name of the Scheduler resource
+    provider: "script"
+    script_command: "/fake/path/example/check_my_license.sh --feature my_feature" # Absolute script path + optional arguments (no shell: pipes, redirects and $VARS are not interpreted)
+    timeout: 30 # Optional: seconds before the script is killed (default 30)
+    minus: 0 # Optional: subtracted from the script output

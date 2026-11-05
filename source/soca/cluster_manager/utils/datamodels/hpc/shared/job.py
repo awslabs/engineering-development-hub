@@ -15,22 +15,32 @@ import shutil
 
 from typing import Optional, get_args
 
-from utils.aws.boto3_wrapper import get_boto
+from pydantic import Field
+
+from utils.aws.boto3_wrapper import BOTO3_THROTTLING_ERROR_CODES, get_boto
 from utils.validators import Validators
-from utils.cast import SocaCastEngine
+from utils.cast import (
+    SocaCastEngine,
+    annotation_accepted_types,
+    coerce_scalar_fields_to_str,
+)
 from utils.error import SocaError
 from utils.response import SocaResponse
 from utils.config import SocaConfig
 from utils.aws.ec2_helper import (
+    accumulate_candidate_charge,
     create_capacity_dry_run,
     describe_images,
     describe_instance_types,
     describe_security_groups,
+    fold_candidate_charges,
+    merge_quota_charges,
     validate_ec2_quota_for_instance,
     create_placement_group,
     delete_placement_group,
 )
 from utils.aws.fsx_helper import describe_file_systems
+from utils.aws.instance_type_specs import parse_instance_specs
 from utils.aws.odcr_helper import (
     create_capacity_reservation,
     cancel_reservation,
@@ -40,6 +50,7 @@ from utils.aws.odcr_helper import (
 from utils.aws.iam_helper import get_instance_profile
 from utils.aws.cloudformation_client import SocaCfnClient
 from utils.hpc.job_controller import SocaHpcJobController
+from utils.hpc.job_identity import capacity_key
 from utils.datamodels.hpc.shared.job_resources import (
     SocaHpcJobResourceModel,
     SocaHpcJobProvisioningState,
@@ -53,6 +64,15 @@ from orchestrator.cloudformation_builder import SocaCloudFormationBuilderHpc
 logger = logging.getLogger("soca_logger")
 
 _cloudformation_client = get_boto(service_name="cloudformation").get("message")
+
+
+def _as_int(value, default: int) -> int:
+    """Cast `value` to int, falling back to `default` when it will not convert."""
+    _cast = SocaCastEngine(data=value).cast_as(int)
+    if _cast.success:
+        return _cast.message
+    logger.warning(f"Unable to read {value!r} as an int, using {default}")
+    return default
 
 
 class SocaHpcJob(SocaHpcJobResourceModel):
@@ -90,6 +110,33 @@ class SocaHpcJob(SocaHpcJobResourceModel):
 
     # Number of cpus assigned to the job
     cpus: int = None
+
+    # Memory the job requests, normalized to MiB.
+    #
+    # Parallels `cpus`: both are scheduler-reported job requirements rather than
+    # EDH custom resources, which is why neither lives on
+    # SocaHpcJobResourceModel and neither is defaulted from the queue.
+    #
+    # None means the job requested none. That is the common case today and is
+    # NOT the same as 0: PBS leaves resources_assigned.mem at 0kb for such a
+    # job, so it is scheduled on ncpus alone and can share a host with other
+    # jobs whose combined memory exceeds the node.
+    #
+    # MiB is the unit describe_instance_types reports (MemoryInfo.SizeInMiB), so
+    # storing MiB keeps every later comparison unit-free. The conversion from
+    # PBS's string form happens once, in utils.hpc.pbs_memory.
+    mem_mib: Optional[int] = None
+
+    # Capacity of the SMALLEST instance type this job could land on, recorded by
+    # _normalize() from the describe_instance_types call it already makes.
+    #
+    # Cached rather than re-queried because the only consumer is job array
+    # sizing, which runs immediately after validation in the same dispatcher
+    # pass. The smallest is the right figure: instance_types are alternatives
+    # and EC2 Fleet may pick any of them, so a density derived from the largest
+    # would over-pack whenever Fleet chose a smaller one.
+    node_vcpus: Optional[int] = None
+    node_mem_mib: Optional[int] = None
 
     # State of the HPC job (queued, running  ...) in their respective queues. Common to all scheduler, mapping is done via job_fetcher
     job_state: SocaHpcJobState = None
@@ -131,6 +178,190 @@ class SocaHpcJob(SocaHpcJobResourceModel):
     job_orchestration_method: SocaHpcJobOrchestrationMethod = (
         SocaHpcJobOrchestrationMethod.FLEET
     )
+
+    # ---- Job array attributes ----
+    # A scheduler job array is ONE submission that yields N independent executions
+    # differing only by an index (qsub -J 1-100). The scheduler reports a single
+    # "parent" job whose resource request describes ONE subjob, so a dispatcher
+    # that reads nodes/cpus off the parent and provisions that much capacity
+    # under-provisions the array by its subjob count.
+    #
+    # These are populated by the scheduler parser when the job is an array, and
+    # are left at their defaults for an ordinary job. Capacity sizing branches on
+    # is_array rather than on the subjob count: an array whose size could not be
+    # determined must still reach array_capacity_plan() to be refused.
+
+    # True when the scheduler reports this job as an array parent
+    is_array: bool = False
+
+    # Indices as submitted, verbatim from the scheduler (e.g. "1-100", "0-999:10")
+    array_indices_submitted: Optional[str] = None
+
+    # Indices not yet dispatched to a node. The scheduler reports a sentinel ("-"
+    # on OpenPBS) once nothing is waiting, which the parser normalizes to None.
+    # None therefore means "no subjob is still queued" -- the condition that makes
+    # it safe to reclaim an idle node belonging to this array.
+    array_indices_remaining: Optional[str] = None
+
+    # Subjob counts by state, e.g. {"queued": 4, "running": 12, "exiting": 0,
+    # "expired": 488}. Keys are lowercased scheduler state names.
+    array_state_count: dict = Field(default_factory=dict)
+
+    # Total subjobs the array will run, derived from array_indices_submitted.
+    # This is the number capacity must be sized against, NOT nodes/cpus.
+    array_subjob_count: int = 0
+
+    def is_job_array(self) -> SocaResponse:
+        """
+        True in the message when this job is an array parent with more than one
+        subjob.
+
+        NOTE: this is NOT the predicate capacity sizing branches on. A parent
+        whose index set could not be parsed has array_subjob_count 0 and must
+        still reach array_capacity_plan to be refused, so the dispatcher gates
+        on is_array.
+        """
+        return SocaResponse(
+            success=True, message=self.is_array and self.array_subjob_count > 1
+        )
+
+    def array_has_queued_subjobs(self) -> SocaResponse:
+        """
+        True in the message while at least one subjob is still waiting for a node.
+
+        Capacity belonging to an array must NOT be reclaimed merely because a node
+        went idle: under a concurrency cap an idle node is the next queued subjob's
+        node. This is the guard that distinguishes the two.
+        """
+        if not self.is_array:
+            return SocaResponse(success=True, message=False)
+        if self.array_indices_remaining:
+            return SocaResponse(success=True, message=True)
+        return SocaResponse(
+            success=True,
+            message=_as_int(self.array_state_count.get("queued", 0), 0) > 0,
+        )
+
+    def array_concurrency(
+        self, max_running_subjobs: Optional[int] = None
+    ) -> SocaResponse:
+        """
+        How many subjobs can be running at once, in the message, which is what the
+        array actually consumes at any instant.
+
+        Both capacity sizing and the license check need this number, and they must
+        use the same one: capacity provisioned for 100 concurrent subjobs while
+        licenses were reserved for 500 is a deadlock, and the reverse over-reserves
+        a feature other users are waiting on.
+
+        1 for a non-array, so a caller can multiply unconditionally.
+        """
+        if not self.is_array:
+            return SocaResponse(success=True, message=1)
+        _subjobs = _as_int(self.array_subjob_count or 0, 0)
+        if _subjobs < 1:
+            return SocaResponse(success=True, message=1)
+        if max_running_subjobs and max_running_subjobs < _subjobs:
+            return SocaResponse(
+                success=True, message=_as_int(max_running_subjobs, _subjobs)
+            )
+        return SocaResponse(success=True, message=_subjobs)
+
+    def array_capacity_plan(
+        self,
+        max_running_subjobs: Optional[int] = None,
+        node_vcpus: Optional[int] = None,
+        node_mem_mib: Optional[int] = None,
+    ) -> SocaResponse:
+        """
+        How many nodes this array needs, and whether it is allowed to ask.
+
+        The scheduler reports an array parent's `nodes`, `cpus` and `mem` per
+        SUBJOB, so the raw values under-provision the array by its subjob count.
+        This turns the parent's per-subjob request into a fleet size.
+
+        Subjobs PACK. They all inherit the parent's single compute_node pin, so
+        the scheduler places as many on one node as that node's resources allow,
+        and sizing one node per subjob over-provisions: a 3-subjob array at
+        ncpus=1 on a 4-core node runs all three on that one node.
+
+        Density is bounded by whichever resource runs out first:
+
+            per_node = min(node_vcpus // cpus_per_subjob,
+                           node_mem  // mem_per_subjob)
+
+        When either is unknown that term is skipped; when both are unknown this
+        falls back to one node per subjob.
+
+        Returns a failed SocaResponse when the array must be refused, so the
+        caller reports the limit rather than silently provisioning a wrong amount.
+        """
+        if not self.is_array:
+            return SocaError.GENERIC_ERROR(
+                helper=f"{self.job_id} is not a job array"
+            )
+
+        _subjobs = _as_int(self.array_subjob_count or 0, 0)
+        if _subjobs < 1:
+            # The parser could not size the array. Refuse rather than fall back to
+            # one subjob's worth, which is the current silent under-provisioning.
+            return SocaError.GENERIC_ERROR(
+                helper=(
+                    f"Unable to determine the number of subjobs for array "
+                    f"{self.job_id} (array_indices_submitted="
+                    f"{self.array_indices_submitted!r}). Capacity cannot be sized."
+                )
+            )
+
+        # nodes on an array parent is the per-subjob figure. Treat a missing or
+        # non-positive value as one node rather than zero: zero would provision
+        # nothing and look like success.
+        _nodes_per_subjob = _as_int(self.nodes or 1, 1)
+        if _nodes_per_subjob < 1:
+            _nodes_per_subjob = 1
+
+        _concurrent_subjobs = self.array_concurrency(
+            max_running_subjobs=max_running_subjobs
+        ).get("message")
+
+        # A subjob spanning MORE than one node cannot share a node with a
+        # sibling, so packing does not apply and the fleet is a straight multiply.
+        _subjobs_per_node = 1
+        _density_basis = "multi-node subjob, no packing"
+        if _nodes_per_subjob == 1:
+            _limits = {}
+            _cpus_per_subjob = _as_int(self.cpus or 0, 0)
+            if node_vcpus and _cpus_per_subjob > 0:
+                _limits["cpu"] = _as_int(node_vcpus, 0) // _cpus_per_subjob
+            _mem_per_subjob = _as_int(self.mem_mib or 0, 0)
+            if node_mem_mib and _mem_per_subjob > 0:
+                _limits["mem"] = _as_int(node_mem_mib, 0) // _mem_per_subjob
+
+            if _limits:
+                _density_basis = min(_limits, key=_limits.get)
+                # At least 1: a subjob too big for one node is caught by
+                # _normalize()'s cpus and mem checks, not silently floored to 0
+                # here, which would make the fleet size 0.
+                _subjobs_per_node = max(1, _limits[_density_basis])
+            else:
+                _density_basis = "unknown node capacity, assuming 1 per node"
+
+        _nodes_to_provision = _nodes_per_subjob * math.ceil(
+            _concurrent_subjobs / _subjobs_per_node
+        )
+
+        return SocaResponse(
+            success=True,
+            message={
+                "subjobs": _subjobs,
+                "nodes_per_subjob": _nodes_per_subjob,
+                "concurrent_subjobs": _concurrent_subjobs,
+                "subjobs_per_node": _subjobs_per_node,
+                "density_basis": _density_basis,
+                "nodes_to_provision": _nodes_to_provision,
+                "capped": _concurrent_subjobs < _subjobs,
+            },
+        )
 
     def validate(self) -> SocaResponse:
         """
@@ -180,14 +411,27 @@ class SocaHpcJob(SocaHpcJobResourceModel):
     # _normalize will validate, reformat and apply default value if needed for required SOCA job resources
     def _normalize(self) -> SocaHpcJob:
         try:
-            # Scheduler resources are received as string. Convert them to bool if possible
+            # Scheduler JSON infers types from unquoted scalars, so a project named
+            # "192" arrives as an int. Coerce the instance, not just the copy
+            # model_validate() sees, because the value goes on to job tagging.
+            coerce_scalar_fields_to_str(self.__class__, self.__dict__)
+
+            # Scheduler resources are received as string. Convert them to bool if
+            # possible. bool-annotated fields only, or this undoes the coercion above.
             for attr_name, attr_value in self.__dict__.items():
-                if isinstance(attr_value, str):
-                    attr_value_lower = attr_value.strip().lower()
-                    if attr_value_lower == "true":
-                        setattr(self, attr_name, True)
-                    elif attr_value_lower == "false":
-                        setattr(self, attr_name, False)
+                if not Validators.is_string(attr_value):
+                    continue
+                _field = self.__class__.model_fields.get(attr_name)
+                if _field is None:
+                    continue
+                _accepted = annotation_accepted_types(_field.annotation)
+                if bool not in _accepted:
+                    continue
+                attr_value_lower = attr_value.strip().lower()
+                if attr_value_lower == "true":
+                    setattr(self, attr_name, True)
+                elif attr_value_lower == "false":
+                    setattr(self, attr_name, False)
 
             if (
                 self.instance_types is None
@@ -274,6 +518,8 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                     )
 
                 _min_vcpus_per_instance = None
+                _smallest_instance_vcpus = None
+                _min_mem_mib_per_instance = None
                 _supported_instance_architectures = {}
                 try:
 
@@ -311,12 +557,39 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                             f"Detected {_vcpus_per_instance=} / {_supported_instance_architectures[_instance_type]=} for {_instance_type=}"
                         )
 
+                        # Memory comes from the SAME describe_instance_types
+                        # response already in hand, through the shared parser
+                        # (instance_type_specs.parse_instance_specs), so this
+                        # costs no extra AWS call. Track the SMALLEST candidate's
+                        # memory: instance_types are alternatives and EC2 Fleet
+                        # may pick any of them, so a request must fit the worst
+                        # case or the job can land on a node it cannot run on.
+                        _instance_mem_mib = parse_instance_specs(instance_info).get(
+                            "mem_mib"
+                        )
+                        if _instance_mem_mib:
+                            if (
+                                _min_mem_mib_per_instance is None
+                                or _instance_mem_mib < _min_mem_mib_per_instance
+                            ):
+                                _min_mem_mib_per_instance = _instance_mem_mib
+
                         if _min_vcpus_per_instance is None:
                             _min_vcpus_per_instance = _vcpus_per_instance
                         else:
                             logger.warning(
                                 "Minimum nodes required based on CPUs/Instance Type count is only available when only one instance is specified"
                             )
+
+                        # _min_vcpus_per_instance holds the FIRST candidate's
+                        # count, not the smallest. Tracked separately here so
+                        # array sizing gets the smallest without changing which
+                        # value the node-count check below uses.
+                        if (
+                            _smallest_instance_vcpus is None
+                            or _vcpus_per_instance < _smallest_instance_vcpus
+                        ):
+                            _smallest_instance_vcpus = _vcpus_per_instance
 
                         # ------------ efa_support ------------ #
                         if self.efa_support:
@@ -354,6 +627,38 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         raise ValueError(
                             f"Number of required nodes for this job {self.nodes} does not match the combination of cpus requested {self.cpus} and instance type {self.instance_types}. Nodes count should be {_minimal_number_of_nodes_for_job}"
                         )
+
+                # ------------ mem ------------ #
+                # Compared per NODE, not per job: PBS's mem in a select chunk is
+                # the per-chunk requirement, so a multi-node job needs that much
+                # on each node rather than in total. (V2421117070)
+                if self.mem_mib:
+                    logger.debug(f"Validating mem_mib: {self.mem_mib}")
+                    if _min_mem_mib_per_instance is None:
+                        logger.warning(
+                            f"Unable to determine instance memory for "
+                            f"{self.instance_types=}; skipping the mem check for "
+                            f"{self.job_id}"
+                        )
+                    elif self.mem_mib > _min_mem_mib_per_instance:
+                        raise ValueError(
+                            f"Job requires {self.mem_mib} MiB mem per node but the "
+                            f"smallest instance in {self.instance_types} provides "
+                            f"only {_min_mem_mib_per_instance} MiB. Resubmit with a "
+                            f"lower mem request or a larger instance type."
+                        )
+                    else:
+                        logger.debug(
+                            f"mem_mib validated: {self.mem_mib} MiB fits "
+                            f"{_min_mem_mib_per_instance} MiB"
+                        )
+                # ------------ /mem ------------ #
+
+                # Record the smallest candidate's capacity for job array sizing,
+                # which runs right after validation and would otherwise repeat
+                # this describe_instance_types call.
+                self.node_vcpus = _smallest_instance_vcpus
+                self.node_mem_mib = _min_mem_mib_per_instance
 
             logger.debug(f"instance_types validated: {self.instance_types}")
             # ------------ /instance_types ------------ #
@@ -893,14 +1198,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                     _error = e.response["Error"]
                     _code = _error.get("Code")
                     _message = _error.get("Message", "")
-                    _throttling_errors = [
-                        "Throttling",
-                        "ThrottlingException",
-                        "RequestLimitExceeded",
-                        "TooManyRequestsException",
-                        "ProvisionedThroughputExceededException",
-                        "InternalError",
-                    ]
+                    _throttling_errors = BOTO3_THROTTLING_ERROR_CODES
                     if _code == "ValidationError":
                         if (
                             f"stack with id {self.stack_id} does not exist".lower()
@@ -958,7 +1256,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
         stack_name: str,
         keep_forever: bool = False,
         terminate_when_idle: int = 0,
-        override_vcpus_quotas_for_pending_instances: dict = {},
+        override_vcpus_quotas_for_pending_instances: dict | None = None,
     ) -> SocaResponse:
 
         # Sanitize stack_name
@@ -993,6 +1291,17 @@ class SocaHpcJob(SocaHpcJobResourceModel):
         # Provides extra information not yet exposed by the AWS API but useful for downstream jobs.
         # For example, if the request succeeds, temporarily override the vCPU quota check so the next job
         # accounts for this pending job (since AWS does not report it as provisioned yet).
+        #
+        # A FRESH dict when the caller passed nothing, because the booking below
+        # writes into this object through _response_message. The parameter default
+        # used to be a literal {}, which Python binds once at definition, so every
+        # caller taking the default shared one dict and the booking accumulated
+        # across calls: 96, then 192, then 288. The dispatcher was unaffected since
+        # it always passes its own map, but `edhctl nodes create-alwayson` takes the
+        # default, so repeated always-on creations in one process charged the quota
+        # for capacity no job would ever consume.
+        if override_vcpus_quotas_for_pending_instances is None:
+            override_vcpus_quotas_for_pending_instances = {}
         _response_message = {
             "override_vcpus_quotas_for_pending_instances": override_vcpus_quotas_for_pending_instances,
             "stack_name": stack_name,
@@ -1013,6 +1322,7 @@ class SocaHpcJob(SocaHpcJobResourceModel):
             key_name=SocaConfig(key="/configuration/SSHKeyPair")
             .get_value(return_as=str)
             .get("message"),
+            node_type="compute_node",
         )
 
         if _dry_run.get("success") is False:
@@ -1028,50 +1338,107 @@ class SocaHpcJob(SocaHpcJobResourceModel):
         logger.info(
             f"Validating Quotas check for {self.job_id=} and {self.instance_types=}"
         )
+
+        # On-Demand and Spot are separate enforcement buckets with separate quotas,
+        # so a job must be checked against the one it will actually launch into.
+        # spot_allocation_count makes this a SPLIT rather than a flag: with
+        # spot_price set it is the number of nodes that go to Spot (defaulting to
+        # all of them), and the remainder are On-Demand. Checking the whole job
+        # against a single quota gets both halves wrong.
+        _quota_splits = []
+        if self.spot_price:
+            _spot_nodes = (
+                self.spot_allocation_count
+                if self.spot_allocation_count
+                else self.nodes
+            )
+            _spot_nodes = min(_spot_nodes, self.nodes)
+            if _spot_nodes:
+                _quota_splits.append(("spot", _spot_nodes))
+            if self.nodes - _spot_nodes:
+                _quota_splits.append(("on-demand", self.nodes - _spot_nodes))
+        else:
+            _quota_splits.append(("on-demand", self.nodes))
+
+        # A job targeting a capacity reservation is asking for capacity the
+        # reservation already holds against the quota, so the check must not charge
+        # it a second time.
+        _capacity_reservation_id = None
+        if self.capacity_reservation_id:
+            _capacity_reservation_id = getattr(
+                self.capacity_reservation_id, "reservation_id", None
+            )
+
+        logger.info(
+            f"Quota splits for {self.job_id=}: {_quota_splits}"
+            f"{f' targeting {_capacity_reservation_id}' if _capacity_reservation_id else ''}"
+        )
+
+        # Two dimensions here, and only ONE of them is additive.
+        #
+        # instance_types are ALTERNATIVES: EC2 Fleet picks one type and launches
+        # self.nodes of it. The lifecycle splits ARE additive -- a spot_price job
+        # genuinely launches some nodes on spot and the rest on-demand -- though
+        # they resolve to different quota rows, so in practice they do not meet.
+        #
+        # So each candidate is measured against the capacity INHERITED from earlier
+        # jobs in this pass plus its own lifecycle splits, never against a sibling
+        # candidate's charge, and nothing is booked into the shared map until the
+        # job is admitted. The shared map is also read-only here: it arrives from
+        # the dispatcher and is the same object for every job in the pass, so
+        # mutating it mid-check leaked a refused job's phantom capacity into every
+        # job that followed.
+        _inherited = dict(
+            _response_message["override_vcpus_quotas_for_pending_instances"] or {}
+        )
+        _charge_by_candidate = {}
+
         _quota_validated = True
         for _instance in self.instance_types:
-            _check_quota = validate_ec2_quota_for_instance(
-                instance_type=_instance,
-                desired_capacity=self.nodes,
-                override_vcpus_quotas_for_pending_instances=_response_message[
-                    "override_vcpus_quotas_for_pending_instances"
-                ],
-            )
-            if _check_quota.get("success") is False:
-                logger.error(
-                    f"Quota: Unable to provision capacity for {self.job_id=} for instance type {_instance} due to {_check_quota.get('message')}"
+            _charge_for_candidate = {}
+            for _lifecycle, _node_count in _quota_splits:
+                _check_quota = validate_ec2_quota_for_instance(
+                    instance_type=_instance,
+                    desired_capacity=_node_count,
+                    override_vcpus_quotas_for_pending_instances=merge_quota_charges(
+                        _inherited, _charge_for_candidate
+                    ),
+                    lifecycle=_lifecycle,
+                    capacity_reservation_id=_capacity_reservation_id,
                 )
-                _quota_validated = False
-            else:
-                if _check_quota.get("status_code") == 201:
-                    logger.info("Quotas check disabled, skipping ")
-                    _quota_validated = True
-                else:
-                    _quotas_info = _check_quota.get("message")
-                    if (
-                        _quotas_info.get("quota_name")
-                        in _response_message[
-                            "override_vcpus_quotas_for_pending_instances"
-                        ].keys()
-                    ):
-                        _response_message[
-                            "override_vcpus_quotas_for_pending_instances"
-                        ][_quotas_info.get("quota_name")] = _response_message[
-                            "override_vcpus_quotas_for_pending_instances"
-                        ][
-                            _quotas_info.get("quota_name")
-                        ] + _quotas_info.get(
-                            "running_vcpus"
-                        )
-                    else:
-                        _response_message[
-                            "override_vcpus_quotas_for_pending_instances"
-                        ][_quotas_info.get("quota_name")] = _quotas_info.get(
-                            "running_vcpus"
-                        )
-                        logger.info(
-                            f"Quota check validated for {_instance} instance type"
-                        )
+                if _check_quota.get("success") is False:
+                    logger.error(
+                        f"Quota: Unable to provision capacity for {self.job_id=} for instance type {_instance} ({_lifecycle}) due to {_check_quota.get('message')}"
+                    )
+                    # Do NOT set this back to True anywhere below: one failing
+                    # instance type or lifecycle fails the job. The previous version
+                    # reset the flag on a skipped check, so a later skip could clear
+                    # an earlier real failure.
+                    _quota_validated = False
+                    continue
+
+                _quotas_info = _check_quota.get("message") or {}
+                if _quotas_info.get("skipped"):
+                    logger.info(
+                        f"Quota check skipped for {_instance} ({_lifecycle}): {_quotas_info.get('skipped')}"
+                    )
+                    continue
+
+                _quota_name = _quotas_info.get("quota_name")
+                # The field choice lives in the helper so a test can execute it:
+                # charged_vcpus, not requested_vcpus, because a job launching into
+                # a counted reservation is charged 0 and booking its full request
+                # counts that capacity twice.
+                _charge_for_candidate = accumulate_candidate_charge(
+                    _charge_for_candidate, _quotas_info
+                )
+                logger.info(
+                    f"Quota check validated for {_instance} instance type "
+                    f"({_lifecycle}); this candidate would charge "
+                    f"{_charge_for_candidate.get(_quota_name)} vcpus against "
+                    f"{_quota_name}"
+                )
+            _charge_by_candidate[_instance] = _charge_for_candidate
 
         if not _quota_validated:
             SocaHpcJobController(job=self).set_error_message(
@@ -1082,6 +1449,20 @@ class SocaHpcJob(SocaHpcJobResourceModel):
             )
         else:
             logger.info("Quotas check validated")
+
+        # Admitted, so book the capacity this job will actually consume for the rest
+        # of the pass -- one figure per quota row, the largest candidate's, because
+        # Fleet launches exactly one of them. This is what makes a later job in the
+        # pass count capacity that is provisioning but not yet visible to
+        # describe_instances.
+        _overrides = _response_message["override_vcpus_quotas_for_pending_instances"]
+        _booking = fold_candidate_charges(_charge_by_candidate)
+        for _quota_name, _charge in _booking.items():
+            _overrides[_quota_name] = _overrides.get(_quota_name, 0) + _charge
+        logger.info(
+            f"Booking pending vcpus for {self.job_id=} against later checks in this "
+            f"pass: {_booking}"
+        )
 
         logger.info(
             f"Probing EC2 capacity availability for {self.nodes=} {self.instance_types=} and {self.subnet_ids=}"
@@ -1272,12 +1653,17 @@ class SocaHpcJob(SocaHpcJobResourceModel):
         logger.info(
             f"Trying to create CloudFormation Stack for {self.job_id=} with stack name {stack_name}"
         )
+        # capacity_key, not the raw job id: an array parent's id is "4[]" and AWS
+        # rejects the brackets in a tag value. This is also the value the node is
+        # registered with and the value the pin below must match -- see
+        # utils.hpc.job_identity for why every side has to use the same spelling.
+        _capacity_key = capacity_key(self.job_id).get("message")
         _create_cfn_stack = SocaCfnClient(stack_name=stack_name).create_stack(
             template_body=_build_cloudformation_template.get("message"),
             tags=[
                 {
                     "Key": "edh:JobId",
-                    "Value": str(self.job_id),
+                    "Value": _capacity_key,
                 },  # note: tag value must be str
                 {"Key": "edh:NodeType", "Value": "compute_node"},
                 {"Key": "edh:ClusterId", "Value": cluster_id},
@@ -1302,8 +1688,14 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                 errors=[_create_cfn_stack.get("message")]
             )
 
+            # Counted here because a create_stack failure never writes stack_id,
+            # so reset_cloudformation_stack_creation() cannot count it.
+            SocaHpcJobController(job=self).increment_provisioning_retry()
+
             # remove the bootstrap folder since the provisioning will not happen
-            _bootstrap_log_folder = f"/apps/edh/{cluster_id}/shared/logs/bootstrap/compute_node/{self.job_id}/"
+            # capacity_key keeps this path free of brackets: "4[]" is a legal
+            # directory name but every unquoted expansion of it is a glob.
+            _bootstrap_log_folder = f"/apps/edh/{cluster_id}/shared/logs/bootstrap/compute_node/{_capacity_key}/"
             try:
                 folder = Path(_bootstrap_log_folder)
                 logger.info(
@@ -1344,22 +1736,25 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                 _current_select = self.pbs_resource_list.get("select")
                 # Remove existing compute_node if present to avoid duplicates in case of re-provisioning after failure
                 _current_select = re.sub(r":?compute_node=[^:\s]*", "", _current_select)
+                # _capacity_key, not self.job_id: this pin is matched against the
+                # node's resources_available.compute_node, which the nodes manager
+                # sets from the edh:JobId tag above.
                 _resource_selector_value = (
-                    f"{_current_select}:compute_node={self.job_id}"
+                    f"{_current_select}:compute_node={_capacity_key}"
                 )
             elif self.job_scheduler_info.provider == SocaHpcSchedulerProvider.LSF:
                 logger.info(
                     "Detected LSF job, updating select[compute_node==xx] resource"
                 )
                 _resource_selector_name = "compute_node"
-                _resource_selector_value = self.job_id
+                _resource_selector_value = _capacity_key
 
-            elif self.job_scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
+            elif self.job_scheduler_info.provider in [SocaHpcSchedulerProvider.SLURM, SocaHpcSchedulerProvider.AWS_PCS]:
                 logger.info(
                     "Detected Slurm job, updating --constraint='compute_node=xx' constraint"
                 )
                 _resource_selector_name = "compute_node"
-                _resource_selector_value = self.job_id
+                _resource_selector_value = _capacity_key
             else:
                 return SocaError.GENERIC_ERROR(
                     helper=f"Unable to provision capacity for {self.job_id=} due to unsupported scheduler {self.job_scheduler_info.provider}"
@@ -1408,11 +1803,15 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                             resource_name=_resource_name, resource_value=_resource_value
                         )
 
-                elif self.job_scheduler_info.provider == SocaHpcSchedulerProvider.SLURM:
+                elif self.job_scheduler_info.provider in [SocaHpcSchedulerProvider.SLURM, SocaHpcSchedulerProvider.AWS_PCS]:
                     if _resource_name == "compute_node":
                         logger.info(
                             f"On SLURM, the default constraint='compute_node={self.job_id}' is assigned at job submission via LUA SOCA plugins, no action needed here"
                         )
+                        # Nothing was called, so there is no result to evaluate.
+                        # Without this the check below would read the PREVIOUS
+                        # iteration's result and attribute it to this resource.
+                        continue
                     else:
                         _update_res = SocaHpcJobController(
                             job=self
@@ -1420,17 +1819,20 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                             resource_name=_resource_name, resource_value=_resource_value
                         )
 
-            if _update_res.get("success") is False:
-                logger.error(
-                    f"Capacity provisioned but unable to update resources for {self.job_id=} due to {_update_res.get('message')}, {stack_name=} will be deleted"
-                )
-                _ressources_update_error.append(_resource_name)
-            else:
-                logger.info(
-                    f"Successfully updated {_resource_name} for {self.job_id=} with value {_resource_selector_value}"
-                )
+                if _update_res.get("success") is False:
+                    logger.error(
+                        f"Capacity provisioned but unable to update resource {_resource_name} for {self.job_id=} due to {_update_res.get('message')}"
+                    )
+                    _ressources_update_error.append(_resource_name)
+                else:
+                    logger.info(
+                        f"Successfully updated {_resource_name} for {self.job_id=} with value {_resource_value}"
+                    )
 
             if _ressources_update_error:
+                logger.error(
+                    f"Unable to update {_ressources_update_error} for {self.job_id=}, {stack_name=} will be deleted"
+                )
                 if (
                     _resource_selector_name in _ressources_update_error
                     or "stack_id" in _ressources_update_error
@@ -1442,11 +1844,18 @@ class SocaHpcJob(SocaHpcJobResourceModel):
                         is False
                     ):
                         return SocaError.GENERIC_ERROR(
-                            helper=f"Capacity provisioned but unable to update resources for {self.job_id=} due to {_update_res.get('message')}. Unable to delete {stack_name=}"
+                            helper=f"Capacity provisioned but unable to update {_ressources_update_error} for {self.job_id=}. Unable to delete {stack_name=}"
                         )
 
+                    return SocaError.GENERIC_ERROR(
+                        helper=f"Capacity was provisioned successfully but unable to update {_ressources_update_error} for {self.job_id=}. Capacity has been removed."
+                    )
+
+                # Only error_message failed to update. The pin and the stack id
+                # both landed, so the job can still run on its capacity: report
+                # the failure without destroying a working fleet.
                 return SocaError.GENERIC_ERROR(
-                    helper=f"Capacity was provisioned successfully but unable to update resources for {self.job_id=} due to {_update_res.get('message')}. Capacity has been removed."
+                    helper=f"Capacity was provisioned successfully for {self.job_id=} but unable to update {_ressources_update_error}. Capacity has been kept."
                 )
 
             return SocaResponse(success=True, message=_response_message)

@@ -12,7 +12,7 @@ function packages_remove () {
 
   {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7") %}
     packages_exec_command yum remove -y "${@}"
-  {% elif context.get("/job/BaseOS") in ("rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% elif context.get("/job/BaseOS") in ("amazonlinux2027", "rhel8", "rhel9", "rocky8", "rocky9") %}
     packages_exec_command dnf remove -y "${@}"
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     export DEBIAN_FRONTEND=noninteractive
@@ -28,7 +28,7 @@ function packages_install () {
 
   {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7") %}
     packages_exec_command yum install -y "${@}"
-  {% elif context.get("/job/BaseOS") in ("rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% elif context.get("/job/BaseOS") in ("amazonlinux2027", "rhel8", "rhel9", "rocky8", "rocky9") %}
     packages_exec_command dnf install -y "${@}"
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     export DEBIAN_FRONTEND=noninteractive
@@ -54,7 +54,7 @@ function packages_install_file () {
     exit_fail "packages_install_file - No package files specified. Exiting..."
   fi
 
-  {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
     packages_exec_command rpm -Uvh "${@}"
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     export DEBIAN_FRONTEND=noninteractive
@@ -68,7 +68,7 @@ function verify_package_installed () {
     exit_fail "verify_package_installed - No package list specified. Exiting... "
   fi
 
-  {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
     rpm -q ${1} &> /dev/null && return 0 || return 1
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     dpkg -s ${1} &>/dev/null && return 0 || return 1
@@ -79,7 +79,7 @@ function packages_clean () {
   # Remove un-necessary packages
   {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7") %}
     packages_exec_command yum clean all
-  {% elif context.get("/job/BaseOS") in ("rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% elif context.get("/job/BaseOS") in ("amazonlinux2027", "rhel8", "rhel9", "rocky8", "rocky9") %}
     packages_exec_command dnf clean all
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     export DEBIAN_FRONTEND=noninteractive
@@ -91,7 +91,7 @@ function packages_generic_command() {
   # generic wrapper for commands other than install/remove
   {% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7") %}
     packages_exec_command yum "${@}"
-  {% elif context.get("/job/BaseOS") in ("rhel8", "rhel9", "rocky8", "rocky9") %}
+  {% elif context.get("/job/BaseOS") in ("amazonlinux2027", "rhel8", "rhel9", "rocky8", "rocky9") %}
     packages_exec_command dnf "${@}"
   {% elif context.get("/job/BaseOS") in ("ubuntu2204","ubuntu2404") %}
     export DEBIAN_FRONTEND=noninteractive

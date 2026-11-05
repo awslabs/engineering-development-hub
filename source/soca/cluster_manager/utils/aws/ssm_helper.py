@@ -15,6 +15,11 @@ from utils.config import SocaConfig
 client_ssm = utils_boto3.get_boto(service_name="ssm").message
 logger = logging.getLogger("soca_logger")
 
+# ssm:SendCommand documents InstanceIds as "Array Members: Minimum number of 0
+# items. Maximum number of 50 items." Named rather than inlined so a test
+# reads the real bound instead of restating it.
+SEND_COMMAND_MAX_INSTANCES = 50
+
 
 @soca_cache(prefix="edh:webui:aws:ssm:get_ami_id_from_alias", ttl=86400)
 def get_ami_id_from_alias(
@@ -59,6 +64,37 @@ def get_ami_id_from_alias(
 
     except Exception as e:
         return SocaError.GENERIC_ERROR(helper=f"Unable to run get_parameter due to {e}")
+
+
+def describe_instance_platforms(instance_ids: List[str]) -> SocaResponse:
+    """
+    PingStatus and PlatformType per instance, for callers that must not send a
+    shell script to a Windows node or to an instance the SSM agent cannot reach.
+    An instance absent from the response has no registered agent, so it is
+    reported as Unknown rather than omitted -- a caller filtering on this needs
+    to tell "not reachable" apart from "not asked about".
+    """
+    _result = {}
+    try:
+        _paginator = client_ssm.get_paginator("describe_instance_information")
+        for _page in _paginator.paginate(
+            Filters=[{"Key": "InstanceIds", "Values": instance_ids}]
+        ):
+            for _info in _page.get("InstanceInformationList", []):
+                _result[_info.get("InstanceId")] = {
+                    "ping_status": _info.get("PingStatus", "Unknown"),
+                    "platform_type": _info.get("PlatformType", "Unknown"),
+                }
+    except Exception as err:
+        return SocaError.GENERIC_ERROR(
+            helper=f"Unable to run describe_instance_information due to {err}"
+        )
+
+    for _iid in instance_ids:
+        if _iid not in _result:
+            _result[_iid] = {"ping_status": "Unknown", "platform_type": "Unknown"}
+
+    return SocaResponse(success=True, message=_result)
 
 
 def execute_ssm_document(
@@ -110,8 +146,29 @@ def execute_ssm_document(
         )
     else:
         if instance_ids:
-            # list of instances ids provided by caller have been verified, no action take
-            pass
+            # Cross-check the caller's list against what the FILTERED describe
+            # actually returned. Without this the ids were passed straight
+            # through to send_command, so the ownership check this function
+            # exists to perform did nothing on this branch.
+            #
+            # Note the shape difference: describe_instances returns the raw
+            # boto3 response, so verified ids live under
+            # Reservations[].Instances[], while describe_instances_paginate
+            # below yields a flat list of instance dicts.
+            _verified = {
+                _i.get("InstanceId")
+                for _r in (_get_instances.get("message") or {}).get("Reservations", [])
+                for _i in _r.get("Instances", [])
+            }
+            _foreign = [_i for _i in instance_ids if _i not in _verified]
+            if _foreign:
+                logger.warning(
+                    f"Refusing to run {document_name}: {_foreign} did not match "
+                    f"cluster {_cluster_id} with the running-state filter"
+                )
+                return SocaError.GENERIC_ERROR(
+                    helper=f"Instances {_foreign} do not belong to cluster {_cluster_id}"
+                )
         else:
             # instance ids will be fetched based on the node_type filter, we need to extract instance ids from the describe_instances_paginate result
             instance_ids = []
@@ -129,54 +186,64 @@ def execute_ssm_document(
             helper=f"SSM document name exceeds 128 characters: {document_name}"
         )
 
-    try:
-        send_resp = client_ssm.send_command(
-            InstanceIds=instance_ids,
-            DocumentName=document_name,
-            Parameters=parameters,
-            TimeoutSeconds=timeout,
-        )
-    except Exception as err:
-        logger.error(
-            f"ssm:SendCommand({document_name}) on {len(instance_ids)} nodes "
-            f"failed: {exc}"
-        )
-        return SocaError.GENERIC_ERROR(
-            helper=f"Unable to run SSM {document_name} due to {err}"
-        )
-
-    command_id = send_resp["Command"]["CommandId"]
-    waiter = client_ssm.get_waiter("command_executed")
+    # ssm:SendCommand documents InstanceIds as "Maximum number of 50 items",
+    # so one call cannot carry a whole node type. The always-on types this is
+    # usually pointed at are one or two nodes, but an operator targeting
+    # compute_node or dcv_node passes that limit easily and the API rejects
+    # the request for every node in the group at once. Batch instead, and keep
+    # one result row per instance so the caller's view is unchanged.
     results = []
-    for _iid in instance_ids:
+    for _batch_start in range(0, len(instance_ids), SEND_COMMAND_MAX_INSTANCES):
+        _batch = instance_ids[
+            _batch_start : _batch_start + SEND_COMMAND_MAX_INSTANCES
+        ]
         try:
-            waiter.wait(
-                CommandId=command_id,
-                InstanceId=_iid,
-                WaiterConfig={"Delay": 1, "MaxAttempts": max_attempts},
+            send_resp = client_ssm.send_command(
+                InstanceIds=_batch,
+                DocumentName=document_name,
+                Parameters=parameters,
+                TimeoutSeconds=timeout,
             )
-        except Exception:
-            # WaiterError fires on both timeout and non-Success terminal
-            # state. Either way we still want the invocation detail
-            # (stderr, partial stdout) for logging and the API response,
-            # so don't bail here -- fall through to GetCommandInvocation.
-            pass
-        try:
-            inv = client_ssm.get_command_invocation(
-                CommandId=command_id, InstanceId=_iid
+        except Exception as err:
+            logger.error(
+                f"ssm:SendCommand({document_name}) on {len(_batch)} of "
+                f"{len(instance_ids)} nodes failed: {err}"
             )
-        except Exception as exc:
-            logger.warning(
-                f"ssm:GetCommandInvocation({command_id}, {_iid}) failed: {exc}"
+            return SocaError.GENERIC_ERROR(
+                helper=f"Unable to run SSM {document_name} due to {err}"
             )
-            continue
-        results.append(
-            {
-                "instance_id": _iid,
-                "status": inv.get("Status", "Unknown"),
-                "stdout": inv.get("StandardOutputContent", "") or "",
-                "stderr": inv.get("StandardErrorContent", "") or "",
-            }
-        )
+
+        command_id = send_resp["Command"]["CommandId"]
+        waiter = client_ssm.get_waiter("command_executed")
+        for _iid in _batch:
+            try:
+                waiter.wait(
+                    CommandId=command_id,
+                    InstanceId=_iid,
+                    WaiterConfig={"Delay": 1, "MaxAttempts": max_attempts},
+                )
+            except Exception:
+                # WaiterError fires on both timeout and non-Success terminal
+                # state. Either way we still want the invocation detail
+                # (stderr, partial stdout) for logging and the API response,
+                # so don't bail here -- fall through to GetCommandInvocation.
+                pass
+            try:
+                inv = client_ssm.get_command_invocation(
+                    CommandId=command_id, InstanceId=_iid
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"ssm:GetCommandInvocation({command_id}, {_iid}) failed: {exc}"
+                )
+                continue
+            results.append(
+                {
+                    "instance_id": _iid,
+                    "status": inv.get("Status", "Unknown"),
+                    "stdout": inv.get("StandardOutputContent", "") or "",
+                    "stderr": inv.get("StandardErrorContent", "") or "",
+                }
+            )
     logger.info(f"SSM document {document_name} execution results: {results}")
     return SocaResponse(success=True, message=results)

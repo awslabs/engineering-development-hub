@@ -8,8 +8,31 @@ from functools import lru_cache
 from typing import Optional, Literal
 from utils.error import SocaError
 from utils.response import SocaResponse
+from utils.version import __version__
 
 logger = logging.getLogger("soca_logger")
+
+# Shared boto3 / botocore error codes, grouped by the condition they represent.
+# Centralized here so a caller inspecting err.response["Error"]["Code"] tests
+# against one definition rather than a set literal repeated at each call site.
+BOTO3_ACCESS_DENIED_ERROR_CODES = frozenset(
+    {
+        "AccessDenied",
+        "AccessDeniedException",
+        "UnauthorizedOperation",
+    }
+)
+
+BOTO3_THROTTLING_ERROR_CODES = frozenset(
+    {
+        "InternalError",
+        "ProvisionedThroughputExceededException",
+        "RequestLimitExceeded",
+        "Throttling",
+        "ThrottlingException",
+        "TooManyRequestsException",
+    }
+)
 
 
 def get_boto_session_credentials():
@@ -43,6 +66,8 @@ def get_boto(
     retry_mode: Literal[
         "standard", "adaptive"
     ] = "standard",  # note: adaptive is experimental  https://docs.aws.amazon.com/boto3/latest/guide/retries.html#standard-retry-mode
+    read_timeout: Optional[int] = None,
+    connect_timeout: Optional[int] = None,
 ) -> SocaResponse:
 
     # https://docs.aws.amazon.com/boto3/latest/guide/retries.html
@@ -50,11 +75,22 @@ def get_boto(
 
     if extra_config:
         _extra_parameters = {
-            "user_agent_extra": "AwsSolution/SO0072/26.8.0",
+            "user_agent_extra": f"AwsSolution/SO0072/{__version__}",
             "retries": retry_config,
         }
     else:
         _extra_parameters = {"retries": retry_config}
+
+    # Socket timeouts, opt-in. Left unset by default so every existing caller keeps
+    # botocore's defaults (60s read) rather than silently inheriting a new value.
+    # Needed by a caller that invokes a long-running Lambda synchronously: the
+    # ResourceMirrorTrigger blocks for the whole mirror run, up to its 15 minute
+    # timeout, which a 60s read timeout would abort while the run continued
+    # server-side -- reporting a client failure over work that then succeeded.
+    if read_timeout is not None:
+        _extra_parameters["read_timeout"] = read_timeout
+    if connect_timeout is not None:
+        _extra_parameters["connect_timeout"] = connect_timeout
 
     # Resolve region BEFORE the S3 endpoint block below, since that
     # block embeds the region in the endpoint URL.

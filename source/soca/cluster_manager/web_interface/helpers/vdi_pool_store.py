@@ -72,6 +72,63 @@ def _pk(stack_id: int) -> str:
     return f"STACK#{stack_id}"
 
 
+def _summary_table_name() -> str:
+    cluster_id = os.environ.get("EDH_CLUSTER_ID", "")
+    return f"{cluster_id}-vdi-pool-summary" if cluster_id else ""
+
+
+def _get_summary_table():
+    """Lazily build a handle on the reconciler-stamped summary table."""
+    global _ddb_resource
+    if _ddb_resource is None:
+        _ddb_resource = utils_boto3.get_boto(
+            service_name="dynamodb", resource=True
+        ).message
+    return _ddb_resource.Table(_summary_table_name())
+
+
+def get_pool_summaries() -> SocaResponse:
+    """Read the reconciler-stamped per-pool depth rows.
+
+    Returns SocaResponse(success=True, message={pool_id: {...}, ...}) keyed by
+    `POOL#<stack_id>#<instance_type>`, one row per pool ASG the reconciler last
+    observed. Fields of interest to callers:
+
+        hot_in_service   -- InService members (the claimable hot tier)
+        warm_promotable  -- warm members parked in a terminal Warmed:* state,
+                            so a desired-capacity bump promotes them
+        warm_warming_up  -- warm members still transitioning (not yet usable)
+        warm_total       -- all warm members
+        warm_measured    -- False when the warm describe failed, so a caller
+                            can tell "none" apart from "unknown"
+        updated_at       -- when the reconciler last stamped this row
+
+    One scan of a table holding one row per pool. Never raises; a failure
+    yields success=False and callers fall back to omitting the measurement
+    rather than reporting a wrong number.
+    """
+    if not _summary_table_name():
+        return SocaResponse(success=False, message="EDH_CLUSTER_ID not set")
+    try:
+        table = _get_summary_table()
+        resp = table.scan()
+        items = resp.get("Items", [])
+        while resp.get("LastEvaluatedKey"):
+            resp = table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
+            items.extend(resp.get("Items", []))
+    except Exception as err:
+        logger.warning(f"vdi_pool_store.get_pool_summaries failed: {err}")
+        return SocaResponse(success=False, message=str(err))
+
+    out: Dict[str, Any] = {}
+    for it in items:
+        _pid = it.get("pk")
+        if not _pid or it.get("sk") != "SUMMARY":
+            continue
+        out[_pid] = _clean({k: v for k, v in it.items() if k not in ("pk", "sk")})
+    return SocaResponse(success=True, message=out)
+
+
 def get_pool_config(stack_id: int) -> SocaResponse:
     """Read the assembled pool config for a stack.
 

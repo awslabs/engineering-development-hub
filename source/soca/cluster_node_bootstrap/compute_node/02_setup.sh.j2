@@ -31,7 +31,9 @@ log_info "Running Kernel $(uname -r)"
 # clusters that don't have event-relay enabled.
 log_checkpoint "boot-started" "Bootstrap entered 02_setup"
 
-# Stop/Disable scheduler if running
+# Stop/Disable scheduler if running.
+# stop_scheduler_services self-handles NodeType == pcs_node (it stops the single
+# PCS-managed slurmd unit instead of the edh_scheduler_* services).
 {% include "templates/linux/scheduler/stop_scheduler_services.sh.j2" %}
 
 # Install Required System library/packages
@@ -51,7 +53,8 @@ mkdir -p /opt/edh/{{ context.get('/configuration/ClusterId') }}/
 # Adding additional SOCA Environment Variables
 set_environment_variable "AWS_DEFAULT_REGION" "{{ context.get("/configuration/Region") }}"
 set_environment_variable "EDH_BOOTSTRAP_ASSETS_FOLDER" "/root/edh_bootstrap_$(instance_id)"
-set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "${EDH_JOB_BOOTSTRAP_PATH}/$(hostname -s)"
+# Must match POST_FILESYSTEM_MOUNT_LOGS_FOLDER in 01_user_data.sh.j2.
+set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "${EDH_JOB_BOOTSTRAP_PATH}/$(hostname -s)/$(instance_id)"
 set_environment_variable "EDH_NODE_TYPE" "{{ context.get("/job/NodeType") }}"
 set_environment_variable "EDH_VERSION" "{{ context.get("/configuration/Version") }}"
 set_environment_variable "EDH_INSTALL_BUCKET" "{{ context.get("/configuration/S3Bucket") }}"
@@ -70,20 +73,20 @@ set_environment_variable "SOCA_CLUSTER_ID" "{{ context.get("/configuration/Clust
 {% elif context.get("/job/NodeType") == "dcv_node" %}
   # Added via cluster_manager/web_interface/api/v1/dcv/create_linux_desktop.py
   # Pool members boot unassigned (session set at claim time), so these are empty
-  # at provision; set_environment_variable fatals on an empty value -- guard it.
-  if [[ -n "${EDH_DCV_SESSION_OWNER}" ]]; then
-    set_environment_variable "EDH_DCV_SESSION_OWNER" "${EDH_DCV_SESSION_OWNER}"
-    # Set the EDH_DCV_SESSION_ID (same name on Windows). This is used by the scheduled task to retrieve the DCV Session ID
-    set_environment_variable "EDH_DCV_SESSION_ID" "${EDH_DCV_SESSION_ID}"
-    set_environment_variable "EDH_DCV_SESSION_NAME" "${EDH_DCV_SESSION_NAME}"
-  fi
-  if [[ -n "${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}" ]]; then
-    set_environment_variable "EDH_DCV_SESSION_EVENTS_QUEUE_URL" "${EDH_DCV_SESSION_EVENTS_QUEUE_URL}"
-  fi
+  # at provision; set_environment_variable leaves an empty value unset.
+  set_environment_variable "EDH_DCV_SESSION_OWNER" "${EDH_DCV_SESSION_OWNER}"
+  # Set the EDH_DCV_SESSION_ID (same name on Windows). This is used by the scheduled task to retrieve the DCV Session ID
+  set_environment_variable "EDH_DCV_SESSION_ID" "${EDH_DCV_SESSION_ID}"
+  set_environment_variable "EDH_DCV_SESSION_NAME" "${EDH_DCV_SESSION_NAME}"
+  set_environment_variable "EDH_DCV_SESSION_EVENTS_QUEUE_URL" "${EDH_DCV_SESSION_EVENTS_QUEUE_URL:-}"
   # NOTE: pool-member session-env vars are NOT persisted here -- 03_setup_post_reboot
   # re-sources 00_session_env.sh post-reboot instead.
 {% elif context.get("/job/NodeType") == "login_node" %}
-  set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/bootstrap/login_node/$(hostname -s)"
+  # Login nodes log under login_node/<hostname>/<instance_id>: a hostname can be reused by a new
+  # instance. Must match POST_FILESYSTEM_MOUNT_LOGS_FOLDER in login_node/01_user_data.sh.j2.
+  set_environment_variable "EDH_BOOTSTRAP_LOGS_FOLDER" "/apps/edh/{{ context.get("/configuration/ClusterId") }}/shared/logs/bootstrap/login_node/$(hostname -s)/$(instance_id)"
+  mkdir -p "${EDH_BOOTSTRAP_LOGS_FOLDER}"
+  chmod 600 "${EDH_BOOTSTRAP_LOGS_FOLDER}"
 {% endif %}
 
 # Install jq
@@ -99,11 +102,27 @@ set_environment_variable "SOCA_CLUSTER_ID" "{{ context.get("/configuration/Clust
 # Configure /etc/hosts
 {% include "templates/linux/configure_hosts.sh.j2" %}
 
-# Install/Load SOCA Python
-{% include "templates/linux/soca_python.sh.j2" %}
+{% if context.get("/job/NodeType") != "pcs_node" %}
+    # Install/Load SOCA Python
+    {% include "templates/linux/soca_python.sh.j2" %}
+{% endif %}
 
 # Install and configure HPC schedulers.
-{% include "templates/linux/scheduler/install_schedulers.sh.j2" %}
+# Skipped for PCS compute nodes: the node registers with the PCS-managed Slurm
+# controller through the PCS agent baked into the AMI, so installing/configuring
+# the SOCA scheduler client here would fight PCS's own Slurm configuration.
+{% if context.get("/job/NodeType") != "pcs_node" %}
+    {% include "templates/linux/scheduler/install_schedulers.sh.j2" %}
+{% else %}
+    log_info "PCS compute node: skipping SOCA scheduler install (node is managed by the PCS-managed Slurm controller)."
+    # The PCS agent + matching Slurm are NOT installed at boot -- they must be baked into the AMI.
+    # This is verified early in pcs_node/lifecycle_actions/nodebootstrapped/01_setup.sh.j2
+    # (fail-fast, before this bootstrap even runs), so no agent/Slurm install or re-verify is needed here.
+{% endif %}
+
+# Install the Apptainer container runtime (gated on
+# /configuration/HPC/containers/apptainer/enabled, default false)
+{% include "templates/linux/containers/apptainer.sh.j2" %}
    
 # Disable SELINUX
 {% include "templates/linux/disable_selinux.sh.j2" %}
@@ -116,12 +135,13 @@ set_environment_variable "SOCA_CLUSTER_ID" "{{ context.get("/configuration/Clust
   # OpenLDAP configuration
   {% include "templates/linux/user_directory/openldap/openldap_client.sh.j2" %}
 {% elif context.get("/configuration/UserDirectory/provider") in ["existing_active_directory","aws_ds_managed_activedirectory"] %}
-  # Active Directory configuration. The included script has its own
-  # built-in retry loops (realm discover up to 30x with 180s backoff,
-  # realm join up to 10x with random backoff) so we DO NOT wrap with
-  # edh_retry_phase here -- that would multiply the retry count and
-  # blow up the worst-case bootstrap time. Status events are emitted
-  # from inside the inner loops via guarded edh_dcv_publish_event calls.
+  # Active Directory. join_activedirectory.sh.j2 owns the per-node-type decision of whether
+  # to realm-join or sync AD users locally, gated on the matching feature flag:
+  #   - compute_node -> JoinEphemeralNodesToAD
+  #   - pcs_node     -> JoinPCSNodesToAD
+  # (flag disabled/absent => local user sync; enabled => realm join). It has its own retry
+  # loops (realm discover up to 30x, realm join up to 10x) so we DO NOT wrap it with
+  # edh_retry_phase here -- that would multiply the retry count and blow up bootstrap time.
   {% include "templates/linux/user_directory/active_directory/join_activedirectory.sh.j2" %}
 {% else %}
   exit_fail "UserDirectory/provider must be one of existing_active_directory, existing_openldap, openldap, or aws_ds_managed_activedirectory. Detected {{ context.get("/configuration/UserDirectory/provider") }}"

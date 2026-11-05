@@ -11,6 +11,68 @@
     <style>
         #jobsTable th.sortable { cursor: pointer; white-space: nowrap; }
         #jobsTable th.sortable .fa-sort, #jobsTable th.sortable .fa-sort-up, #jobsTable th.sortable .fa-sort-down { opacity: .6; margin-left: .25rem; }
+
+        /* Sticky toolbar + column headers.
+           The job list includes finished jobs by default, so it is routinely
+           longer than the viewport: without this, scrolling to a row at the
+           bottom loses both the Refresh/Filters controls and the column
+           headings that say what each cell means.
+
+           The page itself is the scroll container -- the top navbar is NOT
+           fixed (no fixed-top class), so it scrolls away and the toolbar can
+           stick at top: 0 with nothing above it to allow for.
+
+           --jobs-toolbar-h is measured in JS rather than hardcoded, because the
+           toolbar wraps to two rows on a narrow window and a stale constant
+           would either overlap the headings or leave a gap. The fallback here
+           is only what applies before the first measurement. */
+        /* Sticky needs no scrolling ancestor, and this layout has two.
+           app.css sets:
+               .card                     { overflow: hidden }
+               #wrapper #content-wrapper { overflow-x: hidden }
+           Either one silently defeats position: sticky -- the element simply
+           never sticks, with no error. The second is the non-obvious one: CSS
+           does not allow one axis hidden and the other visible, so
+           "overflow-x: hidden" computes overflow-y to auto and the element
+           becomes a scroll container.
+
+           overflow: clip is the fix rather than visible, because it keeps the
+           clipping these rules exist for -- no horizontal scrollbar on a wide
+           12-column table, no content bleeding out of the card -- while NOT
+           creating a scroll container, so sticky keeps working. Scoped to this
+           page via the body class so no other page's layout changes. */
+        body.page-my-jobs #wrapper #content-wrapper { overflow-x: clip; }
+        body.page-my-jobs .card { overflow: clip; }
+
+        :root { --jobs-toolbar-h: 52px; }
+
+        #jobsToolbar {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            /* A sticky element needs its own background or the rows scroll
+               through it. Inherit the card's so it does not read as a
+               separate panel, and extend past the card padding so no sliver
+               of table shows at the edges. */
+            background: var(--bs-card-bg, #fff);
+            margin-left: -1.25rem;
+            margin-right: -1.25rem;
+            padding: .5rem 1.25rem;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, .08);
+        }
+
+        /* Sticky on th, not thead: with border-collapse: collapse (Bootstrap's
+           default for .table) a sticky thead is unreliable across browsers,
+           while sticky th cells are well supported. */
+        #jobsTable thead th {
+            position: sticky;
+            top: var(--jobs-toolbar-h);
+            z-index: 2;
+            /* .table-dark supplies the colour, but it is set on the row -- a
+               sticky cell needs it on the cell or rows show through. */
+            background: var(--bs-table-bg, #212529);
+        }
+
         .gantt-wrap { overflow-x: auto; border: 1px solid #e3e6f0; border-radius: .35rem; padding: .5rem; }
         .gantt-row { display: flex; align-items: center; height: 26px; }
         .gantt-label { flex: 0 0 220px; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: .5rem; }
@@ -25,7 +87,7 @@
     </style>
 </head>
 
-<body id="page-top">
+<body id="page-top" class="page-my-jobs">
 {% include 'common/horizontal_menu_bar.html' %}
 <div id="wrapper">
     {% include 'common/vertical_menu_bar.html' %}
@@ -63,7 +125,7 @@
                                 </div>
 
                                 <!-- Toolbar: quick search + filter button + refresh -->
-                                <div class="row g-2 align-items-center mb-2">
+                                <div id="jobsToolbar" class="row g-2 align-items-center mb-2">
                                     <div class="col-md-5">
                                         <input type="text" id="quickSearch" class="form-control"
                                                placeholder="{{ _('Search for a job (e.g. name, owner:alice, state:running, queue:normal)') }}" aria-controls="jobsTable">
@@ -73,6 +135,17 @@
                                             <i class="fas fa-sliders-h me-1"></i> {{ _("Filters") }}
                                             <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle d-none text-white" id="filterBadge">0</span>
                                         </button>
+                                    </div>
+                                    <!-- Refresh lives here rather than under the table: the default
+                                         listing includes finished jobs, so the table can be long
+                                         enough that the controls are off-screen exactly when they
+                                         are wanted. One set of controls, not a duplicate pair --
+                                         two elements sharing an id would leave getElementById
+                                         binding only the first. -->
+                                    <div class="col-auto ms-auto d-flex" style="gap: 0.5rem;">
+                                        <button type="button" id="refreshButton" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-sync-alt me-1"></i> {{ _("Refresh") }} (<span id="countdown">120</span>s)</button>
+                                        <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger">{{ _("Disable Auto-Refresh") }}</button>
                                     </div>
                                 </div>
                                 <br>
@@ -109,11 +182,6 @@
                                     <div class="gantt-wrap" id="ganttWrap"></div>
                                 </div>
 
-                                <div class="d-flex justify-content-end mt-2">
-                                    <button type="button" id="refreshButton" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-sync-alt me-1"></i> {{ _("Refresh") }} (<span id="countdown">120</span>s)</button>&nbsp;
-                                    <button type="button" id="toggleAuto" class="btn btn-sm btn-outline-danger ms-1">{{ _("Disable Auto-Refresh") }}</button>
-                                </div>
 
                             </div>
                         </div>
@@ -135,7 +203,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">{{ _("Time range") }}</label>
-                    <select class="form-control form-control-sm" id="f_range">
+                    <select class="form-control" id="f_range">
                         <option value="24h">{{ _("Last 24h") }}</option>
                         <option value="72h">{{ _("Last 72h") }}</option>
                         <option value="7d">{{ _("Last 7d") }}</option>
@@ -145,9 +213,9 @@
                 </div>
                 <div class="mb-3 d-none" id="custom_range">
                     <label class="form-label">{{ _("From / To") }}</label>
-                    <div class="d-flex">
-                        <input class="form-control form-control-sm" type="datetime-local" id="f_since">
-                        <input class="form-control form-control-sm ms-1" type="datetime-local" id="f_until">
+                    <div class="d-flex" style="gap: 0.5rem;">
+                        <input class="form-control" type="datetime-local" id="f_since">
+                        <input class="form-control" type="datetime-local" id="f_until">
                     </div>
                 </div>
                 <div class="mb-3">
@@ -159,7 +227,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">{{ _("Scheduler") }}</label>
-                    <select class="form-control form-control-sm" id="f_scheduler">
+                    <select class="form-control" id="f_scheduler">
                         <option value="all" selected>{{ _("all") }}</option>
                         {% for scheduler in scheduler_list %}
                             <option value="{{ scheduler }}">{{ scheduler }}</option>
@@ -168,18 +236,18 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">{{ _("Queue") }}</label>
-                    <select class="form-control form-control-sm" id="f_queue">
+                    <select class="form-control" id="f_queue">
                         <option value="">{{ _("any") }}</option>
                     </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">{{ _("Owner") }}</label>
-                    <div class="d-flex align-items-center">
-                        <div class="btn-group btn-group-sm" role="group" aria-label="scope">
+                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                        <div class="btn-group" role="group" aria-label="scope">
                             <button type="button" class="btn btn-outline-primary active" id="scope_mine">{{ _("Mine") }}</button>
                             <button type="button" class="btn btn-outline-primary" id="scope_all">{{ _("All") }}</button>
                         </div>
-                        <input class="form-control form-control-sm ms-2" type="text" id="f_user"
+                        <input class="form-control" type="text" id="f_user"
                                placeholder="{{ _('user') }}" style="width: 140px;">
                     </div>
                 </div>
@@ -400,12 +468,71 @@
         const m = Math.floor(d / 60); const sec = d - m * 60;
         return `${h}h ${m}m ${sec}s`;
     }
+    // ---- live duration ----
+    // fmtDuration already measures a running job against "now", but it is only
+    // evaluated when the table renders -- on a data fetch, sort or filter. With a
+    // 120s refresh that leaves Duration looking frozen and then jumping two
+    // minutes, which reads like a stalled page rather than a running job.
+    //
+    // Ticking updates ONLY the duration cells' text. A full re-render every
+    // second would be wrong, not just wasteful: it rebuilds the <tbody>, which
+    // closes any open Actions dropdown, drops text selection, and fights the
+    // user's scroll position.
+    //
+    // Finished jobs are skipped: their end time is fixed, so there is nothing to
+    // recompute. Only cells carrying data-running="1" are touched.
+    function tickDurations() {
+        // A hidden tab cannot be read, and browsers throttle its timers anyway.
+        if (document.hidden) { return; }
+        const now = Math.floor(Date.now() / 1000);
+        document.querySelectorAll('td.job-duration[data-running="1"]').forEach(cell => {
+            const start = parseInt(cell.getAttribute("data-start") || "0", 10);
+            if (!start) { return; }
+            let d = Math.max(0, now - start);
+            const h = Math.floor(d / 3600); d -= h * 3600;
+            const m = Math.floor(d / 60); const sec = d - m * 60;
+            cell.textContent = `${h}h ${m}m ${sec}s`;
+        });
+    }
+    function durationCell(job) {
+        const running = (job.job_start_time && !job.job_end_time) ? "1" : "0";
+        return `<td class="job-duration" data-running="${running}" data-start="${job.job_start_time || 0}">${fmtDuration(job)}</td>`;
+    }
     function stateBadge(state, job) {
         const s = (state || "").toUpperCase().replace(/[^A-Z_]/g, "");
         const cls = { RUNNING: "bg-success text-white", QUEUED: "bg-warning text-dark", FINISHED: "bg-primary text-white", STOPPED: "bg-danger text-white" }[s] || "bg-primary text-white";
         let html = `<span class="badge ${cls}">${s || "?"}</span>`;
+        // A job array parent reports PBS state "B" (begun) while its subjobs run,
+        // which maps to OTHER -- so a perfectly healthy array shows no useful
+        // status. Say RUNNING instead, which is what it is doing, and keep the
+        // raw state out of the way rather than remapping it globally (B is only
+        // meaningful for arrays).
+        if (job.is_array && job.array_state_count && (job.array_state_count.running || 0) > 0 && s !== "FINISHED") {
+            html = `<span class="badge bg-success text-white">RUNNING</span>`;
+        }
+        if (job.is_array) {
+            html += ` ${arrayBadge(job)}`;
+        }
         if (s === "QUEUED" && job.job_compute_node && job.job_compute_node !== "tbd") {
             html += ` <span class="badge bg-info text-white"><i class="fas fa-spinner fa-spin me-1"></i> Capacity being provisioned</span>`;
+        }
+        // A job waiting on another job reports the same state as a suspended one,
+        // and a job the scheduler removed for an unsatisfiable dependency reports
+        // FINISHED with no exit status. Neither is readable from the state alone.
+        const dep = job.dependency || {};
+        if (dep.casualty) {
+            html = `<span class="badge bg-danger text-white"><i class="fas fa-link-slash me-1"></i> DEPENDENCY NOT MET</span>`;
+            html += ` <span class="badge bg-secondary text-white">${esc(dep.label || "")}</span>`;
+        } else if (dep.blocked) {
+            // The raw state for a dependency hold is the same one a suspended job
+            // reports, which renders red and reads as a failure. A job waiting its
+            // turn in a chain is healthy, so say what it is doing instead -- the
+            // same treatment the array-parent case above gets.
+            html = `<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half me-1"></i> WAITING</span>`;
+            html += ` <span class="badge bg-secondary text-white">${esc(dep.label || "Waiting on a job dependency")}</span>`;
+            if (job.is_array) { html += ` ${arrayBadge(job)}`; }
+        } else if ((dep.blocking || []).length && s !== "FINISHED") {
+            html += ` <span class="badge bg-info text-white"><i class="fas fa-link me-1"></i> ${dep.blocking.length} job${dep.blocking.length > 1 ? "s" : ""} waiting on this</span>`;
         }
         const errMsg = job.error_message;
         if (errMsg && String(errMsg).trim()) {
@@ -413,6 +540,23 @@
             html += ` <span class="badge bg-danger text-white" style="cursor:pointer" onclick="showErrorModal(this)" data-errors="${esc(errText)}"><i class="fas fa-exclamation-triangle me-1"></i> Job Cannot Start</span>`;
         }
         return html;
+    }
+    // One submission, N subjobs: the counts are what the user wants to see, not
+    // the parent's own state. array_state_count arrives as lowercased scheduler
+    // state names (queued / running / exiting / expired) -- "expired" is PBS's
+    // word for a FINISHED subjob, which is why it counts as done here.
+    function arrayBadge(job) {
+        const c = job.array_state_count || {};
+        const done = (c.expired || 0);
+        const total = job.array_subjob_count || 0;
+        if (!total) { return `<span class="badge bg-secondary text-white"><i class="fas fa-layer-group me-1"></i> Array</span>`; }
+        const pct = Math.round((done / total) * 100);
+        const parts = [];
+        if (c.running) { parts.push(`${c.running} running`); }
+        if (c.queued) { parts.push(`${c.queued} queued`); }
+        const detail = parts.length ? ` (${parts.join(", ")})` : "";
+        return `<span class="badge bg-secondary text-white" title="Job array: ${esc(job.array_indices_submitted || "")}${esc(detail)}">`
+             + `<i class="fas fa-layer-group me-1"></i> Array ${done}/${total} (${pct}%)${esc(detail)}</span>`;
     }
     function providerBadge(provider) {
         const p = (provider || "").toLowerCase();
@@ -432,8 +576,17 @@
         body.innerHTML = rows.map((j, i) => {
             const sched = (j.job_scheduler_info || {});
             const canDelete = (j.job_owner === CURRENT_USER) && ((j.job_state || "").toUpperCase() !== "FINISHED");
+            // On an array parent, cpus/nodes describe ONE subjob. Saying
+            // "1 vCPU (1 node)" for a 500-subjob array is true of a subjob and
+            // badly misleading about the job, so label it per subjob and show
+            // the memory request that makes the packing density predictable.
+            const memPart = (j.mem_mib != null && j.mem_mib > 0)
+                ? `, ${(j.mem_mib / 1024).toFixed(j.mem_mib % 1024 ? 1 : 0)} GB` : "";
             const res = (j.cpus != null && j.nodes != null)
-                ? `${j.cpus} vCPU${j.cpus > 1 ? "s" : ""} (${j.nodes} node${j.nodes > 1 ? "s" : ""})` : "N/A";
+                ? (j.is_array
+                    ? `${j.cpus} vCPU${j.cpus > 1 ? "s" : ""}${memPart} per subjob`
+                    : `${j.cpus} vCPU${j.cpus > 1 ? "s" : ""}${memPart} (${j.nodes} node${j.nodes > 1 ? "s" : ""})`)
+                : "N/A";
             const del = canDelete
                 ? `<a class="dropdown-item text-body" style="cursor:pointer" onclick="confirmDelete(${i})"><i class="fa-solid fa-trash-can"></i> {{ _('Delete Job') }}</a>`
                 : `<a class="dropdown-item disabled text-muted"><i class="fa-solid fa-trash-can"></i> {{ _('Delete Job') }}</a>`;
@@ -447,7 +600,7 @@
                 <td>${fmtTime(j.job_queue_time)}</td>
                 <td>${fmtTime(j.job_start_time)}</td>
                 <td>${fmtTime(j.job_end_time)}</td>
-                <td>${fmtDuration(j)}</td>
+                ${durationCell(j)}
                 <td>${esc(res)}</td>
                 <td>
                     <div class="dropdown">
@@ -535,8 +688,26 @@
         else { b.textContent = "{{ _('Enable Auto-Refresh') }}"; b.classList.remove("btn-outline-danger"); b.classList.add("btn-outline-success"); }
     }
     function setAutoRefreshState(s) { autoRefreshEnabled = s; updateAutoRefreshButton(); }
+
+    // ---- sticky offsets ----
+    // The column headers stick BELOW the sticky toolbar, so they need its real
+    // height. Measured rather than hardcoded: the toolbar wraps to a second row
+    // on a narrow window, and a stale constant would either overlap the
+    // headings or leave a visible gap above them.
+    function syncStickyOffset() {
+        const bar = document.getElementById("jobsToolbar");
+        if (!bar) { return; }
+        document.documentElement.style.setProperty(
+            "--jobs-toolbar-h", `${Math.round(bar.getBoundingClientRect().height)}px`
+        );
+    }
     function startCountdown() {
         timer = setInterval(() => {
+            // Durations tick regardless of the auto-refresh setting: a user who
+            // turned auto-refresh off wants to stop REFETCHING, not to freeze the
+            // clock on a job they are watching. This is local arithmetic on data
+            // already in hand, so it costs no request.
+            tickDurations();
             if (!autoRefreshEnabled) return;
             counter--;
             document.getElementById("countdown").textContent = counter;
@@ -593,6 +764,13 @@
         }
         updateAutoRefreshButton();
         startCountdown();
+        syncStickyOffset();
+        // Re-measure when the toolbar can change height: a window resize wraps
+        // it, and the filter badge appearing/disappearing changes it too.
+        window.addEventListener("resize", syncStickyOffset);
+        if (window.ResizeObserver) {
+            new ResizeObserver(syncStickyOffset).observe(document.getElementById("jobsToolbar"));
+        }
         fetchData();
     });
 </script>

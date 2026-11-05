@@ -1437,6 +1437,9 @@
                                                         .pool-badge.pb-cold { background:#f1f2f4; color:#6b7280; border:1px solid #d6d9e0; }
                                                         .pool-chip .pc-specs { display:block; font-size:10.5px; color:#4b5563; margin-top:2px; }
                                                         .pool-specs { font-size:10.5px; color:#6b7280; margin-left:6px; }
+                                                        /* Choices.js adds margin-bottom:24px to its wrapper, leaving a blank line
+                                                           between the instance type dropdown and its help text. */
+                                                        #divSelectInstanceType .choices { margin-bottom: 0; }
                                                     </style>
                                                     <div class="form-group row" id="poolReadyZone" hidden>
                                                         <label class="col-sm-2 col-form-label" data-toggle="tooltip" data-placement="top" title="{{ _("One or more desktops are ready right now. Select to start your desktop instantly") }}" ><i class="fa-solid fa-bolt"></i> {{ _("Start instantly") }} 
@@ -1456,7 +1459,18 @@
                                                         <label for="selectInstanceType" data-toggle="tooltip" data-placement="top" title="{{ _("Select the instance type to provision") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-microchip"></i> {{ _("Session Type") }}</label>
                                                         <div class="col-sm-10" id="divSelectInstanceType" style="display: none;">
                                                             <select name="instance_type" required class="form-control" id="selectInstanceType"></select>
+                                                            <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small" role="alert" id="instanceSpecsWarning" style="display: none;"></div>
                                                             <small class="form-text text-muted">{{ _("EC2 Instance Types you are authorized to deploy for this software stack. Manage list via") }} <a href="/admin/virtual_desktops/profiles">{{ _("EDH VDI Profiles.") }}</a></small>
+                                                        </div>
+                                                        <!-- Shown while updateInstanceTypes() fetches pool availability + instance specs -->
+                                                        <div class="col-sm-10" id="divInstanceTypeLoading" style="display: none;">
+                                                            <div class="d-flex align-items-center text-muted py-2" role="status">
+                                                                <span class="spinner-border spinner-border-sm mr-2 me-2" aria-hidden="true"></span>
+                                                                <span>{{ _("Fetching instance types, please wait ...") }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-sm-10" id="divInstanceTypeError" style="display: none;">
+                                                            <div class="alert alert-danger mb-0" role="alert" id="instanceTypeErrorMessage"></div>
                                                         </div>
                                                     </div>
 
@@ -1472,7 +1486,13 @@
                                                         <label for="selectReview" data-toggle="tooltip" data-placement="top" title="{{ _("Review") }}" class="col-sm-2 col-form-label"><i class="fa-solid fa-check"></i> {{ _("Review") }}</label>
                                                         <div class="col-sm-10" id="selectReview" style="display: none;">
                                                             <div class="form-group">
-                                                                <input required id="disk_size" value="100" min="100" class="form-control" type="number" name="disk_size">
+                                                                <div class="input-group has-validation">
+                                                                    <input required id="disk_size" value="100" min="100" step="1" class="form-control" type="number" name="disk_size" aria-describedby="disk_size_hint disk_size_feedback">
+                                                                    <span class="input-group-text">GB</span>
+                                                                    <button class="btn btn-outline-secondary d-none" type="button" id="disk_size_use_default" disabled></button>
+                                                                    <div class="invalid-feedback" id="disk_size_feedback" role="alert"></div>
+                                                                </div>
+                                                                <small class="form-text d-block fw-semibold" id="disk_size_hint" aria-live="polite"></small>
                                                                 <small class="form-text text-muted">{% trans linux_path="<kbd>/</kbd>"|safe, windows_path="<kbd>C:</kbd>"|safe %}Storage Size for your main partition ({{ linux_path }} for Linux, {{ windows_path }} for Windows){% endtrans %}</small>
                                                             </div>
                                                             <hr>
@@ -1571,6 +1591,8 @@
 
     <script>
         const softwareStack = {{ software_stacks | tojson }};
+        // Per-OS cluster default root size offered by the launch form.
+        const VDI_ROOT_DEFAULTS = {{ vdi_root_defaults | tojson }};
         // Subnet id -> {name, az, az_id} for friendly dropdown labels.
         // Best-effort: any id missing here falls back to the raw subnet id.
         const SUBNET_INFO = {{ subnet_info | tojson }};
@@ -1664,19 +1686,40 @@
         const POOL_AVAIL = { stackId: null, timer: null, specs: {} };
 
         function escapeHtml(s) {
-            const d = document.createElement('div');
-            d.textContent = (s == null ? '' : String(s));
-            return d.innerHTML;
+            // attribute-safe: encode quotes too (textContent-only misses " and ')
+            return (s == null ? '' : String(s))
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
         function poolLabelTag(av) {
             if (av && av.label) return '<span class="pool-label-tag">' + escapeHtml(av.label) + '</span> ';
             return '';
         }
+        // Badge precedence: instant claim, then a MEASURED promotable warm
+        // member, then warm members still filling, then cold.
+        //
+        // `warming` is only trustworthy when warm_measured is true. It used to
+        // be the admin's configured warm_count, so a pool with hot_count=0 and
+        // warm_count=5 was badged "pre-warmed" and pinned at the top of the
+        // list while being unable to serve anyone. An unmeasured pool promises
+        // nothing and falls through to the cold badge.
+        //
+        // ~1 min, not ~30 sec: a promote-boot-reannounce cycle measured 67s
+        // end to end on a Windows Server 2025 m7i-flex.large (claim 19:52:29,
+        // promoted member claimable 19:53:34).
         function poolBadgeHtml(av) {
             if (!av) return '';
             if (av.ready_now > 0) return ' <span class="pool-badge pb-now">\u26A1 Ready now \u00B7 ' + av.ready_now + '</span>';
-            if (av.warming > 0) return ' <span class="pool-badge pb-warm">\u23F1 ~30 sec</span>';
+            if (av.warm_measured && av.warming > 0) return ' <span class="pool-badge pb-warm">\u23F1 ~1 min</span>';
+            if (av.warm_measured && av.warming_up > 0) return ' <span class="pool-badge pb-cold">\u23F1 warming up</span>';
             return ' <span class="pool-badge pb-cold">\uD83D\uDD59 ~10 min</span>';
+        }
+        // True only for a pool that can actually serve faster than a cold
+        // launch right now: a claimable hot member, or a MEASURED promotable
+        // warm member. Used for both the badge and the pinned category so the
+        // two can never disagree.
+        function poolIsFast(av) {
+            return !!(av && (av.ready_now > 0 || (av.warm_measured && av.warming > 0)));
         }
         // Instance specs are static per type; fetched ONCE per AMI select and
         // cached in POOL_AVAIL.specs so the ~15s availability poll (which only
@@ -1712,14 +1755,18 @@
             return txt ? ' <span class="pool-specs">' + escapeHtml(txt) + '</span>' : '';
         }
         async function fetchInstanceSpecs(types) {
+            // fetchInstanceSpecs.failed lets the wizard tell the user specs are missing,
+            // while still degrading gracefully (rows/chips render without specs).
+            fetchInstanceSpecs.failed = false;
             try {
                 const q = encodeURIComponent((types || []).join(','));
                 const r = await fetch('/api/dcv/virtual_desktops/instance_type_specs?instance_types=' + q,
                     { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                if (!r.ok) return {};
+                if (!r.ok) { fetchInstanceSpecs.failed = true; return {}; }
                 const j = await r.json();
                 return (j && j.message) || {};
             } catch (e) {
+                fetchInstanceSpecs.failed = true;
                 return {};  // degrade gracefully: render rows/chips without specs
             }
         }
@@ -1786,7 +1833,148 @@
         })();
         // --------------------------------------------------------------------
 
+        // Check the root disk size as the user types or leaves the field, so a
+        // value below the stack minimum (or above the profile maximum) is
+        // flagged in red before Launch is pressed. The server enforces the
+        // same bounds.
+        // Every message names the default, and the "Use default" button puts
+        // it back in one click, so a user who changed the value by accident
+        // never has to know the number.
+        const DISK_SIZE_MSG_MIN = {{ _("%(size)s GB is below the %(min)s GB minimum for this software stack. The default is %(default)s GB.", size="__SIZE__", min="__MIN__", default="__DEFAULT__")|tojson }};
+        const DISK_SIZE_MSG_MAX = {{ _("%(size)s GB is above the %(max)s GB maximum for this desktop profile. The default is %(default)s GB.", size="__SIZE__", max="__MAX__", default="__DEFAULT__")|tojson }};
+        const DISK_SIZE_MSG_NAN = {{ _("Enter a whole number of GB. The default is %(default)s GB.", default="__DEFAULT__")|tojson }};
+        const DISK_SIZE_HINT = {{ _("Default %(default)s GB. Minimum %(min)s GB, maximum %(max)s GB for this software stack.", default="__DEFAULT__", min="__MIN__", max="__MAX__")|tojson }};
+        const DISK_SIZE_USE_DEFAULT = {{ _("Use default (%(default)s GB)", default="__DEFAULT__")|tojson }};
+
+        function fillDiskSizeText(template, values) {
+            let out = template;
+            Object.keys(values).forEach(function (key) {
+                out = out.split('__' + key + '__').join(String(values[key]));
+            });
+            return out;
+        }
+
+        // Called when a software stack is chosen: records the default and
+        // bounds on the field and fills the field with the default.
+        function setDiskSizeBounds(defaultSize, minSize, maxSize) {
+            const input = document.getElementById('disk_size');
+            if (!input) {
+                return;
+            }
+            input.min = minSize;
+            if (maxSize) {
+                input.max = maxSize;
+            } else {
+                input.removeAttribute('max');
+            }
+            input.dataset.defaultSize = String(defaultSize);
+            input.value = defaultSize;
+            const hint = document.getElementById('disk_size_hint');
+            if (hint) {
+                hint.textContent = fillDiskSizeText(DISK_SIZE_HINT, {
+                    DEFAULT: defaultSize, MIN: minSize, MAX: maxSize || '-'
+                });
+            }
+            const useDefault = document.getElementById('disk_size_use_default');
+            if (useDefault) {
+                useDefault.textContent = fillDiskSizeText(DISK_SIZE_USE_DEFAULT, {DEFAULT: defaultSize});
+            }
+            validateDiskSize();
+        }
+
+        function resetDiskSizeToDefault() {
+            const input = document.getElementById('disk_size');
+            if (input && input.dataset.defaultSize) {
+                input.value = input.dataset.defaultSize;
+                validateDiskSize();
+                input.focus();
+            }
+        }
+
+        function validateDiskSize() {
+            const input = document.getElementById('disk_size');
+            const feedback = document.getElementById('disk_size_feedback');
+            const launchButton = document.getElementById('launchButton');
+            if (!input) {
+                return true;
+            }
+            const raw = String(input.value).trim();
+            const value = Number(raw);
+            const min = parseInt(input.min, 10);
+            const max = parseInt(input.max, 10);
+            const defaultSize = input.dataset.defaultSize || '';
+            const values = {SIZE: raw, MIN: min, MAX: max, DEFAULT: defaultSize};
+            let message = '';
+            if (raw === '' || !Number.isInteger(value)) {
+                message = fillDiskSizeText(DISK_SIZE_MSG_NAN, values);
+            } else if (!Number.isNaN(min) && value < min) {
+                message = fillDiskSizeText(DISK_SIZE_MSG_MIN, values);
+            } else if (!Number.isNaN(max) && value > max) {
+                message = fillDiskSizeText(DISK_SIZE_MSG_MAX, values);
+            }
+            // The button is only useful when the value differs from the default.
+            const useDefault = document.getElementById('disk_size_use_default');
+            if (useDefault) {
+                useDefault.disabled = defaultSize === '' || raw === defaultSize;
+            }
+            input.setCustomValidity(message);
+            input.classList.toggle('is-invalid', message !== '');
+            input.setAttribute('aria-invalid', message !== '' ? 'true' : 'false');
+            if (feedback) {
+                feedback.textContent = message;
+            }
+            if (launchButton) {
+                launchButton.disabled = message !== '';
+            }
+            return message === '';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.getElementById('disk_size');
+            if (input) {
+                ['input', 'change', 'blur'].forEach(function (evt) {
+                    input.addEventListener(evt, validateDiskSize);
+                });
+            }
+            const useDefault = document.getElementById('disk_size_use_default');
+            if (useDefault) {
+                useDefault.addEventListener('click', resetDiskSizeToDefault);
+            }
+        });
+
+        // Selecting a software stack fetches pool availability + instance specs before the
+        // instance type list can be built: show a spinner meanwhile, and an error instead of
+        // an empty row if it fails. The list itself is built by _renderInstanceTypes().
         async function updateInstanceTypes() {
+            const _loading = document.getElementById('divInstanceTypeLoading');
+            const _errorRow = document.getElementById('divInstanceTypeError');
+            const _errorMsg = document.getElementById('instanceTypeErrorMessage');
+            const _specsWarning = document.getElementById('instanceSpecsWarning');
+            document.getElementById('divSelectInstanceType').style.display = 'none';
+            _errorRow.style.display = 'none';
+            _specsWarning.style.display = 'none';
+            _loading.style.display = 'block';
+            // Only the latest call updates the loading / error UI (user switching stacks quickly)
+            const _call = (updateInstanceTypes._call = (updateInstanceTypes._call || 0) + 1);
+            const _isLatest = () => _call === updateInstanceTypes._call;
+            try {
+                await _renderInstanceTypes();
+                if (_isLatest() && fetchInstanceSpecs.failed) {
+                    _specsWarning.textContent = i18n.instance_specs_unavailable;
+                    _specsWarning.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Unable to load instance types', e);
+                if (!_isLatest()) return;
+                document.getElementById('divSelectInstanceType').style.display = 'none';
+                _errorMsg.textContent = i18n.instance_types_fetch_error + (e && e.message ? ' (' + e.message + ')' : '');
+                _errorRow.style.display = 'block';
+            } finally {
+                if (_isLatest()) _loading.style.display = 'none';
+            }
+        }
+
+        async function _renderInstanceTypes() {
             const selectedOption = document.getElementById('selectAMI').selectedOptions[0];
             const selectedAMI = softwareStack.find(item => item.id === parseInt(selectedOption.value, 10));
             const divSelectInstanceType = document.getElementById('divSelectInstanceType');
@@ -1900,19 +2088,22 @@
                 // Prepare Choices data
                 const choicesData = [];
 
-                // Pin pool-backed types (hot ready-now first, then warming) at
-                // the TOP under a combined "Ready now & pre-warmed" category so
-                // fast options surface first. Types ALSO remain in their family
-                // groups below (pinned-and-below: no completeness loss).
+                // Pin pool-backed types (hot ready-now first, then MEASURED
+                // promotable warm) at the TOP under a combined "Ready now &
+                // pre-warmed" category so fast options surface first. Types
+                // ALSO remain in their family groups below (pinned-and-below:
+                // no completeness loss). Shares poolIsFast with the badge, so
+                // a type can never be pinned as pre-warmed while its badge
+                // says ~10 min.
                 // Choices renders in array order (shouldSort:false).
                 const pinned = Object.keys(poolTypes || {}).filter(type => {
-                    const av = (poolTypes || {})[type];
-                    return av && (av.ready_now > 0 || av.warming > 0);
+                    return poolIsFast((poolTypes || {})[type]);
                 }).sort((a, b) => {
                     const A = (poolTypes || {})[a] || {}, B = (poolTypes || {})[b] || {};
                     const ar = A.ready_now || 0, br = B.ready_now || 0;
                     if (ar !== br) return br - ar;          // ready-now first (qty desc)
-                    const aw = A.warming || 0, bw = B.warming || 0;
+                    const aw = A.warm_measured ? (A.warming || 0) : 0;
+                    const bw = B.warm_measured ? (B.warming || 0) : 0;
                     if (aw !== bw) return bw - aw;          // then more pre-warmed
                     return sizeRank(b) - sizeRank(a);       // then by size
                 });
@@ -1978,9 +2169,20 @@
                     selectVpcSubnet.appendChild(option);
                 });
 
-                diskSizeInput.value = selectedAMI.ami_root_disk_size;
-                diskSizeInput.min = selectedAMI.ami_root_disk_size;
-                diskSizeInput.max = selectedAMI.profile.max_root_size;
+                // The stack sets the minimum; the cluster default for the OS is
+                // what the form offers, raised to the minimum when smaller. The
+                // server enforces the same minimum (and the AMI snapshot size).
+                const rootDefaults = (typeof VDI_ROOT_DEFAULTS !== 'undefined') ? VDI_ROOT_DEFAULTS : {};
+                const isWindowsStack = selectedAMI.os_family === 'windows';
+                // A stack minimum of 0 means "use the cluster minimum".
+                const clusterMin = parseInt(isWindowsStack ? rootDefaults.min_windows : rootDefaults.min_linux, 10) || 1;
+                const stackMinSize = parseInt(selectedAMI.ami_root_disk_size, 10) || clusterMin;
+                const osDefault = parseInt(isWindowsStack ? rootDefaults.windows : rootDefaults.linux, 10) || stackMinSize;
+                setDiskSizeBounds(
+                    Math.max(osDefault, stackMinSize),
+                    stackMinSize,
+                    selectedAMI.profile.max_root_size
+                );
             } else {
                 divSelectInstanceType.style.display = 'none';
             }
@@ -2078,24 +2280,24 @@
                                                                                 <div class="card-header">
                                                                                     <span class="badge rounded-pill ${item.ami_arch === 'x86_64' ? 'bg-info' : 'bg-warning'}"
                                                                                           style="color: ${item.ami_arch === 'x86_64' ? 'white' : 'black'}">
-                                                                                        ${item.ami_arch}
+                                                                                        ${escapeHtml(item.ami_arch)}
                                                                                     </span>
-                                                                                    <span class="badge rounded-pill bg-secondary" style="color: white">${item.ami_base_os}</span>
+                                                                                    <span class="badge rounded-pill bg-secondary" style="color: white">${escapeHtml(item.ami_base_os)}</span>
                                                                                 </div>
                                                                                 <div style="display: flex; justify-content: center;">
-                                                                                    <img src="${item.thumbnail}" class="card-img-top" style="height: 150px; object-fit: contain;">
+                                                                                    <img src="${escapeHtml(item.thumbnail)}" class="card-img-top" style="height: 150px; object-fit: contain;">
                                                                                 </div>
                                                                                 <div class="card-body" style="padding: 0.2rem;">
-                                                                                    <strong>${item.stack_name}</strong>
+                                                                                    <strong>${escapeHtml(item.stack_name)}</strong>
                                                                                     <hr>
-                                                                                    <p class="card-text">${item.description || i18n.no_description}</p>
-                                                                                    <small class="text-muted"> <hr> AMI ID: ${item.ami_id} <br> <span>Profile ID: ${item.profile_id} | Stack ID: ${item.stack_id} </span></small>
+                                                                                    <p class="card-text">${item.description ? escapeHtml(item.description) : i18n.no_description}</p>
+                                                                                    <small class="text-muted"> <hr> AMI ID: ${escapeHtml(item.ami_id)} <br> <span>Profile ID: ${escapeHtml(item.profile_id)} | Stack ID: ${escapeHtml(item.stack_id)} </span></small>
                                                                                 </div>
                                                                                 <div class="card-footer text-center">
                                                                                     <button type="button" class="btn btn-success select-ami-btn"
-                                                                                        data-base-os="${item.ami_base_os}"
-                                                                                        data-software-stack-id="${item.stack_id}"
-                                                                                        data-arch="${item.ami_arch}">
+                                                                                        data-base-os="${escapeHtml(item.ami_base_os)}"
+                                                                                        data-software-stack-id="${escapeHtml(item.stack_id)}"
+                                                                                        data-arch="${escapeHtml(item.ami_arch)}">
                                                                                         ${i18n.select_this_stack}
                                                                                     </button>
                                                                                 </div>

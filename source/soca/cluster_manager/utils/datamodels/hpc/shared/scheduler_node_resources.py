@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from enum import Enum
 import logging
 import re
 from typing import Optional, Union, Literal
+from utils.cast import coerce_scalar_fields_to_str
+from utils.validators import Validators
 from utils.datamodels.hpc.scheduler import SocaHpcScheduler
 
 logger = logging.getLogger("soca_logger")
@@ -52,6 +54,15 @@ class SocaSchedulerNodeResourceModel(BaseModel):
     stack_id: Optional[str] = None
     # Scheduler Specific attributes will be added in the relevant class (e.g: SocaHpcNodePBS, SocaHpcNodeLSF ...)
 
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_scalar_str_fields(cls, data):
+        """Node models are built by constructor from scheduler JSON, so unlike
+        SocaHpcJob there is no _normalize() to coerce inferred scalars in."""
+        if Validators.is_dict(data):
+            return coerce_scalar_fields_to_str(cls, dict(data))
+        return data
+
     @field_validator("compute_node")
     @classmethod
     def validate_compute_node(cls, v):
@@ -69,10 +80,22 @@ class SocaSchedulerNodeResourceModel(BaseModel):
             if v.isdigit():
                 return int(v)
 
+            # A job array SUBJOB's capacity key, "<parent>-<index>" (see
+            # utils.hpc.job_identity.capacity_key). An array PARENT collapses to
+            # its bare job number and is already covered by isdigit() above, so
+            # this branch only matters once capacity is provisioned per subjob.
+            #
+            # Kept as a string rather than coerced to an int: unlike the LSF case
+            # above there is no single number to return, and the two components
+            # are the identity.
+            if re.match(r"^\d+-\d+$", v):
+                return v
+
         # Allow numeric values. The SOCA NextGen Scheduler now uses the actual job ID as the compute-node reference rather than the job<job_id> format.
         if isinstance(v, int):
             return v
 
         raise ValueError(
-            "compute_node must be 'tbd', start with 'job', start with 'alwayson', or be numeric"
+            "compute_node must be 'tbd', start with 'job', start with 'alwayson', "
+            "be numeric, or be a job array subjob key (<parent>-<index>)"
         )

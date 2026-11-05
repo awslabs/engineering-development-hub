@@ -128,6 +128,57 @@
                 "sts:GetCallerIdentity"
             ],
             "Resource": "*"
+        },
+        {
+            "Sid": "CrossRegionMeshHelperDDB",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:UpdateTable",
+                "dynamodb:DescribeTable",
+                "dynamodb:UpdateContinuousBackups",
+                "dynamodb:DescribeContinuousBackups",
+                "dynamodb:UpdateTimeToLive",
+                "dynamodb:DescribeTimeToLive",
+                "dynamodb:CreateGlobalTable",
+                "dynamodb:UpdateGlobalTable",
+                "dynamodb:DescribeGlobalTable",
+                "dynamodb:UpdateGlobalTableSettings",
+                "dynamodb:DescribeGlobalTableSettings",
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:TagResource",
+                "dynamodb:ListTagsOfResource"
+            ],
+            "Resource": [
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_config",
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_config/*",
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_health",
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_health/*",
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_audit",
+                "arn:*:dynamodb:*:*:table/edh_*_overlay_audit/*",
+                "arn:*:dynamodb:*:*:table/edh_*_cluster_state",
+                "arn:*:dynamodb:*:*:table/edh_*_cluster_state/*",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_history",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_history/*",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_policy",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_policy/*",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_evaluations",
+                "arn:*:dynamodb:*:*:table/edh_*_routing_evaluations/*",
+                "arn:*:dynamodb:*:*:table/edh_*_delegations",
+                "arn:*:dynamodb:*:*:table/edh_*_delegations/*",
+                "arn:*:dynamodb:*:*:global-table/edh_*_overlay_config",
+                "arn:*:dynamodb:*:*:global-table/edh_*_overlay_health",
+                "arn:*:dynamodb:*:*:global-table/edh_*_overlay_audit",
+                "arn:*:dynamodb:*:*:global-table/edh_*_cluster_state",
+                "arn:*:dynamodb:*:*:global-table/edh_*_routing_history",
+                "arn:*:dynamodb:*:*:global-table/edh_*_routing_policy",
+                "arn:*:dynamodb:*:*:global-table/edh_*_routing_evaluations",
+                "arn:*:dynamodb:*:*:global-table/edh_*_delegations"
+            ]
         }
         
     ]

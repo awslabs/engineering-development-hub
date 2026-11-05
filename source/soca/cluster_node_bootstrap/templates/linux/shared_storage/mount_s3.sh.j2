@@ -26,15 +26,38 @@
           MOUNT_S3_INSTALLER_URL="{{ context.get("/system/s3_mountpoint/aarch64/url") }}"
           MOUNT_S3_INSTALLER_HASH="{{ context.get("/system/s3_mountpoint/aarch64/sha256") }}"
         fi
-      fi
 
-      file_download --download-url="${MOUNT_S3_INSTALLER_URL}" --save-as="${MOUNT_S3_INSTALLER_FILENAME}" --sha256-checksum="${MOUNT_S3_INSTALLER_HASH}"
-      packages_install ${MOUNT_S3_INSTALLER_FILENAME}
+        file_download --download-url="${MOUNT_S3_INSTALLER_URL}" --save-as="${MOUNT_S3_INSTALLER_FILENAME}" --sha256-checksum="${MOUNT_S3_INSTALLER_HASH}"
+
+        # The Package Management standard installs a local package file with
+        # packages_install_file, which runs `rpm -Uvh`. That does NOT resolve
+        # dependencies, and the mountpoint-s3 rpm declares Requires on fuse,
+        # fuse-libs and libfuse.so.2 -- the same libfuse the `which fusermount`
+        # below depends on. The vendor's own instruction for rpm distros is
+        # `yum install ./mount-s3.rpm`, which pulled those in implicitly, so
+        # they are installed by name here instead. Each is guarded because an
+        # already-satisfied dependency must not cost a package manager
+        # transaction on every node that mounts a bucket.
+        {% if context.get("/job/BaseOS") not in ("ubuntu2204", "ubuntu2404") %}
+          if ! verify_package_installed fuse; then
+            log_info "Installing mount-s3 dependency fuse"
+            packages_install fuse
+          fi
+
+          if ! verify_package_installed fuse-libs; then
+            log_info "Installing mount-s3 dependency fuse-libs"
+            packages_install fuse-libs
+          fi
+        {% endif %}
+
+        packages_install_file ${MOUNT_S3_INSTALLER_FILENAME}
+      fi
 
       local MOUNT_TARGET
       local MOUNT_PATH
       local MOUNT_OPTIONS
       local ON_MOUNT_FAILURE
+      local ENABLED
 
       for arg in "$@"; do
           case $arg in
@@ -76,8 +99,10 @@
         MOUNT_S3_BIN=$(which mount-s3)
         FUSERMOUNT_BIN=$(which fusermount)
 
-        log_info "Creating ${MOUNT_POINT} if needed"
-        mkdir -p ${MOUNT_POINT}
+        log_info "Creating ${MOUNT_PATH} if needed"
+        mkdir -p "${MOUNT_PATH}"
+
+        AUTOMOUNT_UNIT="edh-s3-${MOUNT_TARGET}-automount.service"
 
         echo "[Unit]
 Description=Amazon S3 Mountpoint for "${MOUNT_PATH}"
@@ -92,12 +117,12 @@ ExecStart=${MOUNT_S3_BIN} "${MOUNT_TARGET}" "${MOUNT_PATH}" "${MOUNT_OPTIONS}"
 ExecStop=${FUSERMOUNT_BIN} -u ${MOUNT_PATH}
 
 [Install]
-WantedBy=remote-fs.target"  > /etc/systemd/system/soca-s3-${MOUNT_TARGET}-automount.service
+WantedBy=remote-fs.target"  > "/etc/systemd/system/${AUTOMOUNT_UNIT}"
 
-        log_info "Enabling & start soca-s3-${MOUNT_TARGET}-automount.service"
-        systemctl enable "soca-s3-${MOUNT_TARGET}-automount.service"
+        log_info "Enabling & start ${AUTOMOUNT_UNIT}"
+        systemctl enable "${AUTOMOUNT_UNIT}"
 
-        if systemctl start "soca-s3-${MOUNT_TARGET}-automount.service"; then
+        if systemctl start "${AUTOMOUNT_UNIT}"; then
           log_info "Successfully mounted ${MOUNT_TARGET} as ${MOUNT_PATH}"
         else
           if [[ ${ON_MOUNT_FAILURE} == "exit" ]]; then

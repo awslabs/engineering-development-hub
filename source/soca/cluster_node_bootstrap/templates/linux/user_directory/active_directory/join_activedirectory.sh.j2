@@ -4,18 +4,40 @@
 # Begin: Join Active Directory
 
 
-# Disable automatic node AD Domain Join by enabling local user synchronization using:
-# edhctl config set --key "/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD" --value "false"
+# Disable automatic node AD Domain Join (use local user synchronization instead) per node type:
+#   ephemeral HPC compute nodes:
+#     edhctl config set --key "/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD" --value "false"
+#
+# Always-on nodes are governed by their own flag, which defaults to TRUE:
+# edhctl config set --key "/configuration/FeatureFlags/Hpc/JoinAlwaysOnNodesToAD" --value "false"
+#
+# The condition below reads /job/JoinNodeToAD, which cloudformation_builder.py
+# resolves from whichever of those two flags applies to this node's queue. Do not
+# re-derive it from the flags here: the queue-dependent rule belongs in one place.
+# A missing key defaults to True (join), so a node type that never sets it does
+# not silently fall into the local-user dump.
+#   PCS compute nodes:
+#     edhctl config set --key "/configuration/FeatureFlags/Hpc/JoinPCSNodesToAD" --value "false"
+# The two flags are independent so enabling/disabling one does not affect the other.
 
 # Note: This is an experimental feature
-{% if not context.get("/configuration/FeatureFlags/Hpc/JoinEphemeralNodesToAD") and context.get("/job/NodeType") == "compute_node" %}
+{# Local-user-sync mode (no AD realm join). Applies to:                                    #}
+{#   - ephemeral HPC compute nodes when JoinEphemeralNodesToAD is disabled                 #}
+{#   - PCS compute nodes         when JoinPCSNodesToAD        is disabled                   #}
+{# Anything else (flag enabled, or the controller) falls through to the realm-join path.   #}
+
+{% if (context.get("/job/NodeType") == "compute_node" and not context.get("/job/JoinNodeToAD", True)) or (context.get("/job/NodeType") == "pcs_node" and not context.get("/configuration/FeatureFlags/Hpc/JoinPCSNodesToAD")) %}
   function sync_ad_users_locally {
     local LOCAL_SOCA_AD_SCRIPT="/opt/edh/{{ context.get("/configuration/ClusterId") }}/sync_ad_users_locally.sh"
+    {% if context.get("/job/NodeType") == "pcs_node" %}
+    local USERS_TO_SYNC=""  # PCS nodes are shared, long-lived capacity not tied to one job owner: sync ALL SOCA users.
+    {% else %}
     if [[ "${EDH_JOB_QUEUE_IS_ALWAYSON}" == "1" ]]; then
         local USERS_TO_SYNC=""  # sync all users in alwayson nodes; please note this can cause some slowness if you have a large number of users
     else
         local USERS_TO_SYNC="${EDH_JOB_OWNER}"  # Only sync job owner. Empty string would sync ALL SOCA users (slow on large directories).
     fi
+    {% endif %}
     log_info "Creating local user for ephemeral HPC due to no AD join. User info ${LOCAL_SOCA_AD_USERS}"
 
     log_info "Writing local SOCA AD script to ${LOCAL_SOCA_AD_SCRIPT}"
@@ -43,7 +65,30 @@ EOF
     ) | crontab -
   }
   sync_ad_users_locally
-    
+
+  # sudoers: grant the admin group sudo on ephemeral nodes (no SSSD/realm).
+  # Do NOT lowercase: groupadd preserves case, so the local group carries the
+  # directory's exact casing. Resolve the real group via getent so the rule
+  # matches what sync_ad_users_locally created (also covers spaces and the
+  # 32-char groupadd cap: an uncreatable name never resolves -> warn+skip).
+  _ADMIN_GROUP_CN=$(echo "{{ context.get('/configuration/UserDirectory/admins_search_base') }}" | awk -F'[,=]' '{print $2}')
+  if [[ -z "${_ADMIN_GROUP_CN}" ]]; then
+    log_warning "Unable to determine admin group from admins_search_base, skipping sudoers drop-in"
+  else
+    _ADMIN_GROUP=$(getent group | awk -F: -v want="${_ADMIN_GROUP_CN}" 'tolower($1)==tolower(want){print $1; exit}')
+    if [[ -z "${_ADMIN_GROUP}" ]]; then
+      log_warning "Admin group '${_ADMIN_GROUP_CN}' not found in /etc/group (not synced, or exceeds the 32-char group name limit); skipping sudoers drop-in"
+    else
+      _ESCAPED_ADMIN_GROUP=$(echo "${_ADMIN_GROUP}" | sed 's/ /\\ /g')
+      _SUDOERS_ENTRY="%${_ESCAPED_ADMIN_GROUP} ALL=(ALL:ALL) NOPASSWD:ALL"
+      echo "${_SUDOERS_ENTRY}" > /etc/sudoers.d/edh-admins
+      chmod 440 /etc/sudoers.d/edh-admins
+      if ! visudo -c -f /etc/sudoers.d/edh-admins >/dev/null 2>&1; then
+        log_warning "sudoers syntax check failed for /etc/sudoers.d/edh-admins, removing"
+        rm -f /etc/sudoers.d/edh-admins
+      fi
+    fi
+  fi
 
 {% else %}
   function join_ad {
@@ -84,6 +129,107 @@ EOF
       edh_dcv_publish_event "bootstrap-status" "" "$1" || true
     }
     _ad_emit_status "Active Directory: discovering ${DS_DOMAIN_NAME}"
+{% if context.get("/job/BaseOS") in ["amazonlinux2027"] %}
+    # 'realm discover' resolves SRV through libresolv and bypasses nsswitch, while the join,
+    # adcli, sssd and Kerberos use getaddrinfo() and traverse it. A resolver that refuses the
+    # domain by policy therefore makes discovery succeed while everything downstream fails.
+    # systemd-resolved does this to .local (RFC 6762 reserves it for mDNS) and answers with a
+    # definitive error rather than UNAVAIL, so nsswitch never falls through to dns. Add any
+    # other base OS that shows this to the gate above.
+    _ad_resolver_can_resolve() { getent hosts "$1" >/dev/null 2>&1; }
+
+    # Tests an SRV TARGET, not just the bare domain: the SRV records point at DC hostnames
+    # which are themselves .<domain> names, and Kerberos resolves those through getaddrinfo()
+    # as well. A resolvable bare domain alone still fails the join.
+    _ad_resolver_ready() {
+      local _domain="$1" _tool _target
+      _tool=$(command -v dig || true)
+      if [[ -n "${_tool}" ]]; then
+        _target=$("${_tool}" +short SRV "_ldap._tcp.${_domain}" 2>/dev/null | awk 'NR==1{sub(/\.$/,"",$4); print $4}')
+        if [[ -n "${_target}" ]]; then
+          _ad_resolver_can_resolve "${_target}" || return 1
+        fi
+      fi
+      _ad_resolver_can_resolve "${_domain}"
+    }
+
+    # Returns 0 only when it CHANGED something, so the caller can retest without sleeping and
+    # a domain that already resolves cannot drive a sleepless loop.
+    _ad_fix_resolver_policy() {
+      local _domain="$1"
+      _ad_resolver_ready "${_domain}" && return 1   # nothing to fix
+
+      systemctl is-active --quiet systemd-resolved 2>/dev/null || return 1
+
+      # The routing domain must go on the LINK: a global one routes to global servers, and the
+      # DNS servers here are DHCP-set per-link, so a global drop-in alone is inert. resolvectl
+      # replaces the link's domain list, hence reading the existing ones back and restating.
+      local _link _existing _servers
+      _link=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
+      if [[ -z "${_link}" ]]; then
+        log_warning "Could not determine the default-route interface, cannot apply a per-link routing domain for ${_domain}"
+        return 1
+      fi
+
+      log_warning "${_domain} does not resolve through the system resolver, which is what the AD join and Kerberos use. Adding a routing domain on ${_link}."
+      _existing=$(resolvectl domain "${_link}" 2>/dev/null | sed 's/^[^:]*: *//' | tr ' ' '\n' | grep -v "^~\?${_domain}$" | tr '\n' ' ')
+      resolvectl domain "${_link}" "~${_domain}" ${_existing} 2>/dev/null \
+        || log_warning "resolvectl domain failed on ${_link}"
+
+      # DNS= in the drop-in is what makes this survive the reboot before 03_setup_post_reboot
+      _servers=$(resolvectl status "${_link}" 2>/dev/null | awk -F': ' '/DNS Servers/{print $2; exit}')
+      mkdir -p /etc/systemd/resolved.conf.d
+      {
+        printf '# Managed by EDH. Route %s to the DNS servers instead of letting systemd-resolved\n' "${_domain}"
+        printf '# refuse it by policy. DNS= is required, a routing domain with no servers is inert.\n'
+        printf '[Resolve]\n'
+        [[ -n "${_servers}" ]] && printf 'DNS=%s\n' "${_servers}"
+        printf 'Domains=~%s\n' "${_domain}"
+      } > /etc/systemd/resolved.conf.d/10-edh-ad-domain.conf
+      systemctl restart systemd-resolved 2>/dev/null || log_warning "Unable to restart systemd-resolved"
+      sleep 2
+
+      # the restart drops runtime per-link settings
+      resolvectl domain "${_link}" "~${_domain}" ${_existing} 2>/dev/null || true
+
+      # /etc/nsswitch.conf is left alone: it is authselect managed on some distros
+      if _ad_resolver_ready "${_domain}"; then
+        log_info "${_domain} and its SRV targets now resolve through the system resolver"
+        return 0
+      fi
+      log_warning "Routing domain applied on ${_link} but ${_domain} still does not resolve through the system resolver"
+      return 1
+    }
+
+    # both: discovery proves the directory answers, the resolver check proves the join can
+    # actually resolve it. Gating on discovery alone logged "is reachable" then failed the join.
+    _ad_domain_ready() {
+      ${REALM} discover "$1" >/dev/null 2>&1 || return 1
+      _ad_resolver_ready "$1"
+    }
+
+    _ad_fix_resolver_policy "${DS_DOMAIN_NAME}" || true
+    local LOOP_VERIFY_AD_REACHABILITY=0
+    while ! _ad_domain_ready "${DS_DOMAIN_NAME}"
+      do
+        ((LOOP_VERIFY_AD_REACHABILITY++))
+        if [[ ${LOOP_VERIFY_AD_REACHABILITY} -ge 30 ]]; then
+          # distinguish a resolver split from missing DNS records, so the operator is not sent
+          # to investigate records that are present and healthy
+          if ${REALM} discover "${DS_DOMAIN_NAME}" >/dev/null 2>&1; then
+            _ad_emit_status "AD unreachable: ${DS_DOMAIN_NAME} does not resolve via the system resolver"
+            exit_fail "${DS_DOMAIN_NAME} is discoverable over DNS but never resolved through the system resolver, so the AD join cannot succeed. The DNS records are likely fine. Check the resolver policy instead: 'getent hosts ${DS_DOMAIN_NAME}' and 'getent hosts' on an SRV target from 'dig +short SRV _ldap._tcp.${DS_DOMAIN_NAME}', against 'resolvectl query', plus 'resolvectl domain' (the routing domain must be on the LINK, not global) and the hosts line in /etc/nsswitch.conf. A .local domain is refused by systemd-resolved because RFC 6762 reserves .local for mDNS."
+          fi
+          _ad_emit_status "AD unreachable: ${DS_DOMAIN_NAME} after 30 attempts"
+          exit_fail "${DS_DOMAIN_NAME} is not reachable after 30 attempts. If using AWS Directory Service, verify the Route 53 outbound endpoint and forwarding rule are active."
+        fi
+        log_info "${DS_DOMAIN_NAME} is not reachable from this host. If using AWS Directory Service, waiting for Route 53 outbound endpoint and rule to become active. Trying again in 2 minutes. Loop count is: ${LOOP_VERIFY_AD_REACHABILITY}/30"
+        _ad_emit_status "AD discover attempt ${LOOP_VERIFY_AD_REACHABILITY}/30 failed -- retrying in 180s"
+        # DNS records can appear part-way through the wait, so retry the fix each round
+        _ad_fix_resolver_policy "${DS_DOMAIN_NAME}" && continue
+        sleep 180
+      done
+{% else %}
     local LOOP_VERIFY_AD_REACHABILITY=0
     while ! ${REALM} discover "$DS_DOMAIN_NAME" && [[ ${LOOP_VERIFY_AD_REACHABILITY} -lt 30 ]]
       do
@@ -92,6 +238,7 @@ EOF
         _ad_emit_status "AD discover attempt ${LOOP_VERIFY_AD_REACHABILITY}/30 failed -- retrying in 180s"
         sleep 180
       done
+{% endif %}
     log_info "${DS_DOMAIN_NAME} is reachable"
     _ad_emit_status "AD reachable: ${DS_DOMAIN_NAME}"
 
@@ -236,12 +383,63 @@ EOF
       fi
     fi
 
+    # Where this node's computer object is created. Without --computer-ou adcli
+    # resolves the domain's well known computer container, which a service
+    # account delegated on a single OU has no rights in.
+    #
+    # /job/ComputerOU wins when the orchestrator set it: ephemeral and alwayson
+    # HPC nodes share NodeType compute_node and are distinguished by queue,
+    # which cloudformation_builder.py resolves. Everything else falls back to
+    # its class in the config tree, then to computer_ou/default.
+    {%- set _cou = namespace(value=context.get("/job/ComputerOU")) -%}
+    {%- if not _cou.value -%}
+      {%- if context.get("/job/NodeType") == "controller" -%}
+        {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/controller") -%}
+      {%- elif context.get("/job/NodeType") == "login_node" -%}
+        {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/login_node") -%}
+      {%- elif context.get("/job/NodeType") == "dcv_node" -%}
+        {# Windows VDI never reaches this template; it joins via ad_join_helpers.ps.j2 #}
+        {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/vdi/linux")
+                          or context.get("/configuration/UserDirectory/computer_ou/vdi/default") -%}
+      {%- elif context.get("/job/NodeType") == "pcs_node" -%}
+        {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/hpc/pcs")
+                          or context.get("/configuration/UserDirectory/computer_ou/hpc/default") -%}
+      {%- elif context.get("/job/NodeType") == "compute_node" -%}
+        {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/hpc/default") -%}
+      {%- endif -%}
+    {%- endif -%}
+    {%- if not _cou.value -%}
+      {%- set _cou.value = context.get("/configuration/UserDirectory/computer_ou/default") -%}
+    {%- endif %}
+    # sh_quote, not a bare interpolation: these templates render with autoescape
+    # on, and a DN may legally contain & " ' (EXPECT_DN_OR_EMPTY only forbids
+    # , + = < > # ;). Interpolated raw, OU=R&D would reach adcli as OU=R&amp;D
+    # and the join would target a non-existent OU. sh_quote returns Markup, so
+    # the value is emitted verbatim and shell-quoted in one step.
+    local DS_COMPUTER_OU={{ (_cou.value if _cou.value else '') | sh_quote }}
+
+    # Built as an array so the OU is omitted entirely when unset, rather than
+    # passed as an empty --computer-ou= that adcli rejects.
+    local -a REALM_JOIN_ARGS=(
+      join
+      --user "${DS_DOMAIN_ADMIN_USERNAME}"
+      "${UPPER_DS_DOMAIN_NAME}"
+      --computer-name="${SOCA_AD_HOSTNAME}"
+      --verbose
+    )
+    if [[ -n "${DS_COMPUTER_OU}" ]]; then
+      REALM_JOIN_ARGS+=( --computer-ou="${DS_COMPUTER_OU}" )
+      log_info "Computer object will be created in ${DS_COMPUTER_OU}"
+    else
+      log_info "No computer_ou configured for NodeType {{ context.get("/job/NodeType") }}; the directory default container will be used"
+    fi
+
     # Join AD only if system is not already joined
     if [[ "${SKIP_AD_JOIN}" == "false" ]]; then
       local JOIN_AD_ATTEMPT=0
       log_info "Trying to join host to AD as ${SOCA_AD_HOSTNAME}"
       _ad_emit_status "AD: joining domain as ${SOCA_AD_HOSTNAME}"
-      while ! echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${REALM} join --user "${DS_DOMAIN_ADMIN_USERNAME}" "${UPPER_DS_DOMAIN_NAME}" --computer-name="${SOCA_AD_HOSTNAME}" --verbose
+      while ! echo "${DS_DOMAIN_ADMIN_PASSWORD}" | ${REALM} "${REALM_JOIN_ARGS[@]}"
       do
         ((JOIN_AD_ATTEMPT++))
         local SLEEP_TIME=$(( RANDOM % 60 ))

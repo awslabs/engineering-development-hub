@@ -384,20 +384,21 @@
                             form.submit();
                         }
 
-                        function updateProfileInfo() {
+                        function _se(v){return (v==null?"":String(v)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\x27/g,"&#39;");}
+        function updateProfileInfo() {
                         var selectElement = document.getElementById("profile_id");
                         var selectedOption = selectElement.options[selectElement.selectedIndex];
 
                         document.getElementById("profileInfo").innerHTML =
                             "<h3>Profile Details:</h3> <hr>" +
-                            "<strong>Allowed Instances Types:</strong> " + selectedOption.getAttribute("data-soca-allowed-instances-types") +
-                            "<br><strong>Allowed Instances (pattern):</strong> " + selectedOption.getAttribute("data-soca-pattern-allowed-instances-types") +
-                            "<br><strong>Allowed Subnets:</strong> " + selectedOption.getAttribute("data-soca-allowed-subnets") +
-                            "<br><strong><a href='/admin/target_nodes/software_stacks' target='_blank'>Associated Target Node Software Stack IDs:</a></strong> " + selectedOption.getAttribute("data-soca-software-stack-ids") +
-                            "<br><strong>Max Root disk Size:</strong> " + selectedOption.getAttribute("data-soca-max-root-size")  +
-                            "<br><strong>Description:</strong> " + selectedOption.getAttribute("data-soca-description") +
-                            "<br><strong>Created By:</strong> " + selectedOption.getAttribute("data-soca-created-by") +
-                            "<br><strong>Created On</strong> " + selectedOption.getAttribute("data-soca-created-on");
+                            "<strong>Allowed Instances Types:</strong> " + _se(selectedOption.getAttribute("data-soca-allowed-instances-types")) +
+                            "<br><strong>Allowed Instances (pattern):</strong> " + _se(selectedOption.getAttribute("data-soca-pattern-allowed-instances-types")) +
+                            "<br><strong>Allowed Subnets:</strong> " + _se(selectedOption.getAttribute("data-soca-allowed-subnets")) +
+                            "<br><strong><a href='/admin/target_nodes/software_stacks' target='_blank'>Associated Target Node Software Stack IDs:</a></strong> " + _se(selectedOption.getAttribute("data-soca-software-stack-ids")) +
+                            "<br><strong>Max Root disk Size:</strong> " + _se(selectedOption.getAttribute("data-soca-max-root-size"))  +
+                            "<br><strong>Description:</strong> " + _se(selectedOption.getAttribute("data-soca-description")) +
+                            "<br><strong>Created By:</strong> " + _se(selectedOption.getAttribute("data-soca-created-by")) +
+                            "<br><strong>Created On</strong> " + _se(selectedOption.getAttribute("data-soca-created-on"));
                         }
 
                         document.addEventListener("DOMContentLoaded", function() {

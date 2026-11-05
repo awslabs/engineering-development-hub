@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-{% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
+{% if context.get("/job/BaseOS") in ("amazonlinux2", "amazonlinux2023", "amazonlinux2027", "centos7", "rhel7", "rhel8", "rhel9", "rocky8", "rocky9") %}
 function fsx_lustre_client_tuning_postmount {
   log_info "Running FSxL Performance tuning post-mount"
   # https://docs.aws.amazon.com/fsx/latest/LustreGuide/performance.html#performance-tips

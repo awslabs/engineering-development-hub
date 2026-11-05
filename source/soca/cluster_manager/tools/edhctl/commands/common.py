@@ -31,7 +31,15 @@ def is_controller_instance() -> bool:
 
 def confirm(prompt: str) -> bool:
     while True:
-        _ans = input(prompt + " (yes/no): ").strip().lower()
+        try:
+            _ans = input(prompt + " (yes/no): ").strip().lower()
+        except EOFError:
+            # No stdin to read, e.g. a scripted invocation with </dev/null. An
+            # unanswered confirmation is a decline, not a crash: dying with a
+            # traceback here would make any gated command unusable from a script
+            # rather than simply refusing to proceed.
+            click.echo("No input available; treating as 'no'.")
+            return False
         if _ans == "yes":
             return True
         elif _ans == "no":
