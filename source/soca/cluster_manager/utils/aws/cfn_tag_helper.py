@@ -4,7 +4,7 @@
 import logging
 
 from troposphere.ec2 import Tag, TagSpecifications
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 from utils.config import SocaConfig
 from utils.error import SocaError
 from utils.response import SocaResponse
@@ -129,7 +129,7 @@ def build_dry_run_tag_specifications(
                     f"Specified custom tags {_tag.get('Key')} is already defined in tag list, skipping ..."
                 )
                 continue
-            _tags[_tag["Key"]] = _tag.get("Value", "")
+            _tags[_tag["Key"]] = scalar_as_str(_tag.get("Value", ""))
         else:
             logger.warning(f"{_tag} does not have Enabled key or Enabled is False")
 
