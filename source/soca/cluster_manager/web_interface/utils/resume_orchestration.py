@@ -29,7 +29,7 @@ import utils.aws.boto3_wrapper as utils_boto3
 from models import db, VdiSavedImages
 from utils.response import SocaResponse
 from utils.error import SocaError
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 from utils.validators import Validators
 
 logger = logging.getLogger("soca_logger")
@@ -162,7 +162,7 @@ def _saved_image_capture_tags(row) -> list:
                 _existing = {t["Key"] for t in _tags}
                 for _ct in (_cast.get("message") or {}).values():
                     if _ct.get("Enabled", "") and _ct.get("Key") and _ct["Key"] not in _existing:
-                        _tags.append({"Key": _ct["Key"], "Value": _ct.get("Value", "")})
+                        _tags.append({"Key": _ct["Key"], "Value": scalar_as_str(_ct.get("Value", ""))})
                         _existing.add(_ct["Key"])
     return _tags
 

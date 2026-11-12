@@ -50,7 +50,7 @@ import pathlib
 
 from utils.config import SocaConfig
 from utils.jinjanizer import SocaJinja2Generator
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 from utils.version import __version__
 
 import logging
@@ -390,7 +390,7 @@ def main(**params):
                             f"Specified custom tags {tag.get('Key')} is already defined in tag list, skipping ..."
                         )
                     else:
-                        _base_tags[tag["Key"]] = tag["Value"]
+                        _base_tags[tag["Key"]] = scalar_as_str(tag["Value"])
                 else:
                     logger.warning(
                         f"{tag} does not have Enabled key or Enabled is False."
