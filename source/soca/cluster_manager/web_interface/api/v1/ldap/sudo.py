@@ -144,19 +144,27 @@ class Sudo(Resource):
         if config.Config.DIRECTORY_AUTH_PROVIDER in ["openldap", "existing_openldap"]:
             _user_filter = f"(&(objectClass=sudoRole)(sudoUser={escape_filter_chars(user)}))"
             _attr_list = ["cn"]
+            _search_base = config.Config.DIRECTORY_ADMIN_SEARCH_BASE
         else:
-            # member on AD expects the DN of the user: escape the RDN value for the DN first,
-            # then the whole DN for its use as a filter value.
-            _user_dn = f"cn={escape_dn_chars(user)},{config.Config.DIRECTORY_PEOPLE_SEARCH_BASE}"
-            _user_filter = f"(&(objectClass=group)(member={escape_filter_chars(_user_dn)}))"
-            _attr_list = ["cn"]
+            # Look the user up by sAMAccountName and let AD evaluate the (nested) membership of the
+            # admin group, as check_ad_authentication_groups() does. Building the user's DN as
+            # cn=<user>,<people search base> only matches directories where the CN equals the login
+            # and all users sit directly under the people search base; in an existing AD the CN is
+            # usually the display name and users are spread over many OUs.
+            # 1.2.840.113556.1.4.1941 is LDAP_MATCHING_RULE_IN_CHAIN.
+            _user_filter = (
+                f"(&(objectClass=user)(sAMAccountName={escape_filter_chars(user)})"
+                f"(memberOf:1.2.840.113556.1.4.1941:={escape_filter_chars(config.Config.DIRECTORY_ADMIN_SEARCH_BASE)}))"
+            )
+            _attr_list = ["sAMAccountName"]
+            _search_base = config.Config.DIRECTORY_PEOPLE_SEARCH_BASE
 
         try:
             _soca_identity_client = SocaIdentityProviderClient()
             _soca_identity_client.initialize()
             _soca_identity_client.bind_as_service_account()
             _is_sudo = _soca_identity_client.search(
-                base=config.Config.DIRECTORY_ADMIN_SEARCH_BASE,
+                base=_search_base,
                 scope=ldap.SCOPE_SUBTREE,
                 filter=_user_filter,
                 attr_list=_attr_list,
