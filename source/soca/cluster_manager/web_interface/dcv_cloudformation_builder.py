@@ -35,7 +35,7 @@ import logging
 from utils.config import SocaConfig
 from utils.response import SocaResponse
 from utils.error import SocaError
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 from utils.aws.ec2_helper import describe_images
 from utils.version import __version__
 from utils.aws.cfn_tag_helper import (
@@ -167,7 +167,7 @@ def main(**launch_parameters):
                             f"Specified custom tags {tag.get('Key')} is already defined in tag list, skipping ..."
                         )
                     else:
-                        _base_tags[tag["Key"]] = tag["Value"]
+                        _base_tags[tag["Key"]] = scalar_as_str(tag["Value"])
                 else:
                     logger.warning(
                         f"{tag} does not have Enabled key or Enabled is False."

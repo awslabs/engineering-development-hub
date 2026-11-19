@@ -6,7 +6,7 @@ import time
 from typing import Optional, Literal
 from datetime import datetime, timedelta, timezone
 from utils.config import SocaConfig
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 import utils.aws.boto3_wrapper as utils_boto3
 from utils.aws.ec2_helper import (
     describe_images,
@@ -46,7 +46,7 @@ def get_cluster_custom_tags() -> list:
                         and _tag.get("Enabled")
                     ):
                         _out.append(
-                            {"Key": _tag["Key"], "Value": _tag.get("Value", "")}
+                            {"Key": _tag["Key"], "Value": scalar_as_str(_tag.get("Value", ""))}
                         )
     except Exception as _err:
         logger.warning(

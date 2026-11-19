@@ -33,7 +33,7 @@ from utils.aws.ec2_helper import quota_check_skip_reason, QUOTA_CHECK_UNAVAILABL
 from utils.aws.cloudformation_client import SocaCfnClient
 from utils.aws.ssm_helper import get_ami_id_from_alias
 from utils.error import SocaError
-from utils.cast import SocaCastEngine
+from utils.cast import SocaCastEngine, scalar_as_str
 from utils.response import SocaResponse
 from utils.stack_naming import generate_stack_name
 from utils.jinjanizer import SocaJinja2Renderer
@@ -660,7 +660,7 @@ class CreateTargetNode(Resource):
             if launch_parameters.get("custom_tags"):
                 for tag in launch_parameters["custom_tags"].values():
                     if tag.get("Enabled", ""):
-                        _custom_tags.append({"Key": tag["Key"], "Value": tag["Value"]})
+                        _custom_tags.append({"Key": tag["Key"], "Value": scalar_as_str(tag["Value"])})
                     else:
                         logger.warning(
                             f"{tag} does not have Enabled key or Enabled is False."
